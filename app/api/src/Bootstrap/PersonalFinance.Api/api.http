@@ -1,6 +1,7 @@
 @api_HostAddress = http://localhost:5003
 
-GET {{api_HostAddress}}/weatherforecast/
+### Liveness probe (temporary — replaced by the real health check in Phase 8)
+GET {{api_HostAddress}}/health
 Accept: application/json
 
 ###

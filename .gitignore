@@ -405,5 +405,11 @@ FodyWeavers.xsd
 .idea/
 **/.idea/
 
+# SQLite database file and its WAL/SHM/journal siblings (never committed)
+*.db
+*.db-wal
+*.db-shm
+*.db-journal
+
 .atl/
 **/.atl

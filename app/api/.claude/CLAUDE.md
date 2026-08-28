@@ -1,0 +1,61 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+## Current state
+
+This is a **.NET 10 Minimal API** project, currently still the raw `dotnet new webapi` scaffold (`Program.cs` has the sample `/weatherforecast` endpoint). The target architecture is fully specified in `docs/DESIGN.md` but **not yet implemented** — `.claude/TASK.md` Phase 0 (repo/solution restructuring into the multi-project layout) has not started. `PersonalFinanceApp.sln` at the repo root currently has no projects registered.
+
+Before writing any module code, check `.claude/TASK.md` to see which phase is in progress — tasks are checkbox items sequenced by real dependency order (Phase 0 → 10), and each phase's "Definition of done" is the bar for considering it complete.
+
+## Commands
+
+Run from `app/api/` (the project root, until Phase 0 relocates it to `src/Bootstrap/PersonalFinance.Api/`):
+
+```bash
+dotnet build                # build
+dotnet run                  # run the API (see Properties/launchSettings.json for the port)
+dotnet watch run            # run with hot reload
+```
+
+No test projects exist yet. Once `tests/` is scaffolded (Phase 1+), the pattern per `docs/DESIGN.md` §6 is one xUnit project per module (`PersonalFinance.<Module>.Tests`) plus `PersonalFinance.Architecture.Tests` for module-isolation checks:
+
+```bash
+dotnet test                                          # all tests
+dotnet test tests/PersonalFinance.Ledger.Tests        # single test project
+dotnet test --filter "FullyQualifiedName~DoubleEntryInvariantTests"  # single test class
+```
+
+EF Core migrations are per-module `DbContext` sharing one SQLite file (see Architecture below):
+
+```bash
+dotnet ef migrations add <Name> --project src/Modules/<Module>/PersonalFinance.<Module> --context <Module>DbContext
+dotnet ef database update --project src/Modules/<Module>/PersonalFinance.<Module> --context <Module>DbContext
+```
+
+## Architecture
+
+Full rationale lives in `docs/DESIGN.md` (decisions D1–D13) and product intent in `docs/PRD.md` — read both before making a design call that isn't already answered there. This is a deliberately over-engineered personal project: the explicit goal (`docs/PRD.md` §2) is practicing Modular Monolith + CQRS + event-driven design on a real domain, not minimizing effort. Don't simplify away the architecture patterns to make the domain "fit" — the domain is intentionally the excuse.
+
+**Shape:** Monolito Modular — one process, one `.sln`, four bounded contexts each isolated behind a `.Contracts` assembly (public DTOs/interfaces) with an `internal` implementation assembly. Cross-module calls only ever go through the `.Contracts` interface (`ILedgerApi`, `IFinancingApi`, `ISubscriptionsApi`, `IPartiesApi`); referencing another module's implementation assembly must fail the build (enforced by `PersonalFinance.Architecture.Tests`, RNF-9). A read-only `Reporting` module sits alongside, querying `vw_*` views only — never another module's base tables (D5, RNF-6).
+
+**The four modules:**
+- **Ledger** — sole source of accounting truth (D1), double-entry, append-only (`Transaction`/`Entry`, RNF-4). Corrections are storno (reversal) entries, never edits/deletes (D3).
+- **Financing** — credit cards, installment plans, billing-cycle calculation from each card's cutoff date (not calendar month).
+- **Subscriptions** — recurring charges, renewal scheduling.
+- **Parties** — third-party shared-expense tracking / running balances, layered as a management view over Ledger receivable accounts (D1) rather than a second ledger.
+
+**Communication between modules** (`docs/DESIGN.md` §5.1):
+- **Sync (DI-resolved `.Contracts` interface)** — default for request/response needs, e.g. Ledger→Financing and Ledger→Parties during reversal cascades (D12).
+- **Async (integration events via Outbox)** — only for genuine transactional dual-writes triggered *within* a command's transaction. In this codebase that's essentially just `PaymentPlanCreatedIntegrationEvent` (D8). Producer writes to its own `<module>_outbox_messages` table in the same transaction; `OutboxWorker` (a `BackgroundService`) drains it; consumers dedupe via `<module>_inbox_consumed` (RNF-2).
+- **Scheduler (clock-triggered)** — installment accrual and subscription renewal are *not* Outbox work, they're `BackgroundService`s that emit commands on a timer (D6). Don't conflate the two mechanisms — using Outbox for clock-triggered work or a scheduler for transactional dual-writes is the exact mistake D6 exists to prevent.
+
+**Key invariants to preserve when touching Ledger/Financing/Parties code:**
+- Every `Transaction` must balance (`Σdebits == Σcredits`) — `Domain/Rules/DoubleEntryMustBalance.cs`.
+- Money is integral minor-units, never floating point; split/installment allocation goes through `PhantomPennyAllocator` (largest-remainder method) so `Σ(parts) == total` always, with no dropped or duplicated cents.
+- Card liability has a hard temporal boundary (D11, Modello B): *un-accrued* installments are Financing's authority (future schedule); *accrued* liability is Ledger's authority (posted `CardLiability` account). Accrual is the handoff point — don't let both sides claim the same cuota.
+- Reversal (D12, supersedes D10 — read D10's note before assuming the old "reject if already paid" behavior applies) always succeeds: plain storno always, plus a compensating card-credit entry if the installment was already paid (netted against the *next* statement, never against `Activo:Banco` directly — see RNF-5), plus a synchronous cascade to Parties if the transaction had a `SplitReference`.
+
+**SQLite:** one file, `WAL` journal mode + `busy_timeout` (D7/RNF-1) — the API host, the Outbox worker, and the schedulers all write to it concurrently, so a connection that skips the `SqliteConnectionFactory` pragmas will eventually hit `SQLITE_BUSY`. Each module's `DbContext` needs its own `MigrationsHistoryTable` name (`__EFMigrationsHistory_Ledger`, `_Financing`, …) so the four migration histories coexist in one file without colliding.
+
+**API host compatibility (D13):** designed for a future Angular client without compromising endpoint testability now — CORS is configurable (not hardcoded), error responses use one consistent envelope derived from `SharedKernel.Error`, and OpenAPI is kept complete. Payment-instrument registration (`POST /instruments`) is a single Bootstrap-level endpoint with no domain logic of its own — it just routes to `ILedgerApi` (debit/cash) or `IFinancingApi` (credit) based on the request's `type`.

@@ -72,12 +72,15 @@ Si el objetivo prioritario es tener algo usable cuanto antes, esta fasificación
 
 Cada una en lenguaje de producto — sin nombres de clase, comandos, ni patrones. La correspondencia con el documento técnico está en la última columna solo para trazabilidad.
 
+**Prerrequisito transversal.** Antes de cargar cualquier movimiento, el usuario registra sus instrumentos de pago (bancos, tarjetas, efectivo). Cada instrumento se da de alta como débito, crédito o efectivo; si es crédito, además requiere la fecha de corte de esa tarjeta, porque de ella depende a qué ciclo de facturación pertenece cada compra que se cargue con ese instrumento (ver US-2, US-3 y US-4). No tiene una historia numerada propia porque es alta de datos de referencia, no una decisión de producto en sí — pero es condición real para todo lo que sigue.
+
 ### US-1 — Ver el resumen de gastos del mes
 
-> Como usuario, quiero ver cuánto gasté este mes en débito, para saber qué salió efectivamente de mi cuenta sin mirar movimiento por movimiento.
+> Como usuario, quiero ver cuánto gasté este mes en débito y efectivo, para saber qué salió efectivamente de mi cuenta o de mi bolsillo sin mirar movimiento por movimiento.
 
 **Criterios de aceptación:**
 - Puedo ver el total gastado en el mes actual y en meses anteriores.
+- El total agrupa débito y efectivo como una misma categoría de "ya gastado" — son instrumentos distintos, pero ninguno de los dos es un compromiso futuro como sí lo es el crédito.
 - El total no incluye la parte de un gasto que le corresponde pagar a un tercero, aunque yo lo haya adelantado.
 - Puedo distinguir gastos por categoría, si los categoricé al cargarlos.
 
@@ -90,16 +93,18 @@ Cada una en lenguaje de producto — sin nombres de clase, comandos, ni patrones
 **Criterios de aceptación:**
 - Puedo ver, por tarjeta, el total que corresponde pagar este mes.
 - El número coincide con lo que efectivamente va a figurar en el resumen del banco (incluye solo cuotas que ya "cerraron", no compromisos futuros).
+- El "mes" de cada tarjeta se define por su propia fecha de corte, no por el mes calendario: dos tarjetas con fechas de corte distintas pueden tener ciclos de facturación distintos para una compra hecha el mismo día.
 - Puedo ver por separado cuánto me queda comprometido a futuro en cuotas que todavía no llegaron.
 
 *(RF-2)*
 
 ### US-3 — Cargar un gasto
 
-> Como usuario, quiero cargar un gasto hecho con tarjeta, indicando en cuántas cuotas, desde qué mes, y si alguien más me debe una parte, para no tener que hacer ese cálculo a mano.
+> Como usuario, quiero cargar un gasto hecho con tarjeta, indicando en cuántas cuotas y si alguien más me debe una parte, para no tener que hacer ese cálculo a mano.
 
 **Criterios de aceptación:**
-- Puedo cargar un gasto con: monto, tarjeta, cantidad de cuotas, mes de inicio.
+- Puedo cargar un gasto con: monto, tarjeta, cantidad de cuotas, fecha de la compra.
+- El sistema determina solo, a partir de la fecha de compra y la fecha de corte de esa tarjeta, a qué ciclo de facturación pertenece la primera cuota — no lo tengo que calcular ni indicar yo. Una compra hecha el mismo día del corte o antes cae en el ciclo que está cerrando; una compra posterior cae en el ciclo siguiente.
 - Opcionalmente, puedo indicar que el gasto se divide entre N personas (incluyéndome a mí).
 - Si divido el gasto, el sistema calcula la parte de cada uno sin que la suma de las partes difiera del total por errores de redondeo.
 - Después de cargarlo, puedo ver cuánto le corresponde pagar a cada persona involucrada.
@@ -133,10 +138,11 @@ Cada una en lenguaje de producto — sin nombres de clase, comandos, ni patrones
 > Como usuario, quiero poder anular un movimiento que cargué mal, para corregir el error sin perder el registro de que existió.
 
 **Criterios de aceptación:**
-- Puedo revertir un movimiento cargado por error.
-- Después de revertirlo, mi saldo refleja la corrección.
+- Puedo revertir un gasto cargado por error, incluidas las cuotas que ya fueron pagadas — el sistema no me bloquea la reversión solo porque ya haya un pago de tarjeta confirmado de por medio.
+- La reversión es completa: corrige tanto las cuotas futuras como las ya pagadas, dejando un movimiento de reversión (no un borrado del original).
+- Si el gasto revertido estaba repartido con un tercero, la deuda de esa persona se corrige automáticamente como parte de la misma acción — no tengo que ajustarla a mano en US-7.
+- Después de revertirlo, mi saldo y el de la tarjeta correspondiente reflejan la corrección completa.
 - Puedo ver en el historial que ese movimiento fue revertido y cuándo — no desaparece como si nunca hubiera existido.
-- Si el movimiento ya fue parte de un pago de tarjeta confirmado, el sistema me avisa que no puedo revertirlo directamente y me explica por qué.
 
 *(RF-6)*
 
@@ -164,7 +170,6 @@ Exclusiones explícitas para esta versión. Están marcadas como supuestos — c
 - **Notificaciones o recordatorios proactivos** ("te vence la tarjeta en 3 días").
 - **Presupuestos, metas de ahorro, o proyecciones financieras.**
 - **Reportes fiscales o exportación contable formal** (declaración de impuestos, formatos AFIP/similares).
-- **Gastos en efectivo.** US-1 habla específicamente de débito; no está definido si el efectivo entra en algún flujo. Ver pregunta abierta en sección 9.
 
 ---
 
@@ -184,14 +189,14 @@ Si en algún punto la Fase 1 (sección 5) no cumple la primera métrica de utili
 
 ---
 
-## 9. Preguntas abiertas
+## 9. Decisiones registradas
 
-No las contesté por vos porque son decisiones de producto, no de arquitectura:
+Estas eran preguntas abiertas; ya se resolvieron. Quedan documentadas acá para trazabilidad histórica — el detalle vivo de cada una vive en la historia de usuario correspondiente.
 
-1. **No hay definida ninguna interfaz de uso.** Los siete casos de uso están descritos como capacidades, pero ¿cómo los vas a ejecutar en la práctica? ¿Un cliente HTTP tipo Postman/Swagger manualmente, una CLI, o eventualmente una interfaz web o mobile? Esto no es un detalle menor: "ver el resumen del mes" (US-1) sin una superficie de consumo definida es un JSON crudo, y eso probablemente mata la métrica de "lo uso de verdad" de la sección 8 antes de que el backend tenga la culpa.
-2. **US-6 (revertir) — ¿es una acción frecuente o una red de seguridad rara?** Afecta si merece confirmación explícita en la interfaz ("¿estás seguro?") o si alcanza con que exista como capacidad técnica sin ceremonia adicional.
-3. **Gastos en efectivo.** US-1 dice "débito" explícitamente. ¿El efectivo queda fuera a propósito, entra como parte de débito, o necesita su propia categoría?
-4. **Definición de "mes" para cuotas y suscripciones.** ¿Es el mes calendario, o un ciclo de facturación con fecha de corte propia por tarjeta (que es como funcionan las tarjetas reales)? Cambia qué significa "este mes" en US-2 y US-4.
+1. **Interfaz de consumo.** Por ahora, API pura (sin UI), pensada para probarse manualmente vía Swagger/Postman. Hay un cliente Angular planeado a futuro; la API se diseña compatible con ese consumo (respuestas consistentes, spec documentada) sin que eso comprometa la testeabilidad de los endpoints en el corto plazo.
+2. **US-6 (revertir) — alcance de la reversión.** Es completa: incluye cuotas ya pagadas (vía movimiento de reversión, no borrado) y corrige automáticamente la deuda de un tercero si el gasto estaba repartido. La pregunta de si necesita una ceremonia de confirmación explícita en la interfaz ("¿estás seguro?") queda pendiente hasta que exista una UI — no aplica a nivel de API.
+3. **Gastos en efectivo.** Entran en alcance: el efectivo es un tipo de instrumento propio (igual que débito o crédito), y se reporta junto con débito en US-1 porque ambos representan dinero ya gastado, sin ciclo de facturación futuro.
+4. **Definición de "mes" para cuotas y resúmenes.** No es el mes calendario: cada tarjeta tiene su propia fecha de corte, registrada al dar de alta el instrumento (ver prerrequisito al inicio de la sección 6). Una compra hecha en la fecha de corte o antes pertenece al ciclo que está cerrando; una compra posterior pertenece al ciclo siguiente. Ver US-2, US-3 y US-4.
 
 ---
 

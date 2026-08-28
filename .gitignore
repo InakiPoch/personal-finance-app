@@ -401,40 +401,9 @@ FodyWeavers.xsd
 
 # End of https://www.toptal.com/developers/gitignore/api/csharp
 
-# Covers JetBrains IDEs: IntelliJ, PyCharm, WebStorm, Android Studio, etc.
-
-# User-specific profiles and local layouts
-.idea/**/workspace.xml
-.idea/**/tasks.xml
-.idea/**/usage.statistics.xml
-.idea/**/dictionaries
-.idea/**/shelf
-
-# Generated files and high-churn database configurations
-.idea/**/contentModel.xml
-.idea/**/dataSources/
-.idea/**/dataSources.ids
-.idea/**/dataSources.local.xml
-.idea/**/sqlDataSources.xml
-.idea/**/dynamic.xml
-.idea/**/uiDesigner.xml
-.idea/**/dbnavigator.xml
-
-# Gradle/Maven/Build noise inside the IDE
-.idea/caches/
-.idea/compiler.xml
-.idea/modules.xml
-.idea/jarRepositories.xml
-
-# Common plugin-specific files
-.idea/**/mongoSettings.xml
-.idea/**/sonarlint/
-.idea/**/sonarlint.xml
-.idea/httpRequests/
-.idea/**/copilot.data.migration.*.xml
-
-# Local history and internal backups
-.idea/.idea.*/
+# JetBrains IDEs (IntelliJ, Rider, PyCharm, WebStorm, ...) — IDE config is local, never tracked
+.idea/
+**/.idea/
 
 .atl/
 **/.atl

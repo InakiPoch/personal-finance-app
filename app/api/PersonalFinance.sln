@@ -25,6 +25,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{BA796319
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Ledger.Contracts", "src\Modules\Ledger\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj", "{BB182982-8CBE-430C-B1AA-45E9EFEDA61C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Ledger", "src\Modules\Ledger\PersonalFinance.Ledger\PersonalFinance.Ledger.csproj", "{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -95,6 +97,18 @@ Global
 		{BB182982-8CBE-430C-B1AA-45E9EFEDA61C}.Release|x64.Build.0 = Release|Any CPU
 		{BB182982-8CBE-430C-B1AA-45E9EFEDA61C}.Release|x86.ActiveCfg = Release|Any CPU
 		{BB182982-8CBE-430C-B1AA-45E9EFEDA61C}.Release|x86.Build.0 = Release|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Debug|x64.Build.0 = Debug|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Debug|x86.Build.0 = Debug|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|x64.ActiveCfg = Release|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|x64.Build.0 = Release|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|x86.ActiveCfg = Release|Any CPU
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -109,5 +123,6 @@ Global
 		{24F419E3-6BC9-427E-BC3C-9EEE7BF7E1B2} = {827E0CD3-B72D-47B6-A68D-7590B98EB39B}
 		{7B66EE4D-3EFE-4C38-AF85-29EEBC738EBE} = {24F419E3-6BC9-427E-BC3C-9EEE7BF7E1B2}
 		{BB182982-8CBE-430C-B1AA-45E9EFEDA61C} = {7B66EE4D-3EFE-4C38-AF85-29EEBC738EBE}
+		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A} = {7B66EE4D-3EFE-4C38-AF85-29EEBC738EBE}
 	EndGlobalSection
 EndGlobal

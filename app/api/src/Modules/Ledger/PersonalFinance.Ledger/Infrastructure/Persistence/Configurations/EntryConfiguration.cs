@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using PersonalFinance.Ledger.Domain;
+using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Ledger.Infrastructure.Persistence.Configurations;
 
@@ -15,12 +16,11 @@ internal sealed class EntryConfiguration : IEntityTypeConfiguration<Entry> {
             .HasForeignKey(entry => entry.AccountId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.Property(entry => entry.Direction).HasConversion<string>().IsRequired();
-        builder.ComplexProperty(entry => entry.Amount, amount => {
-            amount.Property(money => money.MinorUnits).HasColumnName("AmountMinorUnits").IsRequired();
-            amount.ComplexProperty(money => money.Currency, currency => {
-                currency.Property(unit => unit.Code).HasColumnName("AmountCurrencyCode").IsRequired();
-                currency.Property(unit => unit.DecimalPlaces).HasColumnName("AmountCurrencyDecimals").IsRequired();
-            });
-        });
+        builder.Property(entry => entry.Amount)
+            .HasConversion(
+                amount => amount.MinorUnits,
+                value => Money.FromMinorUnits(value, Currency.Reference))
+            .HasColumnName("AmountMinorUnits")
+        .IsRequired();
     }
 }

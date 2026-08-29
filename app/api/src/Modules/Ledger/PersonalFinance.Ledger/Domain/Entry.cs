@@ -3,7 +3,7 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Ledger.Domain;
 
-/// <summary>
+///<summary>
 /// One part of a <see cref="Transaction"/>.
 /// </summary>
 internal sealed class Entry : Entity<Guid> {

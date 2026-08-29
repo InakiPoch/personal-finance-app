@@ -1,13 +1,9 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
+using PersonalFinance.Infrastructure.Persistence;
 
 namespace PersonalFinance.Ledger.Infrastructure.Persistence;
 
-/// <summary>
-/// Construction for <c>dotnet ef</c>. Uses an explicit connection string (env
-/// <c>PF_SQLITE_CONNECTION</c>, else the shared <c>personalfinance.db</c> beside <c>PersonalFinance.sln</c>)
-/// so <c>IsConfigured</c> is true and the runtime connection factory is never touched.
-/// </summary>
 internal sealed class LedgerDbContextFactory : IDesignTimeDbContextFactory<LedgerDbContext> {
     public LedgerDbContext CreateDbContext(string[] args) {
         var connectionString = Environment.GetEnvironmentVariable("PF_SQLITE_CONNECTION") ?? $"Data Source={Path.Combine(SolutionRootLocatorHelper.FindSolutionRoot(), "personalfinance.db")}";

@@ -1,9 +1,9 @@
-namespace PersonalFinance.Ledger.Infrastructure.Persistence;
+namespace PersonalFinance.Infrastructure.Persistence;
 
 /// <summary>
-/// Locates the solution root by ascending from the application base directory looking for <c>PersonalFinance.sln</c>.
+/// Ascends from the application base directory looking for <c>PersonalFinance.sln</c>.
 /// </summary>
-internal static class SolutionRootLocatorHelper {
+public static class SolutionRootLocatorHelper {
     public static string FindSolutionRoot() {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);
         while(directory is not null) {

@@ -55,15 +55,15 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 
 ### Tasks — `PersonalFinance.Abstractions`
 - [x] `Messaging/ICommand.cs` (`ICommand` + `ICommand<TResult>`), `Messaging/IQuery.cs` (`IQuery<TResult>`).
-- [~] `Messaging/ICommandHandler.cs`, `Messaging/IQueryHandler.cs` — `IQueryHandler<TQuery, TResult>` done; `ICommandHandler` returns `Result`/`Result<T>` so it lands at the end of Phase 1 Step 2, once `SharedKernel` exists (`Abstractions → SharedKernel` project reference added then).
+- [x] `Messaging/ICommandHandler.cs`, `Messaging/IQueryHandler.cs` — `IQueryHandler<in TQuery, TResult>` → `Task<TResult>`; `ICommandHandler<in TCommand>` → `Task<Result>` and `ICommandHandler<in TCommand, TResult>` → `Task<Result<TResult>>`. `ICommandHandler` landed at the end of Step 2 with the `Abstractions → SharedKernel` project reference.
 - [x] `Messaging/IIntegrationEvent.cs` — `Guid MessageId`, `DateTimeOffset OccurredOnUtc`.
 - [x] `Messaging/IIntegrationEventHandler<TEvent>.cs`.
 - [x] `Modularity/IModule.cs` — `Name` + `Register(IServiceCollection, IConfiguration)` + `MapEndpoints(IEndpointRouteBuilder)`; csproj carries `FrameworkReference Microsoft.AspNetCore.App`.
 
 ### Tasks — `PersonalFinance.SharedKernel`
-- [ ] `Currency.cs` — single reference currency, modeled explicitly so `Money` isn't unitless (multi-currency stays out of scope per PRD §7, but the seam exists).
-- [ ] `Money.cs` — integral minor-units representation (not floating point), `Currency`; arithmetic operators; throws on cross-currency ops. `PhantomPennyAllocator` depends on this being integral.
-- [ ] `Result.cs` / `Result<T>.cs`, `Error.cs` (`Code`, `Message`, `Metadata`) — `Error`'s shape is designed now to match the API error envelope built in Phase 8.
+- [x] `Currency.cs` — `sealed record Currency(string Code, byte DecimalPlaces)` + `static readonly Currency Reference` (`ARS`/2). Modeled explicitly so `Money` isn't unitless (multi-currency stays out of scope per PRD §7, but the seam exists).
+- [x] `Money.cs` — `readonly record struct Money(long MinorUnits, Currency Currency)`; `Zero`/`FromMinorUnits`; `+ - unary- *(int|long)` and `< <= > >=`; throws on cross-currency arithmetic/ordering; `ToString()` formats via `Currency.DecimalPlaces`. Pure `long` arithmetic, no float/decimal path. `PhantomPennyAllocator` depends on this being integral.
+- [x] `Result.cs` / `ResultOfT.cs`, `Error.cs` (`Code`, `Message`, `Metadata` + `static Error None`) — `Result` (`IsSuccess`/`IsFailure`/`Error`, `Success()`/`Failure(Error)`); `Result<T>` adds `T Value` (throws on failure) + implicit conversions from `T` and from `Error`. `Error`'s shape is designed now to match the API error envelope built in Phase 8.
 - [ ] `AggregateRoot.cs`, `Entity.cs`, `ValueObject.cs` — identity equality for the first two, structural for the third; `AggregateRoot` supports raising domain events.
 - [ ] `Allocation/IAllocationStrategy.cs`, `Allocation/PhantomPennyAllocator.cs` — largest-remainder method on minor units: floor share to everyone, distribute leftover cents one-by-one to the largest remainders, so `Σ(parts) == total` always.
 

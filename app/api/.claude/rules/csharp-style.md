@@ -4,6 +4,23 @@
 
 - Helper classes must end with the word `Helper` (e.g., `ValidationHelper`, `ErrorResultsHelper`)
 - Constants for centralized configuration use **sealed record types** as logical grouping containers
+- **`private` members use `camelCase`** — fields, methods, properties and local variables. No `_` prefix, no PascalCase. When a private field collides with a constructor or method parameter of the same name, disambiguate with `this.` (e.g. `this.value = value;`). `public`/`protected`/`internal` members keep PascalCase.
+
+```csharp
+public sealed class Result<TValue> : Result {
+    public TValue Value => IsSuccess ? value : throw new InvalidOperationException("...");
+
+    private readonly TValue value;
+
+    internal Result(TValue value, bool isSuccess, Error error) : base(isSuccess, error) {
+        this.value = value;
+    }
+
+    private static long pow10(byte exponent) {
+        // ...
+    }
+}
+```
 
 ## Formatting
 

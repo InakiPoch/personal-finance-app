@@ -4,19 +4,21 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-This is a **.NET 10 Minimal API** project, currently still the raw `dotnet new webapi` scaffold (`Program.cs` has the sample `/weatherforecast` endpoint). The target architecture is fully specified in `docs/DESIGN.md` but **not yet implemented** — `.claude/TASK.md` Phase 0 (repo/solution restructuring into the multi-project layout) has not started. `PersonalFinanceApp.sln` at the repo root currently has no projects registered.
+This is a **.NET 10 Minimal API** project. **Phase 0 (repo/solution scaffolding) is complete** — the flat `dotnet new webapi` layout has been restructured into the multi-project structure from `docs/DESIGN.md` §6: `PersonalFinance.sln` + `global.json` + `Directory.Build.props` live at `app/api/` (the solution root), the host is at `src/Bootstrap/PersonalFinance.Api/` with an empty pipeline and a temporary `GET /health`, and empty `src/Shared`, `src/Modules`, `src/Reporting`, `tests` skeleton dirs (`.gitkeep`) are in place. The rest of the target architecture in `docs/DESIGN.md` is **not yet implemented** — no module or domain code exists. Phase 1 (Shared: Abstractions, SharedKernel, Infrastructure) is next.
 
 Before writing any module code, check `.claude/TASK.md` to see which phase is in progress — tasks are checkbox items sequenced by real dependency order (Phase 0 → 10), and each phase's "Definition of done" is the bar for considering it complete.
 
 ## Commands
 
-Run from `app/api/` (the project root, until Phase 0 relocates it to `src/Bootstrap/PersonalFinance.Api/`):
+Run from `app/api/` (the solution root — holds `PersonalFinance.sln`, `global.json`, `Directory.Build.props`):
 
 ```bash
-dotnet build                # build
-dotnet run                  # run the API (see Properties/launchSettings.json for the port)
-dotnet watch run            # run with hot reload
+dotnet build                                                  # build the whole solution
+dotnet run --project src/Bootstrap/PersonalFinance.Api        # run the API (port in that project's Properties/launchSettings.json)
+dotnet watch --project src/Bootstrap/PersonalFinance.Api run  # run with hot reload
 ```
+
+`dotnet build` and `dotnet test` accept `PersonalFinance.sln` directly; `dotnet run` needs `--project` because `app/api/` has no bare `.csproj` in it and `dotnet run` won't resolve one from a `.sln`.
 
 No test projects exist yet. Once `tests/` is scaffolded (Phase 1+), the pattern per `docs/DESIGN.md` §6 is one xUnit project per module (`PersonalFinance.<Module>.Tests`) plus `PersonalFinance.Architecture.Tests` for module-isolation checks:
 

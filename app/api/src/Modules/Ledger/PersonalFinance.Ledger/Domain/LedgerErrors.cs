@@ -45,4 +45,9 @@ internal static class LedgerErrors {
         "Ledger.IncoherentAccountKind",
         "The account kind is not valid for the given account type."
     );
+
+    public static readonly Error NonPositiveEntryAmount = new(
+        "Ledger.NonPositiveEntryAmount",
+        "Every entry amount must be a positive number of minor units."
+    );
 }

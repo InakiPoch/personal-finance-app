@@ -69,8 +69,9 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 - [x] `Allocation/IAllocationStrategy.cs` (`IReadOnlyList<long> Allocate(long total, IReadOnlyList<long> weights)`), `Allocation/PhantomPennyAllocator.cs` — largest-remainder (Hamilton): share toward zero to everyone, hand leftover minor units one-by-one to the largest remainders (ties → lowest index, deterministic), so `Σ(parts) == total` always; `checked` multiplication; `Money` convenience overload. Property-tested later (Phases 3/6).
 
 ### Tasks — `PersonalFinance.Infrastructure`
-- [ ] `Persistence/SqliteConnectionFactory.cs` — opens connections against a single configured file; sets `PRAGMA journal_mode=WAL;` and `PRAGMA busy_timeout=<ms>;` on every connection (D7/RNF-1).
-- [ ] `Persistence/ModuleDbContextBase.cs` — abstract `DbContext` taking a `MigrationsHistoryTable` name per module (`__EFMigrationsHistory_Ledger`, `_Financing`, etc.) so the four migration histories coexist in one SQLite file (DESIGN.md §7 risk #2).
+- [x] `Persistence/SqliteOptions.cs` — binds config section `"Sqlite"`: `ConnectionString`, `BusyTimeoutMs` (5000), `JournalMode` ("WAL"), `ForeignKeys` (true).
+- [x] `Persistence/SqliteConnectionFactory.cs` — `ISqliteConnectionFactory` + `sealed` impl; `CreateOpenConnection()` opens a `SqliteConnection` and issues `PRAGMA journal_mode`, `PRAGMA busy_timeout`, `PRAGMA foreign_keys` from `SqliteOptions` on every connection (D7/RNF-1).
+- [x] `Persistence/ModuleDbContextBase.cs` — `abstract class ModuleDbContextBase(DbContextOptions, ISqliteConnectionFactory) : DbContext`; `protected abstract string ModuleName`; `OnConfiguring` (when not already configured) calls `UseSqlite(factory connection, contextOwnsConnection: true, o => o.MigrationsHistoryTable($"__EFMigrationsHistory_{ModuleName}"))` so the four migration histories coexist in one SQLite file (DESIGN.md §7 risk #2). Per-module design-time `IDesignTimeDbContextFactory` deferred to Phase 2.
 - [ ] `Messaging/CommandBus.cs`, `Messaging/QueryBus.cs` — resolve handlers from DI, in-process only.
 - [ ] `Messaging/IntegrationEventDispatcher.cs` — support two explicit modes (document both against D6/D8 in code comments):
   - **Durable** (via Outbox): only `PaymentPlanCreatedIntegrationEvent` (D8) — the one genuine transactional dual-write.
@@ -80,7 +81,7 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 - [ ] `Scheduling/SchedulerBase.cs` — abstract `BackgroundService` with a tick loop, used later by `AccrueInstallments` and `RenewDueSubscriptions`.
 
 ### Definition of done
-- [ ] All three Shared projects build and are referenced into the `.sln`.
+- [x] All three Shared projects build and are referenced into the `.sln`.
 - [ ] `SqliteConnectionFactory` verified to actually set WAL mode and busy_timeout (`PRAGMA journal_mode;` returns `wal`).
 - [ ] `IntegrationEventDispatcher`'s two-mode design is written down so later phases don't reinvent it differently.
 

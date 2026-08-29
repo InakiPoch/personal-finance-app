@@ -54,11 +54,11 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 **Depends on:** Phase 0.
 
 ### Tasks — `PersonalFinance.Abstractions`
-- [ ] `Messaging/ICommand.cs`, `IQuery<TResult>.cs`.
-- [ ] `Messaging/ICommandHandler<TCommand>.cs`, `IQueryHandler<TQuery, TResult>.cs`.
-- [ ] `Messaging/IIntegrationEvent.cs` — `Guid MessageId`, `DateTimeOffset OccurredOnUtc`.
-- [ ] `Messaging/IIntegrationEventHandler<TEvent>.cs`.
-- [ ] `Modularity/IModule.cs` — contract each module implements to register DI services/endpoints from the Bootstrap host.
+- [x] `Messaging/ICommand.cs` (`ICommand` + `ICommand<TResult>`), `Messaging/IQuery.cs` (`IQuery<TResult>`).
+- [~] `Messaging/ICommandHandler.cs`, `Messaging/IQueryHandler.cs` — `IQueryHandler<TQuery, TResult>` done; `ICommandHandler` returns `Result`/`Result<T>` so it lands at the end of Phase 1 Step 2, once `SharedKernel` exists (`Abstractions → SharedKernel` project reference added then).
+- [x] `Messaging/IIntegrationEvent.cs` — `Guid MessageId`, `DateTimeOffset OccurredOnUtc`.
+- [x] `Messaging/IIntegrationEventHandler<TEvent>.cs`.
+- [x] `Modularity/IModule.cs` — `Name` + `Register(IServiceCollection, IConfiguration)` + `MapEndpoints(IEndpointRouteBuilder)`; csproj carries `FrameworkReference Microsoft.AspNetCore.App`.
 
 ### Tasks — `PersonalFinance.SharedKernel`
 - [ ] `Currency.cs` — single reference currency, modeled explicitly so `Money` isn't unitless (multi-currency stays out of scope per PRD §7, but the seam exists).

@@ -19,20 +19,31 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 **Depends on:** nothing.
 
 ### Tasks
-- [ ] Remove the `/weatherforecast` sample endpoint and `WeatherForecast` record from `Program.cs`.
-- [ ] Create `PersonalFinance.sln` at repo root, add projects to it as they're created.
-- [ ] Create `global.json` pinning the .NET 10 SDK (`rollForward: latestFeature`).
-- [ ] Create `Directory.Build.props` at repo root: `TargetFramework=net10.0`, `Nullable=enable`, `ImplicitUsings=enable`, `LangVersion=latest`.
-- [ ] Create directory skeleton: `src/Bootstrap/`, `src/Shared/`, `src/Modules/`, `src/Reporting/`, `tests/`.
-- [ ] Move `api.csproj`, `Program.cs`, `appsettings*.json`, `Properties/launchSettings.json`, `api.http` into `src/Bootstrap/PersonalFinance.Api/`, rename project `PersonalFinance.Api.csproj`.
-- [ ] Confirm `dotnet build` and `dotnet run` succeed with an empty pipeline (a temporary `GET /health` returning 200 is fine — replaced by the real health check in Phase 8).
-- [ ] Update `.gitignore`: `bin/`, `obj/`, `*.db`, `*.db-wal`, `*.db-shm` (SQLite file and its WAL/SHM siblings must never be committed).
-- [ ] Update `api.http` to the new project's port; keep it as the running manual smoke-test file for every later phase.
+- [x] Remove the `/weatherforecast` sample endpoint and `WeatherForecast` record from `Program.cs`.
+- [x] Create `PersonalFinance.sln` at repo root, add projects to it as they're created.
+- [x] Create `global.json` pinning the .NET 10 SDK (`rollForward: latestFeature`).
+- [x] Create `Directory.Build.props` at repo root: `TargetFramework=net10.0`, `Nullable=enable`, `ImplicitUsings=enable`, `LangVersion=latest`.
+- [x] Create directory skeleton: `src/Bootstrap/`, `src/Shared/`, `src/Modules/`, `src/Reporting/`, `tests/`.
+- [x] Move `api.csproj`, `Program.cs`, `appsettings*.json`, `Properties/launchSettings.json`, `api.http` into `src/Bootstrap/PersonalFinance.Api/`, rename project `PersonalFinance.Api.csproj`.
+- [x] Confirm `dotnet build` and `dotnet run` succeed with an empty pipeline (a temporary `GET /health` returning 200 is fine — replaced by the real health check in Phase 8).
+- [x] Update `.gitignore`: `bin/`, `obj/`, `*.db`, `*.db-wal`, `*.db-shm` (SQLite file and its WAL/SHM siblings must never be committed).
+- [x] Update `api.http` to the new project's port; keep it as the running manual smoke-test file for every later phase.
 
 ### Definition of done
-- [ ] `dotnet build` succeeds against `PersonalFinance.sln` from repo root.
-- [ ] `dotnet run` starts the host and answers on the declared port.
-- [ ] No leftover weather-forecast code anywhere in the tree.
+- [x] `dotnet build` succeeds against `PersonalFinance.sln` from repo root.
+- [x] `dotnet run` starts the host and answers on the declared port.
+- [x] No leftover weather-forecast code anywhere in the tree.
+
+### Completion notes (2026-08-28)
+
+- **Solution root is `app/api/`** (not the git repo root) — matches `CLAUDE.md`'s "run from `app/api/`". `PersonalFinance.sln` is classic format (`dotnet new sln --format sln`; the .NET 10 default is now `.slnx`).
+- The pre-existing git-root `PersonalFinanceApp.sln` held a stale reference to the old flat `app/api/api.csproj` and was **deleted** — `app/api/PersonalFinance.sln` is the repo's only solution.
+- `PersonalFinance.Api.csproj` sets `RootNamespace`/`AssemblyName` = `PersonalFinance.Api`; `TargetFramework`/`Nullable`/`ImplicitUsings`/`LangVersion` are inherited from `Directory.Build.props`.
+- `global.json` pins SDK `10.0.111`.
+- `.gitignore` already covered `bin/`/`obj/` repo-wide (unanchored). Added `*.db`, `*.db-wal`, `*.db-shm`, `*.db-journal`. Also collapsed the JetBrains block to `.idea/` + `**/.idea/` and untracked the previously committed `app/api/.idea/` files.
+- Empty skeleton dirs (`src/Shared`, `src/Modules`, `src/Reporting`, `tests`) carry a `.gitkeep` until real projects land.
+- `dotnet run` from `app/api/` needs `--project src/Bootstrap/PersonalFinance.Api` (no bare `.csproj` in cwd; `dotnet run` doesn't resolve from a `.sln`). `dotnet build`/`test` take the `.sln` directly. **`CLAUDE.md` → Commands still shows the pre-Phase-0 paths and needs updating.**
+- Verified: `dotnet build PersonalFinance.sln` → 0/0; host answers `200` on `GET /health`; `rg -i weatherforecast` clean repo-wide.
 
 ---
 

@@ -1,4 +1,4 @@
-@api_HostAddress = http://localhost:5003
+@api_HostAddress = https://localhost:7095
 
 ### Liveness probe (temporary — replaced by the real health check in Phase 8)
 GET {{api_HostAddress}}/health

@@ -11,7 +11,6 @@ public interface IQueryBus {
     Task<TResult> AskAsync<TResult>(IQuery<TResult> query, CancellationToken cancellationToken = default);
 }
 
-/// <inheritdoc />
 public sealed class QueryBus(IServiceProvider serviceProvider) : IQueryBus {
     public Task<TResult> AskAsync<TResult>(IQuery<TResult> query, CancellationToken cancellationToken = default) {
         ArgumentNullException.ThrowIfNull(query);

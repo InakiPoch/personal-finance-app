@@ -3,6 +3,9 @@
     <InternalsVisibleTo Include="PersonalFinance.Ledger.Tests" />
   </ItemGroup>
   <ItemGroup>
+    <EmbeddedResource Include="Infrastructure/Persistence/ReadViews/*.sql" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
   </ItemGroup>

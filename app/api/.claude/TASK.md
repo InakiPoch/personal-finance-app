@@ -83,8 +83,19 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 
 ### Definition of done
 - [x] All three Shared projects build and are referenced into the `.sln`.
-- [ ] `SqliteConnectionFactory` verified to actually set WAL mode and busy_timeout (`PRAGMA journal_mode;` returns `wal`).
-- [ ] `IntegrationEventDispatcher`'s two-mode design is written down so later phases don't reinvent it differently.
+- [x] `SqliteConnectionFactory` verified to actually set WAL mode and busy_timeout (`PRAGMA journal_mode;` returns `wal`).
+- [x] `IntegrationEventDispatcher`'s two-mode design is written down so later phases don't reinvent it differently.
+
+### Completion notes (2026-08-29)
+
+- **Central Package Management introduced.** New `app/api/Directory.Packages.props` (`ManagePackageVersionsCentrally=true`) owns every version: `Microsoft.AspNetCore.OpenApi` `10.0.11` (host) and `Microsoft.EntityFrameworkCore.Sqlite` `10.0.11` (Infrastructure). Both `.csproj` `PackageReference`s dropped their `Version=`. No `Version=` remains in any `.csproj` under `src/`.
+- **`Microsoft.AspNetCore.App` framework reference** carries the ASP.NET shared-framework types on `Abstractions` (`IServiceCollection`/`IConfiguration`/`IEndpointRouteBuilder` for `IModule`) and `Infrastructure` (hosting, health checks, DI, options, logging) — avoids listing ~8 `Microsoft.Extensions.*` packages. `SharedKernel` stays dependency-free (no framework ref, no packages, no project refs).
+- **Dispatcher two-mode design** written down at `docs/notes/integration-event-dispatch.md`: one mode-agnostic `IIntegrationEventDispatcher`; durability lives at the call site (Outbox-backed for `PaymentPlanCreated` per D8, direct/in-process for scheduler-emitted events per D6). Phases 3/5 must not add a second dispatcher.
+- **SQLite config** (`SqliteOptions`, section `"Sqlite"`): `ConnectionString` (empty default — host supplies), `BusyTimeoutMs` `5000`, `JournalMode` `"WAL"`, `ForeignKeys` `true`. `SqliteConnectionFactory` re-issues all three pragmas on every `CreateOpenConnection()`.
+- **WAL verification** (DoD hard check, D7/RNF-1): a throwaway console in the job scratch dir referenced `PersonalFinance.Infrastructure`, opened a connection via `SqliteConnectionFactory` against a temp `.db`, and asserted `PRAGMA journal_mode;` → `wal` and `PRAGMA busy_timeout;` → `5000` (both **PASS**). Scratch project + temp db deleted afterward — no permanent Infra test project (DESIGN.md §6 lists none).
+- **Buses are scoped.** `AddSharedInfrastructure` registers `ICommandBus`/`IQueryBus`/`IIntegrationEventDispatcher` scoped (they resolve handlers from the ambient scope), plus `TimeProvider.System` + `ISqliteConnectionFactory` as singletons. `AddOutboxProcessing()` is opt-in (worker + `"outbox"` health check). The host wires none of this in Phase 1.
+- **Deferred to later phases:** per-module `IDesignTimeDbContextFactory` and EF entity configs (`OutboxMessage`/`InboxConsumedMessage` mappings, composite keys, `__EFMigrationsHistory_<Module>`), concrete `IOutboxStore`/`IOutboxWriter`/`IInboxStore` implementations, and host integration of `AddSharedInfrastructure`/`AddOutboxProcessing`.
+- Verified: `dotnet build PersonalFinance.sln` → **0 warnings / 0 errors**, 4 projects (host + 3 shared).
 
 ---
 

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Modules\Financing\PersonalFinance.Financing\PersonalFinance.Financing.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Financing\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Ledger\PersonalFinance.Ledger\PersonalFinance.Ledger.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Ledger\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj" />
+  </ItemGroup>
+</Project>

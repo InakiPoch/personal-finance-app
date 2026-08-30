@@ -5,5 +5,11 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Ledger\PersonalFinance.Ledger\PersonalFinance.Ledger.csproj" />
+    <ProjectReference Include="..\..\Modules\Ledger\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj" />
+    <ProjectReference Include="..\..\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

@@ -22,6 +22,17 @@ public sealed class Result<TValue> : Result {
 }
 ```
 
+## API Route Versioning
+
+- Every HTTP route is served under a version segment. `ApiRoutes` (host `Endpoints/`) exposes
+  `public const string V1 = "/v1"`; each feature's `Base` const is **composed** from it —
+  `public const string Base = V1 + "/ledger"` — so a feature group's prefix is absolute and the
+  version is single-sourced.
+- Endpoint-level route templates (`Transactions`, `AccountBalance`, …) stay **relative** to their
+  feature `Base` and carry no version segment.
+- A new API version is a new `V2` const plus new feature records. Never mutate `V1` or an existing
+  feature `Base` — old routes keep working while `/v2/...` is added alongside.
+
 ## Formatting
 
 - No space between keyword and parenthesis: `if()`, `while()`, `for()`, `foreach()`, `switch()`

@@ -1,0 +1,74 @@
+@api_HostAddress = https://localhost:7095
+@ledger = {{api_HostAddress}}/v1/ledger
+
+### Liveness probe (temporary — replaced by the real health check in Phase 8)
+GET {{api_HostAddress}}/health
+Accept: application/json
+
+### Seed a bank account (Development-only endpoint)
+# @name bankAccount
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "Bank", "type": "Asset", "kind": "Bank" }
+
+### Seed a cash account (Development-only endpoint)
+# @name cashAccount
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "Cash", "type": "Asset", "kind": "Cash" }
+
+### Seed an expense account (Development-only endpoint)
+# @name expenseAccount
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "Groceries", "type": "Expense", "kind": "Expense" }
+
+### Seed a receivable account (Development-only endpoint)
+# @name receivableAccount
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "Roommate", "type": "Asset", "kind": "Receivable" }
+
+### Post a balanced transaction — Dr Groceries 1000 / Cr Bank 1000
+# @name postedTransaction
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "{{expenseAccount.response.body.$.accountId}}", "direction": "Debit", "amountMinorUnits": 1000 },
+    { "accountId": "{{bankAccount.response.body.$.accountId}}", "direction": "Credit", "amountMinorUnits": 1000 }
+  ],
+  "postedOnUtc": "2026-08-29T12:00:00Z"
+}
+
+### Bank balance — expect -1000 ("-10.00 ARS")
+GET {{ledger}}/accounts/{{bankAccount.response.body.$.accountId}}/balance
+
+### Groceries balance — expect +1000 ("10.00 ARS")
+GET {{ledger}}/accounts/{{expenseAccount.response.body.$.accountId}}/balance
+
+### Reverse the transaction — expect compensatingEntryPosted: false
+POST {{ledger}}/transactions/{{postedTransaction.response.body.$.transactionId}}/reversal
+
+### Bank balance after reversal — expect 0
+GET {{ledger}}/accounts/{{bankAccount.response.body.$.accountId}}/balance
+
+### Receivable-shaped transaction — Dr Groceries 500 + Dr Roommate 500 / Cr Bank 1000
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "{{expenseAccount.response.body.$.accountId}}", "direction": "Debit", "amountMinorUnits": 500 },
+    { "accountId": "{{receivableAccount.response.body.$.accountId}}", "direction": "Debit", "amountMinorUnits": 500 },
+    { "accountId": "{{bankAccount.response.body.$.accountId}}", "direction": "Credit", "amountMinorUnits": 1000 }
+  ],
+  "postedOnUtc": "2026-08-29T13:00:00Z"
+}
+
+###

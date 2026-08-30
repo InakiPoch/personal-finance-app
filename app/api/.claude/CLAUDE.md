@@ -4,13 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-**.NET 10 Minimal API. Phases 0–2 are complete.**
+**.NET 10 Minimal API. Phases 0–3 are complete.**
 
 - **Phase 0** — multi-project layout from `docs/DESIGN.md` §6: `PersonalFinance.sln` + `global.json` + `Directory.Build.props` at `app/api/` (the solution root); host at `src/Bootstrap/PersonalFinance.Api/`.
 - **Phase 1** — shared substrate: `PersonalFinance.SharedKernel` (`Money`/`Currency`/`Result`/`Error`/`Entity`/`AggregateRoot`/`PhantomPennyAllocator`), `PersonalFinance.Abstractions` (CQRS + `IModule` contracts), `PersonalFinance.Infrastructure` (command/query buses, Outbox/Inbox, `ModuleDbContextBase`, `SchedulerBase`, `SqliteConnectionFactory`, `AddSharedInfrastructure`).
 - **Phase 2** — the **Ledger** module (`src/Modules/Ledger/`): double-entry, append-only `Transaction`/`Entry`, `Account` aggregate, storno reversal (plain storno only — the D12 cascade is a `// TODO(Phase 4)` seam), `ILedgerApi` facade over the buses, per-module `LedgerDbContext` + EF migrations + `vw_*` read views, wired into the host. HTTP surface is host-owned (`src/Bootstrap/PersonalFinance.Api/Endpoints/`), served under `/v1`: `POST /v1/ledger/transactions`, `.../transactions/{id}/reversal`, `GET /v1/ledger/accounts/{id}/balance`, dev-only `POST /v1/ledger/accounts`. Tests in `tests/PersonalFinance.Ledger.Tests` (xUnit v3, pure-domain). One shared, git-ignored SQLite file `personalfinance.db` at the solution root, WAL mode.
+- **Phase 3** — the **Financing** module (`src/Modules/Financing/`): `CreditCard`/`PaymentPlan`/`Installment`/`MonthlyStatement` aggregates; `BillingCycleCalculator` (cycles keyed off each card's cutoff day, not the calendar month); `PhantomPennyAllocator` installment split; `AccrueInstallments` scheduler (`SchedulerBase`, clock-triggered — un-accrued installments whose cycle has closed post `Dr CardPurchases / Cr CardLiability` to Ledger and roll onto a `MonthlyStatement`; D11 Modelo B, `AccruedOnUtc IS NULL` idempotency guard); `PayStatement` (`Dr CardLiability / Cr Bank` via `ILedgerApi`, D2 second half); `ILedgerApi`-provisioned per-card liability + purchases accounts (one expense bucket per card). First real Outbox producer: `PaymentPlanCreatedIntegrationEvent` written to `financing_outbox_messages` in the plan's own `SaveChangesAsync`, only when a split payload is present (D8) — `AddOutboxProcessing()` is now wired in `Program.cs` (pulled forward from Phase 8). Per-module `FinancingDbContext` + migrations (`__EFMigrationsHistory_Financing`) + `vw_card_future_schedule`. `IFinancingApi` facade. HTTP surface host-owned under `/v1`: `POST /v1/financing/payment-plans`, `.../statements/{id}/pay`, `GET .../cards/{id}/future-schedule`, plus the unified `POST /v1/instruments` router (D13 — `debit`/`cash` → `ILedgerApi`, `credit` → `IFinancingApi`, no domain logic of its own). Tests: `tests/PersonalFinance.Financing.Tests` (xUnit v3, pure-domain) + `tests/PersonalFinance.Architecture.Tests` (module-isolation via `Assembly.GetReferencedAssemblies()` reflection, RNF-9).
 
-**Phase 3 (Financing — credit cards, installment plans, billing cycles) is next.** Before writing module code, check `.claude/TASK.md` for the phase in progress — checkbox tasks sequenced by real dependency order (Phase 0 → 10), each phase's "Definition of done" is the completion bar.
+**Phase 4 (Reversal Semantics — D12: a reversal must always succeed even on an accrued/paid installment, adding a compensating card-credit entry netted against the *next* statement and cascading synchronously to Financing, later Parties) is next.** Before writing module code, check `.claude/TASK.md` for the phase in progress — checkbox tasks sequenced by real dependency order (Phase 0 → 10), each phase's "Definition of done" is the completion bar.
 
 ## Commands
 
@@ -34,7 +35,7 @@ dotnet test --project tests/PersonalFinance.Ledger.Tests  # single test project
 dotnet test --project tests/PersonalFinance.Ledger.Tests --filter "FullyQualifiedName~DoubleEntryInvariantTests"  # single test class
 ```
 
-Per `docs/DESIGN.md` §6 the pattern is one xUnit project per module (`PersonalFinance.<Module>.Tests`) plus a future `PersonalFinance.Architecture.Tests` for module-isolation checks.
+Per `docs/DESIGN.md` §6 the pattern is one xUnit project per module (`PersonalFinance.<Module>.Tests`) plus `PersonalFinance.Architecture.Tests` for module-isolation checks (RNF-9) — extended by every new module phase.
 
 ### EF Core migrations
 

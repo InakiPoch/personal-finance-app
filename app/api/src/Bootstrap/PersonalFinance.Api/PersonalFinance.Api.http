@@ -1,5 +1,7 @@
 @api_HostAddress = https://localhost:7095
 @ledger = {{api_HostAddress}}/v1/ledger
+@instruments = {{api_HostAddress}}/v1/instruments
+@financing = {{api_HostAddress}}/v1/financing
 
 ### Liveness probe (temporary — replaced by the real health check in Phase 8)
 GET {{api_HostAddress}}/health
@@ -70,5 +72,79 @@ Content-Type: application/json
   ],
   "postedOnUtc": "2026-08-29T13:00:00Z"
 }
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 3 — Financing: unified instrument registration + straddling-cutoff plans
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Register a debit instrument — routes to ILedgerApi (Asset / Bank)
+# @name checkingInstrument
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "debit", "name": "Checking" }
+
+### Register a cash instrument — routes to ILedgerApi (Asset / Cash)
+# @name walletInstrument
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "cash", "name": "Wallet" }
+
+### Register a credit instrument — routes to IFinancingApi (CreateCreditCard, cutoff day 15)
+# @name visaInstrument
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "Visa", "cutoffDate": 15 }
+
+### Plan A — purchase ON the cutoff day (2026-03-15) → first installment closes into cycle 2026-03
+# @name planOnCutoff
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 300000,
+  "cardId": "{{visaInstrument.response.body.$.id}}",
+  "installmentCount": 3,
+  "purchaseDate": "2026-03-15"
+}
+
+### Plan B — purchase the DAY AFTER the cutoff (2026-03-16) → first installment closes into cycle 2026-04
+# @name planAfterCutoff
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 300000,
+  "cardId": "{{visaInstrument.response.body.$.id}}",
+  "installmentCount": 3,
+  "purchaseDate": "2026-03-16"
+}
+
+### Future schedule — plan A's first row is cycle 2026-03, plan B's is 2026-04 (rows drop off once accrued)
+GET {{financing}}/cards/{{visaInstrument.response.body.$.id}}/future-schedule
+
+### Plan C — WITH a split payload → writes exactly one financing_outbox_messages row in the same transaction as the plan (D8)
+# @name planWithSplit
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 300000,
+  "cardId": "{{visaInstrument.response.body.$.id}}",
+  "installmentCount": 3,
+  "purchaseDate": "2026-09-15",
+  "split": [
+    { "partyId": "00000000-0000-0000-0000-000000000001", "weight": 1 },
+    { "partyId": "00000000-0000-0000-0000-000000000002", "weight": 1 }
+  ]
+}
+
+# After running the requests above:
+#   sqlite3 personalfinance.db "SELECT COUNT(*) FROM financing_outbox_messages;"  -- expect 1 (only plan C)
+#   sqlite3 personalfinance.db "SELECT PaymentPlanId, Sequence, CycleYear, CycleMonth FROM financing_installments ORDER BY PaymentPlanId, Sequence;"
 
 ###

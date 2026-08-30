@@ -1,0 +1,13 @@
+CREATE VIEW vw_card_future_schedule AS
+SELECT
+    p.CardId           AS CardId,
+    p.Id               AS PlanId,
+    i.Id               AS InstallmentId,
+    i.Sequence         AS Sequence,
+    i.CycleYear        AS CycleYear,
+    i.CycleMonth       AS CycleMonth,
+    i.AmountMinorUnits AS AmountMinorUnits,
+    'ARS'              AS CurrencyCode
+FROM financing_installments i
+JOIN financing_payment_plans p ON p.Id = i.PaymentPlanId
+WHERE i.AccruedOnUtc IS NULL;

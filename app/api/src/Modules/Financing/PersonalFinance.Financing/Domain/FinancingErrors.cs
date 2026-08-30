@@ -33,6 +33,11 @@ internal static class FinancingErrors {
         "The referenced monthly statement was not found."
     );
 
+    public static readonly Error InvalidBankAccount = new(
+        "Financing.InvalidBankAccount",
+        "A statement payment requires a valid bank account."
+    );
+
     public static readonly Error StatementAlreadyPaid = new(
         "Financing.StatementAlreadyPaid",
         "The monthly statement has already been paid."

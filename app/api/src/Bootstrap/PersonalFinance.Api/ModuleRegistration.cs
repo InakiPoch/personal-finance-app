@@ -1,4 +1,5 @@
 using PersonalFinance.Abstractions.Modularity;
+using PersonalFinance.Api.Endpoints;
 using PersonalFinance.Ledger;
 
 namespace PersonalFinance.Api;
@@ -17,6 +18,7 @@ internal static class ModuleRegistration {
         foreach(var module in modules) {
             module.MapEndpoints(endpoints);
         }
+        endpoints.MapLedgerEndpoints();
         return endpoints;
     }
 }

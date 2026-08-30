@@ -1,0 +1,18 @@
+using Microsoft.AspNetCore.Http.HttpResults;
+using Microsoft.AspNetCore.Mvc;
+using PersonalFinance.Api.Endpoints.DTOs;
+using PersonalFinance.Api.Endpoints.Mapping;
+using PersonalFinance.Infrastructure.Messaging;
+
+namespace PersonalFinance.Api.Endpoints.Ledger;
+
+/// TODO(Phase 3): remove — account creation moves behind POST /instruments.
+public static class PostDevAccount {
+    public static async Task<Results<Ok<CreateAccountResultDto>, BadRequest<ProblemDetails>>> Handle(CreateAccountDto body, ICommandBus commandBus, CancellationToken cancellationToken) {
+        var result = await commandBus.SendAsync<Guid>(body.ToCreateAccountCommand(), cancellationToken);
+        if(result.IsFailure) {
+            return ProblemResultsHelper.From(result.Error);
+        }
+        return TypedResults.Ok(result.Value.ToCreateAccountResultDto());
+    }
+}

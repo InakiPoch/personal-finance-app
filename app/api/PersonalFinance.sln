@@ -39,6 +39,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Financing.T
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Architecture.Tests", "tests\PersonalFinance.Architecture.Tests\PersonalFinance.Architecture.Tests.csproj", "{2E490EAD-8534-4E94-B925-F0C6CD4BCEA4}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Modules", "Modules", "{CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Subscriptions", "Subscriptions", "{61DF3A5F-ECAF-FD9D-AE18-84CDACBA460C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Subscriptions.Contracts", "src\Modules\Subscriptions\PersonalFinance.Subscriptions.Contracts\PersonalFinance.Subscriptions.Contracts.csproj", "{970497CD-E9E6-4599-8162-DA53ABBE9A19}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -181,6 +187,18 @@ Global
 		{2E490EAD-8534-4E94-B925-F0C6CD4BCEA4}.Release|x64.Build.0 = Release|Any CPU
 		{2E490EAD-8534-4E94-B925-F0C6CD4BCEA4}.Release|x86.ActiveCfg = Release|Any CPU
 		{2E490EAD-8534-4E94-B925-F0C6CD4BCEA4}.Release|x86.Build.0 = Release|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Debug|x64.Build.0 = Debug|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Debug|x86.Build.0 = Debug|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Release|Any CPU.Build.0 = Release|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Release|x64.ActiveCfg = Release|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Release|x64.Build.0 = Release|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Release|x86.ActiveCfg = Release|Any CPU
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -202,5 +220,7 @@ Global
 		{4FDD22C4-5F73-4978-80F9-1B503B025BCE} = {759E26B4-186F-7423-2DD4-7306E18692EE}
 		{DD92EBCE-5980-466F-AC7A-EE48B8836887} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
 		{2E490EAD-8534-4E94-B925-F0C6CD4BCEA4} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
+		{61DF3A5F-ECAF-FD9D-AE18-84CDACBA460C} = {CA253913-39DE-BFD0-C9A3-4B7EC6FBDF17}
+		{970497CD-E9E6-4599-8162-DA53ABBE9A19} = {61DF3A5F-ECAF-FD9D-AE18-84CDACBA460C}
 	EndGlobalSection
 EndGlobal

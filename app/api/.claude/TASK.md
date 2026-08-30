@@ -106,45 +106,55 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 **Depends on:** Phase 1.
 
 ### Tasks — Contracts (`PersonalFinance.Ledger.Contracts`)
-- [ ] `ILedgerApi.cs` — only way other modules touch Ledger.
-- [ ] `Commands/PostTransactionCommand.cs` — list of `(AccountId, DebitOrCredit, Money)` lines, optional `SplitReference`/`InstallmentReference` linkage.
-- [ ] `Commands/PostReceivableCommand.cs` — D1's receivable entry, used by Parties.
-- [ ] `Commands/CreateAccountCommand.cs` — `AccountType` + `AccountKind` (Bank/Cash), used by D13's unified `POST /instruments` endpoint for debit/cash registration.
-- [ ] `Commands/ReverseTransactionCommand.cs` — takes `OriginalTransactionId`. Behavior is D12 (not D10 — D10 is superseded in `docs/DESIGN.md`).
-- [ ] `Queries/GetAccountBalanceQuery.cs`, `Queries/GetCardLiabilityQuery.cs` (accrued liability only, D11).
-- [ ] `IntegrationEvents/TransactionPostedIntegrationEvent.cs` — informational only, no subscriber (Reporting reads views, D5).
+- [x] `ILedgerApi.cs` — only way other modules touch Ledger.
+- [x] `Commands/PostTransactionCommand.cs` — list of `(AccountId, DebitOrCredit, Money)` lines, optional `SplitReference`/`InstallmentReference` linkage.
+- [x] `Commands/PostReceivableCommand.cs` — D1's receivable entry, used by Parties.
+- [x] `Commands/CreateAccountCommand.cs` — `AccountType` + `AccountKind` (Bank/Cash), used by D13's unified `POST /instruments` endpoint for debit/cash registration.
+- [x] `Commands/ReverseTransactionCommand.cs` — takes `OriginalTransactionId`. Behavior is D12 (not D10 — D10 is superseded in `docs/DESIGN.md`). *Phase 2 ships plain storno only; D12 cascade is a `// TODO(Phase 4)` seam.*
+- [x] `Queries/GetAccountBalanceQuery.cs`, `Queries/GetCardLiabilityQuery.cs` (accrued liability only, D11).
+- [x] `IntegrationEvents/TransactionPostedIntegrationEvent.cs` — informational only, no subscriber (Reporting reads views, D5).
 
 ### Tasks — Domain (`PersonalFinance.Ledger`)
-- [ ] `Domain/AccountType.cs` — Asset, Liability, Expense, Equity/Income.
-- [ ] `Domain/AccountKind.cs` (per D9/D12) — `Bank`, `Cash`, `Receivable`, `CardLiability`, etc. Needed so `vw_ledger_monthly_expenses` can group Bank+Cash as "already spent" (PRD US-1 AC2) without inferring it from naming conventions.
-- [ ] `Domain/Account.cs` — carries `AccountType` + `AccountKind`; no stored balance, always derived from `Entry` rows (consistent with D4's no-materialized-view philosophy).
-- [ ] `Application/Commands/CreateAccount/CreateAccountHandler.cs`.
-- [ ] `Domain/Transaction.cs` — append-only aggregate root: `Id`, `PostedOnUtc`, `OriginalTransactionId` (nullable, for reversals), `Entry` collection.
-- [ ] `Domain/Entry.cs` — `AccountId`, `DebitOrCredit`, `Money`.
-- [ ] `Domain/SplitReference.cs`, `Domain/InstallmentReference.cs` — plain external ids linking to `ExpenseSplit`/`Installment` (those modules don't exist yet — no FK/navigation, respects module isolation).
-- [ ] `Domain/Rules/DoubleEntryMustBalance.cs` — `Σ(debits) == Σ(credits)` per currency, validated before a `Transaction` can be constructed.
-- [ ] `Domain/Events/TransactionPosted.cs` — in-aggregate domain event, mapped to the integration event by the handler.
-- [ ] `Application/Commands/PostTransaction/PostTransactionValidator.cs` + `PostTransactionHandler.cs`.
-- [ ] `Application/Commands/PostReceivable/PostReceivableHandler.cs` — builds D1's Dr Gasto + Dr PorCobrar / Cr Banco pattern, delegates to the transaction-posting logic (don't duplicate the balance check).
-- [ ] `Application/Queries/GetAccountBalance/GetAccountBalanceHandler.cs`, `Application/Queries/GetCardLiability/GetCardLiabilityHandler.cs` (sums `CardLiability`-kind accounts only, D11).
-- [ ] `Infrastructure/Persistence/LedgerDbContext.cs` (history table `__EFMigrationsHistory_Ledger`), `Configurations/` for `Transaction`, `Entry`, `Account`.
-- [ ] `Infrastructure/Persistence/Outbox/LedgerOutboxConfig.cs`, `Inbox/LedgerInboxConfig.cs` (tables exist for folder-tree symmetry even if unused for now — Ledger has no producer/consumer role yet per D6).
-- [ ] `Infrastructure/Persistence/ReadViews/vw_ledger_balances.sql`, `vw_ledger_monthly_expenses.sql` (RF-1/D9 — exclude `Receivable` accounts from "own expense," group `Bank`+`Cash` kinds together), `vw_card_liability_accrued.sql` (RF-2 accrued half, D11).
-- [ ] `Infrastructure/PublicApi/LedgerApi.cs` — `internal`, implements `ILedgerApi`.
-- [ ] `LedgerModule.cs` — implements `IModule`.
-- [ ] Generate the initial EF Core migration for `LedgerDbContext`.
-- [ ] Wire `LedgerModule` into the Bootstrap host, add `Endpoints/LedgerEndpoints.cs` (`POST /ledger/transactions`, `GET /ledger/accounts/{id}/balance`). `CreateAccountCommand` has no endpoint of its own — it's reached via D13's unified `POST /instruments` once Phase 3 exists (see Phase 3's last task).
+- [x] ~~`Domain/AccountType.cs`~~ → `PersonalFinance.Ledger.Contracts/AccountType.cs` — Asset, Liability, Expense, Income, Equity. *(Deviation: enums live in Contracts, defined once, no mapping layer — locked plan decision 1.)*
+- [x] ~~`Domain/AccountKind.cs`~~ → `PersonalFinance.Ledger.Contracts/AccountKind.cs` (per D9/D12) — `Bank`, `Cash`, `Receivable`, `CardLiability`, `CardCredit`, `Expense`, `Income`, `Equity`. Lets `vw_ledger_monthly_expenses` group Bank+Cash as "already spent" (PRD US-1 AC2) without naming conventions. `DebitOrCredit` also moved to Contracts.
+- [x] `Domain/Account.cs` — carries `AccountType` + `AccountKind`; no stored balance, always derived from `Entry` rows (consistent with D4's no-materialized-view philosophy).
+- [x] `Application/Commands/CreateAccount/CreateAccountHandler.cs`.
+- [x] `Domain/Transaction.cs` — append-only aggregate root: `Id`, `PostedOnUtc`, `OriginalTransactionId` (nullable, for reversals), `Entry` collection.
+- [x] `Domain/Entry.cs` — `AccountId`, `DebitOrCredit`, `Money`.
+- [x] `Domain/SplitReference.cs`, `Domain/InstallmentReference.cs` — plain external ids linking to `ExpenseSplit`/`Installment` (those modules don't exist yet — no FK/navigation, respects module isolation).
+- [x] `Domain/Rules/DoubleEntryMustBalance.cs` — `Σ(debits) == Σ(credits)` per currency, validated before a `Transaction` can be constructed.
+- [x] `Domain/Events/TransactionPosted.cs` — in-aggregate domain event, mapped to the integration event by the handler.
+- [x] `Application/Commands/PostTransaction/PostTransactionValidator.cs` + `PostTransactionHandler.cs`.
+- [x] `Application/Commands/PostReceivable/PostReceivableHandler.cs` — builds D1's Dr Gasto + Dr PorCobrar / Cr Banco pattern, delegates to the transaction-posting logic (don't duplicate the balance check).
+- [x] `Application/Queries/GetAccountBalance/GetAccountBalanceHandler.cs`, `Application/Queries/GetCardLiability/GetCardLiabilityHandler.cs` (sums `CardLiability`-kind accounts only, D11).
+- [x] `Infrastructure/Persistence/LedgerDbContext.cs` (history table `__EFMigrationsHistory_Ledger`), `Configurations/` for `Transaction`, `Entry`, `Account`.
+- [x] `Infrastructure/Persistence/Outbox/LedgerOutboxConfig.cs`, `Inbox/LedgerInboxConfig.cs` (tables exist for folder-tree symmetry even if unused for now — Ledger has no producer/consumer role yet per D6). *Also `LedgerOutboxStore`/`LedgerOutboxWriter`/`LedgerInboxStore` registered so `OutboxHealthCheck` enumeration is complete.*
+- [x] `Infrastructure/Persistence/ReadViews/vw_ledger_balances.sql`, `vw_ledger_monthly_expenses.sql` (RF-1/D9 — excludes `Receivable` accounts from "own expense"), `vw_card_liability_accrued.sql` (RF-2 accrued half, D11). Embedded resources, created via a dedicated `LedgerReadViews` migration; each view emits literal `'ARS'` (Money mapping is single-currency, see notes).
+- [x] `Infrastructure/PublicApi/LedgerApi.cs` — `internal`, implements `ILedgerApi`, thin delegation to `ICommandBus`/`IQueryBus`.
+- [x] `LedgerModule.cs` — implements `IModule`. `Register` wires the DbContext + closed-generic handlers; `MapEndpoints` is a documented no-op (HTTP is host-owned).
+- [x] Generate the initial EF Core migration for `LedgerDbContext` (`InitialLedgerSchema` + `LedgerReadViews`).
+- [x] Wire `LedgerModule` into the Bootstrap host, add `Endpoints/` (host-owned: `EndpointExtensions.MapLedgerEndpoints`, `ApiRoutes`, `POST /v1/ledger/transactions`, `POST /v1/ledger/transactions/{id}/reversal`, `GET /v1/ledger/accounts/{id}/balance`, dev-only `POST /v1/ledger/accounts`). All routes under a `/v1` segment (`ApiRoutes.V1`). `CreateAccountCommand` has no production endpoint — dev-only seam until D13's `POST /instruments` in Phase 3.
 
 ### Tests — `PersonalFinance.Ledger.Tests`
-- [ ] `DoubleEntryInvariantTests.cs` — balanced succeeds; unbalanced rejected; mixed-currency rejected.
-- [ ] `ReceivableReconciliationTests.cs` — RNF-5: Bank balance reflects only real cash outflow, Receivable + Expense sum to the total.
-- [ ] `ReverseTransactionTests.cs` — **basic case only**: reversing a never-accrued, never-split transaction produces a correctly mirrored counter-transaction, original untouched (RNF-4). The paid-installment/compensating-entry case is D12 — covered in Phase 4, not here.
+- [x] `DoubleEntryInvariantTests.cs` — balanced succeeds; unbalanced → `Ledger.Unbalanced`; mixed-currency → `Ledger.MixedCurrency`; single leg → `Ledger.DegenerateTransaction`.
+- [x] `ReceivableReconciliationTests.cs` — RNF-5: 3-leg `Dr Expense 500 + Dr Receivable 500 / Cr Bank 1000` balances; per-account fold Bank −1000, Expense +500, Receivable +500; own + receivable == bank outflow.
+- [x] `ReverseTransactionTests.cs` — **basic case only**: mirrored counter-transaction, every direction flipped, `OriginalTransactionId == original.Id`, original aggregate untouched (RNF-4); reversing a reversal → `Ledger.CannotReverseAReversal`. Paid-installment/compensating-entry case is D12 — Phase 4.
 
 ### Definition of done
-- [ ] All `Ledger.Tests` pass.
-- [ ] `dotnet ef migrations` applies cleanly against the shared SQLite file.
-- [ ] Manual smoke test via `api.http`: post a balanced transaction, query balance, reverse it, confirm original untouched.
-- [ ] `vw_ledger_balances`/`vw_ledger_monthly_expenses` spot-checked directly against the SQLite file.
+- [x] All `Ledger.Tests` pass. *(7 tests green — xUnit v3 / Microsoft.Testing.Platform.)*
+- [x] `dotnet ef migrations` applies cleanly against the shared SQLite file. *(`InitialLedgerSchema` + `LedgerReadViews` on a fresh `personalfinance.db`; 5 tables + 3 views, `PRAGMA journal_mode` → `wal`.)*
+- [x] Manual smoke test via `api.http`: post a balanced transaction, query balance, reverse it, confirm original untouched. *(curl: bank −1000 / "−10.00 ARS", groceries +1000, reversal → `compensatingEntryPosted:false`, bank → 0; unbalanced post → HTTP 400; `ledger_transactions` = 3 rows, original keeps NULL `OriginalTransactionId` and 2 entries.)*
+- [x] `vw_ledger_balances`/`vw_ledger_monthly_expenses` spot-checked directly against the SQLite file. *(After a receivable-shaped txn: `vw_ledger_monthly_expenses` = 500 own-share for the month, Receivable leg excluded; `vw_ledger_balances` sign-normalized — Bank −1000, Groceries +500, Roommate +500; `vw_card_liability_accrued` empty.)*
+
+### Completion notes (2026-08-29)
+- **`Money` → SQLite = Plan B (scalar).** EF 10 can't constructor-bind a `ComplexProperty` whose `Currency` is a reference type, so `Money` maps through a `ValueConverter<Money, long>` to a single `AmountMinorUnits` column; currency is not stored, always reconstructed as `Currency.Reference` (ARS/2). Read views emit literal `'ARS'`. Phases 3/6 reuse this.
+- **Enums in `Contracts`, not `Domain`** — `AccountType` / `AccountKind` / `DebitOrCredit` are public enums defined once in `PersonalFinance.Ledger.Contracts`; `Domain` references them directly, no mapping layer (deviates from the DESIGN §6 `Domain/AccountType.cs` path).
+- **Dev connection-string resolution** — when `Sqlite:ConnectionString` is blank, both `LedgerDbContextFactory` (design-time) and a host `PostConfigure<SqliteOptions>` (runtime) resolve `Data Source={ascend for PersonalFinance.sln}/personalfinance.db` via `SolutionRootLocatorHelper` (now `public` in shared `PersonalFinance.Infrastructure`, moved out of the Ledger module).
+- **Temporary dev endpoint** — `POST /v1/ledger/accounts` is mapped only in `Development`, marked `// TODO(Phase 3): remove` — replaced by D13's `POST /instruments`.
+- **`/v1` route prefix** — every HTTP route sits under `ApiRoutes.V1` (`/health` stays unversioned). Versioning convention recorded in `.claude/rules/csharp-style.md` → "API Route Versioning".
+- **`EF.Design` `PrivateAssets="all"`** on the Ledger impl `csproj` so the design-time package doesn't flow to the host.
+- **xUnit v3 + .NET 10 MTP mode** — `global.json` carries `"test": { "runner": "Microsoft.Testing.Platform" }`; `dotnet test` VSTest mode no longer runs MTP projects on the .NET 10 SDK. Invocation is now `dotnet test --solution PersonalFinance.sln` / `dotnet test --project <csproj>` — bare-path forms error. **`.claude/CLAUDE.md` "Commands" still shows the old `dotnet test <path>` form — fix when convenient.**
+- **Reversal scope** — Phase 2 reversal is plain storno. `ReverseTransactionHandler` has a `// TODO(Phase 4): D12` seam for the paid-installment compensating entry + Financing/Parties cascade.
 
 ---
 

@@ -1,6 +1,7 @@
 using PersonalFinance.Api;
 using PersonalFinance.Infrastructure.DependencyInjection;
 using PersonalFinance.Infrastructure.Persistence;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,6 +22,8 @@ var app = builder.Build();
 
 if(app.Environment.IsDevelopment()) {
     app.MapOpenApi();
+    // Scalar API reference UI with a built-in request client — https://scalar.com/#api-reference
+    app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();

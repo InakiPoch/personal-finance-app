@@ -4,9 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Current state
 
-This is a **.NET 10 Minimal API** project. **Phase 0 (repo/solution scaffolding) is complete** — the flat `dotnet new webapi` layout has been restructured into the multi-project structure from `docs/DESIGN.md` §6: `PersonalFinance.sln` + `global.json` + `Directory.Build.props` live at `app/api/` (the solution root), the host is at `src/Bootstrap/PersonalFinance.Api/` with an empty pipeline and a temporary `GET /health`, and empty `src/Shared`, `src/Modules`, `src/Reporting`, `tests` skeleton dirs (`.gitkeep`) are in place. The rest of the target architecture in `docs/DESIGN.md` is **not yet implemented** — no module or domain code exists. Phase 1 (Shared: Abstractions, SharedKernel, Infrastructure) is next.
+**.NET 10 Minimal API. Phases 0–2 are complete.**
 
-Before writing any module code, check `.claude/TASK.md` to see which phase is in progress — tasks are checkbox items sequenced by real dependency order (Phase 0 → 10), and each phase's "Definition of done" is the bar for considering it complete.
+- **Phase 0** — multi-project layout from `docs/DESIGN.md` §6: `PersonalFinance.sln` + `global.json` + `Directory.Build.props` at `app/api/` (the solution root); host at `src/Bootstrap/PersonalFinance.Api/`.
+- **Phase 1** — shared substrate: `PersonalFinance.SharedKernel` (`Money`/`Currency`/`Result`/`Error`/`Entity`/`AggregateRoot`/`PhantomPennyAllocator`), `PersonalFinance.Abstractions` (CQRS + `IModule` contracts), `PersonalFinance.Infrastructure` (command/query buses, Outbox/Inbox, `ModuleDbContextBase`, `SchedulerBase`, `SqliteConnectionFactory`, `AddSharedInfrastructure`).
+- **Phase 2** — the **Ledger** module (`src/Modules/Ledger/`): double-entry, append-only `Transaction`/`Entry`, `Account` aggregate, storno reversal (plain storno only — the D12 cascade is a `// TODO(Phase 4)` seam), `ILedgerApi` facade over the buses, per-module `LedgerDbContext` + EF migrations + `vw_*` read views, wired into the host. HTTP surface is host-owned (`src/Bootstrap/PersonalFinance.Api/Endpoints/`), served under `/v1`: `POST /v1/ledger/transactions`, `.../transactions/{id}/reversal`, `GET /v1/ledger/accounts/{id}/balance`, dev-only `POST /v1/ledger/accounts`. Tests in `tests/PersonalFinance.Ledger.Tests` (xUnit v3, pure-domain). One shared, git-ignored SQLite file `personalfinance.db` at the solution root, WAL mode.
+
+**Phase 3 (Financing — credit cards, installment plans, billing cycles) is next.** Before writing module code, check `.claude/TASK.md` for the phase in progress — checkbox tasks sequenced by real dependency order (Phase 0 → 10), each phase's "Definition of done" is the completion bar.
 
 ## Commands
 
@@ -18,22 +22,37 @@ dotnet run --project src/Bootstrap/PersonalFinance.Api        # run the API (por
 dotnet watch --project src/Bootstrap/PersonalFinance.Api run  # run with hot reload
 ```
 
-`dotnet build` and `dotnet test` accept `PersonalFinance.sln` directly; `dotnet run` needs `--project` because `app/api/` has no bare `.csproj` in it and `dotnet run` won't resolve one from a `.sln`.
+`dotnet build` accepts `PersonalFinance.sln` directly; `dotnet run` needs `--project` because `app/api/` has no bare `.csproj` in it and `dotnet run` won't resolve one from a `.sln`.
 
-No test projects exist yet. Once `tests/` is scaffolded (Phase 1+), the pattern per `docs/DESIGN.md` §6 is one xUnit project per module (`PersonalFinance.<Module>.Tests`) plus `PersonalFinance.Architecture.Tests` for module-isolation checks:
+### Tests
 
-```bash
-dotnet test                                          # all tests
-dotnet test tests/PersonalFinance.Ledger.Tests        # single test project
-dotnet test --filter "FullyQualifiedName~DoubleEntryInvariantTests"  # single test class
-```
-
-EF Core migrations are per-module `DbContext` sharing one SQLite file (see Architecture below):
+`global.json` opts into the .NET 10 **Microsoft.Testing.Platform** `dotnet test` mode (required for xUnit v3). That changes the CLI — pass `--solution` / `--project`, never a bare path (a bare path errors):
 
 ```bash
-dotnet ef migrations add <Name> --project src/Modules/<Module>/PersonalFinance.<Module> --context <Module>DbContext
-dotnet ef database update --project src/Modules/<Module>/PersonalFinance.<Module> --context <Module>DbContext
+dotnet test --solution PersonalFinance.sln                # all tests
+dotnet test --project tests/PersonalFinance.Ledger.Tests  # single test project
+dotnet test --project tests/PersonalFinance.Ledger.Tests --filter "FullyQualifiedName~DoubleEntryInvariantTests"  # single test class
 ```
+
+Per `docs/DESIGN.md` §6 the pattern is one xUnit project per module (`PersonalFinance.<Module>.Tests`) plus a future `PersonalFinance.Architecture.Tests` for module-isolation checks.
+
+### EF Core migrations
+
+Per-module `DbContext`, all sharing one SQLite file, each with its own `MigrationsHistoryTable` (`__EFMigrationsHistory_Ledger`, `_Financing`, …). Each module project carries its own `IDesignTimeDbContextFactory`, so it is its own `--startup-project`:
+
+```bash
+dotnet ef migrations add <Name> \
+  --project src/Modules/<Module>/PersonalFinance.<Module> \
+  --startup-project src/Modules/<Module>/PersonalFinance.<Module> \
+  --context <Module>DbContext
+
+dotnet ef database update \
+  --project src/Modules/<Module>/PersonalFinance.<Module> \
+  --startup-project src/Modules/<Module>/PersonalFinance.<Module> \
+  --context <Module>DbContext
+```
+
+When `Sqlite:ConnectionString` is blank, the design-time factory and the host both resolve `personalfinance.db` at the solution root (via `SolutionRootLocatorHelper`), so `dotnet ef` and `dotnet run` hit the same file.
 
 ## Architecture
 

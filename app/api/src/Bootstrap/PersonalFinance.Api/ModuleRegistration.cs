@@ -21,6 +21,7 @@ internal static class ModuleRegistration {
         }
         endpoints.MapLedgerEndpoints();
         endpoints.MapFinancingEndpoints();
+        endpoints.MapInstrumentsEndpoints();
         return endpoints;
     }
 }

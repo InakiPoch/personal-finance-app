@@ -24,5 +24,11 @@ internal static class EndpointExtensions {
             group.MapGet(ApiRoutes.Financing.FutureSchedule, GetCardFutureSchedule.Handle);
             return endpoints;
         }
+
+        public IEndpointRouteBuilder MapInstrumentsEndpoints() {
+            var group = endpoints.MapGroup(ApiRoutes.Instruments.Base);
+            group.MapPost(ApiRoutes.Instruments.Create, PostInstrument.Handle);
+            return endpoints;
+        }
     }
 }

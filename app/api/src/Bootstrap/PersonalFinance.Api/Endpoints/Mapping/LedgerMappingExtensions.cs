@@ -21,7 +21,7 @@ internal static class LedgerMappingExtensions {
             dto.PostedOnUtc,
             dto.SplitReferenceId,
             dto.InstallmentReferenceId,
-            dto.Description
+            Description: dto.Description
         );
     }
 

@@ -19,7 +19,8 @@ internal sealed class PostTransactionHandler(TransactionWriter writer) : IComman
             .ToList();
         var splitReference = command.SplitReferenceId is { } splitId ? new SplitReference(splitId) : null;
         var installmentReference = command.InstallmentReferenceId is { } installmentId ? new InstallmentReference(installmentId) : null;
-        var transaction = Transaction.Post(lines, command.PostedOnUtc, splitReference, installmentReference);
+        var subscriptionReference = command.SubscriptionReferenceId is { } subscriptionId ? new SubscriptionReference(subscriptionId) : null;
+        var transaction = Transaction.Post(lines, command.PostedOnUtc, splitReference, installmentReference, subscriptionReference);
         if(transaction.IsFailure) {
             return transaction.Error;
         }

@@ -165,41 +165,59 @@ Source docs: `docs/PRD.md` (product), `docs/DESIGN.md` (technical, D1–D13 + fo
 **Depends on:** Phase 2 (`ILedgerApi`, `PostTransactionCommand`).
 
 ### Tasks — Contracts (`PersonalFinance.Financing.Contracts`)
-- [ ] `IFinancingApi.cs` — include a query for installment payment state now (`GetInstallmentStatusAsync`), even though its only consumer (Ledger's reversal handler) isn't finished until Phase 4.
-- [ ] `Commands/CreateCreditCardCommand.cs` — name, `CutoffDate`, used by D13's unified `POST /instruments` endpoint for credit registration.
-- [ ] `Commands/CreatePaymentPlanCommand.cs` — amount, card id, installment count, purchase date, optional split-with-parties payload.
-- [ ] `Commands/PayStatementCommand.cs`.
-- [ ] `IntegrationEvents/InstallmentAccruedIntegrationEvent.cs` — direct/in-process dispatch.
-- [ ] `IntegrationEvents/PaymentPlanCreatedIntegrationEvent.cs` — durable/Outbox dispatch (D8's one legitimate dual-write).
+- [x] `IFinancingApi.cs` — include a query for installment payment state now (`GetInstallmentStatusAsync`), even though its only consumer (Ledger's reversal handler) isn't finished until Phase 4.
+- [x] `Commands/CreateCreditCardCommand.cs` — name, `CutoffDate`, used by D13's unified `POST /instruments` endpoint for credit registration.
+- [x] `Commands/CreatePaymentPlanCommand.cs` — amount, card id, installment count, purchase date, optional split-with-parties payload.
+- [x] `Commands/PayStatementCommand.cs`.
+- [x] `IntegrationEvents/InstallmentAccruedIntegrationEvent.cs` — direct/in-process dispatch.
+- [x] `IntegrationEvents/PaymentPlanCreatedIntegrationEvent.cs` — durable/Outbox dispatch (D8's one legitimate dual-write).
 
 ### Tasks — Domain (`PersonalFinance.Financing`)
-- [ ] `Domain/CreditCard.cs` — `CutoffDate` field (day-of-month, per D13) plus a carried-forward credit-balance field (per D12, populated starting Phase 4 — add the field now so `MonthlyStatement`/`PayStatementHandler` have somewhere to read/write it later).
-- [ ] `Domain/BillingCycleCalculator.cs` (per D13) — pure function `ResolveCycle(DateOnly purchaseDate, int cutoffDay)`: purchase on-or-before the cutoff day closes into the current cycle; purchase after opens the next cycle. Must be independently unit-testable — this is the exact mechanism behind PRD US-3 AC2.
-- [ ] `Domain/PaymentPlan.cs`, `Installment.cs` — `Installment` carries its resolved billing cycle, `AccruedOnUtc` (nullable), and a paid/unpaid flag via `MonthlyStatement` linkage (needed for Phase 4's reversal check).
-- [ ] `Domain/MonthlyStatement.cs` — aggregates installments accrued into a cycle for a card, tracks paid/unpaid.
-- [ ] `Application/Commands/CreateCreditCard/CreateCreditCardHandler.cs`.
-- [ ] `Application/Commands/CreatePaymentPlan/CreatePaymentPlanValidator.cs` + `Handler.cs` — uses `PhantomPennyAllocator` so `Σ(installments) == total` exactly; uses `BillingCycleCalculator` for the first installment's cycle; writes `PaymentPlanCreatedIntegrationEvent` to Financing's own Outbox in the same `SaveChangesAsync` transaction as the plan, only if a split payload is present (D8).
-- [ ] `Application/Commands/PayStatement/PayStatementValidator.cs` + `Handler.cs` — calls `ILedgerApi` to post Dr Liability / Cr Bank (D2's second half); marks the statement paid. **Does not yet net any card credit** — that's added in Phase 4 once D12's compensating-entry flow exists.
-- [ ] `Application/Scheduling/AccrueInstallments.cs` — `SchedulerBase`-derived; on cycle close, finds unaccrued installments whose cycle has closed, posts Dr Expense / Cr Liability via `ILedgerApi` (tagged with `InstallmentReference`), marks `AccruedOnUtc`, dispatches `InstallmentAccruedIntegrationEvent` (direct mode). **Idempotency guard mandatory**: re-running the tick must never double-accrue.
-- [ ] `Infrastructure/Persistence/FinancingDbContext.cs` (history table `__EFMigrationsHistory_Financing`), `Configurations/` for all four entities.
-- [ ] `Infrastructure/Persistence/Outbox/FinancingOutboxConfig.cs`, `Inbox/FinancingInboxConfig.cs` (Financing is a producer for `PaymentPlanCreated` only, no consumer role yet).
-- [ ] `Infrastructure/Persistence/ReadViews/vw_card_future_schedule.sql` (RF-2's future-schedule half, D11 — not-yet-accrued installments only).
-- [ ] `Infrastructure/PublicApi/FinancingApi.cs` — `internal`, implements `IFinancingApi`.
-- [ ] `FinancingModule.cs`, migration, DI wiring, `Endpoints/FinancingEndpoints.cs` (`POST /financing/payment-plans`, `POST /financing/statements/{id}/pay`, `GET /financing/cards/{id}/future-schedule`). Card creation has no endpoint of its own here — it's reached via the unified endpoint below.
-- [ ] Wire `AccrueInstallments` into host startup.
-- [ ] **D13's unified instrument endpoint** — now that both `CreateAccountCommand` (Ledger, Phase 2) and `CreateCreditCardCommand` (Financing, this phase) exist: add `Bootstrap/PersonalFinance.Api/Endpoints/InstrumentsEndpoints.cs` with `POST /instruments`, a thin router with no domain logic that dispatches to `ILedgerApi` (type = debit/cash) or `IFinancingApi` (type = credit) based on the request's `type` field.
+- [x] `Domain/CreditCard.cs` — `CutoffDate` field (day-of-month, per D13) plus a carried-forward credit-balance field (per D12, populated starting Phase 4 — add the field now so `MonthlyStatement`/`PayStatementHandler` have somewhere to read/write it later).
+- [x] `Domain/BillingCycleCalculator.cs` (per D13) — pure function `ResolveCycle(DateOnly purchaseDate, int cutoffDay)`: purchase on-or-before the cutoff day closes into the current cycle; purchase after opens the next cycle. Must be independently unit-testable — this is the exact mechanism behind PRD US-3 AC2.
+- [x] `Domain/PaymentPlan.cs`, `Installment.cs` — `Installment` carries its resolved billing cycle, `AccruedOnUtc` (nullable), and a paid/unpaid flag via `MonthlyStatement` linkage (needed for Phase 4's reversal check).
+- [x] `Domain/MonthlyStatement.cs` — aggregates installments accrued into a cycle for a card, tracks paid/unpaid.
+- [x] `Application/Commands/CreateCreditCard/CreateCreditCardHandler.cs`.
+- [x] `Application/Commands/CreatePaymentPlan/CreatePaymentPlanValidator.cs` + `Handler.cs` — uses `PhantomPennyAllocator` so `Σ(installments) == total` exactly; uses `BillingCycleCalculator` for the first installment's cycle; writes `PaymentPlanCreatedIntegrationEvent` to Financing's own Outbox in the same `SaveChangesAsync` transaction as the plan, only if a split payload is present (D8).
+- [x] `Application/Commands/PayStatement/PayStatementValidator.cs` + `Handler.cs` — calls `ILedgerApi` to post Dr Liability / Cr Bank (D2's second half); marks the statement paid. **Does not yet net any card credit** — that's added in Phase 4 once D12's compensating-entry flow exists.
+- [x] `Application/Scheduling/AccrueInstallments.cs` — `SchedulerBase`-derived; on cycle close, finds unaccrued installments whose cycle has closed, posts Dr Expense / Cr Liability via `ILedgerApi` (tagged with `InstallmentReference`), marks `AccruedOnUtc`, dispatches `InstallmentAccruedIntegrationEvent` (direct mode). **Idempotency guard mandatory**: re-running the tick must never double-accrue.
+- [x] `Infrastructure/Persistence/FinancingDbContext.cs` (history table `__EFMigrationsHistory_Financing`), `Configurations/` for all four entities.
+- [x] `Infrastructure/Persistence/Outbox/FinancingOutboxConfig.cs`, `Inbox/FinancingInboxConfig.cs` (Financing is a producer for `PaymentPlanCreated` only, no consumer role yet).
+- [x] `Infrastructure/Persistence/ReadViews/vw_card_future_schedule.sql` (RF-2's future-schedule half, D11 — not-yet-accrued installments only).
+- [x] `Infrastructure/PublicApi/FinancingApi.cs` — `internal`, implements `IFinancingApi`.
+- [x] `FinancingModule.cs`, migration, DI wiring, `Endpoints/FinancingEndpoints.cs` (`POST /financing/payment-plans`, `POST /financing/statements/{id}/pay`, `GET /financing/cards/{id}/future-schedule`). Card creation has no endpoint of its own here — it's reached via the unified endpoint below.
+- [x] Wire `AccrueInstallments` into host startup.
+- [x] **D13's unified instrument endpoint** — now that both `CreateAccountCommand` (Ledger, Phase 2) and `CreateCreditCardCommand` (Financing, this phase) exist: add `Bootstrap/PersonalFinance.Api/Endpoints/InstrumentsEndpoints.cs` with `POST /instruments`, a thin router with no domain logic that dispatches to `ILedgerApi` (type = debit/cash) or `IFinancingApi` (type = credit) based on the request's `type` field.
 
 ### Tests — `PersonalFinance.Financing.Tests`
-- [ ] `InstallmentAllocationTests.cs` — property-based: `Σ(installments) == total` for random totals/counts, no negative/zero shares.
-- [ ] `AccrualBoundaryTests.cs` — D11: unaccrued installment contributes $0 to `GetCardLiabilityQuery`, full amount to future-schedule view; reverse after accrual. Also add `BillingCycleCalculator` boundary tests here (purchase exactly on cutoff → current cycle; one day after → next cycle) — this is D13's mechanism and has no other home in DESIGN.md's named test list.
+- [x] `InstallmentAllocationTests.cs` — property-based: `Σ(installments) == total` for random totals/counts, no negative/zero shares.
+- [x] `AccrualBoundaryTests.cs` — D11: unaccrued installment contributes $0 to `GetCardLiabilityQuery`, full amount to future-schedule view; reverse after accrual. Also add `BillingCycleCalculator` boundary tests here (purchase exactly on cutoff → current cycle; one day after → next cycle) — this is D13's mechanism and has no other home in DESIGN.md's named test list.
 
 ### Tests — `PersonalFinance.Architecture.Tests` (create now — first point with ≥2 modules)
-- [ ] `ModuleIsolationTests.cs` — assert `Financing` doesn't reference `Ledger`'s impl assembly, only `Ledger.Contracts`. Pick and pin the inspection tool (reflection-based or a library like NetArchTest) — every later module phase extends this same test.
+- [x] `ModuleIsolationTests.cs` — assert `Financing` doesn't reference `Ledger`'s impl assembly, only `Ledger.Contracts`. Pick and pin the inspection tool (reflection-based or a library like NetArchTest) — every later module phase extends this same test.
 
 ### Definition of done
-- [ ] `Financing.Tests` and `Architecture.Tests` pass.
-- [ ] Manual smoke test: register a debit account, a cash account, and a credit card (all via `POST /instruments`), then two card purchases straddling the cutoff boundary, confirm they land in different cycles via `api.http`.
-- [ ] Confirm the plan-persisted/outbox-written same-transaction guarantee is real (test or manual check).
+- [x] `Financing.Tests` and `Architecture.Tests` pass.
+- [x] Manual smoke test: register a debit account, a cash account, and a credit card (all via `POST /instruments`), then two card purchases straddling the cutoff boundary, confirm they land in different cycles via `api.http`.
+- [x] Confirm the plan-persisted/outbox-written same-transaction guarantee is real (test or manual check).
+
+### Completion notes
+
+Completed 2026-08-30 (18-step plan `today-we-will-implement-playful-mitten.md`, one green-lightable step at a time).
+
+- **Deviations from the task list above:**
+  - **One expense account per card** (not per-purchase category): `CreateCreditCardHandler` provisions two Ledger accounts — `"{name} Liability"` (`Liability`/`CardLiability`) and `"{name} Purchases"` (`Expense`/`Expense`) — via `ILedgerApi.CreateAccountAsync`. `CreatePaymentPlanCommand` still carries no account ids; accrual/payment read them off `CreditCard`. Phase 3 has no category concept — revisit when categories land.
+  - **`AddOutboxProcessing()` pulled forward from Phase 8** into `Program.cs` (right after `AddModules`). Financing is the first real Outbox producer and the DoD needs the `PaymentPlanCreated` same-transaction guarantee observable. `/health` is still the bare `MapGet` stub — Phase 8 still owns `MapHealthChecks`.
+  - **`BillingCycle` persistence**: two plain `int` columns `CycleYear`/`CycleMonth` (backing fields on `Installment`, direct props on `MonthlyStatement`) — no `ValueConverter`, no `OwnsOne`. `Cycle` reconstructed in code.
+  - **Architecture-test tool**: dependency-free reflection over `Assembly.GetReferencedAssemblies()` (not NetArchTest). Less expressive (no namespace/transitive rules); revisit if deeper rules are wanted.
+  - **`GetInstallmentStatusAsync` / `GetCardFutureScheduleAsync` handlers** read base tables via LINQ through `IQueryBus`; `vw_card_future_schedule` exists for a future Reporting module (mirrors Phase 2).
+- **Bug fixed in passing**: `LedgerOutboxStore` / `FinancingOutboxStore` ordered the drain batch by `OccurredOnUtc` (a `DateTimeOffset`) — SQLite cannot `ORDER BY` / `MIN` / `MAX` that type. Both now order by the autoincrement `Id` (correct FIFO order anyway). Latent since Phase 2; surfaced once `OutboxWorker` actually started.
+- **DoD evidence (live smoke, 2026-08-30):**
+  - `POST /v1/instruments` — `debit`/`cash`/`credit` all → 200 + id; `credit` without `cutoffDate` → 400 `Instruments.CutoffRequired`; unknown type → 400 `Instruments.UnknownType`.
+  - Straddling the cutoff: purchase `2026-03-15` (cutoff day 15) → first installment cycle **2026-03**; purchase `2026-03-16` → first installment cycle **2026-04**. Different `(CycleYear, CycleMonth)`, confirmed via `future-schedule` and `SELECT ... FROM financing_installments`.
+  - Same-transaction guarantee: two no-split plans → `financing_outbox_messages` count `0`; one split plan → count `1`. Host SQL log shows plan C's `SaveChangesAsync` batching the 3 installment `INSERT`s + the 1 `financing_outbox_messages` `INSERT` together.
+  - `dotnet test --solution PersonalFinance.sln` → 20 passed / 0 failed / 0 skipped (Ledger 7 + Financing 11 + Architecture 2).
+- **Left for later phases:** the `// TODO(Phase 4)` D12 seam in `PayStatementHandler` (net `CarriedCreditBalance` before posting); `PostDevAccount` (`POST /v1/ledger/accounts`, dev-only) still mapped — its `// TODO(Phase 3): remove` is now stale, safe to drop once nothing else depends on it; the `PaymentPlanCreated` Outbox row has no consumer yet (Parties, Phase 6).
 
 ---
 

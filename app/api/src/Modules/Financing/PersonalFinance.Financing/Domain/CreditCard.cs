@@ -28,4 +28,21 @@ internal sealed class CreditCard : AggregateRoot<Guid> {
         }
         return new CreditCard(Guid.CreateVersion7(), name.Trim(), cutoffDay, liabilityAccountId, expenseAccountId, creditAccountId);
     }
+
+    public Result ApplyCredit(Money amount) {
+        if(amount.MinorUnits <= 0) {
+            return Result.Failure(FinancingErrors.NonPositiveCreditAmount);
+        }
+        CarriedCreditBalance += amount;
+        return Result.Success();
+    }
+
+    public Result ConsumeCredit(Money amount) {
+        if(amount.MinorUnits <= 0) {
+            return Result.Failure(FinancingErrors.NonPositiveCreditAmount);
+        }
+        var reduced = CarriedCreditBalance - amount;
+        CarriedCreditBalance = reduced.MinorUnits < 0 ? Money.Zero(Currency.Reference) : reduced;
+        return Result.Success();
+    }
 }

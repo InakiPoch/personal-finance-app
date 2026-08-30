@@ -16,6 +16,9 @@ internal sealed class InstallmentConfiguration : IEntityTypeConfiguration<Instal
         builder.Property(installment => installment.CycleMonth).IsRequired();
         builder.Property(installment => installment.AccruedOnUtc);
         builder.Property(installment => installment.StatementId);
+        builder.Property(installment => installment.IsReversed)
+            .HasDefaultValue(false)
+            .IsRequired();
         builder.Property(installment => installment.Amount)
             .HasConversion(
                 amount => amount.MinorUnits,

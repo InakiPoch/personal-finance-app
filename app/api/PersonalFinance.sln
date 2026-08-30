@@ -27,6 +27,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Ledger.Cont
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Ledger", "src\Modules\Ledger\PersonalFinance.Ledger\PersonalFinance.Ledger.csproj", "{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Ledger.Tests", "tests\PersonalFinance.Ledger.Tests\PersonalFinance.Ledger.Tests.csproj", "{BBAE9D5F-104B-4E67-A713-9984A476D073}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -109,6 +111,18 @@ Global
 		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|x64.Build.0 = Release|Any CPU
 		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|x86.ActiveCfg = Release|Any CPU
 		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A}.Release|x86.Build.0 = Release|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Debug|x64.Build.0 = Debug|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Debug|x86.Build.0 = Debug|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Release|x64.ActiveCfg = Release|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Release|x64.Build.0 = Release|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Release|x86.ActiveCfg = Release|Any CPU
+		{BBAE9D5F-104B-4E67-A713-9984A476D073}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -124,5 +138,6 @@ Global
 		{7B66EE4D-3EFE-4C38-AF85-29EEBC738EBE} = {24F419E3-6BC9-427E-BC3C-9EEE7BF7E1B2}
 		{BB182982-8CBE-430C-B1AA-45E9EFEDA61C} = {7B66EE4D-3EFE-4C38-AF85-29EEBC738EBE}
 		{A3C4BE81-F55D-4396-A988-C9D3BCE3245A} = {7B66EE4D-3EFE-4C38-AF85-29EEBC738EBE}
+		{BBAE9D5F-104B-4E67-A713-9984A476D073} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
 	EndGlobalSection
 EndGlobal

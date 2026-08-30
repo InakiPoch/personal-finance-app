@@ -148,3 +148,82 @@ Content-Type: application/json
 #   sqlite3 personalfinance.db "SELECT PaymentPlanId, Sequence, CycleYear, CycleMonth FROM financing_installments ORDER BY PaymentPlanId, Sequence;"
 
 ###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4 — Reversal Semantics (D12): reversal always succeeds; a paid installment
+# also gets a compensating card-credit entry that nets the card's NEXT statement.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Register a credit card for the reversal walkthrough (cutoff day 10)
+# @name reversalCard
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "Reversal Demo Card", "cutoffDate": 10 }
+
+### Plan R1 — one installment, purchase in a long-closed cycle so AccrueInstallments picks it up on the next tick
+# @name planR1
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 120000,
+  "cardId": "{{reversalCard.response.body.$.id}}",
+  "installmentCount": 1,
+  "purchaseDate": "2026-03-05"
+}
+
+### Future schedule — R1's row shows until AccrueInstallments runs (interval 1 min, also on startup), then it drops off
+GET {{financing}}/cards/{{reversalCard.response.body.$.id}}/future-schedule
+
+# Wait for accrual (Dr CardPurchases / Cr CardLiability, R1 rolled onto a MonthlyStatement). Then read the ids:
+#   sqlite3 personalfinance.db "SELECT s.Id FROM financing_monthly_statements s JOIN financing_installments i ON i.StatementId=s.Id JOIN financing_payment_plans p ON p.Id=i.PaymentPlanId JOIN financing_credit_cards c ON c.Id=p.CardId WHERE c.Name='Reversal Demo Card';"
+#   sqlite3 personalfinance.db "SELECT t.Id FROM ledger_transactions t JOIN financing_installments i ON i.Id=t.InstallmentReferenceId JOIN financing_payment_plans p ON p.Id=i.PaymentPlanId JOIN financing_credit_cards c ON c.Id=p.CardId WHERE c.Name='Reversal Demo Card' AND t.OriginalTransactionId IS NULL;"
+
+### Pay R1's accrued statement (paste the statement id)
+POST {{financing}}/statements/REPLACE_WITH_R1_STATEMENT_ID/pay
+Content-Type: application/json
+
+{ "bankAccountId": "{{checkingInstrument.response.body.$.id}}", "paidOnUtc": "2026-08-30T12:00:00Z" }
+
+### Reverse R1's accrual transaction (paste the accrual txn id) — expect { "compensatingEntryPosted": true }
+POST {{ledger}}/transactions/REPLACE_WITH_R1_ACCRUAL_TXN_ID/reversal
+
+# After the reversal:
+#   sqlite3 personalfinance.db "SELECT i.IsReversed FROM financing_installments i JOIN financing_payment_plans p ON p.Id=i.PaymentPlanId JOIN financing_credit_cards c ON c.Id=p.CardId WHERE c.Name='Reversal Demo Card';"                          -- expect 1
+#   sqlite3 personalfinance.db "SELECT CarriedCreditBalanceMinorUnits FROM financing_credit_cards WHERE Name='Reversal Demo Card';"                                                                                                                  -- expect 120000
+#   net CardLiability for the card (storno + compensating cancel) — expect 0:
+#   sqlite3 personalfinance.db "SELECT COALESCE(SUM(CASE e.Direction WHEN 'Debit' THEN e.AmountMinorUnits ELSE -e.AmountMinorUnits END),0) FROM ledger_entries e JOIN financing_credit_cards c ON c.LiabilityAccountId=e.AccountId WHERE c.Name='Reversal Demo Card';"
+
+### Future schedule after the reversal — R1 is gone for good (a reversed installment never re-accrues)
+GET {{financing}}/cards/{{reversalCard.response.body.$.id}}/future-schedule
+
+### Plan R2 — a fresh installment on the SAME card, to prove the carried 120000 credit nets the NEXT statement
+# @name planR2
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 200000,
+  "cardId": "{{reversalCard.response.body.$.id}}",
+  "installmentCount": 1,
+  "purchaseDate": "2026-04-05"
+}
+
+# Wait for accrual again, then read R2's statement id:
+#   sqlite3 personalfinance.db "SELECT s.Id, s.AmountDueMinorUnits FROM financing_monthly_statements s JOIN financing_installments i ON i.StatementId=s.Id JOIN financing_payment_plans p ON p.Id=i.PaymentPlanId JOIN financing_credit_cards c ON c.Id=p.CardId WHERE c.Name='Reversal Demo Card' AND i.CycleMonth=4;"
+
+### Pay R2's statement (paste the id) — amount due 200000, netted to Dr CardLiability 200000 / Cr Bank 80000 / Cr CardCredit 120000
+POST {{financing}}/statements/REPLACE_WITH_R2_STATEMENT_ID/pay
+Content-Type: application/json
+
+{ "bankAccountId": "{{checkingInstrument.response.body.$.id}}", "paidOnUtc": "2026-08-30T13:00:00Z" }
+
+# After paying R2:
+#   sqlite3 personalfinance.db "SELECT CarriedCreditBalanceMinorUnits FROM financing_credit_cards WHERE Name='Reversal Demo Card';"  -- expect 0 (credit fully consumed)
+#   the pay txn has 3 legs — Cr to the card's CreditAccountId = 120000, Cr to Bank = 80000, Dr CardLiability = 200000
+
+### Control — reversing an accrued-but-UNPAID installment: plain storno, { "compensatingEntryPosted": false }, installment still flagged reversed
+# (reverse any accrual txn whose installment was never rolled into a *paid* statement — e.g. one of the Phase 3 plan A/B accruals)
+
+###

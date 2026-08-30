@@ -8,9 +8,6 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Financing.Application.Commands.CreateCreditCard;
 
-/// <summary>
-/// Registers a <see cref="CreditCard"/>, provisioning its dedicated ledger accounts (liability + purchases) through <see cref="ILedgerApi"/>.
-/// </summary>
 internal sealed class CreateCreditCardHandler(FinancingDbContext context, ILedgerApi ledger) : ICommandHandler<CreateCreditCardCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(CreateCreditCardCommand command, CancellationToken cancellationToken) {
         var validation = CreateCreditCardValidator.Validate(command);
@@ -30,7 +27,14 @@ internal sealed class CreateCreditCardHandler(FinancingDbContext context, ILedge
         if(expenseAccount.IsFailure) {
             return expenseAccount.Error;
         }
-        var card = CreditCard.Create(name, command.CutoffDate, liabilityAccount.Value, expenseAccount.Value);
+        var creditAccount = await ledger.CreateAccountAsync(
+            new CreateAccountCommand($"{name} Credit", AccountType.Asset, AccountKind.CardCredit),
+            cancellationToken
+        );
+        if(creditAccount.IsFailure) {
+            return creditAccount.Error;
+        }
+        var card = CreditCard.Create(name, command.CutoffDate, liabilityAccount.Value, expenseAccount.Value, creditAccount.Value);
         if(card.IsFailure) {
             return card.Error;
         }

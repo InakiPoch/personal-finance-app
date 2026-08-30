@@ -33,6 +33,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Financing", "Financing", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Financing.Contracts", "src\Modules\Financing\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj", "{92AC2DF5-E06E-430C-8D86-85149673A61F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Financing", "src\Modules\Financing\PersonalFinance.Financing\PersonalFinance.Financing.csproj", "{4FDD22C4-5F73-4978-80F9-1B503B025BCE}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -139,6 +141,18 @@ Global
 		{92AC2DF5-E06E-430C-8D86-85149673A61F}.Release|x64.Build.0 = Release|Any CPU
 		{92AC2DF5-E06E-430C-8D86-85149673A61F}.Release|x86.ActiveCfg = Release|Any CPU
 		{92AC2DF5-E06E-430C-8D86-85149673A61F}.Release|x86.Build.0 = Release|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Debug|x64.Build.0 = Debug|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Debug|x86.Build.0 = Debug|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Release|x64.ActiveCfg = Release|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Release|x64.Build.0 = Release|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Release|x86.ActiveCfg = Release|Any CPU
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -157,5 +171,6 @@ Global
 		{BBAE9D5F-104B-4E67-A713-9984A476D073} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
 		{759E26B4-186F-7423-2DD4-7306E18692EE} = {24F419E3-6BC9-427E-BC3C-9EEE7BF7E1B2}
 		{92AC2DF5-E06E-430C-8D86-85149673A61F} = {759E26B4-186F-7423-2DD4-7306E18692EE}
+		{4FDD22C4-5F73-4978-80F9-1B503B025BCE} = {759E26B4-186F-7423-2DD4-7306E18692EE}
 	EndGlobalSection
 EndGlobal

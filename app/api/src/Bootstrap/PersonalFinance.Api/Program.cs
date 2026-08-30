@@ -18,6 +18,8 @@ builder.Services.PostConfigure<SqliteOptions>(options => {
 
 builder.Services.AddModules(builder.Configuration);
 
+builder.Services.AddOutboxProcessing();
+
 var app = builder.Build();
 
 if(app.Environment.IsDevelopment()) {

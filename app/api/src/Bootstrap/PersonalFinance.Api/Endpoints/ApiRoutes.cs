@@ -10,4 +10,11 @@ public sealed record ApiRoutes {
         public const string AccountBalance = "/accounts/{id:guid}/balance";
         public const string DevAccounts = "/accounts";
     }
+
+    public sealed record Financing {
+        public const string Base = V1 + "/financing";
+        public const string PaymentPlans = "/payment-plans";
+        public const string StatementPayment = "/statements/{id:guid}/pay";
+        public const string FutureSchedule = "/cards/{id:guid}/future-schedule";
+    }
 }

@@ -9,7 +9,7 @@ internal sealed class FinancingOutboxStore(FinancingDbContext context) : IOutbox
     public async Task<IReadOnlyList<OutboxMessage>> GetUnprocessedBatchAsync(int batchSize, CancellationToken cancellationToken) {
         return await context.Set<OutboxMessage>()
             .Where(message => message.ProcessedOnUtc == null)
-            .OrderBy(message => message.OccurredOnUtc)
+            .OrderBy(message => message.Id)
             .Take(batchSize)
         .ToListAsync(cancellationToken);
     }
@@ -34,7 +34,10 @@ internal sealed class FinancingOutboxStore(FinancingDbContext context) : IOutbox
         var count = await pending.CountAsync(cancellationToken);
         var oldest = count == 0
             ? null
-            : await pending.MinAsync(message => (DateTimeOffset?)message.OccurredOnUtc, cancellationToken);
+            : await pending
+                .OrderBy(message => message.Id)
+                .Select(message => (DateTimeOffset?)message.OccurredOnUtc)
+                .FirstOrDefaultAsync(cancellationToken);
         return new OutboxBacklog(count, oldest);
     }
 }

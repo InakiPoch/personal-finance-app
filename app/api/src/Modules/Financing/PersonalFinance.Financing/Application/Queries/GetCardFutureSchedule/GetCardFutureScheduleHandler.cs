@@ -11,6 +11,7 @@ internal sealed class GetCardFutureScheduleHandler(FinancingDbContext context) :
         var pending = await (
             from installment in context.Set<Installment>()
             where installment.AccruedOnUtc == null
+            where installment.IsReversed == false
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
             where plan.CardId == query.CardId
             orderby installment.CycleYear, installment.CycleMonth, installment.Sequence

@@ -8,21 +8,30 @@ namespace PersonalFinance.Financing.Application.Queries.GetInstallmentStatus;
 
 internal sealed class GetInstallmentStatusHandler(FinancingDbContext context) : IQueryHandler<GetInstallmentStatusQuery, InstallmentStatusResponse> {
     public async Task<InstallmentStatusResponse> HandleAsync(GetInstallmentStatusQuery query, CancellationToken cancellationToken) {
-        var installment = await context.Set<Installment>()
-            .FirstOrDefaultAsync(candidate => candidate.Id == query.InstallmentId, cancellationToken);
-        if(installment is null) {
-            return new InstallmentStatusResponse(false, false, false, null, 0);
+        var row = await (
+            from installment in context.Set<Installment>()
+            where installment.Id == query.InstallmentId
+            join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
+            join card in context.CreditCards on plan.CardId equals card.Id
+            select new { Installment = installment, Card = card }
+        ).FirstOrDefaultAsync(cancellationToken);
+        if(row is null) {
+            return new InstallmentStatusResponse(false, false, false, null, 0, false, Guid.Empty, Guid.Empty, Guid.Empty);
         }
         var paid = false;
-        if(installment.StatementId is Guid statementId) {
+        if(row.Installment.StatementId is Guid statementId) {
             paid = await context.MonthlyStatements.AnyAsync(statement => statement.Id == statementId && statement.PaidOnUtc != null, cancellationToken);
         }
         return new InstallmentStatusResponse(
             true,
-            installment.IsAccrued,
+            row.Installment.IsAccrued,
             paid,
-            installment.StatementId,
-            installment.Amount.MinorUnits
+            row.Installment.StatementId,
+            row.Installment.Amount.MinorUnits,
+            row.Installment.IsReversed,
+            row.Card.Id,
+            row.Card.CreditAccountId,
+            row.Card.LiabilityAccountId
         );
     }
 }

@@ -10,6 +10,7 @@ internal sealed class Installment : Entity<Guid> {
     public int CycleMonth { get; }
     public DateTimeOffset? AccruedOnUtc { get; private set; }
     public Guid? StatementId { get; private set; }
+    public bool IsReversed { get; private set; }
     public bool IsAccrued => AccruedOnUtc is not null;
     public BillingCycle Cycle => new(CycleYear, CycleMonth);
 
@@ -31,6 +32,14 @@ internal sealed class Installment : Entity<Guid> {
         }
         AccruedOnUtc = accruedOnUtc;
         StatementId = statement.Id;
+        return Result.Success();
+    }
+
+    public Result MarkReversed() {
+        if(IsReversed) {
+            return Result.Failure(FinancingErrors.InstallmentAlreadyReversed);
+        }
+        IsReversed = true;
         return Result.Success();
     }
 }

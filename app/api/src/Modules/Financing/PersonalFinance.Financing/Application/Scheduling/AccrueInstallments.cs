@@ -29,6 +29,7 @@ internal sealed class AccrueInstallments(IServiceScopeFactory scopeFactory, ILog
         var pending = await (
             from installment in context.Set<Installment>()
             where installment.AccruedOnUtc == null
+            where installment.IsReversed == false
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
             join card in context.CreditCards on plan.CardId equals card.Id
             select new { installment, card }

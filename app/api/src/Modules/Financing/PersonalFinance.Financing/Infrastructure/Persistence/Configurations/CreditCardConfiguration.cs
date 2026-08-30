@@ -14,6 +14,7 @@ internal sealed class CreditCardConfiguration : IEntityTypeConfiguration<CreditC
         builder.Property(card => card.CutoffDay).IsRequired();
         builder.Property(card => card.LiabilityAccountId).IsRequired();
         builder.Property(card => card.ExpenseAccountId).IsRequired();
+        builder.Property(card => card.CreditAccountId).IsRequired();
         builder.Property(card => card.CarriedCreditBalance)
             .HasConversion(
                 amount => amount.MinorUnits,

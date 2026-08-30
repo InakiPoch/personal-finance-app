@@ -32,15 +32,12 @@ internal static class LedgerMappingExtensions {
             Enum.Parse<AccountKind>(dto.Kind, ignoreCase: true)
         );
     }
-
-    extension(Guid transactionId) {
-        public PostTransactionResultDto ToPostTransactionResultDto() {
-            return new PostTransactionResultDto(transactionId);
-        }
-
-        public ReverseTransactionResultDto ToReverseTransactionResultDto(Guid originalTransactionId) {
-            return new ReverseTransactionResultDto(transactionId, originalTransactionId, CompensatingEntryPosted: false);
-        }
+    public static PostTransactionResultDto ToPostTransactionResultDto(this Guid transactionId) {
+        return new PostTransactionResultDto(transactionId);
+    }
+    
+    public static ReverseTransactionResultDto ToReverseTransactionResultDto(this ReverseTransactionResult result, Guid originalTransactionId) {
+        return new ReverseTransactionResultDto(result.ReversalTransactionId, originalTransactionId, result.CompensatingEntryPosted);
     }
     
     public static CreateAccountResultDto ToCreateAccountResultDto(this Guid accountId) {

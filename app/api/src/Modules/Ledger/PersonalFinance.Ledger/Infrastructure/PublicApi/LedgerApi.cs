@@ -15,7 +15,7 @@ internal sealed class LedgerApi(ICommandBus commandBus, IQueryBus queryBus) : IL
         return commandBus.SendAsync(command, ct);
     }
 
-    public Task<Result<Guid>> ReverseTransactionAsync(ReverseTransactionCommand command, CancellationToken ct = default) {
+    public Task<Result<ReverseTransactionResult>> ReverseTransactionAsync(ReverseTransactionCommand command, CancellationToken ct = default) {
         return commandBus.SendAsync(command, ct);
     }
 

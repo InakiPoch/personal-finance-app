@@ -35,7 +35,7 @@ public sealed class LedgerModule : IModule {
         services.AddScoped<TransactionWriter>();
         services.AddScoped<ICommandHandler<PostTransactionCommand, Guid>, PostTransactionHandler>();
         services.AddScoped<ICommandHandler<PostReceivableCommand, Guid>, PostReceivableHandler>();
-        services.AddScoped<ICommandHandler<ReverseTransactionCommand, Guid>, ReverseTransactionHandler>();
+        services.AddScoped<ICommandHandler<ReverseTransactionCommand, ReverseTransactionResult>, ReverseTransactionHandler>();
         services.AddScoped<ICommandHandler<CreateAccountCommand, Guid>, CreateAccountHandler>();
         services.AddScoped<IQueryHandler<GetAccountBalanceQuery, Money>, GetAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCardLiabilityQuery, Money>, GetCardLiabilityHandler>();

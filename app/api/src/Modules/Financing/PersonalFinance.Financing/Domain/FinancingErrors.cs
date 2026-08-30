@@ -33,6 +33,11 @@ internal static class FinancingErrors {
         "The referenced monthly statement was not found."
     );
 
+    public static readonly Error InstallmentNotFound = new(
+        "Financing.InstallmentNotFound",
+        "The referenced installment was not found."
+    );
+
     public static readonly Error InvalidBankAccount = new(
         "Financing.InvalidBankAccount",
         "A statement payment requires a valid bank account."
@@ -46,6 +51,16 @@ internal static class FinancingErrors {
     public static readonly Error InstallmentAlreadyAccrued = new(
         "Financing.InstallmentAlreadyAccrued",
         "The installment has already been accrued to the ledger."
+    );
+
+    public static readonly Error InstallmentAlreadyReversed = new(
+        "Financing.InstallmentAlreadyReversed",
+        "The installment has already been reversed."
+    );
+
+    public static readonly Error NonPositiveCreditAmount = new(
+        "Financing.NonPositiveCreditAmount",
+        "A card credit amount must be a positive number of minor units."
     );
 
     public static readonly Error InvalidSplitWeights = new(

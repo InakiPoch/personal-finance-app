@@ -10,7 +10,7 @@ namespace PersonalFinance.Api.Endpoints.Ledger;
 public static class ReverseTransaction {
     public static async Task<Results<Ok<ReverseTransactionResultDto>, BadRequest<ProblemDetails>>> Handle(Guid id, ICommandBus commandBus, CancellationToken cancellationToken) {
         var command = new ReverseTransactionCommand(id, DateTimeOffset.UtcNow);
-        var result = await commandBus.SendAsync<Guid>(command, cancellationToken);
+        var result = await commandBus.SendAsync<ReverseTransactionResult>(command, cancellationToken);
         if(result.IsFailure) {
             return ProblemResultsHelper.From(result.Error);
         }

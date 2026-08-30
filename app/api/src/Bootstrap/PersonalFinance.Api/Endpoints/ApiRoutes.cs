@@ -1,8 +1,10 @@
 namespace PersonalFinance.Api.Endpoints;
 
 public sealed record ApiRoutes {
+    public const string V1 = "/v1";
+
     public sealed record Ledger {
-        public const string Base = "/ledger";
+        public const string Base = V1 + "/ledger";
         public const string Transactions = "/transactions";
         public const string Reversal = "/transactions/{id:guid}/reversal";
         public const string AccountBalance = "/accounts/{id:guid}/balance";

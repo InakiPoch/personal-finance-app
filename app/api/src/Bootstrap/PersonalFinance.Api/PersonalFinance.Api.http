@@ -1,5 +1,5 @@
 @api_HostAddress = https://localhost:7095
-@ledger = {{api_HostAddress}}/ledger
+@ledger = {{api_HostAddress}}/v1/ledger
 
 ### Liveness probe (temporary — replaced by the real health check in Phase 8)
 GET {{api_HostAddress}}/health

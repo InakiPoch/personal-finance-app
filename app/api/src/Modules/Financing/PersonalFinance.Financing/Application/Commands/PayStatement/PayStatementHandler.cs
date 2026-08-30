@@ -10,7 +10,9 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.PayStatement;
 
 /// <summary>
-/// Pays a closed statement in full from a bank account, posting <c>Dr CardLiability / Cr Bank</c> to the ledger for the amount due (D2).
+/// Pays a closed statement in full. Any carried card credit from a reversed paid installment is netted first, turning the posting into
+/// <c>Dr CardLiability (amount due) / Cr Bank (remainder) / Cr CardCredit (credit applied)</c> and retiring the applied credit from the card.
+/// With no carried credit it stays the plain <c>Dr CardLiability / Cr Bank</c>.
 /// </summary>
 internal sealed class PayStatementHandler(FinancingDbContext context, ILedgerApi ledger) : ICommandHandler<PayStatementCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(PayStatementCommand command, CancellationToken cancellationToken) {
@@ -31,19 +33,25 @@ internal sealed class PayStatementHandler(FinancingDbContext context, ILedgerApi
         if(card is null) {
             return FinancingErrors.CardNotFound;
         }
-        // TODO(Phase 4): net card.CarriedCreditBalance before posting (D12).
+        var netted = StatementPaymentCalculator.Build(
+            card.CarriedCreditBalance,
+            statement.AmountDue,
+            card.LiabilityAccountId,
+            command.BankAccountId,
+            card.CreditAccountId
+        );
         var posting = await ledger.PostTransactionAsync(
-            new PostTransactionCommand(
-                [
-                    new PostTransactionLine(card.LiabilityAccountId, DebitOrCredit.Debit, statement.AmountDue),
-                    new PostTransactionLine(command.BankAccountId, DebitOrCredit.Credit, statement.AmountDue)
-                ],
-                command.PaidOnUtc
-            ),
+            new PostTransactionCommand(netted.Lines, command.PaidOnUtc),
             cancellationToken
         );
         if(posting.IsFailure) {
             return posting.Error;
+        }
+        if(netted.CreditApplied.MinorUnits > 0) {
+            var consumed = card.ConsumeCredit(netted.CreditApplied);
+            if(consumed.IsFailure) {
+                return consumed.Error;
+            }
         }
         var paid = statement.MarkPaid(command.PaidOnUtc);
         if(paid.IsFailure) {

@@ -46,7 +46,8 @@ internal sealed class AccrueInstallments(IServiceScopeFactory scopeFactory, ILog
                 candidate => candidate.CardId == card.Id
                     && candidate.CycleYear == installment.CycleYear
                     && candidate.CycleMonth == installment.CycleMonth,
-                cancellationToken);
+                cancellationToken
+            );
             if(statement is null) {
                 statement = MonthlyStatement.Open(card.Id, installment.Cycle);
                 context.MonthlyStatements.Add(statement);

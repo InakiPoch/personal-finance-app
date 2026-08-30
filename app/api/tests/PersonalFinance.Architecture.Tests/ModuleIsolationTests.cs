@@ -1,6 +1,8 @@
 using System.Reflection;
 using PersonalFinance.Financing;
 using PersonalFinance.Financing.Contracts;
+using PersonalFinance.Ledger;
+using PersonalFinance.Ledger.Contracts;
 using Xunit;
 
 namespace PersonalFinance.Architecture.Tests;
@@ -23,6 +25,22 @@ public class ModuleIsolationTests {
         var referenced = ReferencedAssemblyNames(typeof(IFinancingApi).Assembly);
         Assert.DoesNotContain("PersonalFinance.Ledger", referenced);
         Assert.DoesNotContain("PersonalFinance.Ledger.Contracts", referenced);
+    }
+
+    [Fact]
+    public void Ledger_module_sees_Financing_only_through_its_contracts_assembly() {
+        AssertModuleOnlyReferencesContracts(
+            typeof(LedgerModule).Assembly,
+            otherImplName: "PersonalFinance.Financing",
+            otherContractsName: "PersonalFinance.Financing.Contracts"
+        );
+    }
+
+    [Fact]
+    public void Ledger_contracts_assembly_references_no_Financing_assembly() {
+        var referenced = ReferencedAssemblyNames(typeof(ILedgerApi).Assembly);
+        Assert.DoesNotContain("PersonalFinance.Financing", referenced);
+        Assert.DoesNotContain("PersonalFinance.Financing.Contracts", referenced);
     }
 
     private static void AssertModuleOnlyReferencesContracts(Assembly implAssembly, string otherImplName, string otherContractsName) {

@@ -72,10 +72,8 @@ public class ExpenseSplitTests {
     [Fact]
     public void RecordAccrued_adds_to_the_accrued_receivable() {
         var split = NewSplit();
-
         Assert.True(split.RecordAccrued(Money.FromMinorUnits(150, currency)).IsSuccess);
         Assert.True(split.RecordAccrued(Money.FromMinorUnits(50, currency)).IsSuccess);
-
         Assert.Equal(200, split.AccruedReceivable.MinorUnits);
     }
 
@@ -84,9 +82,7 @@ public class ExpenseSplitTests {
     [InlineData(-10)]
     public void RecordAccrued_rejects_a_non_positive_amount(long minorUnits) {
         var split = NewSplit();
-
         var result = split.RecordAccrued(Money.FromMinorUnits(minorUnits, currency));
-
         Assert.True(result.IsFailure);
         Assert.Equal(PartiesErrors.NonPositiveAmount, result.Error);
         Assert.Equal(0, split.AccruedReceivable.MinorUnits);
@@ -97,9 +93,7 @@ public class ExpenseSplitTests {
     [InlineData(-10)]
     public void RecordReversed_rejects_a_non_positive_amount(long minorUnits) {
         var split = NewSplit();
-
         var result = split.RecordReversed(Money.FromMinorUnits(minorUnits, currency));
-
         Assert.True(result.IsFailure);
         Assert.Equal(PartiesErrors.NonPositiveAmount, result.Error);
         Assert.Equal(0, split.ReversedReceivable.MinorUnits);
@@ -109,9 +103,7 @@ public class ExpenseSplitTests {
     public void An_accrued_then_fully_reversed_split_keeps_both_counters_coherent() {
         var split = NewSplit();
         split.RecordAccrued(Money.FromMinorUnits(400, currency));
-
         split.RecordReversed(Money.FromMinorUnits(400, currency));
-
         Assert.Equal(400, split.AccruedReceivable.MinorUnits);
         Assert.Equal(400, split.ReversedReceivable.MinorUnits);
         Assert.Equal(

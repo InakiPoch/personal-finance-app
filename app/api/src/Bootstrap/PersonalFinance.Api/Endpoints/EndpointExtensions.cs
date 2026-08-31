@@ -1,5 +1,6 @@
 using PersonalFinance.Api.Endpoints.Financing;
 using PersonalFinance.Api.Endpoints.Ledger;
+using PersonalFinance.Api.Endpoints.Subscriptions;
 
 namespace PersonalFinance.Api.Endpoints;
 
@@ -28,6 +29,14 @@ internal static class EndpointExtensions {
         public IEndpointRouteBuilder MapInstrumentsEndpoints() {
             var group = endpoints.MapGroup(ApiRoutes.Instruments.Base);
             group.MapPost(ApiRoutes.Instruments.Create, PostInstrument.Handle);
+            return endpoints;
+        }
+
+        public IEndpointRouteBuilder MapSubscriptionsEndpoints() {
+            var group = endpoints.MapGroup(ApiRoutes.Subscriptions.Base);
+            group.MapPost(ApiRoutes.Subscriptions.Create, PostSubscription.Handle);
+            group.MapDelete(ApiRoutes.Subscriptions.Cancel, DeleteSubscription.Handle);
+            group.MapGet(ApiRoutes.Subscriptions.Active, GetActiveSubscriptions.Handle);
             return endpoints;
         }
     }

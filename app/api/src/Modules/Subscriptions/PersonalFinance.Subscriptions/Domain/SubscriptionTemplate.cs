@@ -32,7 +32,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         RecurrenceFrequency frequency,
         int anchorDay,
         DateOnly nextDueDate,
-        DateTimeOffset firstChargeOnUtc) : base(id) {
+        DateTimeOffset? lastRenewalOnUtc) : base(id) {
         Name = name;
         Amount = amount;
         Category = category;
@@ -42,7 +42,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         AnchorDay = anchorDay;
         NextDueDate = nextDueDate;
         IsActive = true;
-        LastRenewalOnUtc = firstChargeOnUtc;
+        LastRenewalOnUtc = lastRenewalOnUtc;
     }
 
     public static Result<SubscriptionTemplate> Create(

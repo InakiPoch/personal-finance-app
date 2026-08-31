@@ -390,23 +390,37 @@ Completed via the 19-step plan `today-we-will-implement-velvety-quilt.md`, one g
 **Depends on:** Phases 2, 3, 5, 6 (all views this phase queries must exist).
 
 ### Tasks
-- [ ] Create `PersonalFinance.Reporting` — **no reference to any module's Contracts or impl project**, only a raw SQLite connection to the shared file.
-- [ ] `ReadDbConnectionFactory.cs`.
-- [ ] `Sql/monthly_expenses.sql`, `card_due_by_month.sql`, `current_account_timeline.sql`, `debt_by_party.sql`.
-- [ ] `Dashboards/MonthlyExpensesQuery.cs` (RF-1/D9, queries `vw_ledger_monthly_expenses`).
-- [ ] `Dashboards/CardDueByMonthQuery.cs` (RF-2/D11 — the one query that legitimately joins two modules' `vw_*` views: `vw_card_liability_accrued` + `vw_card_future_schedule`; still respects D5 since both are public view surfaces).
-- [ ] `Reports/CurrentAccountTimelineQuery.cs` (RF-7), `Reports/DebtByPartyQuery.cs`.
-- [ ] `ReportingModule.cs` — registers query handlers via the shared `QueryBus`.
-- [ ] `Endpoints/ReportingEndpoints.cs`: `GET /reports/monthly-expenses`, `GET /reports/card-due-by-month`, `GET /reports/parties/{id}/timeline`, `GET /reports/parties/debt-summary`.
+- [x] Create `PersonalFinance.Reporting` (`src/Reporting/PersonalFinance.Reporting/`) — **no reference to any module's Contracts or impl project**, only a raw SQLite connection to the shared file. csproj references `PersonalFinance.Abstractions` + `PersonalFinance.Infrastructure` only, plus `Microsoft.Data.Sqlite` direct.
+- [x] `ReadDbConnectionFactory.cs` — `IReadDbConnectionFactory` + `internal sealed` impl; rewrites `SqliteOptions.ConnectionString` to `Mode=ReadOnly` via `SqliteConnectionStringBuilder`, applies `PRAGMA busy_timeout`. Plus `ReportingSqlHelper.Load(...)` for the embedded `Sql/*.sql`.
+- [x] `Sql/monthly_expenses.sql`, `card_due_by_month.sql`, `current_account_timeline.sql`, `debt_by_party.sql` — embedded resources (`<EmbeddedResource Include="Sql/*.sql" />`).
+- [x] `Dashboards/MonthlyExpensesQuery.cs` (RF-1/D9, queries `vw_ledger_monthly_expenses`; optional `$month` filter).
+- [x] `Dashboards/CardDueByMonthQuery.cs` (RF-2/D11 — `UNION ALL` of `vw_card_liability_accrued` (`Accrued` bucket, `CycleYear/CycleMonth = NULL`) + `vw_card_future_schedule` (`Future` bucket); tagged buckets, **not** a row-level join — no shared key exists across the two view surfaces; still respects D5 since both are public view surfaces).
+- [x] `Reports/CurrentAccountTimelineQuery.cs` (RF-7 — `GetPartyTimelineQuery`), `Reports/DebtByPartyQuery.cs` (`GetDebtByPartyQuery` — nets each party's movements to one row).
+- [x] `ReportingModule.cs` — `IModule`, `Name => "Reporting"`; `Register` registers `IReadDbConnectionFactory` (singleton) + the four closed-generic `IQueryHandler<,>` (scoped); `MapEndpoints` is a documented no-op (HTTP is host-owned). Endpoints call the handlers through the shared `IQueryBus`.
+- [x] Host endpoints (host-owned, not a module `ReportingEndpoints.cs`): `Endpoints/Reporting/{GetMonthlyExpenses,GetCardDueByMonth,GetPartyTimeline,GetDebtSummary}.cs` + `Endpoints/DTOs/ReportingDTOs.cs` + `Endpoints/Mapping/ReportingMappingExtensions.cs`; `ApiRoutes.Reporting` (`Base = V1 + "/reports"`); wired via `EndpointExtensions.MapReportingEndpoints()` + `ModuleRegistration.MapModuleEndpoints()`. Served under `/v1`: `GET /v1/reports/monthly-expenses`, `.../card-due-by-month`, `.../parties/{id:guid}/timeline`, `.../parties/debt-summary`.
 
 ### Tests
-- [ ] **Gap flag:** DESIGN.md names no Reporting test project. Recommend a small integration suite: seed data through the write-side command handlers, assert Reporting queries return matching numbers — closest thing to an RF-1/RF-2/RF-7 acceptance test.
-- [ ] Extend `ModuleIsolationTests.cs`: `Reporting` has zero project references to any module's Contracts or impl assembly.
+- [x] **Gap flag resolved — test project added** (repo owner approved). `tests/PersonalFinance.Reporting.Tests` — the repo's first true multi-context DI + migration integration harness: `ReportingIntegrationFixture` boots every module's `Register` + `AddSharedInfrastructure` against a throwaway SQLite file, migrates all four `DbContext`s (Ledger→Financing→Subscriptions→Parties), seeds through the write-side `.Contracts` (`ILedgerApi`/`IFinancingApi`/`IPartiesApi`), then asserts each Reporting query through `IQueryBus` (`MonthlyExpenses`, `CardDueByMonth`, `PartyTimeline`, `DebtByParty` — 4 facts). A deliberate divergence from the Phases 2–5 pure-domain convention, same class as Phase 6's EF-touching `OnPaymentPlanCreatedTests`.
+- [x] Extend `ModuleIsolationTests.cs`: `Reporting_references_no_module_contracts_or_impl_assembly` — `ReferencedAssemblyNames(typeof(ReportingModule).Assembly)` contains none of the 8 module assemblies (`PersonalFinance.{Ledger,Financing,Subscriptions,Parties}` × {impl, `.Contracts`}). `Architecture.Tests` project gains a `<ProjectReference>` to `PersonalFinance.Reporting`.
 
 ### Definition of done
-- [ ] Reporting builds with zero compile-time dependency on any module (verify `<ProjectReference>` list directly).
-- [ ] Manual smoke test: seed a debit expense, an accrued installment, a subscription renewal, a party split; hit all four Reporting endpoints and cross-check numbers.
-- [ ] Architecture-fitness test passes with Reporting included.
+- [x] Reporting builds with zero compile-time dependency on any module — `rg "ProjectReference" src/Reporting/PersonalFinance.Reporting/PersonalFinance.Reporting.csproj` shows only `Abstractions` + `Infrastructure`; the new `ModuleIsolationTests` fact pins it.
+- [x] Manual smoke test (live host, `PersonalFinance.Api.http` Phase-7 block, 2026-08-31): seeded a debit expense, a cash expense, a manual card accrual, a card future-schedule plan, and two party splits (one settled) — all four `/v1/reports/*` endpoints return HTTP 200 with cross-checked numbers. Subscription renewals need no dedicated seed: a subscription charge is a plain `Dr Expense` Ledger posting, already covered by `monthly-expenses`.
+- [x] Architecture-fitness test passes with Reporting included — `dotnet test --solution PersonalFinance.sln` → **115 passed** / 0 failed / 0 skipped (was 110 pre-Phase-7: +1 architecture fact, +4 integration facts).
+
+### Completion notes (2026-08-31)
+
+Completed via the 11-step plan `today-we-will-implement-quizzical-gem.md`, one green-lightable step at a time. Build 0W/0E and `dotnet test --solution` green (110 → 115) after every step. No EF migration this phase — Reporting has no `DbContext` by design.
+
+- **Reporting's shape deliberately differs from every prior module** (`docs/DESIGN.md` §6): single impl project, **no `.Contracts`, no `DbContext`/migration, no Outbox/Inbox**. Query records + handlers live in the impl project; the Bootstrap host (which already references every module impl to `new XModule()`) constructs the query records in its own endpoint handlers. This is the documented trade-off of a lean read-only leaf, not an omission.
+- **Read path is raw ADO** (`SqliteConnection`/`SqliteCommand`/`DbDataReader`, no Dapper — none in the repo), against a connection opened in `Mode=ReadOnly`. Every `.sql` body references only `vw_*` names — verified by inspection (D5/RNF-6).
+- **`ReadDbConnectionFactory` is Reporting-owned** (`docs/DESIGN.md` §6 names the file). A read-only handle is a real safety property for a read-only module — a write attempt fails at the driver.
+- **`CardDueByMonthQuery` does not fake a join.** `vw_card_liability_accrued` is keyed by the Ledger liability account **name**; `vw_card_future_schedule` by the Financing `CardId` **GUID**. The query `UNION ALL`s them as tagged `Accrued` / `Future` buckets — no row-level correlation, because no shared key exists across the two public view surfaces.
+- **`ReportingIntegrationFixture` design notes** (first multi-context harness): `Host.CreateApplicationBuilder()` + `FrameworkReference Microsoft.AspNetCore.App` (no `Directory.Packages.props` edits); discovers `DbContext` types by scanning `builder.Services` descriptors (all four are `internal` — resolved via non-generic `GetRequiredService(Type)` cast to the public `DbContext` base, no `InternalsVisibleTo`); migrates Ledger **before** Parties (`vw_current_account_timeline` joins the Ledger-published `vw_receivable_account_movements`); `host.Build()` but never `StartAsync()` so the registered schedulers never tick → deterministic; test config uses `JournalMode=DELETE` so no WAL sidecars fight the read-only connection in the single-threaded test.
+- **Flagged for Phase 10 doc-sync (consumed as-is, NOT fixed here — fixing would mean Reporting knowing a module's internals):**
+  - **RF-1 view leak:** `vw_ledger_monthly_expenses` filters `Type='Expense' AND Kind<>'Receivable'`, so per-card `*Purchases*` buckets (`Kind='Expense'`) appear in the "debit & cash" monthly summary that US-1 AC2 says should exclude credit. Confirmed live in the Phase-7 smoke (`P7 Card Purchases` 12000 shows up in `monthly-expenses`).
+  - **RF-2 card-identity gap:** no shared join key between the Accrued bucket (Ledger account name) and the Future bucket (Financing `CardId` GUID). Sharper edge found in Step 10: the Future bucket's `CardId` surfaces **UPPERCASE** (raw EF/SQLite `TEXT`) while any id a client got from a POST response is lowercase — there isn't even a case-safe string key. A future Ledger view could surface the Financing `CardId` to close this.
+  - **DebtByParty** omits zero-movement parties — `vw_current_account_timeline` inner-joins movements. Acceptable; noted.
 
 ---
 
@@ -462,6 +476,8 @@ Completed via the 19-step plan `today-we-will-implement-velvety-quilt.md`, one g
 - [ ] Confirm PRD §8's utility-metric candidates are checkable in principle against seeded test data (real bank reconciliation itself requires real usage over time, out of scope for this checkpoint).
 - [ ] Revisit D12's netting behavior and D13's `POST /instruments` routing one more time now that the full Fase-1 flow works end-to-end, to catch any follow-on inconsistency integration surfaced that Phases 2–4 didn't.
 - [ ] **Doc-sync from Phase 4:** correct `docs/DESIGN.md` D12's worked example — the compensating entry's credit leg is `Pasivo:Tarjeta` (`Cr CardLiability`), not `Gasto:Categoría`. Phase 4 posts the storno **always**, so crediting `Gasto` again would double-count the expense; the implementation (`ReverseTransactionHandler` + `ReversalCalculator`) uses `Dr CardCredit / Cr CardLiability`.
+- [ ] **Doc-sync from Phase 7 (RF-1 view leak):** `vw_ledger_monthly_expenses` (`Type='Expense' AND Kind<>'Receivable'`) leaks per-card `*Purchases*` buckets (`Kind='Expense'`) into RF-1's "debit & cash" monthly summary, which US-1 AC2 says should exclude credit. Decide the fix (exclude card-purchase `Kind`s, or add an explicit "card spend" line) and reconcile the doc — Phase 7 consumed the view as-is.
+- [ ] **Doc-sync from Phase 7 (RF-2 card-identity gap):** `vw_card_liability_accrued` is keyed by the Ledger liability account **name**, `vw_card_future_schedule` by the Financing `CardId` **GUID** (which surfaces UPPERCASE from raw EF/SQLite `TEXT` while a client's POST-response id is lowercase). No shared, case-safe join key exists, so `card-due-by-month` can only present tagged `Accrued`/`Future` buckets, never a per-card row join. Consider a Ledger view that surfaces the Financing `CardId`.
 
 ### Definition of done
 - [ ] Every Fase-1 acceptance criterion in PRD §6 has a corresponding passing manual/automated check.

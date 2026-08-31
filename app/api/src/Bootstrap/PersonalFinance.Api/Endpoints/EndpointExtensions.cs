@@ -1,6 +1,7 @@
 using PersonalFinance.Api.Endpoints.Financing;
 using PersonalFinance.Api.Endpoints.Ledger;
 using PersonalFinance.Api.Endpoints.Parties;
+using PersonalFinance.Api.Endpoints.Reporting;
 using PersonalFinance.Api.Endpoints.Subscriptions;
 
 namespace PersonalFinance.Api.Endpoints;
@@ -48,6 +49,15 @@ internal static class EndpointExtensions {
             group.MapPost(ApiRoutes.Parties.Settle, PostSettlement.Handle);
             group.MapGet(ApiRoutes.Parties.Balance, GetBalance.Handle);
             group.MapGet(ApiRoutes.Parties.Timeline, GetTimeline.Handle);
+            return endpoints;
+        }
+
+        public IEndpointRouteBuilder MapReportingEndpoints() {
+            var group = endpoints.MapGroup(ApiRoutes.Reporting.Base);
+            group.MapGet(ApiRoutes.Reporting.MonthlyExpenses, GetMonthlyExpenses.Handle);
+            group.MapGet(ApiRoutes.Reporting.CardDueByMonth, GetCardDueByMonth.Handle);
+            group.MapGet(ApiRoutes.Reporting.PartyTimeline, GetPartyTimeline.Handle);
+            group.MapGet(ApiRoutes.Reporting.DebtSummary, GetDebtSummary.Handle);
             return endpoints;
         }
     }

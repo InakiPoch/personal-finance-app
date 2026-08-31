@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="PersonalFinance.Reporting.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Sql/*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Data.Sqlite" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Shared\PersonalFinance.Abstractions\PersonalFinance.Abstractions.csproj" />
+    <ProjectReference Include="..\..\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

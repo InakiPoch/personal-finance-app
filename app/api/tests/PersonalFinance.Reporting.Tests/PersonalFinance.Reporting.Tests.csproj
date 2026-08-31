@@ -5,20 +5,27 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
     <PackageReference Include="coverlet.collector" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Modules\Financing\PersonalFinance.Financing\PersonalFinance.Financing.csproj" />
-    <ProjectReference Include="..\..\src\Modules\Financing\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Reporting\PersonalFinance.Reporting\PersonalFinance.Reporting.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ledger\PersonalFinance.Ledger\PersonalFinance.Ledger.csproj" />
     <ProjectReference Include="..\..\src\Modules\Ledger\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Financing\PersonalFinance.Financing\PersonalFinance.Financing.csproj" />
+    <ProjectReference Include="..\..\src\Modules\Financing\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Subscriptions\PersonalFinance.Subscriptions\PersonalFinance.Subscriptions.csproj" />
     <ProjectReference Include="..\..\src\Modules\Subscriptions\PersonalFinance.Subscriptions.Contracts\PersonalFinance.Subscriptions.Contracts.csproj" />
     <ProjectReference Include="..\..\src\Modules\Parties\PersonalFinance.Parties\PersonalFinance.Parties.csproj" />
     <ProjectReference Include="..\..\src\Modules\Parties\PersonalFinance.Parties.Contracts\PersonalFinance.Parties.Contracts.csproj" />
-    <ProjectReference Include="..\..\src\Reporting\PersonalFinance.Reporting\PersonalFinance.Reporting.csproj" />
+    <ProjectReference Include="..\..\src\Shared\PersonalFinance.Abstractions\PersonalFinance.Abstractions.csproj" />
+    <ProjectReference Include="..\..\src\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Shared\PersonalFinance.SharedKernel\PersonalFinance.SharedKernel.csproj" />
   </ItemGroup>
 </Project>

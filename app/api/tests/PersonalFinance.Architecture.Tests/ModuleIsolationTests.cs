@@ -3,6 +3,8 @@ using PersonalFinance.Financing;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Ledger;
 using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Subscriptions;
+using PersonalFinance.Subscriptions.Contracts;
 using Xunit;
 
 namespace PersonalFinance.Architecture.Tests;
@@ -41,6 +43,33 @@ public class ModuleIsolationTests {
         var referenced = ReferencedAssemblyNames(typeof(ILedgerApi).Assembly);
         Assert.DoesNotContain("PersonalFinance.Financing", referenced);
         Assert.DoesNotContain("PersonalFinance.Financing.Contracts", referenced);
+    }
+
+    [Fact]
+    public void Subscriptions_module_sees_Ledger_only_through_its_contracts_assembly() {
+        AssertModuleOnlyReferencesContracts(
+            typeof(SubscriptionsModule).Assembly,
+            otherImplName: "PersonalFinance.Ledger",
+            otherContractsName: "PersonalFinance.Ledger.Contracts"
+        );
+    }
+
+    [Fact]
+    public void Subscriptions_contracts_assembly_references_no_module_implementation() {
+        var referenced = ReferencedAssemblyNames(typeof(ISubscriptionsApi).Assembly);
+        Assert.DoesNotContain("PersonalFinance.Ledger", referenced);
+        Assert.DoesNotContain("PersonalFinance.Ledger.Contracts", referenced);
+        Assert.DoesNotContain("PersonalFinance.Financing", referenced);
+        Assert.DoesNotContain("PersonalFinance.Financing.Contracts", referenced);
+    }
+
+    [Fact]
+    public void Subscriptions_module_does_not_reference_Financing_or_Parties() {
+        var referenced = ReferencedAssemblyNames(typeof(SubscriptionsModule).Assembly);
+        Assert.DoesNotContain("PersonalFinance.Financing", referenced);
+        Assert.DoesNotContain("PersonalFinance.Financing.Contracts", referenced);
+        Assert.DoesNotContain("PersonalFinance.Parties", referenced);
+        Assert.DoesNotContain("PersonalFinance.Parties.Contracts", referenced);
     }
 
     private static void AssertModuleOnlyReferencesContracts(Assembly implAssembly, string otherImplName, string otherContractsName) {

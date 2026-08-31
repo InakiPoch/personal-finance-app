@@ -2,6 +2,7 @@
 @ledger = {{api_HostAddress}}/v1/ledger
 @instruments = {{api_HostAddress}}/v1/instruments
 @financing = {{api_HostAddress}}/v1/financing
+@subscriptions = {{api_HostAddress}}/v1/subscriptions
 
 ### Liveness probe (temporary — replaced by the real health check in Phase 8)
 GET {{api_HostAddress}}/health
@@ -225,5 +226,76 @@ Content-Type: application/json
 
 ### Control — reversing an accrued-but-UNPAID installment: plain storno, { "compensatingEntryPosted": false }, installment still flagged reversed
 # (reverse any accrual txn whose installment was never rolled into a *paid* statement — e.g. one of the Phase 3 plan A/B accruals)
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 5 — Subscriptions: recurring charges that self-renew on a clock (US-5).
+# Charged the moment you subscribe; RenewDueSubscriptions (interval 1 min, also
+# on startup) owns every period after that. Depends on Ledger only.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### Register a debit instrument to fund the subscriptions — routes to ILedgerApi (Asset / Bank)
+# @name subsFunding
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "debit", "name": "Subscriptions Checking" }
+
+### AC1 — subscribe once; the first period is charged synchronously inside the create handler
+# @name netflix
+POST {{subscriptions}}
+Content-Type: application/json
+
+{
+  "name": "Netflix",
+  "amountMinorUnits": 1500,
+  "category": "Streaming",
+  "fundingAccountId": "{{subsFunding.response.body.$.id}}",
+  "frequency": "Monthly",
+  "anchorDay": 15
+}
+
+### AC1 — the auto-provisioned "Netflix Expense" account already shows the first charge (+1500)
+# Read its id, then hit the balance endpoint:
+#   sqlite3 personalfinance.db "SELECT Id FROM ledger_accounts WHERE Name = 'Netflix Expense';"
+GET {{ledger}}/accounts/REPLACE_WITH_NETFLIX_EXPENSE_ACCOUNT_ID/balance
+
+### AC1 — the subscription is listed as active, NextDueDate = the next anchor-day occurrence
+GET {{subscriptions}}/active
+
+### AC2 — force a renewal: point NextDueDate into the past, then wait one scheduler tick (~60 s)
+# @name spotify
+POST {{subscriptions}}
+Content-Type: application/json
+
+{
+  "name": "Spotify",
+  "amountMinorUnits": 999,
+  "category": "Streaming",
+  "fundingAccountId": "{{subsFunding.response.body.$.id}}",
+  "frequency": "Monthly",
+  "anchorDay": 10
+}
+
+# Make Spotify due in the past (the scheduler renews `IsActive AND NextDueDate <= today`):
+#   sqlite3 personalfinance.db "UPDATE subscriptions_templates SET NextDueDate = '2026-08-01' WHERE Name = 'Spotify';"
+# After ~60 s:
+#   - GET {{subscriptions}}/active shows Spotify's NextDueDate advanced one period and LastRenewalOnUtc stamped
+#   - "Spotify Expense" balance rose by a second 999 charge
+#   - a second ledger_transactions row is tagged with the subscription reference:
+#     sqlite3 personalfinance.db "SELECT COUNT(*) FROM ledger_transactions WHERE SubscriptionReferenceId = (SELECT Id FROM subscriptions_templates WHERE Name = 'Spotify');"  -- expect 2
+GET {{subscriptions}}/active
+
+### AC3 — cancel stops future renewals; charges already generated are untouched
+DELETE {{subscriptions}}/{{netflix.response.body.$.id}}
+
+### AC3 — Netflix no longer listed; vw_active_subscriptions no longer returns it; the past +1500 charge is still in the Ledger
+#   sqlite3 personalfinance.db "SELECT Name, IsActive FROM subscriptions_templates;"                     -- Netflix IsActive = 0
+#   sqlite3 personalfinance.db "SELECT COUNT(*) FROM vw_active_subscriptions WHERE Name = 'Netflix';"    -- expect 0
+GET {{subscriptions}}/active
+
+### AC3 — cancelling again is idempotent → still 204
+DELETE {{subscriptions}}/{{netflix.response.body.$.id}}
 
 ###

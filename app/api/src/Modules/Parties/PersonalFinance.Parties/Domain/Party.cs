@@ -17,4 +17,8 @@ internal sealed class Party : AggregateRoot<Guid> {
         }
         return new Party(Guid.CreateVersion7(), name.Trim(), receivableAccountId);
     }
+    
+    internal static Party Placeholder(Guid id, Guid receivableAccountId) {
+        return new Party(id, $"Party {id}", receivableAccountId);
+    }
 }

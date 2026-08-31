@@ -23,6 +23,11 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
                 reference => reference == null ? (Guid?)null : reference.Value,
                 value => value == null ? null : new InstallmentReference(value.Value))
             .HasColumnName("InstallmentReferenceId");
+        builder.Property(transaction => transaction.SubscriptionReference)
+            .HasConversion(
+                reference => reference == null ? (Guid?)null : reference.Value,
+                value => value == null ? null : new SubscriptionReference(value.Value))
+            .HasColumnName("SubscriptionReferenceId");
         builder.Ignore(transaction => transaction.IsReversal);
         builder.Ignore(transaction => transaction.DomainEvents);
         builder.HasMany(transaction => transaction.Entries)

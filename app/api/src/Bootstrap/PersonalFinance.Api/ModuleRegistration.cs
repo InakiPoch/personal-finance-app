@@ -2,11 +2,12 @@ using PersonalFinance.Abstractions.Modularity;
 using PersonalFinance.Api.Endpoints;
 using PersonalFinance.Financing;
 using PersonalFinance.Ledger;
+using PersonalFinance.Subscriptions;
 
 namespace PersonalFinance.Api;
 
 internal static class ModuleRegistration {
-    private static readonly IModule[] modules = [new LedgerModule(), new FinancingModule()];
+    private static readonly IModule[] modules = [new LedgerModule(), new FinancingModule(), new SubscriptionsModule()];
 
     public static IServiceCollection AddModules(this IServiceCollection services, IConfiguration configuration) {
         foreach(var module in modules) {
@@ -22,6 +23,7 @@ internal static class ModuleRegistration {
         endpoints.MapLedgerEndpoints();
         endpoints.MapFinancingEndpoints();
         endpoints.MapInstrumentsEndpoints();
+        endpoints.MapSubscriptionsEndpoints();
         return endpoints;
     }
 }

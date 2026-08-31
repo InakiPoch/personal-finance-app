@@ -266,30 +266,56 @@ Completed via the 10-step plan `today-we-will-implement-drifting-nautilus.md`, o
 **Depends on:** Phase 2 (`ILedgerApi`) only — no dependency on Financing or Parties.
 
 ### Tasks — Contracts (`PersonalFinance.Subscriptions.Contracts`)
-- [ ] `ISubscriptionsApi.cs`.
-- [ ] `Commands/CreateSubscriptionTemplateCommand.cs`, `RenewSubscriptionCommand.cs`.
-- [ ] `IntegrationEvents/SubscriptionRenewedIntegrationEvent.cs` — direct/in-process dispatch (same reasoning as `InstallmentAccrued`).
+- [x] `ISubscriptionsApi.cs` — `CreateSubscriptionTemplateAsync` / `RenewSubscriptionAsync` (`Result<Guid>`), `CancelSubscriptionAsync` (`Result`), `GetActiveSubscriptionsAsync` (`ActiveSubscriptionsResponse`). No cross-module consumer yet; host endpoints use the buses directly.
+- [x] `Commands/CreateSubscriptionTemplateCommand.cs` (`Name`, `AmountMinorUnits`, `Category`, `FundingAccountId`, `Frequency`, `AnchorDay`), `RenewSubscriptionCommand.cs` (`SubscriptionId`, `RenewedOnUtc`; result = posted txn id), `CancelSubscriptionCommand.cs`.
+- [x] `Queries/GetActiveSubscriptionsQuery.cs` + `ActiveSubscriptionsResponse` / `ActiveSubscriptionRow`.
+- [x] `RecurrenceFrequency` enum — `Monthly = 1` only; explicit seam for Weekly/Annually.
+- [x] `IntegrationEvents/SubscriptionRenewedIntegrationEvent.cs` — direct/in-process dispatch (same reasoning as `InstallmentAccrued`). No handler registered in Phase 5 (dispatcher fans out to zero handlers).
 
 ### Tasks — Domain (`PersonalFinance.Subscriptions`)
-- [ ] `Domain/SubscriptionTemplate.cs` — amount, payment-instrument reference, category.
-- [ ] `Domain/RecurrenceRule.cs` — frequency, anchor date.
-- [ ] `Domain/RenewalSchedule.cs` — next-due date, active/cancelled flag (US-5 AC3: cancelling stops future renewals, never touches past charges — a status flag checked by the scheduler, never a delete).
-- [ ] `Application/Commands/CreateSubscriptionTemplate/Handler.cs`.
-- [ ] `Application/Commands/RenewSubscription/Handler.cs` — posts the period charge via `ILedgerApi`, advances `NextDueDate`.
-- [ ] `Application/Scheduling/RenewDueSubscriptions.cs` — finds active templates past due, invokes the renew handler, dispatches `SubscriptionRenewedIntegrationEvent` (direct mode). Idempotency guard: never renew twice for the same due date.
-- [ ] `Infrastructure/Persistence/SubscriptionsDbContext.cs` (history table `__EFMigrationsHistory_Subscriptions`), configurations, Outbox/Inbox tables (unused, kept for folder-tree symmetry), migration.
-- [ ] `Infrastructure/Persistence/ReadViews/vw_active_subscriptions.sql`.
-- [ ] `Infrastructure/PublicApi/SubscriptionsApi.cs`, `SubscriptionsModule.cs`, DI wiring, `Endpoints/SubscriptionsEndpoints.cs` (`POST /subscriptions`, `DELETE /subscriptions/{id}`, `GET /subscriptions/active`).
-- [ ] Wire `RenewDueSubscriptions` into host startup.
+- [x] `Domain/SubscriptionTemplate.cs` — `AggregateRoot<Guid>`: amount (`Money`), funding + expense account ids, category, `Frequency`/`AnchorDay`, `NextDueDate`, `IsActive`, `LastRenewalOnUtc`. `Create` validation table; `Renew` guards `IsActive` then advances via `Recurrence.Next`; `Cancel` idempotent, never touches past state (AC3).
+- [x] `Domain/RecurrenceRule.cs` — `(Frequency, AnchorDay)` value object; `Create` bounds `anchorDay` 1–31; `Next(after)` = earliest anchor-day occurrence strictly after `after`, clamped to month length, rolls month/year.
+- [x] `Domain/RenewalSchedule.cs` — `(NextDueDate, IsActive)`; `Advance(rule)` / `Deactivate()`. A code-side projection of the aggregate's columns — the scheduler checks the flag, never a delete (US-5 AC3).
+- [x] `Domain/SubscriptionErrors.cs` — `InvalidName` / `InvalidCategory` / `NonPositiveAmount` / `InvalidAnchorDay` / `InvalidFundingAccount` / `SubscriptionNotFound` / `SubscriptionNotActive`.
+- [x] `Application/SubscriptionChargeCalculator.cs` — pure; `Build(...)` → `Dr Expense / Cr Funding` tagged `SubscriptionReferenceId`. Shared by create + renew.
+- [x] `Application/Commands/CreateSubscriptionTemplate/Handler.cs` + `Validator` — provisions the `{Name} Expense` Ledger account via `ILedgerApi`, posts the **first period charge synchronously** (charge is the commit point), then `SaveChanges`.
+- [x] `Application/Commands/RenewSubscription/Handler.cs` + `Validator` — load → `SubscriptionNotFound` / `SubscriptionNotActive` → post the period charge via `ILedgerApi` → `template.Renew()` → `SaveChanges`; returns the posted txn id.
+- [x] `Application/Commands/CancelSubscription/Handler.cs` + `Validator` — load → `SubscriptionNotFound` → `template.Cancel()` → `SaveChanges`.
+- [x] `Application/Queries/GetActiveSubscriptions/Handler.cs` — `Where(IsActive).OrderBy(NextDueDate)` → `ActiveSubscriptionRow` projection.
+- [x] `Application/Scheduling/RenewDueSubscriptions.cs` — `SchedulerBase`, interval 1 min, `RunOnStartup`; finds `IsActive && NextDueDate <= today`, sends `RenewSubscriptionCommand` **through `ICommandBus`** (not `ILedgerApi` — no new project ref), dispatches `SubscriptionRenewedIntegrationEvent` (direct mode) after each success. Idempotency: the date filter + the handler advancing `NextDueDate` in Subscriptions' own transaction; residual crash-window is the same accepted risk as `AccrueInstallments`.
+- [x] `Infrastructure/Persistence/SubscriptionsDbContext.cs` (history table `__EFMigrationsHistory_Subscriptions`), `SubscriptionTemplateConfiguration`, `SubscriptionsDbContextFactory` + `DesignTimeSqliteConnectionFactory` + `ReadViewSqlHelper` copies, Outbox/Inbox config+store+writer (unused — kept for folder-tree symmetry and to keep `IOutboxStore` enumeration complete), migrations `InitialSubscriptionsSchema` + `SubscriptionsReadViews`.
+- [x] `Infrastructure/Persistence/ReadViews/vw_active_subscriptions.sql` — embedded resource, created by the hand-authored `SubscriptionsReadViews` migration.
+- [x] `Infrastructure/PublicApi/SubscriptionsApi.cs`, `SubscriptionsModule.cs`, DI wiring, host-owned `Endpoints/Subscriptions/{PostSubscription,DeleteSubscription,GetActiveSubscriptions}.cs` (`POST /v1/subscriptions`, `DELETE /v1/subscriptions/{id}`, `GET /v1/subscriptions/active`) + `ApiRoutes.Subscriptions` + DTOs + `SubscriptionMappingExtensions`.
+- [x] Wire `RenewDueSubscriptions` into host startup — `AddHostedService<RenewDueSubscriptions>()` in `SubscriptionsModule.Register`, module added to `ModuleRegistration`.
 
 ### Tests
-- [ ] **Gap flag:** DESIGN.md §6 names no `PersonalFinance.Subscriptions.Tests` project. Recommend adding one anyway — `RecurrenceRuleTests` (monthly renewal on the 31st of a 30-day month, leap-year Feb 29 anchors) and `RenewDueSubscriptionsIdempotencyTests` — same class of boundary risk as `BillingCycleCalculator`. Confirm with the repo owner whether to add it or accept the gap.
-- [ ] Extend `ModuleIsolationTests.cs` to cover Subscriptions.
+- [x] **Gap flag resolved — test project added** (repo owner approved). `tests/PersonalFinance.Subscriptions.Tests` (xUnit v3, pure-domain, mirrors `PersonalFinance.Financing.Tests`): `RecurrenceRuleTests` (anchor 15 before/on/after; 31st into non-leap Feb → 28, leap Feb → 29, 30-day month → 30; 29th leap vs non-leap; roll past a clamped Feb anchor; December → January year roll; `Create` rejects 0 / 32 / -1) and `SubscriptionTemplateTests` (`Create` validation table + name/category trim; `Renew` advances `NextDueDate` one period + stamps `LastRenewalOnUtc`; `Renew` after `Cancel` → `SubscriptionNotActive`, due date untouched; `Cancel` idempotent; cancelled reports `IsActive == false` — AC3). `RenewDueSubscriptions` idempotency is covered by the `api.http` E2E smoke (the pure-domain project has no DB harness, per the Phase 4 note).
+- [x] Extend `ModuleIsolationTests.cs` to cover Subscriptions — `Subscriptions_module_sees_Ledger_only_through_its_contracts_assembly`, `Subscriptions_contracts_assembly_references_no_module_implementation`, `Subscriptions_module_does_not_reference_Financing_or_Parties`.
 
 ### Definition of done
-- [ ] Subscriptions builds, migrates, endpoints work via `api.http`.
-- [ ] Architecture-fitness test still passes.
-- [ ] The test-project decision above is either implemented or explicitly recorded as an accepted gap.
+- [x] Subscriptions builds, migrates, endpoints work via `api.http` — `dotnet build` 0W/0E; both migrations applied to `personalfinance.db` (`subscriptions_templates` / `subscriptions_outbox_messages` / `subscriptions_inbox_consumed` + `vw_active_subscriptions`); live smoke on `:5003` walked US-5 AC1/AC2/AC3 (see Completion notes).
+- [x] Architecture-fitness test still passes — `dotnet test --solution` green, **75 passed** / 0 failed / 0 skipped (was 40 pre-Phase-5).
+- [x] The test-project decision is implemented (see above), not recorded as a gap.
+
+### Completion notes
+
+**US-5 acceptance criteria walked (live smoke, host on `:5003`, `ASPNETCORE_ENVIRONMENT=Development`):**
+- **AC1 — define once, charged on subscribe.** `POST /v1/instruments {type:"debit"}` → funding account; `POST /v1/subscriptions {Netflix, 1500, Streaming, Monthly, AnchorDay 15}` → the auto-provisioned `Netflix Expense` Ledger account reads **1500** immediately (first period posted synchronously inside the create handler). The Ledger transaction carries `SubscriptionReferenceId`; entries are `Dr Netflix Expense 1500 / Cr Checking 1500` (balanced). `GET /v1/subscriptions/active` returns the row with `NextDueDate = 2026-09-15` (next anchor occurrence strictly after today).
+- **AC2 — every period the charge appears automatically.** A second subscription with `NextDueDate` hand-set into the past was renewed by `RenewDueSubscriptions` within one ~60 s tick: `NextDueDate` advanced one period, `LastRenewalOnUtc` stamped, the expense balance rose by a second charge, and a second Ledger transaction was tagged with the subscription reference. One period per tick — converges, same documented behaviour as `AccrueInstallments`.
+- **AC3 — cancelling stops future renewals, never touches past charges.** `DELETE /v1/subscriptions/{id}` → `204`; `GET /active` → `{"rows":[]}`; `vw_active_subscriptions` → 0 rows; `subscriptions_templates.IsActive = 0`; the past charge's balance is unchanged. A second `DELETE` also returns `204` (idempotent `Cancel`).
+
+**Deviations from `docs/DESIGN.md` §6 / plan predictions:**
+- **Typed `SubscriptionReferenceId` on Ledger's `PostTransactionCommand`** (Phase-2 touch) — threaded into `Transaction` exactly like `InstallmentReference`; Ledger defines its own opaque `internal sealed record SubscriptionReference(Guid Value)`, **no** cross-module assembly edge. Migration `TransactionSubscriptionReference` adds one nullable `TEXT` column to `ledger_transactions`.
+- **Charge-on-subscribe** — the create handler posts the first period synchronously (`PostedOnUtc = now`); the scheduler owns every subsequent period. Both paths post through `SubscriptionChargeCalculator.Build`.
+- **`RecurrenceFrequency` enum has only `Monthly = 1`** — Weekly/Annually are a deliberate seam, not implemented.
+- **Per-module file copies** — `DesignTimeSqliteConnectionFactory`, `ReadViewSqlHelper`, the Outbox/Inbox config+store+writer trio/pair are verbatim copies under the Subscriptions namespace (the established per-module duplication).
+- **Scheduler routes through `ICommandBus`**, not `ILedgerApi` directly (unlike `AccrueInstallments`) — `RenewSubscriptionCommand` already exists on `ISubscriptionsApi`, so reusing it keeps one write path and adds no project reference.
+- **`SubscriptionTemplate` private ctor takes `DateTimeOffset? lastRenewalOnUtc`** (nullable) so EF Core can bind it to the nullable `LastRenewalOnUtc` property — EF will not bind a non-nullable ctor param to a nullable property. Financing sidesteps this by keeping all nullable properties out of constructors.
+- **Migrations live under `Infrastructure/Persistence/Migrations/`** (namespace `...Infrastructure.Persistence.Migrations`) — `dotnet ef migrations add` defaults to `<ProjectRoot>/Migrations/`, so both were regenerated with `--output-dir` to match the Ledger/Financing convention. `SubscriptionsReadViews` `Up`/`Down` hand-authored (`ReadViewSqlHelper.Load` / `DROP VIEW IF EXISTS`).
+- **Scheduler residual crash-window accepted** — if the Ledger post commits but the template `SaveChanges` does not, the next tick re-charges. Documented, not engineered away (identical to `AccrueInstallments`).
+- **`Frequency` parsed from the request string** at the host mapping layer via `Enum.Parse<RecurrenceFrequency>(..., ignoreCase: true)` — mirrors Financing's `DateOnly.Parse` (throws → consistent error envelope from the host exception handler).
+
+**Left for later phases:** `SubscriptionRenewedIntegrationEvent` has no consumer yet; the Subscriptions Outbox/Inbox tables have no producer/consumer role (symmetry only). No Parties interaction (Subscriptions has no split concept).
 
 ---
 

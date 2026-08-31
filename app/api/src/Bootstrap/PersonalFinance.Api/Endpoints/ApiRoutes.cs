@@ -22,4 +22,11 @@ public sealed record ApiRoutes {
         public const string Base = V1 + "/instruments";
         public const string Create = "/";
     }
+
+    public sealed record Subscriptions {
+        public const string Base = V1 + "/subscriptions";
+        public const string Create = "/";
+        public const string Cancel = "/{id:guid}";
+        public const string Active = "/active";
+    }
 }

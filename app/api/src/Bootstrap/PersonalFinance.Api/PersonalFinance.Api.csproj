@@ -12,6 +12,8 @@
     <ProjectReference Include="..\..\Modules\Ledger\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Financing\PersonalFinance.Financing\PersonalFinance.Financing.csproj" />
     <ProjectReference Include="..\..\Modules\Financing\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Subscriptions\PersonalFinance.Subscriptions\PersonalFinance.Subscriptions.csproj" />
+    <ProjectReference Include="..\..\Modules\Subscriptions\PersonalFinance.Subscriptions.Contracts\PersonalFinance.Subscriptions.Contracts.csproj" />
     <ProjectReference Include="..\..\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

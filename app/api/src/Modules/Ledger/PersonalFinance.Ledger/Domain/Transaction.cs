@@ -5,15 +5,13 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Ledger.Domain;
 
-/// <summary>
-/// An append-only, balanced double-entry transaction.
-/// </summary>
 internal sealed class Transaction : AggregateRoot<Guid> {
     public DateTimeOffset PostedOnUtc { get; }
     public Guid? OriginalTransactionId { get; }
     public bool IsReversal => OriginalTransactionId is not null;
     public SplitReference? SplitReference { get; private set; }
     public InstallmentReference? InstallmentReference { get; private set; }
+    public SubscriptionReference? SubscriptionReference { get; private set; }
     public IReadOnlyCollection<Entry> Entries => entries;
     private readonly List<Entry> entries = [];
 
@@ -26,12 +24,13 @@ internal sealed class Transaction : AggregateRoot<Guid> {
         IReadOnlyList<EntryDraft> lines,
         DateTimeOffset postedOnUtc,
         SplitReference? splitReference = null,
-        InstallmentReference? installmentReference = null) {
+        InstallmentReference? installmentReference = null,
+        SubscriptionReference? subscriptionReference = null) {
         var check = DoubleEntryMustBalance.Check(lines);
         if(check.IsFailure) {
             return check.Error;
         }
-        return build(lines, postedOnUtc, originalTransactionId: null, splitReference, installmentReference);
+        return build(lines, postedOnUtc, originalTransactionId: null, splitReference, installmentReference, subscriptionReference);
     }
 
     public static Result<Transaction> Reverse(Transaction original, DateTimeOffset reversedOnUtc) {
@@ -45,7 +44,7 @@ internal sealed class Transaction : AggregateRoot<Guid> {
         if(check.IsFailure) {
             return check.Error;
         }
-        return build(mirrored, reversedOnUtc, original.Id, original.SplitReference, original.InstallmentReference);
+        return build(mirrored, reversedOnUtc, original.Id, original.SplitReference, original.InstallmentReference, original.SubscriptionReference);
     }
 
     private static Transaction build(
@@ -53,10 +52,12 @@ internal sealed class Transaction : AggregateRoot<Guid> {
         DateTimeOffset postedOnUtc,
         Guid? originalTransactionId,
         SplitReference? splitReference,
-        InstallmentReference? installmentReference) {
+        InstallmentReference? installmentReference,
+        SubscriptionReference? subscriptionReference) {
         var transaction = new Transaction(Guid.CreateVersion7(), postedOnUtc, originalTransactionId) {
             SplitReference = splitReference,
-            InstallmentReference = installmentReference
+            InstallmentReference = installmentReference,
+            SubscriptionReference = subscriptionReference
         };
         foreach(var line in lines) {
             transaction.entries.Add(new Entry(Guid.CreateVersion7(), line.AccountId, line.Direction, line.Amount));

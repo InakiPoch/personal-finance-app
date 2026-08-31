@@ -142,6 +142,10 @@ namespace PersonalFinance.Ledger.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT")
                         .HasColumnName("SplitReferenceId");
 
+                    b.Property<Guid?>("SubscriptionReference")
+                        .HasColumnType("TEXT")
+                        .HasColumnName("SubscriptionReferenceId");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OriginalTransactionId");

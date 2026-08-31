@@ -8,9 +8,12 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
     public Money Total { get; }
     public DateOnly PurchaseDate { get; }
     public int InstallmentCount { get; }
+    public Guid? SplitReferenceId { get; private set; }
     public IReadOnlyList<Installment> Installments => installments;
+    public IReadOnlyList<PaymentPlanSplitParticipant> SplitParticipants => splitParticipants;
 
     private readonly List<Installment> installments = [];
+    private readonly List<PaymentPlanSplitParticipant> splitParticipants = [];
 
     private PaymentPlan(Guid id, Guid cardId, Money total, DateOnly purchaseDate, int installmentCount) : base(id) {
         CardId = cardId;
@@ -25,7 +28,8 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         int installmentCount,
         DateOnly purchaseDate,
         int cutoffDay,
-        PhantomPennyAllocator allocator) {
+        PhantomPennyAllocator allocator,
+        IReadOnlyList<(Guid PartyId, long Weight)>? splitParticipants = null) {
         if(total.MinorUnits <= 0) {
             return FinancingErrors.NonPositivePlanAmount;
         }
@@ -39,6 +43,25 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         for(var i = 0; i < installmentCount; i++) {
             plan.installments.Add(Installment.Schedule(plan.Id, i + 1, shares[i], firstCycle.AddMonths(i)));
         }
+        if(splitParticipants is not null) {
+            foreach(var participant in splitParticipants) {
+                plan.splitParticipants.Add(
+                    PaymentPlanSplitParticipant.For(plan.Id, participant.PartyId, participant.Weight));
+            }
+        }
         return plan;
+    }
+
+    public Result LinkSplit(Guid splitReferenceId, IReadOnlyDictionary<Guid, Guid> receivableAccountsByParty) {
+        if(SplitReferenceId is not null) {
+            return Result.Success();
+        }
+        SplitReferenceId = splitReferenceId;
+        foreach(var participant in splitParticipants) {
+            if(receivableAccountsByParty.TryGetValue(participant.PartyId, out var receivableAccountId)) {
+                participant.AssignReceivableAccount(receivableAccountId);
+            }
+        }
+        return Result.Success();
     }
 }

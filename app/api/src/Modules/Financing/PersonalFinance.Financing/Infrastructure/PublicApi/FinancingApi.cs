@@ -23,6 +23,10 @@ internal sealed class FinancingApi(ICommandBus commandBus, IQueryBus queryBus) :
         return commandBus.SendAsync(command, ct);
     }
 
+    public Task<Result> LinkSplitAsync(LinkPaymentPlanSplitCommand command, CancellationToken ct = default) {
+        return commandBus.SendAsync(command, ct);
+    }
+
     public Task<InstallmentStatusResponse> GetInstallmentStatusAsync(GetInstallmentStatusQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }

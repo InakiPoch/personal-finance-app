@@ -67,4 +67,14 @@ internal static class FinancingErrors {
         "Financing.InvalidSplitWeights",
         "A split must have at least one participant and every weight must be positive."
     );
+
+    public static readonly Error PaymentPlanNotFound = new(
+        "Financing.PaymentPlanNotFound",
+        "The referenced payment plan was not found."
+    );
+
+    public static readonly Error InvalidSplitReference = new(
+        "Financing.InvalidSplitReference",
+        "A split link requires a split reference and at least one resolved party receivable account."
+    );
 }

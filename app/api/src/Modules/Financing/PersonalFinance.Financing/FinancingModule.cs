@@ -5,6 +5,7 @@ using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Abstractions.Modularity;
 using PersonalFinance.Financing.Application.Commands.CreateCreditCard;
 using PersonalFinance.Financing.Application.Commands.CreatePaymentPlan;
+using PersonalFinance.Financing.Application.Commands.LinkPaymentPlanSplit;
 using PersonalFinance.Financing.Application.Commands.MarkInstallmentReversed;
 using PersonalFinance.Financing.Application.Commands.PayStatement;
 using PersonalFinance.Financing.Application.Queries.GetCardFutureSchedule;
@@ -35,6 +36,7 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<ICommandHandler<CreatePaymentPlanCommand, Guid>, CreatePaymentPlanHandler>();
         services.AddScoped<ICommandHandler<PayStatementCommand, Guid>, PayStatementHandler>();
         services.AddScoped<ICommandHandler<MarkInstallmentReversedCommand>, MarkInstallmentReversedHandler>();
+        services.AddScoped<ICommandHandler<LinkPaymentPlanSplitCommand>, LinkPaymentPlanSplitHandler>();
         services.AddScoped<IQueryHandler<GetInstallmentStatusQuery, InstallmentStatusResponse>, GetInstallmentStatusHandler>();
         services.AddScoped<IQueryHandler<GetCardFutureScheduleQuery, CardFutureScheduleResponse>, GetCardFutureScheduleHandler>();
         services.AddHostedService<AccrueInstallments>();

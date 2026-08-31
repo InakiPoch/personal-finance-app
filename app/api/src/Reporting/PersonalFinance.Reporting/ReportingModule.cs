@@ -9,7 +9,8 @@ public sealed class ReportingModule : IModule {
     public string Name => "Reporting";
 
     public void Register(IServiceCollection services, IConfiguration configuration) {
-        // No services yet — populated as the read queries land (Steps 2–6).
+        services.AddSingleton<IReadDbConnectionFactory, ReadDbConnectionFactory>();
+        // Query handlers are registered as they land (Steps 3–6).
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) {

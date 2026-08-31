@@ -7,6 +7,7 @@ using PersonalFinance.Financing.Contracts.IntegrationEvents;
 using PersonalFinance.Infrastructure.Idempotency;
 using PersonalFinance.Infrastructure.Outbox;
 using PersonalFinance.Parties.Application.Commands.CreateParty;
+using PersonalFinance.Parties.Application.Commands.RecordSplitAccrual;
 using PersonalFinance.Parties.Application.Commands.RegisterSharedExpense;
 using PersonalFinance.Parties.Application.Commands.SettleCurrentAccount;
 using PersonalFinance.Parties.Application.EventHandlers;
@@ -35,6 +36,7 @@ public sealed class PartiesModule : IModule {
         services.AddScoped<ICommandHandler<CreatePartyCommand, Guid>, CreatePartyHandler>();
         services.AddScoped<ICommandHandler<RegisterSharedExpenseCommand, Guid>, RegisterSharedExpenseHandler>();
         services.AddScoped<ICommandHandler<SettleCurrentAccountCommand, Guid>, SettleCurrentAccountHandler>();
+        services.AddScoped<ICommandHandler<RecordSplitAccrualCommand>, RecordSplitAccrualHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountBalanceQuery, CurrentAccountBalanceResponse>, GetCurrentAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountTimelineQuery, CurrentAccountTimelineResponse>, GetCurrentAccountTimelineHandler>();
         services.AddScoped<IIntegrationEventHandler<PaymentPlanCreatedIntegrationEvent>, OnPaymentPlanCreated>();

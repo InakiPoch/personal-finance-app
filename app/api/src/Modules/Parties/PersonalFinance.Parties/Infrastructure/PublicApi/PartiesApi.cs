@@ -23,6 +23,10 @@ internal sealed class PartiesApi(ICommandBus commandBus, IQueryBus queryBus) : I
         return commandBus.SendAsync(command, ct);
     }
 
+    public Task<Result> RecordSplitAccrualAsync(RecordSplitAccrualCommand command, CancellationToken ct = default) {
+        return commandBus.SendAsync(command, ct);
+    }
+
     public Task<CurrentAccountBalanceResponse> GetCurrentAccountBalanceAsync(GetCurrentAccountBalanceQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }

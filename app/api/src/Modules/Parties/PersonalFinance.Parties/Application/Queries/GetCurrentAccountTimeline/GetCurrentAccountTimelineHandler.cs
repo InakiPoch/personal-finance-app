@@ -7,10 +7,11 @@ namespace PersonalFinance.Parties.Application.Queries.GetCurrentAccountTimeline;
 
 internal sealed class GetCurrentAccountTimelineHandler(PartiesDbContext context) : IQueryHandler<GetCurrentAccountTimelineQuery, CurrentAccountTimelineResponse> {
     public async Task<CurrentAccountTimelineResponse> HandleAsync(GetCurrentAccountTimelineQuery query, CancellationToken cancellationToken) {
+        // SQLite cannot ORDER BY a DateTimeOffset column; the view's window function already
+        // computes the running balance in PostedOnUtc order, so we sort the rows for display client-side.
         var movements = await context.CurrentAccountTimeline
             .AsNoTracking()
             .Where(entry => entry.PartyId == query.PartyId)
-            .OrderBy(entry => entry.MovementOnUtc)
             .Select(entry => new {
                 entry.MovementOnUtc,
                 entry.Description,
@@ -19,6 +20,7 @@ internal sealed class GetCurrentAccountTimelineHandler(PartiesDbContext context)
             })
             .ToListAsync(cancellationToken);
         var rows = movements
+            .OrderBy(entry => entry.MovementOnUtc)
             .Select(entry => new CurrentAccountTimelineRow(
                 entry.MovementOnUtc,
                 entry.Description,

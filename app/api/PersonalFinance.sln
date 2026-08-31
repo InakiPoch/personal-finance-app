@@ -59,6 +59,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Reporting", "Reporting", "{
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Reporting", "src\Reporting\PersonalFinance.Reporting\PersonalFinance.Reporting.csproj", "{5F6BB69E-025A-496C-903C-2AAEDED4AB57}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Reporting.Tests", "tests\PersonalFinance.Reporting.Tests\PersonalFinance.Reporting.Tests.csproj", "{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -285,6 +287,18 @@ Global
 		{5F6BB69E-025A-496C-903C-2AAEDED4AB57}.Release|x64.Build.0 = Release|Any CPU
 		{5F6BB69E-025A-496C-903C-2AAEDED4AB57}.Release|x86.ActiveCfg = Release|Any CPU
 		{5F6BB69E-025A-496C-903C-2AAEDED4AB57}.Release|x86.Build.0 = Release|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Debug|x64.Build.0 = Debug|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Debug|x86.Build.0 = Debug|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|x64.ActiveCfg = Release|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|x64.Build.0 = Release|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|x86.ActiveCfg = Release|Any CPU
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -316,5 +330,6 @@ Global
 		{9F58BE17-9762-4A83-BD72-225403399E40} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
 		{BF6A204B-50D0-4CC3-9436-D55429062ED2} = {24F419E3-6BC9-427E-BC3C-9EEE7BF7E1B2}
 		{5F6BB69E-025A-496C-903C-2AAEDED4AB57} = {BF6A204B-50D0-4CC3-9436-D55429062ED2}
+		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
 	EndGlobalSection
 EndGlobal

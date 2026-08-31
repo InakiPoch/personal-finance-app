@@ -5,6 +5,7 @@ using PersonalFinance.Ledger;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Parties;
 using PersonalFinance.Parties.Contracts;
+using PersonalFinance.Reporting;
 using PersonalFinance.Subscriptions;
 using PersonalFinance.Subscriptions.Contracts;
 using Xunit;
@@ -135,6 +136,24 @@ public class ModuleIsolationTests {
         Assert.DoesNotContain("PersonalFinance.Financing.Contracts", referenced);
         Assert.DoesNotContain("PersonalFinance.Parties", referenced);
         Assert.DoesNotContain("PersonalFinance.Parties.Contracts", referenced);
+    }
+
+    [Fact]
+    public void Reporting_references_no_module_contracts_or_impl_assembly() {
+        var referenced = ReferencedAssemblyNames(typeof(ReportingModule).Assembly);
+        string[] moduleAssemblies = [
+            "PersonalFinance.Ledger",
+            "PersonalFinance.Ledger.Contracts",
+            "PersonalFinance.Financing",
+            "PersonalFinance.Financing.Contracts",
+            "PersonalFinance.Subscriptions",
+            "PersonalFinance.Subscriptions.Contracts",
+            "PersonalFinance.Parties",
+            "PersonalFinance.Parties.Contracts"
+        ];
+        foreach(var moduleAssembly in moduleAssemblies) {
+            Assert.DoesNotContain(moduleAssembly, referenced);
+        }
     }
 
     private static void AssertModuleOnlyReferencesContracts(Assembly implAssembly, string otherImplName, string otherContractsName) {

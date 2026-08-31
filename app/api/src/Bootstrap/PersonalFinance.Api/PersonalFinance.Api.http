@@ -468,3 +468,241 @@ GET {{parties}}/{{alice.response.body.$.id}}/balance
 #   OutboxHealthCheck reports Degraded while pending > 0, and Unhealthy once (now - oldest) > OutboxOptions.StalenessThreshold (default 5 min).
 
 ###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 7 — Reporting: read-only cross-module dashboards over the vw_* views only
+# (D5 / RNF-6). The Reporting project holds zero reference to any module's .Contracts
+# or implementation assembly; it opens a read-only SQLite connection and reads
+# vw_ledger_monthly_expenses / vw_card_liability_accrued / vw_card_future_schedule /
+# vw_current_account_timeline. The HTTP surface is host-owned under /v1/reports.
+#
+# Two documented quirks this walk makes visible (Phase 10 doc-sync candidates — NOT
+# defects to fix here; Reporting consumes each view as published):
+#   • RF-1 leak — vw_ledger_monthly_expenses filters Type='Expense' AND Kind<>'Receivable',
+#     so per-card *Purchases* buckets (Kind='Expense') ride along in the "debit & cash"
+#     summary that US-1 AC2 says should exclude credit.
+#   • RF-2 card-identity gap — /card-due-by-month presents Accrued (keyed by the Ledger
+#     liability account NAME) and Future (keyed by the Financing CardId GUID) as two
+#     tagged buckets; there is no shared join key across the two view surfaces.
+# ─────────────────────────────────────────────────────────────────────────────
+
+@reports = {{api_HostAddress}}/v1/reports
+
+# ---- 7a. Seed a self-contained slice (every posting lands in month 2026-07) ----
+
+### Bank funding account
+# @name p7Bank
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Bank", "type": "Asset", "kind": "Bank" }
+
+### Cash funding account — proves the "and cash" half of the monthly summary
+# @name p7Cash
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Wallet", "type": "Asset", "kind": "Cash" }
+
+### Expense bucket — groceries
+# @name p7Groceries
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Groceries", "type": "Expense", "kind": "Expense" }
+
+### Expense bucket — rent
+# @name p7Rent
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Rent", "type": "Expense", "kind": "Expense" }
+
+### Expense bucket — snacks (cash-funded)
+# @name p7Snacks
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Snacks", "type": "Expense", "kind": "Expense" }
+
+### Expense bucket for the manual accrual posting — Kind='Expense', so this is the RF-1 leak source
+# @name p7CardPurchases
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Card Purchases", "type": "Expense", "kind": "Expense" }
+
+### Expense bucket for the shared expense
+# @name p7Shared
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Shared Dining", "type": "Expense", "kind": "Expense" }
+
+### CardLiability account — stands in for an accrued cycle so vw_card_liability_accrued has a row
+# @name p7CardLiab
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "P7 Manual Card Liability", "type": "Liability", "kind": "CardLiability" }
+
+### Dr P7 Groceries 5000 / Cr P7 Bank 5000
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "{{p7Groceries.response.body.$.accountId}}", "direction": "Debit", "amountMinorUnits": 5000 },
+    { "accountId": "{{p7Bank.response.body.$.accountId}}", "direction": "Credit", "amountMinorUnits": 5000 }
+  ],
+  "postedOnUtc": "2026-07-10T09:00:00Z"
+}
+
+### Dr P7 Rent 30000 / Cr P7 Bank 30000
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "{{p7Rent.response.body.$.accountId}}", "direction": "Debit", "amountMinorUnits": 30000 },
+    { "accountId": "{{p7Bank.response.body.$.accountId}}", "direction": "Credit", "amountMinorUnits": 30000 }
+  ],
+  "postedOnUtc": "2026-07-01T09:00:00Z"
+}
+
+### Dr P7 Snacks 2000 / Cr P7 Wallet 2000  (cash-funded)
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "{{p7Snacks.response.body.$.accountId}}", "direction": "Debit", "amountMinorUnits": 2000 },
+    { "accountId": "{{p7Cash.response.body.$.accountId}}", "direction": "Credit", "amountMinorUnits": 2000 }
+  ],
+  "postedOnUtc": "2026-07-12T09:00:00Z"
+}
+
+### Dr P7 Card Purchases 12000 / Cr P7 Manual Card Liability 12000  (the "accrued cycle" stand-in)
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "{{p7CardPurchases.response.body.$.accountId}}", "direction": "Debit", "amountMinorUnits": 12000 },
+    { "accountId": "{{p7CardLiab.response.body.$.accountId}}", "direction": "Credit", "amountMinorUnits": 12000 }
+  ],
+  "postedOnUtc": "2026-07-20T09:00:00Z"
+}
+
+### Credit card for the future-schedule bucket (cutoff day 15)
+# @name p7Card
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "P7 Visa", "cutoffDate": 15 }
+
+### Payment plan — 300000 over 3 installments, purchase far enough out that no cycle has closed
+### → 3 un-accrued installments → vw_card_future_schedule (Financing's authority, D11)
+# @name p7Plan
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 300000,
+  "cardId": "{{p7Card.response.body.$.id}}",
+  "installmentCount": 3,
+  "purchaseDate": "2026-12-01"
+}
+
+### Party Alice — the handler provisions her Ledger Receivable account
+# @name p7Alice
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "P7 Alice" }
+
+### 2-way shared expense — total 10000, holder implicit (weight index 0) + Alice weight 1 → Alice owes 5000
+POST {{parties}}/shared-expenses
+Content-Type: application/json
+
+{
+  "description": "P7 dinner",
+  "totalMinorUnits": 10000,
+  "expenseAccountId": "{{p7Shared.response.body.$.accountId}}",
+  "fundingAccountId": "{{p7Bank.response.body.$.accountId}}",
+  "incurredOnUtc": "2026-07-25T09:00:00Z",
+  "participants": [
+    { "partyId": "{{p7Alice.response.body.$.id}}", "weight": 1 }
+  ]
+}
+
+### Alice's balance — expect +5000 ("50.00 ARS"), a live read of her Receivable
+# @name p7AliceBalance
+GET {{parties}}/{{p7Alice.response.body.$.id}}/balance
+
+### Settle Alice in full — nets her receivable back to 0
+POST {{parties}}/{{p7Alice.response.body.$.id}}/settlements
+Content-Type: application/json
+
+{
+  "amountMinorUnits": {{p7AliceBalance.response.body.$.balanceMinorUnits}},
+  "bankAccountId": "{{p7Bank.response.body.$.accountId}}",
+  "settledOnUtc": "2026-07-28T09:00:00Z"
+}
+
+### Party Bob — left with an OPEN balance (never settled)
+# @name p7Bob
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "P7 Bob" }
+
+### 2-way shared expense — total 8000, Bob weight 1 → Bob owes 4000
+POST {{parties}}/shared-expenses
+Content-Type: application/json
+
+{
+  "description": "P7 concert",
+  "totalMinorUnits": 8000,
+  "expenseAccountId": "{{p7Shared.response.body.$.accountId}}",
+  "fundingAccountId": "{{p7Bank.response.body.$.accountId}}",
+  "incurredOnUtc": "2026-07-27T09:00:00Z",
+  "participants": [
+    { "partyId": "{{p7Bob.response.body.$.id}}", "weight": 1 }
+  ]
+}
+
+# ---- 7b. Read the four dashboards -------------------------------------------
+
+### RF-1 — monthly expenses for 2026-07
+### Expect rows: "P7 Groceries" 5000, "P7 Rent" 30000, "P7 Snacks" 2000, "P7 Shared Dining" 9000
+### (both shared expenses debit their holder share to the same bucket: 5000 + 4000), and — RF-1 LEAK —
+### "P7 Card Purchases" 12000 riding along in the "debit & cash" summary. Every row month "2026-07", currencyCode "ARS".
+GET {{reports}}/monthly-expenses?month=2026-07
+Accept: application/json
+
+### Same query, unfiltered — every month, newest first
+GET {{reports}}/monthly-expenses
+Accept: application/json
+
+### RF-2 — card due by month
+### Accrued bucket: { "bucket": "Accrued", "card": "P7 Manual Card Liability", "cycleYear": null, "amountMinorUnits": 12000 }
+###   (plus "P7 Visa Liability" 0 — auto-provisioned with the card, nothing accrued on it yet)
+### Future bucket: 3 rows { "bucket": "Future", "card": "<p7Card GUID>", "cycleYear": 2026/2027, "cycleMonth": 12/1/2 } summing to 300000
+### RF-2 GAP: Accrued.card is the Ledger account NAME; Future.card is the Financing CardId GUID, and it comes back
+### UPPERCASE (raw EF/SQLite text) while any id a client got from a POST response is lowercase — no shared, case-safe key.
+GET {{reports}}/card-due-by-month
+Accept: application/json
+
+### RF-7 — Alice's current-account timeline; expect exactly 2 rows, oldest first:
+###   { "description": "Shared expense", "deltaMinorUnits": 5000,  "runningBalanceMinorUnits": 5000 }
+###   { "description": "Settlement",     "deltaMinorUnits": -5000, "runningBalanceMinorUnits": 0 }
+GET {{reports}}/parties/{{p7Alice.response.body.$.id}}/timeline
+Accept: application/json
+
+### Debt summary — one row per party with movements (GROUP BY collapses Alice's 2 movements into 1)
+### Expect: { "partyName": "P7 Alice", "netBalanceMinorUnits": 0 } and { "partyName": "P7 Bob", "netBalanceMinorUnits": 4000 }
+GET {{reports}}/parties/debt-summary
+Accept: application/json
+
+###

@@ -16,9 +16,7 @@ public sealed class QueryBus(IServiceProvider serviceProvider) : IQueryBus {
         ArgumentNullException.ThrowIfNull(query);
         var handlerType = typeof(IQueryHandler<,>).MakeGenericType(query.GetType(), typeof(TResult));
         var handler = serviceProvider.GetRequiredService(handlerType);
-        var method = handlerType.GetMethod("HandleAsync")
-            ?? throw new InvalidOperationException($"{handlerType} has no HandleAsync method.");
-        return (Task<TResult>)(method.Invoke(handler, [query, cancellationToken])
-            ?? throw new InvalidOperationException($"{handlerType}.HandleAsync returned null."));
+        var method = handlerType.GetMethod("HandleAsync") ?? throw new InvalidOperationException($"{handlerType} has no HandleAsync method.");
+        return (Task<TResult>)(method.Invoke(handler, [query, cancellationToken]) ?? throw new InvalidOperationException($"{handlerType}.HandleAsync returned null."));
     }
 }

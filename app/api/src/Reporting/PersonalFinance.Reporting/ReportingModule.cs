@@ -13,6 +13,7 @@ public sealed class ReportingModule : IModule {
     public void Register(IServiceCollection services, IConfiguration configuration) {
         services.AddSingleton<IReadDbConnectionFactory, ReadDbConnectionFactory>();
         services.AddScoped<IQueryHandler<MonthlyExpensesQuery, MonthlyExpensesResponse>, MonthlyExpensesHandler>();
+        services.AddScoped<IQueryHandler<CardDueByMonthQuery, CardDueByMonthResponse>, CardDueByMonthHandler>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) {

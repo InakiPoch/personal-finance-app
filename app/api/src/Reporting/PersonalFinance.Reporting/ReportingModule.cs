@@ -4,6 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Abstractions.Modularity;
 using PersonalFinance.Reporting.Dashboards;
+using PersonalFinance.Reporting.Reports;
 
 namespace PersonalFinance.Reporting;
 
@@ -14,6 +15,7 @@ public sealed class ReportingModule : IModule {
         services.AddSingleton<IReadDbConnectionFactory, ReadDbConnectionFactory>();
         services.AddScoped<IQueryHandler<MonthlyExpensesQuery, MonthlyExpensesResponse>, MonthlyExpensesHandler>();
         services.AddScoped<IQueryHandler<CardDueByMonthQuery, CardDueByMonthResponse>, CardDueByMonthHandler>();
+        services.AddScoped<IQueryHandler<GetPartyTimelineQuery, PartyTimelineResponse>, GetPartyTimelineHandler>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) {

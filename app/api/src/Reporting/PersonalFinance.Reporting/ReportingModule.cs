@@ -16,6 +16,7 @@ public sealed class ReportingModule : IModule {
         services.AddScoped<IQueryHandler<MonthlyExpensesQuery, MonthlyExpensesResponse>, MonthlyExpensesHandler>();
         services.AddScoped<IQueryHandler<CardDueByMonthQuery, CardDueByMonthResponse>, CardDueByMonthHandler>();
         services.AddScoped<IQueryHandler<GetPartyTimelineQuery, PartyTimelineResponse>, GetPartyTimelineHandler>();
+        services.AddScoped<IQueryHandler<GetDebtByPartyQuery, DebtByPartyResponse>, GetDebtByPartyHandler>();
     }
 
     public void MapEndpoints(IEndpointRouteBuilder endpoints) {

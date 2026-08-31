@@ -25,6 +25,7 @@ internal static class ModuleRegistration {
         endpoints.MapFinancingEndpoints();
         endpoints.MapInstrumentsEndpoints();
         endpoints.MapSubscriptionsEndpoints();
+        endpoints.MapPartiesEndpoints();
         return endpoints;
     }
 }

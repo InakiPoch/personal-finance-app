@@ -12,6 +12,7 @@
   <ItemGroup>
     <ProjectReference Include="..\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj" />
     <ProjectReference Include="..\..\Financing\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj" />
+    <ProjectReference Include="..\..\Parties\PersonalFinance.Parties.Contracts\PersonalFinance.Parties.Contracts.csproj" />
     <ProjectReference Include="..\..\..\Shared\PersonalFinance.Abstractions\PersonalFinance.Abstractions.csproj" />
     <ProjectReference Include="..\..\..\Shared\PersonalFinance.SharedKernel\PersonalFinance.SharedKernel.csproj" />
     <ProjectReference Include="..\..\..\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />

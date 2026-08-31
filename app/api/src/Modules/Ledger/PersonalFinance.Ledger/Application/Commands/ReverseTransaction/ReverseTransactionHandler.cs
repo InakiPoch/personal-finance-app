@@ -8,20 +8,17 @@ using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.Ledger.Domain;
 using PersonalFinance.Ledger.Infrastructure.Persistence;
+using PersonalFinance.Parties.Contracts;
+using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Ledger.Application.Commands.ReverseTransaction;
 
-/// <summary>
-/// The storno is posted <b>always</b>. When the reversed
-/// transaction is an installment accrual that was already paid, a compensating
-/// <c>Dr CardCredit / Cr CardLiability</c> entry is posted too and the carried credit is netted
-/// against the card's next statement by Financing.
-/// </summary>
 internal sealed class ReverseTransactionHandler(
     LedgerDbContext context,
     TransactionWriter writer,
     IFinancingApi financing,
+    IPartiesApi parties,
     ILogger<ReverseTransactionHandler> logger) : ICommandHandler<ReverseTransactionCommand, ReverseTransactionResult> {
     public async Task<Result<ReverseTransactionResult>> HandleAsync(ReverseTransactionCommand command, CancellationToken cancellationToken) {
         var validation = ReverseTransactionValidator.Validate(command);
@@ -82,10 +79,47 @@ internal sealed class ReverseTransactionHandler(
                     storno.Value, original.Id, installmentReference.Value, marked.Error.Code);
             }
         }
-        if(decision.CorrectParty) {
-            // TODO(Phase 6): wire IPartiesApi.CorrectExpenseSplitAsync(original.SplitReference!.Value, decision.CompensatingAmount)
-            // to net the reversed split against the third party's running balance (RNF-10). Seam only in Phase 4.
+
+        if(!decision.CorrectParty) return new ReverseTransactionResult(storno.Value, compensatingEntryPosted);
+        var reversedReceivableMinorUnits = await sumReversedReceivableAsync(original, cancellationToken);
+        var correction = await parties.CorrectExpenseSplitAsync(
+            new CorrectExpenseSplitCommand(
+                original.SplitReference!.Value,
+                installmentReference?.Value,
+                reversedReceivableMinorUnits,
+                command.ReversedOnUtc
+            ),
+            cancellationToken
+        );
+        if(correction.IsFailure) {
+            logger.LogWarning(
+                "Reversal {ReversalId} of transaction {OriginalId} is posted, but correcting split {SplitReferenceId} in Parties failed ({ErrorCode}). The party balance still reflects the storno; only the split metadata is stale.",
+                storno.Value, original.Id, original.SplitReference.Value, correction.Error.Code);
         }
         return new ReverseTransactionResult(storno.Value, compensatingEntryPosted);
+    }
+
+    // The party portion the storno just unwound: the debit legs of the reversed transaction that
+    // landed on Receivable-kind accounts. The storno already credited these accounts back, so
+    // Parties only needs this figure to correct its own split metadata (RNF-5, no ledger post).
+    private async Task<long> sumReversedReceivableAsync(Transaction original, CancellationToken cancellationToken) {
+        var debitedAccountIds = original.Entries
+            .Where(entry => entry.Direction == DebitOrCredit.Debit)
+            .Select(entry => entry.AccountId)
+            .ToHashSet();
+        if(debitedAccountIds.Count == 0) {
+            return 0;
+        }
+        var receivableAccountIds = await context.Accounts
+            .Where(account => debitedAccountIds.Contains(account.Id) && account.Kind == AccountKind.Receivable)
+            .Select(account => account.Id)
+            .ToListAsync(cancellationToken);
+        if(receivableAccountIds.Count == 0) {
+            return 0;
+        }
+        var receivableAccountIdSet = receivableAccountIds.ToHashSet();
+        return original.Entries
+            .Where(entry => entry.Direction == DebitOrCredit.Debit && receivableAccountIdSet.Contains(entry.AccountId))
+            .Sum(entry => entry.Amount.MinorUnits);
     }
 }

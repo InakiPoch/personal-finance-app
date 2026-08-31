@@ -16,6 +16,7 @@
     <ProjectReference Include="..\..\Modules\Subscriptions\PersonalFinance.Subscriptions.Contracts\PersonalFinance.Subscriptions.Contracts.csproj" />
     <ProjectReference Include="..\..\Modules\Parties\PersonalFinance.Parties\PersonalFinance.Parties.csproj" />
     <ProjectReference Include="..\..\Modules\Parties\PersonalFinance.Parties.Contracts\PersonalFinance.Parties.Contracts.csproj" />
+    <ProjectReference Include="..\..\Reporting\PersonalFinance.Reporting\PersonalFinance.Reporting.csproj" />
     <ProjectReference Include="..\..\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />
   </ItemGroup>
 </Project>

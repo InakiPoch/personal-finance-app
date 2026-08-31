@@ -3,6 +3,7 @@
 @instruments = {{api_HostAddress}}/v1/instruments
 @financing = {{api_HostAddress}}/v1/financing
 @subscriptions = {{api_HostAddress}}/v1/subscriptions
+@parties = {{api_HostAddress}}/v1/parties
 
 ### Liveness probe (temporary — replaced by the real health check in Phase 8)
 GET {{api_HostAddress}}/health
@@ -297,5 +298,173 @@ GET {{subscriptions}}/active
 
 ### AC3 — cancelling again is idempotent → still 204
 DELETE {{subscriptions}}/{{netflix.response.body.$.id}}
+
+###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 6 — Parties: third-party shared-expense tracking as a management view over
+# Ledger receivable accounts (D1). A party's balance is ALWAYS a live read of its
+# Ledger Receivable account — Parties never keeps its own balance number.
+#   • Debit/cash path (RegisterSharedExpense): the full Dr Gasto + Dr PorCobrar / Cr Banco
+#     posts synchronously and is the end-to-end reversal-cascade proof (D12 step 4).
+#   • Card-split path: OnPaymentPlanCreated (first real Outbox consumer, D8/RF-3) only
+#     records the split intent; the receivable becomes real cycle by cycle in a
+#     split-aware AccrueInstallments (D11 — an un-accrued installment is not a liability).
+#   • CorrectExpenseSplit NEVER posts to the Ledger — the storno's mirrored Cr Receivable
+#     leg already corrected the account (RNF-5); it only advances the split metadata.
+#
+# NOTE — EF Core stores Guids as UPPERCASE TEXT in SQLite. The {{...response.body}} ids
+# below come back lowercase, so wrap them in UPPER(...) inside the sqlite3 checks
+# (e.g. WHERE Id = UPPER('{{alice.response.body.$.id}}')) or the comparison silently misses.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ---- 6a. Debit path: shared expense + reversal auto-correct --------------------
+
+### Fund the debit-path shared expenses — routes to ILedgerApi (Asset / Bank)
+# @name p6Funding
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "debit", "name": "Shared Wallet" }
+
+### Expense bucket for the shared expense (Development-only endpoint)
+# @name p6Expense
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "Shared Dinner", "type": "Expense", "kind": "Expense" }
+
+### Create a party — the handler provisions its Ledger Receivable account ("Alice Receivable")
+# @name alice
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "Alice" }
+
+### Create a second party for the card-split walk below
+# @name bob
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "Bob" }
+
+### Register a 2-way shared expense — total 9000, holder implicit (weight index 0), Alice weight 1
+### → Dr Shared Dinner 4500 + Dr "Alice Receivable" 4500 / Cr Shared Wallet 9000, tagged SplitReferenceId
+# @name sharedDinner
+POST {{parties}}/shared-expenses
+Content-Type: application/json
+
+{
+  "description": "Tasting menu",
+  "totalMinorUnits": 9000,
+  "expenseAccountId": "{{p6Expense.response.body.$.accountId}}",
+  "fundingAccountId": "{{p6Funding.response.body.$.id}}",
+  "incurredOnUtc": "2026-08-30T20:00:00Z",
+  "participants": [
+    { "partyId": "{{alice.response.body.$.id}}", "weight": 1 }
+  ]
+}
+
+### Alice's current-account balance — expect +4500 ("45.00 ARS"), a live read of her Receivable
+GET {{parties}}/{{alice.response.body.$.id}}/balance
+
+### Alice's timeline — one 'Shared expense' row, running balance 4500
+GET {{parties}}/{{alice.response.body.$.id}}/timeline
+
+# Read the ledger transaction id of the shared-expense posting (the endpoint returns the SplitReferenceId, not the txn id):
+#   sqlite3 personalfinance.db "SELECT Id FROM ledger_transactions WHERE SplitReferenceId = '{{sharedDinner.response.body.$.splitReferenceId}}' AND OriginalTransactionId IS NULL;"
+
+### Reverse the shared-expense transaction (paste the id) — expect { "compensatingEntryPosted": false } (no installment on the debit path)
+POST {{ledger}}/transactions/REPLACE_WITH_SHARED_DINNER_TXN_ID/reversal
+
+### Alice's balance after the reversal — expect 0: the storno's mirrored Cr "Alice Receivable" 4500 cancels it, no Parties-side ledger post
+GET {{parties}}/{{alice.response.body.$.id}}/balance
+
+### Alice's timeline after the reversal — a second 'Reversal' row, running balance back to 0
+GET {{parties}}/{{alice.response.body.$.id}}/timeline
+
+# Metadata check — the cascade advanced the split's own counter, nothing else:
+#   sqlite3 personalfinance.db "SELECT TotalMinorUnits, AccruedReceivableMinorUnits, ReversedReceivableMinorUnits FROM parties_expense_splits WHERE Id = '{{sharedDinner.response.body.$.splitReferenceId}}';"  -- expect 9000 | 4500 | 4500
+
+# ---- 6b. Card-split path: accrue → pay → reverse a cycle ----------------------
+
+### Register a credit card for the split walk (cutoff day 10)
+# @name p6Card
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "Shared Card", "cutoffDate": 10 }
+
+### Split payment plan — 300000 over 3 installments, purchase in a long-closed cycle so AccrueInstallments picks it up.
+### Split weights: holder implicit + Alice 1 + Bob 1 → 3-way per installment. Writes ONE financing_outbox_messages row (D8).
+# @name p6SplitPlan
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 300000,
+  "cardId": "{{p6Card.response.body.$.id}}",
+  "installmentCount": 3,
+  "purchaseDate": "2026-02-05",
+  "split": [
+    { "partyId": "{{alice.response.body.$.id}}", "weight": 1 },
+    { "partyId": "{{bob.response.body.$.id}}", "weight": 1 }
+  ]
+}
+
+# After the OutboxWorker drains (~5 s), OnPaymentPlanCreated has recorded the split intent + called LinkSplitAsync:
+#   sqlite3 personalfinance.db "SELECT Source, SourceReferenceId, AccruedReceivableMinorUnits FROM parties_expense_splits WHERE SourceReferenceId = '{{p6SplitPlan.response.body.$.paymentPlanId}}';"  -- expect 'CardPlan' | <plan id> | 0
+#   sqlite3 personalfinance.db "SELECT SplitReferenceId FROM financing_payment_plans WHERE Id = '{{p6SplitPlan.response.body.$.paymentPlanId}}';"                                                       -- not null
+#   sqlite3 personalfinance.db "SELECT PartyId, ReceivableAccountId FROM financing_payment_plan_split_participants WHERE PaymentPlanId = '{{p6SplitPlan.response.body.$.paymentPlanId}}';"              -- 2 rows, ReceivableAccountId populated
+
+### Alice's balance right after the plan — still 0: the receivable is NOT owed at plan-creation (D11), only cycle by cycle
+GET {{parties}}/{{alice.response.body.$.id}}/balance
+
+# Let AccrueInstallments tick (interval 1 min, also on startup). Each closed cycle posts, tagged InstallmentReferenceId + SplitReferenceId:
+#   Dr CardPurchases 33334 + Dr "Alice Receivable" 33333 + Dr "Bob Receivable" 33333 / Cr CardLiability 100000   (100000 / 3, odd cent to the holder)
+# and calls IPartiesApi.RecordSplitAccrualAsync so parties_expense_splits.AccruedReceivableMinorUnits tracks progress.
+
+### Alice's balance after N cycles have closed — expect ≈ 33333 × (closed cycles)
+GET {{parties}}/{{alice.response.body.$.id}}/balance
+
+### Alice's timeline — one 'Card installment' row per accrued cycle
+GET {{parties}}/{{alice.response.body.$.id}}/timeline
+
+# Read the statement id and one accrued cycle's accrual txn id:
+#   sqlite3 personalfinance.db "SELECT s.Id, s.AmountDueMinorUnits FROM financing_monthly_statements s JOIN financing_installments i ON i.StatementId=s.Id JOIN financing_payment_plans p ON p.Id=i.PaymentPlanId WHERE p.Id='{{p6SplitPlan.response.body.$.paymentPlanId}}' ORDER BY s.CycleYear, s.CycleMonth;"
+#   sqlite3 personalfinance.db "SELECT t.Id FROM ledger_transactions t JOIN financing_installments i ON i.Id=t.InstallmentReferenceId WHERE i.PaymentPlanId='{{p6SplitPlan.response.body.$.paymentPlanId}}' AND t.OriginalTransactionId IS NULL ORDER BY t.PostedOnUtc;"
+
+### Pay the earliest accrued statement (paste the id)
+POST {{financing}}/statements/REPLACE_WITH_P6_STATEMENT_ID/pay
+Content-Type: application/json
+
+{ "bankAccountId": "{{p6Funding.response.body.$.id}}", "paidOnUtc": "2026-08-31T10:00:00Z" }
+
+### Reverse that cycle's accrual transaction (paste the id) — installment was paid, so expect { "compensatingEntryPosted": true }
+### Cascade: storno's Cr "Alice Receivable" 33333 + Cr "Bob Receivable" 33333 drop the balances; CorrectExpenseSplitAsync bumps ReversedReceivableMinorUnits by 66666 (no ledger post)
+POST {{ledger}}/transactions/REPLACE_WITH_P6_ACCRUAL_TXN_ID/reversal
+
+### Alice's balance after the cascade — dropped by that cycle's 33333
+GET {{parties}}/{{alice.response.body.$.id}}/balance
+
+# Cascade metadata check:
+#   sqlite3 personalfinance.db "SELECT AccruedReceivableMinorUnits, ReversedReceivableMinorUnits FROM parties_expense_splits WHERE SourceReferenceId = '{{p6SplitPlan.response.body.$.paymentPlanId}}';"  -- ReversedReceivableMinorUnits grew by 66666
+
+# ---- 6c. Inbox dedup (RNF-2) -------------------------------------------------
+
+# Re-deliver the PaymentPlanCreated event and confirm OnPaymentPlanCreated is a no-op the second time:
+#   sqlite3 personalfinance.db "UPDATE financing_outbox_messages SET ProcessedOnUtc = NULL, Attempts = 0 WHERE Id = (SELECT Id FROM financing_outbox_messages ORDER BY Id DESC LIMIT 1);"
+# Restart the host (or wait one poll). The consumer sees its parties_inbox_consumed row and returns early:
+#   sqlite3 personalfinance.db "SELECT COUNT(*) FROM parties_expense_splits WHERE SourceReferenceId = '{{p6SplitPlan.response.body.$.paymentPlanId}}';"  -- still 1
+#   sqlite3 personalfinance.db "SELECT COUNT(*) FROM parties_inbox_consumed WHERE Consumer = 'Parties';"                                       -- unchanged
+
+# ---- 6d. OutboxHealthCheck degradation (RNF-7) ------------------------------
+
+# OutboxHealthCheck is registered (AddHealthChecks().AddCheck<OutboxHealthCheck>("outbox")) but not yet mapped to an
+# HTTP route — /health is still the Phase-8 stub. Inspect the backlog directly instead:
+#   1. Pause the worker: stop the host, POST another split plan is not possible offline, so instead leave a message pending —
+#      sqlite3 personalfinance.db "UPDATE financing_outbox_messages SET ProcessedOnUtc = NULL WHERE Id = (SELECT Id FROM financing_outbox_messages ORDER BY Id DESC LIMIT 1);"
+#   2. sqlite3 personalfinance.db "SELECT COUNT(*) AS pending, MIN(OccurredOnUtc) AS oldest FROM financing_outbox_messages WHERE ProcessedOnUtc IS NULL;"
+#   OutboxHealthCheck reports Degraded while pending > 0, and Unhealthy once (now - oldest) > OutboxOptions.StalenessThreshold (default 5 min).
 
 ###

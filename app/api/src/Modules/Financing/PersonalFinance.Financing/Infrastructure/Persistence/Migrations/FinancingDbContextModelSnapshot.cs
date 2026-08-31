@@ -131,6 +131,9 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<DateOnly>("PurchaseDate")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("SplitReferenceId")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("Total")
                         .HasColumnType("INTEGER")
                         .HasColumnName("TotalMinorUnits");
@@ -138,6 +141,30 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("financing_payment_plans", (string)null);
+                });
+
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.PaymentPlanSplitParticipant", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PartyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PaymentPlanId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("ReceivableAccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Weight")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PaymentPlanId");
+
+                    b.ToTable("financing_payment_plan_split_participants", (string)null);
                 });
 
             modelBuilder.Entity("PersonalFinance.Infrastructure.Idempotency.InboxConsumedMessage", b =>
@@ -210,9 +237,20 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Restrict);
                 });
 
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.PaymentPlanSplitParticipant", b =>
+                {
+                    b.HasOne("PersonalFinance.Financing.Domain.PaymentPlan", null)
+                        .WithMany("SplitParticipants")
+                        .HasForeignKey("PaymentPlanId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PersonalFinance.Financing.Domain.PaymentPlan", b =>
                 {
                     b.Navigation("Installments");
+
+                    b.Navigation("SplitParticipants");
                 });
 #pragma warning restore 612, 618
         }

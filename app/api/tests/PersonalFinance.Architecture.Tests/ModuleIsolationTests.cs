@@ -3,6 +3,8 @@ using PersonalFinance.Financing;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Ledger;
 using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Parties;
+using PersonalFinance.Parties.Contracts;
 using PersonalFinance.Subscriptions;
 using PersonalFinance.Subscriptions.Contracts;
 using Xunit;
@@ -61,6 +63,69 @@ public class ModuleIsolationTests {
         Assert.DoesNotContain("PersonalFinance.Ledger.Contracts", referenced);
         Assert.DoesNotContain("PersonalFinance.Financing", referenced);
         Assert.DoesNotContain("PersonalFinance.Financing.Contracts", referenced);
+        Assert.DoesNotContain("PersonalFinance.Parties", referenced);
+        Assert.DoesNotContain("PersonalFinance.Parties.Contracts", referenced);
+    }
+
+    [Fact]
+    public void Parties_module_sees_Ledger_only_through_its_contracts_assembly() {
+        AssertModuleOnlyReferencesContracts(
+            typeof(PartiesModule).Assembly,
+            otherImplName: "PersonalFinance.Ledger",
+            otherContractsName: "PersonalFinance.Ledger.Contracts"
+        );
+    }
+
+    [Fact]
+    public void Parties_module_sees_Financing_only_through_its_contracts_assembly() {
+        AssertModuleOnlyReferencesContracts(
+            typeof(PartiesModule).Assembly,
+            otherImplName: "PersonalFinance.Financing",
+            otherContractsName: "PersonalFinance.Financing.Contracts"
+        );
+    }
+
+    [Fact]
+    public void Parties_contracts_assembly_references_no_module_implementation() {
+        var referenced = ReferencedAssemblyNames(typeof(IPartiesApi).Assembly);
+        Assert.DoesNotContain("PersonalFinance.Ledger", referenced);
+        Assert.DoesNotContain("PersonalFinance.Ledger.Contracts", referenced);
+        Assert.DoesNotContain("PersonalFinance.Financing", referenced);
+        Assert.DoesNotContain("PersonalFinance.Financing.Contracts", referenced);
+        Assert.DoesNotContain("PersonalFinance.Subscriptions", referenced);
+        Assert.DoesNotContain("PersonalFinance.Subscriptions.Contracts", referenced);
+    }
+
+    [Fact]
+    public void Ledger_module_sees_Parties_only_through_its_contracts_assembly() {
+        AssertModuleOnlyReferencesContracts(
+            typeof(LedgerModule).Assembly,
+            otherImplName: "PersonalFinance.Parties",
+            otherContractsName: "PersonalFinance.Parties.Contracts"
+        );
+    }
+
+    [Fact]
+    public void Ledger_contracts_assembly_references_no_Parties_assembly() {
+        var referenced = ReferencedAssemblyNames(typeof(ILedgerApi).Assembly);
+        Assert.DoesNotContain("PersonalFinance.Parties", referenced);
+        Assert.DoesNotContain("PersonalFinance.Parties.Contracts", referenced);
+    }
+
+    [Fact]
+    public void Financing_module_sees_Parties_only_through_its_contracts_assembly() {
+        AssertModuleOnlyReferencesContracts(
+            typeof(FinancingModule).Assembly,
+            otherImplName: "PersonalFinance.Parties",
+            otherContractsName: "PersonalFinance.Parties.Contracts"
+        );
+    }
+
+    [Fact]
+    public void Financing_contracts_assembly_references_no_Parties_assembly() {
+        var referenced = ReferencedAssemblyNames(typeof(IFinancingApi).Assembly);
+        Assert.DoesNotContain("PersonalFinance.Parties", referenced);
+        Assert.DoesNotContain("PersonalFinance.Parties.Contracts", referenced);
     }
 
     [Fact]

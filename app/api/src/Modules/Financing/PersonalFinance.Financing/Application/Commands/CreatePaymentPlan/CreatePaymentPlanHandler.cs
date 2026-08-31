@@ -30,7 +30,8 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             command.InstallmentCount,
             command.PurchaseDate,
             card.CutoffDay,
-            new PhantomPennyAllocator());
+            new PhantomPennyAllocator(),
+            command.Split?.Participants.Select(participant => (participant.PartyId, participant.Weight)).ToList());
         if(plan.IsFailure) {
             return plan.Error;
         }

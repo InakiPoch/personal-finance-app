@@ -14,6 +14,7 @@ internal sealed class PaymentPlanConfiguration : IEntityTypeConfiguration<Paymen
         builder.Property(plan => plan.CardId).IsRequired();
         builder.Property(plan => plan.PurchaseDate).IsRequired();
         builder.Property(plan => plan.InstallmentCount).IsRequired();
+        builder.Property(plan => plan.SplitReferenceId);
         builder.Property(plan => plan.Total)
             .HasConversion(
                 amount => amount.MinorUnits,
@@ -27,6 +28,14 @@ internal sealed class PaymentPlanConfiguration : IEntityTypeConfiguration<Paymen
             .OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(plan => plan.Installments)
             .HasField("installments")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        builder.HasMany(plan => plan.SplitParticipants)
+            .WithOne()
+            .HasForeignKey(participant => participant.PaymentPlanId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(plan => plan.SplitParticipants)
+            .HasField("splitParticipants")
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Ignore(plan => plan.DomainEvents);
     }

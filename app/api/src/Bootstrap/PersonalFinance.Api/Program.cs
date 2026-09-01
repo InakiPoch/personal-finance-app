@@ -6,13 +6,19 @@ using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
-// One RFC-9457 ProblemDetails envelope for every failure — framework 400/404/405/415 and the
-// last-resort GlobalExceptionHandler alike.
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+var corsOptions = builder.Configuration.GetSection(ClientCorsOptions.SectionName).Get<ClientCorsOptions>() ?? new ClientCorsOptions();
+builder.Services.AddCors(options => {
+    options.AddPolicy(ClientCorsOptions.PolicyName, policy => {
+        if(corsOptions.AllowedOrigins.Length > 0) {
+            policy.WithOrigins(corsOptions.AllowedOrigins).AllowAnyHeader().AllowAnyMethod();
+        }
+    });
+});
 
 builder.Services.AddSharedInfrastructure(builder.Configuration);
 
@@ -32,11 +38,12 @@ app.UseExceptionHandler();
 
 if(app.Environment.IsDevelopment()) {
     app.MapOpenApi();
-    // Scalar API reference UI with a built-in request client — https://scalar.com/#api-reference
     app.MapScalarApiReference();
 }
 
 app.UseHttpsRedirection();
+
+app.UseCors(ClientCorsOptions.PolicyName);
 
 app.MapModuleEndpoints();
 

@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using PersonalFinance.Api.Endpoints.DTOs;
 using PersonalFinance.Api.Endpoints.Mapping;
 using PersonalFinance.Financing.Contracts;
@@ -10,9 +9,8 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Api.Endpoints;
 
-/// D13 unified instrument registration — pure router, no domain logic: delegates to ILedgerApi (debit/cash) or IFinancingApi (credit) by the request's type.
 public static class PostInstrument {
-    public static async Task<Results<Ok<InstrumentCreatedDto>, BadRequest<ProblemDetails>>> Handle(PostInstrumentDto body, ILedgerApi ledger, IFinancingApi financing, CancellationToken cancellationToken) {
+    public static async Task<Results<Created<InstrumentCreatedDto>, ProblemHttpResult>> Handle(PostInstrumentDto body, ILedgerApi ledger, IFinancingApi financing, CancellationToken cancellationToken) {
         var type = body.Type.ToLowerInvariant();
         var result = type switch {
             "debit" => await ledger.CreateAccountAsync(new CreateAccountCommand(body.Name, AccountType.Asset, AccountKind.Bank), cancellationToken),
@@ -25,6 +23,6 @@ public static class PostInstrument {
         if(result.IsFailure) {
             return ProblemResultsHelper.From(result.Error);
         }
-        return TypedResults.Ok(result.Value.ToInstrumentCreatedDto(type));
+        return TypedResults.Created((string?)null, result.Value.ToInstrumentCreatedDto(type));
     }
 }

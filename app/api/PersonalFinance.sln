@@ -61,6 +61,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Reporting",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Reporting.Tests", "tests\PersonalFinance.Reporting.Tests\PersonalFinance.Reporting.Tests.csproj", "{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PersonalFinance.Api.Tests", "tests\PersonalFinance.Api.Tests\PersonalFinance.Api.Tests.csproj", "{D5613D8C-9166-42A5-AAE6-6D97245CE252}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -299,6 +301,10 @@ Global
 		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|x64.Build.0 = Release|Any CPU
 		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|x86.ActiveCfg = Release|Any CPU
 		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C}.Release|x86.Build.0 = Release|Any CPU
+		{D5613D8C-9166-42A5-AAE6-6D97245CE252}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D5613D8C-9166-42A5-AAE6-6D97245CE252}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D5613D8C-9166-42A5-AAE6-6D97245CE252}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D5613D8C-9166-42A5-AAE6-6D97245CE252}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -331,5 +337,6 @@ Global
 		{BF6A204B-50D0-4CC3-9436-D55429062ED2} = {24F419E3-6BC9-427E-BC3C-9EEE7BF7E1B2}
 		{5F6BB69E-025A-496C-903C-2AAEDED4AB57} = {BF6A204B-50D0-4CC3-9436-D55429062ED2}
 		{56E2B1EC-BA4F-42CC-AD7B-1063C656705C} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
+		{D5613D8C-9166-42A5-AAE6-6D97245CE252} = {BA796319-ED73-4D4D-B4F1-4DCE4EA76513}
 	EndGlobalSection
 EndGlobal

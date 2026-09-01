@@ -471,12 +471,25 @@ Completed via the 9-step plan `today-we-will-implement-lively-lightning.md`, one
 **Depends on:** at least Phase 2 complete; ideally run once Phase 8 is done for full test-matrix coverage, but can be pulled forward earlier.
 
 ### Tasks
-- [ ] `.github/workflows/ci.yml` running `dotnet restore` / `build` / `test` against the whole `.sln`.
-- [ ] Pin the CI runner's SDK to match `global.json` explicitly.
-- [ ] Ensure any file-based SQLite tests use a unique temp file per test run/worker (avoid CI concurrency collisions).
+- [x] `.github/workflows/ci.yml` running `dotnet restore` / `build` / `test` against the whole `.sln`.
+- [x] Pin the CI runner's SDK to match `global.json` explicitly.
+- [x] Ensure any file-based SQLite tests use a unique temp file per test run/worker (avoid CI concurrency collisions).
 
 ### Definition of done
-- [ ] A CI run on a clean checkout passes end-to-end with no manual setup beyond `global.json`/the workflow file.
+- [x] A CI run on a clean checkout passes end-to-end with no manual setup beyond `global.json`/the workflow file.
+
+### Completion notes (2026-09-01)
+
+Completed via the 6-step plan `sprightly-foraging-duckling.md`, one green-lightable step at a time. Scope (user-chosen): minimal CI **+ reproducibility hardening**. No Docker in the per-push loop (LLM Council verdict 2026-09-01, `app/api/council/`).
+
+- **`.github/workflows/ci.yml` lives at the git root** (`/home/ipoch/Documents/PersonalFinanceApp/.github/`), one level above the solution at `app/api/`. One `build-test` job on `ubuntu-latest`, `defaults.run.working-directory: app/api`, `timeout-minutes: 15`, `permissions: contents: read`, `concurrency` group per ref with `cancel-in-progress`. Steps: checkout → `actions/setup-dotnet@v4` (`global-json-file: app/api/global.json`, `cache: true`, `cache-dependency-path: app/api/**/packages.lock.json`) → `dotnet --info` → `dotnet restore PersonalFinance.sln --locked-mode` → `dotnet build PersonalFinance.sln --no-restore -c Release` → `dotnet test --solution PersonalFinance.sln --no-build -c Release`. `global-json-file` / `cache-dependency-path` are repo-root-relative because `defaults.run.working-directory` only affects `run:` steps, not `uses:` steps.
+- **Task 2 (SDK pin):** `setup-dotnet` + `global-json-file` installs SDK `10.0.111` exactly; `dotnet --info` prints the resolved SDK into the run log for auditability.
+- **Task 3 (unique temp SQLite per worker): already satisfied, no code change.** Only `PersonalFinance.Api.Tests`, `PersonalFinance.Reporting.Tests`, `PersonalFinance.Parties.Tests` touch SQLite; each uses a `Guid.CreateVersion7()`-named temp file (`pf-api-{guid}.db` / `pf-reporting-{guid}.db`) or `Filename=:memory:`, fresh per run. No test opens the shared `personalfinance.db`; no `xunit.runner.json`, no parallelism override.
+- **Reproducibility hardening (scope add):** 20 `packages.lock.json` committed (13 src + 7 tests), generated with `dotnet restore PersonalFinance.sln --use-lock-file`. **Do NOT** add `<RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>` to `Directory.Build.props` — it applies to the `PersonalFinance.sln` metaproject (no `TargetFramework`) and breaks `dotnet restore`/`build` on the solution (`Invalid framework identifier ''` / `NETSDK1013`). `Directory.Build.props` is unchanged. Once the lock files are committed, plain `dotnet restore` auto-honors them; CI enforces freshness with `--locked-mode`. Caveat: `setup-dotnet` `cache: true` fails the job if no `packages.lock.json` matches `cache-dependency-path` — the lock files and `ci.yml` must land in the same push.
+- **Local dry-run (DoD proof):** `git archive HEAD` into a non-git dir, empty `NUGET_PACKAGES`, ran the workflow's exact sequence → SDK `10.0.111` resolved from `global.json`, `restore --locked-mode` exit 0 from a cold package cache, `build -c Release` 0W/0E, `test --solution … -c Release` → **126 passed / 0 failed / 0 skipped** (Architecture.Tests / RNF-9 among them).
+- **Not exercised locally (CI-only, low risk):** `actions/setup-dotnet@v4` SDK install + its NuGet cache action on `ubuntu-latest`; Linux-x64 runner vs local arch — pure managed .NET 10 + SQLitePCLRaw bundled `linux-x64` native, no arch-specific code paths. First live validation is the first push to `chore/ci-pipeline`.
+- **Optional deferred hedge (LLM Council, not started):** a separate, non-blocking `dotnet publish /t:PublishContainer` job (tag- or `workflow_dispatch`-triggered, no Dockerfile / registry / volume) to catch packaging regressions `dotnet test` can't — trimming/linker warnings, missing runtime assets, ICU/globalization, timezone data. Kept out of the per-push loop; full containerization is a separate later track judged on learning value, not CI value.
+- **Not committed by this session** — the user commits all Phase 9 work (`c283521` = the 20 lock files + a 2-line `Program.cs` trim; `81c3328` = `ci.yml`, were the user's own commits made during the build).
 
 ---
 

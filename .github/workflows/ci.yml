@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: app/api
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up .NET SDK (pinned by global.json)
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: app/api/global.json
+          cache: true
+          cache-dependency-path: app/api/**/packages.lock.json
+      - name: Print resolved SDK
+        run: dotnet --info
+      - name: Restore (locked)
+        run: dotnet restore PersonalFinance.sln --locked-mode
+      - name: Build (Release)
+        run: dotnet build PersonalFinance.sln --no-restore -c Release
+      - name: Test (Release)
+        run: dotnet test --solution PersonalFinance.sln --no-build -c Release

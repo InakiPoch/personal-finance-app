@@ -357,7 +357,7 @@ Completed via the 10-step plan `today-we-will-implement-drifting-nautilus.md`, o
 ### Definition of done
 - [x] All `Parties.Tests` pass — `dotnet test --solution PersonalFinance.sln` → **110 passed** / 0 failed / 0 skipped (was 75 pre-Phase-6).
 - [x] End-to-end smoke via `PersonalFinance.Api.http` (live, 2026-08-31, host on `:5003`) — both cascade paths proven; see Completion notes.
-- [ ] `OutboxHealthCheck` manually verified to go unhealthy if the Outbox Worker is paused while a `PaymentPlanCreated` message is pending (RNF-7). — **Deferred to Phase 8.** The check class is unchanged from Phase 1 (its WAL/backlog logic was hard-verified in the Phase 1 DoD) and has no HTTP route yet — `Program.cs` `/health` is still the Phase-0 stub and `MapHealthChecks` wiring is Phase 8 scope. On the card-split path the pending-backlog staleness was confirmed by direct `sqlite3` inspection of `financing_outbox_messages` instead.
+- [x] `OutboxHealthCheck` manually verified to go unhealthy if the Outbox Worker is paused while a `PaymentPlanCreated` message is pending (RNF-7). — **Closed in Phase 8 Step 8.** `MapHealthChecks("/health")` is now wired; with a pending `financing_outbox_messages` row `GET /health` returns `Degraded`/200 within `OutboxOptions.StalenessThreshold` (5 min) and `Unhealthy`/503 past it, then back to `Healthy`/200 once the row is drained. Full transcript in `src/Bootstrap/PersonalFinance.Api/PersonalFinance.Api.http` (`### RNF-7 health degradation`).
 
 ### Completion notes (2026-08-31)
 
@@ -379,7 +379,7 @@ Completed via the 19-step plan `today-we-will-implement-velvety-quilt.md`, one g
   - **Card-split path:** `POST /v1/instruments {credit}` → `POST /v1/financing/payment-plans` (300000, 3 installments, Alice + Bob weight 1) → OutboxWorker drains → `OnPaymentPlanCreated` writes the `ExpenseSplit` + `LinkSplitAsync` populates `financing_payment_plans.SplitReferenceId` + 2 `financing_payment_plan_split_participants` rows. Balance stays **0** at plan creation (D11). `AccrueInstallments` accrues the 3 closed cycles → Alice & Bob balances **99999** each (per installment 100000 split 3-way = holder 33334 / each party 33333, ×3). `POST /v1/financing/statements/{id}/pay` → reverse a paid cycle's accrual txn → `compensatingEntryPosted: true`, Alice & Bob balances **99999 → 66666** (−33333 each), `ReversedReceivableMinorUnits` 0 → 66666. Timeline: 6 rows, correctly ordered.
   - **Dedup:** re-null `financing_outbox_messages.ProcessedOnUtc` + restart the host → still exactly one `parties_expense_splits` row and one `parties_inbox_consumed` row (`Consumer = "Parties"`).
   - `dotnet test --solution PersonalFinance.sln` → **110 passed** / 0 failed / 0 skipped.
-- **Left for later phases:** `ExpenseSplitSettledIntegrationEvent` has no consumer (Ledger already posts the D4 entry synchronously in `SettleCurrentAccount`); negative `CurrentAccount` (holder owes the party after a settled slice is reversed) surfaces correctly as a signed balance but has no dedicated settlement flow; the `vw_current_account_timeline` `"Card installment"` label; `OutboxHealthCheck` HTTP route (Phase 8); `docs/DESIGN.md` D12 step-4 text should note "metadata-only, the storno corrects the ledger" (Phase 10 doc-sync).
+- **Left for later phases:** `ExpenseSplitSettledIntegrationEvent` has no consumer (Ledger already posts the D4 entry synchronously in `SettleCurrentAccount`); negative `CurrentAccount` (holder owes the party after a settled slice is reversed) surfaces correctly as a signed balance but has no dedicated settlement flow; the `vw_current_account_timeline` `"Card installment"` label; ~~`OutboxHealthCheck` HTTP route (Phase 8)~~ **— done in Phase 8 Step 4/8**; `docs/DESIGN.md` D12 step-4 text should note "metadata-only, the storno corrects the ledger" (Phase 10 doc-sync).
 
 ---
 
@@ -431,21 +431,36 @@ Completed via the 11-step plan `today-we-will-implement-quizzical-gem.md`, one g
 **Depends on:** all module phases functionally complete.
 
 ### Tasks
-- [ ] Define the API-wide error envelope (`ProblemDetails`-based or custom `ApiError { Code, Message, Metadata }` mapping from `SharedKernel.Error`), returned consistently for all 4xx/5xx via shared middleware/filter — not duplicated per endpoint file.
-- [ ] Audit all `Endpoints/*.cs` files (including `InstrumentsEndpoints.cs`) to confirm they map `Result`/`Error` failures through the shared envelope; fix stragglers.
-- [ ] Add CORS policy scoped to the Angular dev server origin (`http://localhost:4200`, confirm against `app/client`'s actual `ng serve` port), ideally `appsettings`-driven rather than hardcoded.
-- [ ] Confirm `AddOpenApi()`/`MapOpenApi()` covers every module's endpoints once registered; add XML doc comments / `[EndpointSummary]` where the spec is too sparse for client codegen.
-- [ ] Wire `OutboxHealthCheck` into `Program.cs` via `AddHealthChecks()`; expose `/health` (replacing Phase 0's placeholder).
-- [ ] Confirm endpoint testability wasn't compromised — handlers should remain testable in isolation, as in each module's own test project.
+- [x] API-wide error envelope — enriched RFC-9457 `ProblemDetails` (not a custom body): `Error.Code` → `extensions["code"]`, `Error.Message` → `detail`, `Error.Metadata` merged into extensions, HTTP status derived from the code by the pure `Endpoints/ErrorHttpStatusHelper.cs` (4 buckets: `*NotFound` → 404, state-conflict → 409, domain-validation → 422, else 400). One `Endpoints/ProblemResultsHelper.From(Error)`; `Handlers/GlobalExceptionHandler : IExceptionHandler` for the rest (`FormatException`/`ArgumentException` from mapping-layer `DateOnly.Parse`/`Enum.Parse` → 400 `Request.Malformed`, everything else → 500 `Server.Unhandled`, generic detail outside Development). `AddProblemDetails()` so framework 400/404/405/415 are enveloped too.
+- [x] Audited every `Endpoints/**` file + `InstrumentsEndpoints.cs` — all command/DELETE handlers return `Results<T, ProblemHttpResult>` through `ProblemResultsHelper.From`; Reporting query handlers throw and are enveloped by `GlobalExceptionHandler` (no `Result` retrofit into the query pipeline).
+- [x] `appsettings`-driven CORS — `Cors:AllowedOrigins` bound to `ClientCorsOptions`, named policy `"client"` (`http://localhost:4200`), empty list = no-op. `app.UseCors` between `UseHttpsRedirection` and endpoint mapping.
+- [x] OpenAPI completeness — `OpenApi/ApiDocumentInfoTransformer` sets title/version/description; per-feature `.WithTags`; per-route `.WithSummary`/`.WithDescription`/`.Produces<T>`/`.ProducesProblem` (status codes derived from each handler's real `*Errors.*` usage, not guessed). `MapOpenApi()` un-gated from Development so CI / client codegen can pull `/openapi/v1.json`; Scalar UI stays dev-only.
+- [x] `MapHealthChecks("/health")` + JSON `Endpoints/HealthCheckResponseWriterHelper` over the already-registered `OutboxHealthCheck` (replaces Phase 0's `MapGet` placeholder); default status→HTTP mapping kept (Healthy/Degraded → 200, Unhealthy → 503).
+- [x] Endpoint testability intact — handlers unchanged; each module's own pure-domain test project still passes unchanged (115 → 126 with the new host project).
 
 ### Tests
-- [ ] Small `WebApplicationFactory`-based smoke test: `/health` reflects Outbox Worker state; CORS headers present for the configured origin; OpenAPI document generates without errors.
+- [x] `tests/PersonalFinance.Api.Tests` (`WebApplicationFactory<Program>` against a throwaway SQLite file, app hosted services stripped for determinism): `ErrorHttpStatusHelperTests` (pure `[Theory]`), `ErrorEnvelopeTests`, `HealthEndpointTests`, `CorsTests`, `OpenApiDocumentTests` — 11 cases, all green. `Program.cs` gained a trailing `public partial class Program { }`; `PersonalFinance.Api.csproj` an `InternalsVisibleTo` for the test project.
 
 ### Definition of done
-- [ ] All module endpoints return the consistent error envelope on failure.
-- [ ] `/health` reflects Outbox staleness correctly.
-- [ ] OpenAPI spec is complete and importable (spot-check by generating a TS client or validating against the OpenAPI 3.x schema).
-- [ ] CORS verified manually against a `fetch()` call from a browser console pointed at the Angular dev origin.
+- [x] All module endpoints return the consistent error envelope on failure — verified live per status class (422/404/409/400) in `PersonalFinance.Api.http` (`# Phase 8 — Host envelope`).
+- [x] `/health` reflects Outbox staleness correctly — see the Phase 6 DoD line above (RNF-7 proof: `Degraded`/200 → `Unhealthy`/503 → `Healthy`/200).
+- [x] OpenAPI spec is complete and importable — `/openapi/v1.json` validates; 19 paths in Production (20 in Development with the dev-only account route), per-route tags + summaries + response types present, `info.title` "PersonalFinance API".
+- [x] CORS verified — preflight from `http://localhost:4200` echoes `Access-Control-Allow-Origin`; an unlisted origin gets no such header (recorded in the `.http` Phase 8 block; `curl -i` stands in for the browser `fetch()`).
+
+### Completion notes (2026-09-01)
+
+Completed via the 9-step plan `today-we-will-implement-lively-lightning.md`, one green-lightable step at a time. Build 0W/0E and `dotnet test --solution` green (115 → 126) after every step. No EF migration this phase — host-only.
+
+- **Envelope = enriched RFC-9457 `ProblemDetails`, not a custom `ApiError` body** (the task's open choice). `ProblemResultsHelper.From(Error)` builds it; the HTTP status is a pure function of `Error.Code` in `Endpoints/ErrorHttpStatusHelper.cs` — an explicit `switch` over the ~48 catalogued codes with suffix-based fallbacks (`NotFound` → 404; `AlreadyPaid`/`AlreadyAccrued`/`AlreadyReversed`/`NotActive`/`CannotReverseAReversal`/`SettlementExceedsBalance` → 409; `Invalid*`/`NonPositive*`/known validation set → 422; else 400). This file is the source of truth for the mapping.
+- **`GlobalExceptionHandler : IExceptionHandler`** — mapping-layer `FormatException`/`ArgumentException` (`DateOnly.Parse`, `Enum.Parse<RecurrenceFrequency>`) → 400 `Request.Malformed` with the real message (it is about input shape); anything else → 500 `Server.Unhandled`, generic detail outside Development, logged at `Error`. Writes through `TypedResults.Problem(...)` so the body matches the envelope exactly.
+- **Every resource-creating `POST` returns `201 Created`** with `TypedResults.Created((string?)null, dto)` — **no `Location`** header (no canonical `GET /v1/<x>/{id}` routes exist yet; a dangling `Location` is worse than none — follow-up if item-GET routes land). `DELETE` stays 204, all `GET` stay 200. Dev-only `POST /v1/ledger/accounts` deliberately left at 200 (`TODO(Phase 3): remove`).
+- **PUT audit (mid-phase, verification-only):** no endpoint misuses POST for a full-resource update. Every POST either mints a new aggregate/transaction or is a verb-suffixed action (`/statements/{id}/pay`, `/{id}/reversal`, `/{id}/settlements`) — RPC-style actions are conventionally POST, not PUT. Ledger being append-only (D3) means no PUT candidate exists there at all.
+- **OpenAPI:** `.ProducesProblem(...)` status codes per route were derived by grepping which `*Errors.*` constant each command handler / validator / domain rule actually references — e.g. `DELETE /v1/subscriptions/{id}` documents only 404, because `SubscriptionNotActive` (409) is exclusive to the background `RenewSubscriptionCommand`, never reachable from `CancelSubscriptionCommand`.
+- **`.NET 10 `Microsoft.OpenApi` v2 breaking change:** the `Microsoft.OpenApi.Models` namespace is gone — `OpenApiDocument` et al. moved to the `Microsoft.OpenApi` root namespace.
+- **`dotnet run` launch-profile gotcha:** `Properties/launchSettings.json`'s `ASPNETCORE_ENVIRONMENT=Development` overrides an already-exported shell var of the same name unless `--no-launch-profile` is passed — matters for any host smoke that needs a genuinely non-Development environment (the Production OpenAPI path-count check).
+- **`tests/PersonalFinance.Api.Tests`** (`WebApplicationFactory<Program>`): factory overrides `Sqlite:ConnectionString` to a throwaway temp file (also defeats the host's blank-string fallback to the shared `personalfinance.db`), migrates the four module contexts, and **removes the app's own `IHostedService`s** (accrual / renewal / `OutboxWorker`, matched by `PersonalFinance.*` impl namespace) so an HTTP test can't race a background tick. `InternalsVisibleTo` on the host project mirrors every module impl project's convention (needed for the pure `ErrorHttpStatusHelper` theory).
+- **RNF-7 closed** (deferred Phase 6 DoD): `OutboxHealthCheck` has one knob — `OutboxOptions.StalenessThreshold`, default 5 min. Pending row within it → `Degraded`/200; past it → `Unhealthy`/503; drained → `Healthy`/200. Proven live and restored; transcript in `PersonalFinance.Api.http` (`### RNF-7 health degradation`).
+- **Envelope JSON shape:** `code` / `status` serialize at the **root** of the `ProblemDetails` body (not under a nested `extensions` object) — `TypedResults.Problem(extensions:)` flattens extension members to the root.
 
 ---
 

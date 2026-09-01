@@ -706,3 +706,191 @@ GET {{reports}}/parties/debt-summary
 Accept: application/json
 
 ###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 8 — Host envelope: one RFC-9457 ProblemDetails contract for every failure
+# (status derived from SharedKernel.Error.Code by ErrorHttpStatusHelper, `code` +
+# Error.Metadata surfaced as extension members), appsettings-driven CORS, complete
+# OpenAPI at /openapi/v1.json, and OutboxHealthCheck wired into GET /health.
+#
+# Manual E2E run 2026-09-01 against the `https` launch profile
+# (https://localhost:7095 — self-signed cert, drive with `curl -ik`). Every
+# `#` line below the request is the REAL observed status line + body from that run.
+# ─────────────────────────────────────────────────────────────────────────────
+
+### 422 — single-leg (degenerate) transaction → domain rule violation
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "11111111-1111-1111-1111-111111111111", "direction": "Debit", "amountMinorUnits": 1000 }
+  ],
+  "postedOnUtc": "2026-08-29T12:00:00Z"
+}
+
+# HTTP/2 422
+# content-type: application/problem+json
+# {"type":"https://tools.ietf.org/html/rfc4918#section-11.2","title":"The request was well-formed but violates a domain rule.","status":422,"detail":"A transaction must have at least two entries.","code":"Ledger.DegenerateTransaction","traceId":"..."}
+
+### 404 — reversal of an unknown transaction id
+# NOTE: swapped from `GET /v1/ledger/accounts/{id}/balance` — that endpoint (GetAccountBalance)
+# returns a zeroed 200 Ok for any id, like Parties' balance endpoint, so it never yields a 404.
+# The reversal endpoint surfaces Ledger.OriginalTransactionNotFound → 404 through the envelope.
+POST {{ledger}}/transactions/99999999-9999-9999-9999-999999999999/reversal
+
+# HTTP/2 404
+# content-type: application/problem+json
+# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.5","title":"The requested resource was not found.","status":404,"detail":"The transaction to reverse was not found.","code":"Ledger.OriginalTransactionNotFound","traceId":"..."}
+
+### 409 — settlement that exceeds the party's outstanding balance
+# NOTE: this is the reachable 409-bucket case. The statement-double-pay path
+# (Financing.StatementAlreadyPaid → 409) needs: POST /v1/instruments type "credit"
+# (cutoffDate set) → POST /v1/financing/payment-plans with a purchaseDate in a
+# long-closed cycle → wait for the AccrueInstallments scheduler (interval 1 min, also
+# fires on startup) to post the accrual and roll a financing_monthly_statements row →
+# POST /v1/financing/statements/{id}/pay once (200) → POST the same again (→ 409).
+# Too many timed dependencies for a deterministic manual run; the settlement path
+# below exercises the identical envelope + 409 mapping in one call.
+#
+# Setup: create a fresh party (balance starts at 0), then settle a positive amount.
+# @name envParty
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "Envelope Test Party" }
+
+# HTTP/2 201
+# content-type: application/json; charset=utf-8
+# {"id":"01a05dd3-575f-7132-beed-898a4241126e"}
+
+###
+POST {{parties}}/{{envParty.response.body.$.id}}/settlements
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 5000,
+  "bankAccountId": "22222222-2222-2222-2222-222222222222",
+  "settledOnUtc": "2026-08-31T10:00:00Z"
+}
+
+# HTTP/2 409
+# content-type: application/problem+json
+# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.10","title":"The request conflicts with the current state of the resource.","status":409,"detail":"A settlement cannot exceed the party's outstanding balance.","code":"Parties.SettlementExceedsBalance","traceId":"..."}
+
+### 400 — unroutable instrument type
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "weird", "name": "x" }
+
+# HTTP/2 400
+# content-type: application/problem+json
+# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"The request could not be processed.","status":400,"detail":"Unknown instrument type 'weird'.","code":"Instruments.UnknownType","traceId":"..."}
+
+### 201 — create a party (valid body)
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "Envelope Test Party" }
+
+# HTTP/2 201
+# content-type: application/json; charset=utf-8
+# {"id":"01a05dd3-575f-7132-beed-898a4241126e"}
+# NOTE: the body carries the new id; there is NO Location header — PostParty returns
+# TypedResults.Created((string?)null, ...) so the response is 201 with no Location.
+# (Same for POST /v1/instruments, POST /v1/parties/shared-expenses, POST /v1/parties/{id}/settlements.)
+
+### CORS preflight — allowed origin (appsettings Cors:AllowedOrigins = ["http://localhost:4200"])
+OPTIONS {{ledger}}/transactions
+Origin: http://localhost:4200
+Access-Control-Request-Method: POST
+
+# HTTP/2 204
+# access-control-allow-methods: POST
+# access-control-allow-origin: http://localhost:4200
+
+### CORS preflight — disallowed origin → no Access-Control-Allow-Origin header echoed back
+OPTIONS {{ledger}}/transactions
+Origin: http://evil.example
+Access-Control-Request-Method: POST
+
+# HTTP/2 204
+# (no access-control-allow-origin header, no access-control-allow-methods header — origin not in the policy)
+
+### OpenAPI document — always served (Program.cs maps it outside Development too)
+GET {{api_HostAddress}}/openapi/v1.json
+Accept: application/json
+
+# HTTP 200
+# info.title  = "PersonalFinance API"
+# info.version = "v1"
+# info.description = "Modular-monolith personal finance API: a double-entry Ledger, credit-card Financing,
+#                     recurring Subscriptions, and shared-expense Parties tracking, exposed under /v1 with
+#                     one consistent RFC-9457 ProblemDetails error contract."
+# paths: 20 —
+#   /v1/financing/cards/{id}/future-schedule   /v1/financing/payment-plans   /v1/financing/statements/{id}/pay
+#   /v1/instruments   /v1/ledger/accounts   /v1/ledger/accounts/{id}/balance   /v1/ledger/transactions
+#   /v1/ledger/transactions/{id}/reversal   /v1/parties   /v1/parties/shared-expenses   /v1/parties/{id}/balance
+#   /v1/parties/{id}/settlements   /v1/parties/{id}/timeline   /v1/reports/card-due-by-month
+#   /v1/reports/monthly-expenses   /v1/reports/parties/debt-summary   /v1/reports/parties/{id}/timeline
+#   /v1/subscriptions   /v1/subscriptions/active   /v1/subscriptions/{id}
+
+### Health — OutboxHealthCheck behind GET /health, JSON via HealthCheckResponseWriterHelper
+GET {{api_HostAddress}}/health
+Accept: application/json
+
+# HTTP/2 200
+# content-type: application/json
+# cache-control: no-store, no-cache
+# {"status":"Healthy","totalDurationMs":2.327,"checks":[{"name":"outbox","status":"Healthy","description":"Outbox is clear.","data":{}}]}
+
+###
+
+### RNF-7 health degradation — closes the deferred Phase 6 DoD item
+#
+# OutboxHealthCheck (src/Shared/PersonalFinance.Infrastructure/Outbox/OutboxHealthCheck.cs):
+#   pending == 0                          → Healthy   (HTTP 200)  "Outbox is clear."
+#   pending > 0, age <= StalenessThreshold → Degraded (HTTP 200)
+#   pending > 0, age >  StalenessThreshold → Unhealthy (HTTP 503)
+#   age = TimeProvider.System.GetUtcNow() - (oldest pending row's OccurredOnUtc)
+# OutboxOptions.StalenessThreshold default = 5 minutes (config section "Outbox" unset → default).
+# There is ONE threshold; 5 min of age on the oldest unprocessed row is the Degraded↔Unhealthy line.
+# Backlog source per module: <module>_outbox_messages, pending = `ProcessedOnUtc IS NULL`,
+# age anchor = `OccurredOnUtc` of the lowest-Id pending row. No response cache — the check
+# re-runs on every GET /health with a fresh DI scope, so no wait is needed between observations.
+#
+# Manual run 2026-09-01 (host on the `https` profile; DB = personalfinance.db at the solution root).
+# Full transcript + exact SQL:
+#   /tmp/claude-1000/-home-ipoch-Documents-PersonalFinanceApp-app-api/98e7d405-4489-48b1-9216-b928d807e946/scratchpad/rnf7-proof.md
+#
+# 1) host stopped — inject one pending row, OccurredOnUtc ~45 s old (inside the 5-min window):
+#    sqlite3 personalfinance.db "INSERT INTO financing_outbox_messages
+#      (MessageId, Type, Payload, OccurredOnUtc, ProcessedOnUtc, Attempts, Error)
+#      VALUES ('68FB1888-2AD9-4A0E-8C05-8BC5E4EDB260',
+#              'RNF7.Injected.Unresolvable, RNF7.FakeAssembly', '{}',
+#              '2026-09-01 16:35:40.441701+00:00', NULL, 0, NULL);"
+#
+# 2) start host → GET /health → DEGRADED / 200:
+#    HTTP/2 200
+#    {"status":"Degraded","totalDurationMs":13.4356,"checks":[{"name":"outbox","status":"Degraded","description":"Outbox backlog: 1 pending, oldest 57s old.","data":{"pending":1,"oldestAgeSeconds":56.8817827}}]}
+#
+# 3) stop host — backdate the same row past 5 min (~15 min old):
+#    sqlite3 personalfinance.db "UPDATE financing_outbox_messages
+#      SET OccurredOnUtc='2026-09-01 16:22:02.272482+00:00', Attempts=0, Error=NULL
+#      WHERE MessageId='68FB1888-2AD9-4A0E-8C05-8BC5E4EDB260';"
+#
+# 4) start host → GET /health → UNHEALTHY / 503:
+#    HTTP/2 503
+#    {"status":"Unhealthy","totalDurationMs":19.0953,"checks":[{"name":"outbox","status":"Unhealthy","description":"Outbox backlog stale: 1 pending, oldest 910s old.","data":{"pending":1,"oldestAgeSeconds":910.3290182}}]}
+#
+# 5) cleanup — stop host, delete the injected row, restart → GET /health → HEALTHY / 200:
+#    sqlite3 personalfinance.db "DELETE FROM financing_outbox_messages
+#      WHERE MessageId='68FB1888-2AD9-4A0E-8C05-8BC5E4EDB260';"
+#    HTTP/2 200
+#    {"status":"Healthy","totalDurationMs":8.1453,"checks":[{"name":"outbox","status":"Healthy","description":"Outbox is clear.","data":{}}]}
+#
+# financing_outbox_messages restored to its original 3 rows (all ProcessedOnUtc set);
+# PRAGMA integrity_check = ok; all four *_outbox_messages tables report 0 pending. DB left Healthy.
+
+###

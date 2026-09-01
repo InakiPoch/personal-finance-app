@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using PersonalFinance.Api;
+using PersonalFinance.Api.Endpoints;
 using PersonalFinance.Api.Handlers;
 using PersonalFinance.Infrastructure.DependencyInjection;
 using PersonalFinance.Infrastructure.Persistence;
@@ -47,7 +49,8 @@ app.UseCors(ClientCorsOptions.PolicyName);
 
 app.MapModuleEndpoints();
 
-// Temporary liveness probe — replaced by the real health check in Phase 8.
-app.MapGet("/health", () => Results.Ok());
+app.MapHealthChecks("/health", new HealthCheckOptions {
+    ResponseWriter = HealthCheckResponseWriterHelper.Write
+});
 
 app.Run();

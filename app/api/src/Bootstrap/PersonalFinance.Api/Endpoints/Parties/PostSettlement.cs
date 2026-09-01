@@ -6,11 +6,11 @@ using PersonalFinance.Infrastructure.Messaging;
 namespace PersonalFinance.Api.Endpoints.Parties;
 
 public static class PostSettlement {
-    public static async Task<Results<Ok<SettlementResultDto>, ProblemHttpResult>> Handle(Guid id, SettleCurrentAccountDto body, ICommandBus commandBus, CancellationToken cancellationToken) {
+    public static async Task<Results<Created<SettlementResultDto>, ProblemHttpResult>> Handle(Guid id, SettleCurrentAccountDto body, ICommandBus commandBus, CancellationToken cancellationToken) {
         var result = await commandBus.SendAsync<Guid>(body.ToSettleCurrentAccountCommand(id), cancellationToken);
         if(result.IsFailure) {
             return ProblemResultsHelper.From(result.Error);
         }
-        return TypedResults.Ok(result.Value.ToSettlementResultDto());
+        return TypedResults.Created((string?)null, result.Value.ToSettlementResultDto());
     }
 }

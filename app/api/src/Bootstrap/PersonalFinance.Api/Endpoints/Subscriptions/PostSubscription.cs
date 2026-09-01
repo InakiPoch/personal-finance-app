@@ -6,11 +6,11 @@ using PersonalFinance.Infrastructure.Messaging;
 namespace PersonalFinance.Api.Endpoints.Subscriptions;
 
 public static class PostSubscription {
-    public static async Task<Results<Ok<SubscriptionResultDto>, ProblemHttpResult>> Handle(CreateSubscriptionDto body, ICommandBus commandBus, CancellationToken cancellationToken) {
+    public static async Task<Results<Created<SubscriptionResultDto>, ProblemHttpResult>> Handle(CreateSubscriptionDto body, ICommandBus commandBus, CancellationToken cancellationToken) {
         var result = await commandBus.SendAsync<Guid>(body.ToCreateSubscriptionTemplateCommand(), cancellationToken);
         if(result.IsFailure) {
             return ProblemResultsHelper.From(result.Error);
         }
-        return TypedResults.Ok(result.Value.ToSubscriptionResultDto());
+        return TypedResults.Created((string?)null, result.Value.ToSubscriptionResultDto());
     }
 }

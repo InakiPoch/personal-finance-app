@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.AspNetCore.Mvc;
 using PersonalFinance.Api.Endpoints.DTOs;
 using PersonalFinance.Api.Endpoints.Mapping;
 using PersonalFinance.Infrastructure.Messaging;
@@ -7,7 +6,7 @@ using PersonalFinance.Infrastructure.Messaging;
 namespace PersonalFinance.Api.Endpoints.Financing;
 
 public static class PostPaymentPlan {
-    public static async Task<Results<Ok<CreatePaymentPlanResultDto>, BadRequest<ProblemDetails>>> Handle(CreatePaymentPlanDto body, ICommandBus commandBus, CancellationToken cancellationToken) {
+    public static async Task<Results<Ok<CreatePaymentPlanResultDto>, ProblemHttpResult>> Handle(CreatePaymentPlanDto body, ICommandBus commandBus, CancellationToken cancellationToken) {
         var result = await commandBus.SendAsync<Guid>(body.ToCreatePaymentPlanCommand(), cancellationToken);
         if(result.IsFailure) {
             return ProblemResultsHelper.From(result.Error);

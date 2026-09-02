@@ -28,7 +28,7 @@ describe('pollUntil', () => {
         (value: number) => value >= 99,
         { intervalMs: 10, maxAttempts: 3 },
       );
-      expectObservable(source).toBe('20ms #', undefined, new Error('EmptyError'));
+      expectObservable(source).toBe('20ms #', undefined, jasmine.any(EmptyError));
     });
   });
   it('retries a failing attempt once via retry(1)', () => {

@@ -20,7 +20,8 @@ internal static class ReportingMappingExtensions {
                 row.CycleYear,
                 row.CycleMonth,
                 row.AmountMinorUnits,
-                row.CurrencyCode))
+                row.CurrencyCode,
+                row.CardId))
             .ToList();
         return new CardDueByMonthDto(rows);
     }

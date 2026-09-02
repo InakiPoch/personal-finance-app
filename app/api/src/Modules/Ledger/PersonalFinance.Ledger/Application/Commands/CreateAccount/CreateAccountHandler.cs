@@ -8,7 +8,7 @@ namespace PersonalFinance.Ledger.Application.Commands.CreateAccount;
 
 internal sealed class CreateAccountHandler(LedgerDbContext context) : ICommandHandler<CreateAccountCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(CreateAccountCommand command, CancellationToken cancellationToken) {
-        var account = Account.Create(command.Name, command.Type, command.Kind);
+        var account = Account.Create(command.Name, command.Type, command.Kind, command.OwnerReferenceId);
         if(account.IsFailure) {
             return account.Error;
         }

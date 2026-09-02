@@ -29,6 +29,7 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
     public IServiceProvider Services => host!.Services;
     public Guid AliceId { get; private set; }
     public Guid BobId { get; private set; }
+    public Guid ReportingCardId { get; private set; }
     public long AliceOwed { get; private set; }
     public long BobOwed { get; private set; }
 
@@ -54,7 +55,7 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         databasePath = Path.Combine(Path.GetTempPath(), $"pf-reporting-{Guid.CreateVersion7():N}.db");
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> {
-            ["Sqlite:ConnectionString"] = $"Data Source={databasePath}",
+            ["ConnectionStrings:PersonalFinanceDb"] = $"Data Source={databasePath}",
             ["Sqlite:JournalMode"] = "DELETE",
             ["Sqlite:BusyTimeoutMs"] = "5000",
             ["Sqlite:ForeignKeys"] = "true"
@@ -110,15 +111,18 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         var groceries = await CreateAccountAsync("Groceries", AccountType.Expense, AccountKind.Expense);
         var rent = await CreateAccountAsync("Rent", AccountType.Expense, AccountKind.Expense);
         var snacks = await CreateAccountAsync("Snacks", AccountType.Expense, AccountKind.Expense);
-        var cardPurchases = await CreateAccountAsync("Card Purchases", AccountType.Expense, AccountKind.Expense);
         var sharedDining = await CreateAccountAsync("Shared Dining", AccountType.Expense, AccountKind.Expense);
-        var cardLiability = await CreateAccountAsync("Manual Card Liability", AccountType.Liability, AccountKind.CardLiability);
+        // Create the real card first so its id can key both the RF-1 CardPurchases bucket
+        // and the manual Accrued-liability account (RF-2 shared per-card key).
+        ReportingCardId = await CreateCreditCardAsync("Visa Reporting", 15);
+        var cardPurchases = await CreateAccountAsync("Card Purchases", AccountType.Expense, AccountKind.CardPurchases, ReportingCardId);
+        var cardLiability = await CreateAccountAsync("Manual Card Liability", AccountType.Liability, AccountKind.CardLiability, ReportingCardId);
         await PostAsync("Groceries", At(5, 10), groceries, bank, 5_000);
         await PostAsync("Rent", At(5, 1), rent, bank, 30_000);
         await PostAsync("Snacks", At(5, 12), snacks, cash, 2_000);
+        // RF-1: a card-purchase-style expense that must NOT leak into the debit+cash monthly summary.
         await PostAsync("Card accrual", At(5, 20), cardPurchases, cardLiability, 12_000);
-        var card = await CreateCreditCardAsync("Visa Reporting", 15);
-        await CreatePaymentPlanAsync(300_000, card, 3, new DateOnly(2026, 6, 1));
+        await CreatePaymentPlanAsync(300_000, ReportingCardId, 3, new DateOnly(2026, 6, 1));
         AliceId = await CreatePartyAsync("Alice Reporting");
         await RegisterSharedExpenseAsync("Alice dinner", 10_000, sharedDining, bank, At(5, 25), AliceId);
         AliceOwed = await GetPartyBalanceAsync(AliceId);
@@ -134,10 +138,10 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         return new DateTimeOffset(2026, month, day, 9, 0, 0, TimeSpan.Zero);
     }
 
-    private async Task<Guid> CreateAccountAsync(string name, AccountType type, AccountKind kind) {
+    private async Task<Guid> CreateAccountAsync(string name, AccountType type, AccountKind kind, Guid? ownerReferenceId = null) {
         await using var scope = host!.Services.CreateAsyncScope();
         var ledger = scope.ServiceProvider.GetRequiredService<ILedgerApi>();
-        var result = await ledger.CreateAccountAsync(new CreateAccountCommand(name, type, kind), CancellationToken.None);
+        var result = await ledger.CreateAccountAsync(new CreateAccountCommand(name, type, kind, OwnerReferenceId: ownerReferenceId), CancellationToken.None);
         Assert.True(result.IsSuccess, $"CreateAccount '{name}' failed: {result.Error}");
         return result.Value;
     }

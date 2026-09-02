@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PersonalFinance.Ledger.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using PersonalFinance.Ledger.Infrastructure.Persistence;
 namespace PersonalFinance.Ledger.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LedgerDbContext))]
-    partial class LedgerDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260902011354_LedgerMonthlyExpensesExcludeCardPurchases")]
+    partial class LedgerMonthlyExpensesExcludeCardPurchases
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -84,9 +87,6 @@ namespace PersonalFinance.Ledger.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Name")
                         .IsRequired()
-                        .HasColumnType("TEXT");
-
-                    b.Property<Guid?>("OwnerReferenceId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Type")

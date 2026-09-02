@@ -13,11 +13,13 @@ namespace PersonalFinance.Reporting.Tests;
 /// </summary>
 public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : IClassFixture<ReportingIntegrationFixture> {
     [Fact]
-    public async Task MonthlyExpenses_includes_debit_and_cash_spend_for_the_month() {
+    public async Task MonthlyExpenses_includes_debit_and_cash_spend_but_excludes_card_purchases() {
         var response = await AskAsync(new MonthlyExpensesQuery("2026-05"));
         Assert.Equal(5_000, response.Rows.Where(row => row.Category == "Groceries").Sum(row => row.AmountMinorUnits));
         Assert.Equal(30_000, response.Rows.Where(row => row.Category == "Rent").Sum(row => row.AmountMinorUnits));
         Assert.Equal(2_000, response.Rows.Where(row => row.Category == "Snacks").Sum(row => row.AmountMinorUnits));
+        Assert.DoesNotContain(response.Rows, row => row.Category == "Card Purchases");
+        Assert.Equal(46_000, response.Rows.Sum(row => row.AmountMinorUnits));
         Assert.All(response.Rows, row => Assert.Equal("2026-05", row.Month));
         Assert.All(response.Rows, row => Assert.Equal("ARS", row.CurrencyCode));
     }
@@ -36,6 +38,17 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
+    public async Task CardDueByMonth_accrued_and_future_rows_share_a_per_card_key() {
+        var response = await AskAsync(new CardDueByMonthQuery());
+        var cardKey = fixture.ReportingCardId.ToString();
+        var future = response.Rows.Where(row => row.Bucket == "Future").ToList();
+        var accrued = response.Rows.Where(row => row.Bucket == "Accrued").ToList();
+        Assert.NotEmpty(future);
+        Assert.All(future, row => Assert.Equal(cardKey, row.CardId));
+        Assert.Contains(accrued, row => row.CardId == cardKey);
+    }
+
+    [Fact]
     public async Task PartyTimeline_reflects_the_seeded_shared_expense_and_settlement() {
         var response = await AskAsync(new GetPartyTimelineQuery(fixture.AliceId));
         Assert.Equal(2, response.Rows.Count);
@@ -46,7 +59,7 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
-    public async Task DebtByParty_nets_each_partys_movements_into_a_single_row() {
+    public async Task DebtByParty_nets_each_parties_movements_into_a_single_row() {
         var response = await AskAsync(new GetDebtByPartyQuery());
         Assert.Equal(2, response.Rows.Count);
         var alice = Assert.Single(response.Rows, row => row.PartyId == fixture.AliceId);

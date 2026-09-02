@@ -894,3 +894,729 @@ Accept: application/json
 # PRAGMA integrity_check = ok; all four *_outbox_messages tables report 0 pending. DB left Healthy.
 
 ###
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 10 — D12 / D13 re-verification (post RF-1 + RF-2 fixes)
+#
+# Manual E2E run 2026-09-02 against the `https` launch profile (https://localhost:7095,
+# self-signed cert, driven with `curl -sk`). Fresh personalfinance.db: deleted, then
+# `dotnet ef database update` for Ledger (incl. the two new migrations
+# LedgerMonthlyExpensesExcludeCardPurchases + AccountOwnerReference), Financing,
+# Subscriptions, Parties. Every `#` line below a request is the REAL observed
+# status + body / SQL result from that run.
+#
+# Confirms after the Phase 10 changes:
+#   • D13  POST /v1/instruments still routes debit/cash → Ledger, credit → Financing,
+#          and each provisioned card Ledger account now carries OwnerReferenceId = the
+#          Financing CardId (RF-2 seam).
+#   • RF-1 the per-card "<name> Purchases" account is now AccountKind.CardPurchases.
+#   • D12  a paid installment's reversal still posts the compensating entry
+#          Dr <card> Credit / Cr <card> Liability  (NOT Cr Gasto:Categoría — this is
+#          the DESIGN.md D12 worked-example doc-sync proof), the Parties split is
+#          corrected (metadata only), and the carried credit nets the next statement.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ---- D13. POST /v1/instruments routing ------------------------------------------
+
+### debit → Ledger Account (Asset / Bank)
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "debit", "name": "Checking Acct" }
+
+# HTTP/2 201
+# {"id":"01a05fce-9ed1-73b6-b93a-88494f7784e3","type":"debit"}
+
+### cash → Ledger Account (Asset / Cash)
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "cash", "name": "Cash Wallet" }
+
+# HTTP/2 201
+# {"id":"01a05fce-9f2e-7dac-9e15-55aac14fb17b","type":"cash"}
+
+### credit (cutoffDate set) → Financing CreditCard
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "Visa Gold", "cutoffDate": 15 }
+
+# HTTP/2 201
+# {"id":"01a05fce-9f41-7f2c-948f-b96d02548670","type":"credit"}
+#
+# RF-2 + RF-1 — the three provisioned Ledger accounts all carry OwnerReferenceId = the card id,
+# and the purchases bucket is Kind = 'CardPurchases':
+#   sqlite3 personalfinance.db "SELECT Name, Kind, OwnerReferenceId FROM ledger_accounts WHERE OwnerReferenceId IS NOT NULL;"
+#   Visa Gold Liability | CardLiability | 01A05FCE-9F41-7F2C-948F-B96D02548670
+#   Visa Gold Purchases | CardPurchases | 01A05FCE-9F41-7F2C-948F-B96D02548670
+#   Visa Gold Credit    | CardCredit    | 01A05FCE-9F41-7F2C-948F-B96D02548670
+
+### credit WITHOUT cutoffDate → 422 Instruments.CutoffRequired
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "Visa NoCutoff" }
+
+# HTTP/2 422
+# content-type: application/problem+json
+# {"type":"https://tools.ietf.org/html/rfc4918#section-11.2","title":"The request was well-formed but violates a domain rule.","status":422,"detail":"A credit instrument requires a statement cutoff day.","code":"Instruments.CutoffRequired","traceId":"..."}
+
+### unknown type → 400 Instruments.UnknownType
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "weird", "name": "Nope" }
+
+# HTTP/2 400
+# content-type: application/problem+json
+# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.1","title":"The request could not be processed.","status":400,"detail":"Unknown instrument type 'weird'.","code":"Instruments.UnknownType","traceId":"..."}
+
+# ---- D12. paid-installment reversal cascade + carried-credit netting ------------
+
+### Setup — funding + two parties + a credit card (cutoff 10)
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "debit", "name": "D12 Funding" }
+
+# HTTP/2 201  {"id":"01a05fcf-876a-703b-afa9-f0bed388e8a7","type":"debit"}
+
+###
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "D12 Alice" }
+
+# HTTP/2 201  {"id":"01a05fcf-8779-748a-8b0e-1a1f8dc10497"}
+
+###
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "D12 Bob" }
+
+# HTTP/2 201  {"id":"01a05fcf-878e-789c-a1d7-0aeeedcd3ccb"}
+
+###
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "D12 Card", "cutoffDate": 10 }
+
+# HTTP/2 201  {"id":"01a05fcf-879a-7c9d-8ccc-32d2332fa203","type":"credit"}
+
+### Split payment plan — 300000 over 3 installments, purchase 2026-02-05 (long-closed),
+### holder implicit + Alice 1 + Bob 1. Writes one financing_outbox_messages row (D8).
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 300000,
+  "cardId": "01a05fcf-879a-7c9d-8ccc-32d2332fa203",
+  "installmentCount": 3,
+  "purchaseDate": "2026-02-05",
+  "split": [
+    { "partyId": "01a05fcf-8779-748a-8b0e-1a1f8dc10497", "weight": 1 },
+    { "partyId": "01a05fcf-878e-789c-a1d7-0aeeedcd3ccb", "weight": 1 }
+  ]
+}
+
+# HTTP/2 201  {"paymentPlanId":"01a05fcf-a721-7932-b88d-98ad34bc8738"}
+#
+# After the OutboxWorker drains (~2 s) OnPaymentPlanCreated has recorded the split intent
+# (AccruedReceivable = 0 — not owed at plan creation, D11) and linked the receivable accounts:
+#   sqlite3 personalfinance.db "SELECT Source, TotalMinorUnits, HolderShareMinorUnits, AccruedReceivableMinorUnits
+#     FROM parties_expense_splits WHERE SourceReferenceId='01A05FCF-A721-7932-B88D-98AD34BC8738' COLLATE NOCASE;"
+#   CardPlan | 300000 | 100000 | 0        (later 199998 once all 3 cycles accrue: 2×33333×3)
+#
+# AccrueInstallments (interval 1 min, also on startup) then posts each closed cycle, tagged
+# InstallmentReferenceId + SplitReferenceId. One cycle's legs (100000 / 3, odd cent to holder):
+#   Dr D12 Card Purchases  33334   (Kind = CardPurchases — RF-1)
+#   Dr D12 Alice Receivable 33333
+#   Dr D12 Bob Receivable   33333
+#       Cr D12 Card Liability      100000
+# Three statements roll up, one per cycle (2026-2, 2026-3, 2026-4), AmountDue 100000 each.
+
+### Alice's balance after all 3 cycles accrued — live read of her Receivable
+GET {{parties}}/01a05fcf-8779-748a-8b0e-1a1f8dc10497/balance
+
+# HTTP/2 200  {"partyId":"01a05fcf-8779-748a-8b0e-1a1f8dc10497","name":"D12 Alice","balanceMinorUnits":99999}
+#   (33333 × 3 cycles)
+
+### Pay the 2026-02 statement (AmountDue 100000) — plain cash payment, no carried credit yet
+POST {{financing}}/statements/01A05FCF-EB65-7A6A-B77C-DEF3250C997A/pay
+Content-Type: application/json
+
+{ "bankAccountId": "01a05fcf-876a-703b-afa9-f0bed388e8a7", "paidOnUtc": "2026-08-31T10:00:00Z" }
+
+# HTTP/2 201  {"statementId":"01a05fcf-eb65-7a6a-b77c-def3250c997a"}
+#   pay txn legs:  Dr D12 Card Liability 100000 / Cr D12 Funding 100000
+
+### Reverse cycle-2's accrual transaction — the installment was PAID
+POST {{ledger}}/transactions/01A05FCF-EB73-7BEC-A2B0-CCDF395564D6/reversal
+
+# HTTP/2 201
+# {"reversalTransactionId":"01a05fd2-3bf8-7cb9-8ed5-1b4535a29910","originalTransactionId":"01a05fcf-eb73-7bec-a2b0-ccdf395564d6","compensatingEntryPosted":true}
+#
+# 1) Storno — exact mirror of the original accrual (append-only, original row untouched):
+#      Dr D12 Card Liability 100000 / Cr D12 Card Purchases 33334 / Cr D12 Alice Receivable 33333 / Cr D12 Bob Receivable 33333
+# 2) Compensating entry (D12 worked example — matches DESIGN.md AFTER the Step 7 doc-sync):
+#      Dr D12 Card Credit 100000
+#          Cr D12 Card Liability 100000       <-- NOT Cr Gasto:Categoría; the storno already unwound the expense
+#    sqlite3 personalfinance.db "SELECT CarriedCreditBalanceMinorUnits FROM financing_credit_cards WHERE Name='D12 Card';"  -- 100000
+# 3) Installment seq 1 flagged reversed (2 & 3 untouched):
+#    sqlite3 personalfinance.db "SELECT Sequence, IsReversed FROM financing_installments
+#      WHERE PaymentPlanId='01A05FCF-A721-7932-B88D-98AD34BC8738' COLLATE NOCASE ORDER BY Sequence;"  -- 1|1  2|0  3|0
+# 4) Parties cascade — metadata only, NO ledger post (RNF-5, the storno's Cr Receivable legs already
+#    dropped the balances):
+#    sqlite3 personalfinance.db "SELECT AccruedReceivableMinorUnits, ReversedReceivableMinorUnits
+#      FROM parties_expense_splits WHERE SourceReferenceId='01A05FCF-A721-7932-B88D-98AD34BC8738' COLLATE NOCASE;"  -- 199998 | 66666
+
+### Alice's balance after the cascade — dropped by cycle-2's 33333 (99999 → 66666)
+GET {{parties}}/01a05fcf-8779-748a-8b0e-1a1f8dc10497/balance
+
+# HTTP/2 200  {"partyId":"01a05fcf-8779-748a-8b0e-1a1f8dc10497","name":"D12 Alice","balanceMinorUnits":66666}
+
+### Pay the 2026-03 statement (AmountDue 100000) — carried credit 100000 fully nets it
+POST {{financing}}/statements/01A05FCF-EB9A-7B48-BC90-8FA6BF4E5E07/pay
+Content-Type: application/json
+
+{ "bankAccountId": "01a05fcf-876a-703b-afa9-f0bed388e8a7", "paidOnUtc": "2026-08-31T12:00:00Z" }
+
+# HTTP/2 201  {"statementId":"01a05fcf-eb9a-7b48-bc90-8fa6bf4e5e07"}
+#   pay txn legs (no bank leg — credit covered it all):
+#     Dr D12 Card Liability 100000 / Cr D12 Card Credit 100000
+#   sqlite3 personalfinance.db "SELECT CarriedCreditBalanceMinorUnits FROM financing_credit_cards WHERE Name='D12 Card';"  -- 0
+
+### 3-leg partial netting — build a smaller carried credit, then pay a larger statement
+### Small plan (40000, 1 installment, 2026-01-05) → accrue → pay → reverse ⇒ carried credit 40000
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{ "amountMinorUnits": 40000, "cardId": "01a05fcf-879a-7c9d-8ccc-32d2332fa203", "installmentCount": 1, "purchaseDate": "2026-01-05" }
+
+# HTTP/2 201  {"paymentPlanId":"01a05fd3-7808-7700-9e3a-abfc3533f896"}
+
+###
+POST {{financing}}/statements/01A05FD3-9537-707D-8296-70B00516643A/pay
+Content-Type: application/json
+
+{ "bankAccountId": "01a05fcf-876a-703b-afa9-f0bed388e8a7", "paidOnUtc": "2026-08-31T14:00:00Z" }
+
+# HTTP/2 201  {"statementId":"01a05fd3-9537-707d-8296-70b00516643a"}
+
+###
+POST {{ledger}}/transactions/01A05FD3-9537-7312-BB43-F862DE900B6E/reversal
+
+# HTTP/2 201  {"reversalTransactionId":"01a05fd3-d0b4-7820-9c67-e46aa3779193","originalTransactionId":"01a05fd3-9537-7312-bb43-f862de900b6e","compensatingEntryPosted":true}
+#   sqlite3 personalfinance.db "SELECT CarriedCreditBalanceMinorUnits FROM financing_credit_cards WHERE Name='D12 Card';"  -- 40000
+
+### Pay the 2026-04 statement (AmountDue 100000) — carried credit 40000 partially nets it → 3 legs
+POST {{financing}}/statements/01A05FCF-EBA5-78D8-B538-701F88C2B9DC/pay
+Content-Type: application/json
+
+{ "bankAccountId": "01a05fcf-876a-703b-afa9-f0bed388e8a7", "paidOnUtc": "2026-08-31T15:00:00Z" }
+
+# HTTP/2 201  {"statementId":"01a05fcf-eba5-78d8-b538-701f88c2b9dc"}
+#   pay txn legs (StatementPaymentCalculator — D4 second half + D12 carried-credit consume):
+#     Dr D12 Card Liability 100000
+#         Cr D12 Card Credit  40000     (carried credit consumed)
+#         Cr D12 Funding      60000     (remainder from the bank)
+#   sqlite3 personalfinance.db "SELECT CarriedCreditBalanceMinorUnits FROM financing_credit_cards WHERE Name='D12 Card';"  -- 0
+
+###
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Phase 10 — Fase-1 PRD acceptance walk (docs/PRD.md §6 — US-1, US-2, US-3, US-4, US-6)
+#
+# Every acceptance criterion of the Fase-1 user stories, proven against the running
+# API. Fresh personalfinance.db: all four migration chains applied by hand, Ledger
+# first (incl. 20260902011354_LedgerMonthlyExpensesExcludeCardPurchases and
+# 20260902012215_AccountOwnerReference — the RF-1 / RF-2 fixes). Server clock
+# 2026-09-02T02:xx UTC. Captured live with `curl -sk`; literal ids from this run.
+#
+# Seed shape (one coherent dataset):
+#   instruments  PF Checking (debit) · PF Wallet (cash) · PF Visa (credit, cutoff 15) · PF Master (credit, cutoff 28)
+#   parties      PF Alice · PF Bob (US-1 shared dining) · PF Carol · PF Dave (US-3 split plan)
+#   plans        A: PF Visa  90000 / 3  @2026-08-10  (no split)   — inst1 Aug CLOSED, inst2/3 future
+#                B: PF Master 100000 / 1 @2026-07-10  (split C+D)  — inst1 Jul CLOSED  → US-3 / US-4 / US-6 chain
+#                C: PF Visa  12000 / 1  @2026-09-20  (no split)    — future  (US-2 AC3)
+#                D: PF Master 15000 / 1  @2026-09-20  (no split)   — future  (US-2 AC3)
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ---- Prerequisito transversal — alta de instrumentos (PRD §6) ---------------
+
+### debit  → provisions a Ledger Bank account, id returned verbatim
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "debit", "name": "PF Checking" }
+
+# HTTP/2 201  {"id":"01a05fdd-c302-7f01-a653-ae8af14bdff1","type":"debit"}
+
+### cash  → provisions a Ledger Cash account
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "cash", "name": "PF Wallet" }
+
+# HTTP/2 201  {"id":"01a05fdd-c35a-7fc8-89db-9d621431ed91","type":"cash"}
+
+### credit + cutoffDate  → Financing CreditCard + 3 Ledger accounts (Liability / Purchases / Credit)
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "PF Visa", "cutoffDate": 15 }
+
+# HTTP/2 201  {"id":"01a05fdd-c367-7092-b5dc-b68516928b3c","type":"credit"}
+
+### credit, second card with a DIFFERENT cutoff day — load-bearing for US-2 AC3
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "PF Master", "cutoffDate": 28 }
+
+# HTTP/2 201  {"id":"01a05fdd-c38f-73b9-b400-435490435e2c","type":"credit"}
+
+### credit WITHOUT cutoffDate → 422 (the prerequisito says a credit instrument requires its cutoff)
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "credit", "name": "PF NoCutoff" }
+
+# HTTP/2 422
+# {"title":"The request was well-formed but violates a domain rule.","status":422,
+#  "detail":"A credit instrument requires a statement cutoff day.","code":"Instruments.CutoffRequired"}
+
+### unknown type → 400
+POST {{instruments}}
+Content-Type: application/json
+
+{ "type": "crypto", "name": "PF Doge" }
+
+# HTTP/2 400
+# {"title":"The request could not be processed.","status":400,
+#  "detail":"Unknown instrument type 'crypto'.","code":"Instruments.UnknownType"}
+
+# RF-2 seam, verified in stored state — every Ledger account the card provisioned carries the
+# Financing CardId as OwnerReferenceId, and the purchases bucket is its own Kind:
+#   sqlite3 personalfinance.db "SELECT Name, Kind, lower(OwnerReferenceId) FROM ledger_accounts WHERE Name LIKE 'PF Visa %';"
+#     PF Visa Liability | CardLiability  | 01a05fdd-c367-7092-b5dc-b68516928b3c
+#     PF Visa Purchases | CardPurchases  | 01a05fdd-c367-7092-b5dc-b68516928b3c
+#     PF Visa Credit    | CardCredit     | 01a05fdd-c367-7092-b5dc-b68516928b3c
+
+# ═══════════════════════════════════════════════════════════════════════════
+# US-1 — Ver el resumen de gastos del mes  (RF-1)
+#   AC1 total del mes actual y de meses anteriores
+#   AC2 débito y efectivo agrupados como una misma categoría de "ya gastado"
+#   AC3 excluye la parte de un gasto que le corresponde a un tercero
+#   AC4 distingue gastos por categoría
+# ═══════════════════════════════════════════════════════════════════════════
+
+### Seed — expense buckets (dev-only)
+POST {{ledger}}/accounts
+Content-Type: application/json
+
+{ "name": "PF Groceries", "type": "Expense", "kind": "Expense" }
+# → 01a05fde-295f-7bfe-9f4d-739c76ccbc66   (PF Rent → 01a05fde-2980-…, PF Dining → 01a05fde-2998-…)
+
+### Seed — parties (each provisions its own Ledger Receivable account)
+POST {{parties}}
+Content-Type: application/json
+
+{ "name": "PF Alice" }
+# → 01a05fde-29b3-78ae-a385-9209deec08ab   (PF Bob → 01a05fde-29df-…, PF Carol → 01a05fde-29f6-…, PF Dave → 01a05fde-2a18-…)
+
+### Seed 1 — Dr PF Groceries 50000 / Cr PF Checking 50000 — PRIOR month (2026-08), débito
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "01a05fde-295f-7bfe-9f4d-739c76ccbc66", "direction": "Debit",  "amountMinorUnits": 50000 },
+    { "accountId": "01a05fdd-c302-7f01-a653-ae8af14bdff1", "direction": "Credit", "amountMinorUnits": 50000 }
+  ],
+  "postedOnUtc": "2026-08-05T09:00:00Z",
+  "description": "Supermercado (débito)"
+}
+# HTTP/2 201
+
+### Seed 2 — Dr PF Rent 120000 / Cr PF Checking 120000 — CURRENT month (2026-09), débito
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "01a05fde-2980-7a7f-96e8-e9eec1c357f2", "direction": "Debit",  "amountMinorUnits": 120000 },
+    { "accountId": "01a05fdd-c302-7f01-a653-ae8af14bdff1", "direction": "Credit", "amountMinorUnits": 120000 }
+  ],
+  "postedOnUtc": "2026-09-01T09:00:00Z",
+  "description": "Alquiler (débito)"
+}
+# HTTP/2 201
+
+### Seed 3 — Dr PF Groceries 8000 / Cr PF Wallet 8000 — CURRENT month, EFECTIVO
+POST {{ledger}}/transactions
+Content-Type: application/json
+
+{
+  "lines": [
+    { "accountId": "01a05fde-295f-7bfe-9f4d-739c76ccbc66", "direction": "Debit",  "amountMinorUnits": 8000 },
+    { "accountId": "01a05fdd-c35a-7fc8-89db-9d621431ed91", "direction": "Credit", "amountMinorUnits": 8000 }
+  ],
+  "postedOnUtc": "2026-09-02T09:00:00Z",
+  "description": "Verdulería (efectivo)"
+}
+# HTTP/2 201
+
+### Seed 4 — shared expense 60000 → PF Dining, holder + Alice + Bob (1/1/1) ⇒ holder share 20000
+POST {{parties}}/shared-expenses
+Content-Type: application/json
+
+{
+  "description": "Cena compartida",
+  "totalMinorUnits": 60000,
+  "expenseAccountId": "01a05fde-2998-7027-9e7f-defd14915d90",
+  "fundingAccountId": "01a05fdd-c302-7f01-a653-ae8af14bdff1",
+  "incurredOnUtc": "2026-09-01T20:00:00Z",
+  "participants": [
+    { "partyId": "01a05fde-29b3-78ae-a385-9209deec08ab", "weight": 1 },
+    { "partyId": "01a05fde-29df-7d89-8eaa-a716e8e03c3d", "weight": 1 }
+  ]
+}
+# HTTP/2 201  {"splitReferenceId":"01a05fde-6fd7-7e19-b4b7-5f881b64a822"}
+#   posts one 4-leg txn:  Dr PF Dining 20000 / Dr PF Alice Rec 20000 / Dr PF Bob Rec 20000 / Cr PF Checking 60000
+
+### US-1 AC1 (prior month) + AC4 — monthly expenses for 2026-08
+GET {{reports}}/monthly-expenses?month=2026-08
+Accept: application/json
+
+# HTTP/2 200
+# {"rows":[{"month":"2026-08","category":"PF Groceries","amountMinorUnits":50000,"currencyCode":"ARS"}]}
+
+### US-1 AC1 (current month) + AC2 + AC3 + AC4 — monthly expenses for 2026-09
+GET {{reports}}/monthly-expenses?month=2026-09
+Accept: application/json
+
+# HTTP/2 200
+# {"rows":[
+#   {"month":"2026-09","category":"PF Dining",   "amountMinorUnits":20000, "currencyCode":"ARS"},
+#   {"month":"2026-09","category":"PF Groceries","amountMinorUnits":8000,  "currencyCode":"ARS"},
+#   {"month":"2026-09","category":"PF Rent",     "amountMinorUnits":120000,"currencyCode":"ARS"}]}
+#
+#   AC2 ✔ PF Rent 120000 (débito / bank) and PF Groceries 8000 (efectivo / wallet) sit in the SAME summary.
+#   AC3 ✔ PF Dining shows 20000 — the holder share only. Alice's 20000 + Bob's 20000 (their Receivable legs)
+#         are NOT in the summary even though the holder fronted the whole 60000.
+#   AC4 ✔ one row per Category (the expense-account name).
+#   RF-1 fix ✔ NO "PF * Purchases" row here — the Plan B split accrual posts Dr PF Master Purchases 33334
+#         with Kind = CardPurchases, and vw_ledger_monthly_expenses now excludes it. (Pre-fix this bucket
+#         leaked into the "débito y efectivo" summary that AC2 says must exclude el crédito.)
+
+### US-1 AC1 — unfiltered: every month, newest first
+GET {{reports}}/monthly-expenses
+Accept: application/json
+
+# HTTP/2 200
+# rows: 2026-09 PF Dining 20000 · 2026-09 PF Groceries 8000 · 2026-09 PF Rent 120000 · 2026-08 PF Groceries 50000
+
+# ═══════════════════════════════════════════════════════════════════════════
+# US-2 — Ver cuánto tengo que pagar por tarjeta  (RF-2)
+#   AC1 por tarjeta, el total que corresponde pagar este mes
+#   AC2 el número incluye SOLO cuotas que ya cerraron, no compromisos futuros
+#   AC3 el "mes" se define por la fecha de corte de cada tarjeta, no el mes calendario
+#   AC4 ver por separado el compromiso a futuro
+# ═══════════════════════════════════════════════════════════════════════════
+
+### Seed — Plan A: PF Visa (cutoff 15), 90000 / 3, purchase 2026-08-10, no split
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{ "amountMinorUnits": 90000, "cardId": "01a05fdd-c367-7092-b5dc-b68516928b3c", "installmentCount": 3, "purchaseDate": "2026-08-10" }
+# HTTP/2 201  {"paymentPlanId":"01a05fde-ae55-7de9-bd40-62319771432d"}
+#   inst1 → cycle 2026-08 (closes 08-15, CLOSED)  ·  inst2 → 2026-09 (future)  ·  inst3 → 2026-10 (future)
+
+### Seed — Plan C: PF Visa (cutoff 15), 12000 / 1, purchase 2026-09-20  (20 > 15 ⇒ NEXT cycle)
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{ "amountMinorUnits": 12000, "cardId": "01a05fdd-c367-7092-b5dc-b68516928b3c", "installmentCount": 1, "purchaseDate": "2026-09-20" }
+# HTTP/2 201  {"paymentPlanId":"01a05fde-aeab-72c0-b483-a138ca171ab5"}   → cuota en cycle 2026-10
+
+### Seed — Plan D: PF Master (cutoff 28), 15000 / 1, purchase 2026-09-20  (20 ≤ 28 ⇒ CLOSING cycle)
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{ "amountMinorUnits": 15000, "cardId": "01a05fdd-c38f-73b9-b400-435490435e2c", "installmentCount": 1, "purchaseDate": "2026-09-20" }
+# HTTP/2 201  {"paymentPlanId":"01a05fde-aeb5-73e8-86dd-41866766b189"}   → cuota en cycle 2026-09
+#
+# AccrueInstallments (startup tick + every 1 min) posts the closed cycles:
+#   Plan A inst1 → Dr PF Visa Purchases 30000 / Cr PF Visa Liability 30000,   statement PF Visa 2026-08 due 30000
+#   Plan B inst1 → (split, see US-3)                                          statement PF Master 2026-07 due 100000
+
+### US-2 AC1 + AC2 + AC4 + RF-2 — card due by month
+GET {{reports}}/card-due-by-month
+Accept: application/json
+
+# HTTP/2 200
+# {"rows":[
+#   {"bucket":"Accrued","card":"PF Visa Liability",  "cycleYear":null,"cycleMonth":null,"amountMinorUnits":30000, "cardId":"01a05fdd-c367-7092-b5dc-b68516928b3c"},
+#   {"bucket":"Future", "card":"01A05FDD-C367-…",     "cycleYear":2026,"cycleMonth":9,   "amountMinorUnits":30000, "cardId":"01a05fdd-c367-7092-b5dc-b68516928b3c"},
+#   {"bucket":"Future", "card":"01A05FDD-C367-…",     "cycleYear":2026,"cycleMonth":10,  "amountMinorUnits":42000, "cardId":"01a05fdd-c367-7092-b5dc-b68516928b3c"},
+#   {"bucket":"Accrued","card":"PF Master Liability", "cycleYear":null,"cycleMonth":null,"amountMinorUnits":100000,"cardId":"01a05fdd-c38f-73b9-b400-435490435e2c"},
+#   {"bucket":"Future", "card":"01A05FDD-C38F-…",     "cycleYear":2026,"cycleMonth":9,   "amountMinorUnits":15000, "cardId":"01a05fdd-c38f-73b9-b400-435490435e2c"}]}
+#
+#   AC1 ✔ per-card "pay this month" = the Accrued bucket: PF Visa 30000, PF Master 100000 (one row per card).
+#   AC2 ✔ Accrued holds only cuotas cerradas — Plan A inst1 (Aug). inst2/inst3 (Sep/Oct, cycle NOT closed)
+#         are absent from Accrued; they only appear under Future.
+#   AC4 ✔ Future bucket is a separate, per-cycle breakdown: PF Visa 2026-09 = 30000 (Plan A inst2),
+#         2026-10 = 42000 (Plan A inst3 30000 + Plan C 12000); PF Master 2026-09 = 15000 (Plan D).
+#   RF-2 fix ✔ every row — Accrued AND Future, both cards — now carries `cardId`. Accrued+Future for one
+#         card share a case-safe key (Phase 7 could only tag buckets: Accrued keyed by account NAME,
+#         Future by the UPPERCASE CardId GUID, no join possible). The `card` display column still differs
+#         by bucket; `cardId` is the shared key.
+
+### US-2 AC3 — same purchase date, different cutoff ⇒ different billing cycle
+### PF Visa future-schedule (cutoff 15)
+GET {{financing}}/cards/01a05fdd-c367-7092-b5dc-b68516928b3c/future-schedule
+Accept: application/json
+
+# HTTP/2 200
+# {"cardId":"01a05fdd-c367-…","rows":[
+#   {"planId":"01a05fde-ae55-…","sequence":2,"cycleYear":2026,"cycleMonth":9, "amountMinorUnits":30000},
+#   {"planId":"01a05fde-aeab-…","sequence":1,"cycleYear":2026,"cycleMonth":10,"amountMinorUnits":12000},   ← Plan C, purchase 2026-09-20
+#   {"planId":"01a05fde-ae55-…","sequence":3,"cycleYear":2026,"cycleMonth":10,"amountMinorUnits":30000}]}
+
+### PF Master future-schedule (cutoff 28)
+GET {{financing}}/cards/01a05fdd-c38f-73b9-b400-435490435e2c/future-schedule
+Accept: application/json
+
+# HTTP/2 200
+# {"cardId":"01a05fdd-c38f-…","rows":[
+#   {"planId":"01a05fde-aeb5-…","sequence":1,"cycleYear":2026,"cycleMonth":9,"amountMinorUnits":15000}]}   ← Plan D, purchase 2026-09-20
+#
+#   AC3 ✔ Plan C and Plan D were both purchased 2026-09-20. On PF Visa (cutoff 15) the 20th is AFTER the
+#         cutoff ⇒ first cuota falls in the NEXT cycle → 2026-10. On PF Master (cutoff 28) the 20th is
+#         ON/BEFORE the cutoff ⇒ first cuota falls in the CLOSING cycle → 2026-09. Same date, distinct
+#         (CycleYear, CycleMonth) because the cycle is keyed off each card's corte, not the calendar.
+
+# ═══════════════════════════════════════════════════════════════════════════
+# US-3 — Cargar un gasto en cuotas + reparto  (RF-3)
+#   AC1 cargar con monto, tarjeta, cantidad de cuotas, fecha de compra
+#   AC2 el ciclo de la 1ª cuota lo determina el sistema desde la fecha de compra + corte
+#   AC3 opcionalmente, reparto entre N personas
+#   AC4 el reparto suma exactamente al total (sin perder centavos)
+#   AC5 después de cargarlo, la parte de cada persona es consultable
+# ═══════════════════════════════════════════════════════════════════════════
+
+### US-3 AC1 + AC3 — Plan B: PF Master, 100000 / 1, purchase 2026-07-10, split holder + Carol + Dave (1/1/1)
+POST {{financing}}/payment-plans
+Content-Type: application/json
+
+{
+  "amountMinorUnits": 100000,
+  "cardId": "01a05fdd-c38f-73b9-b400-435490435e2c",
+  "installmentCount": 1,
+  "purchaseDate": "2026-07-10",
+  "split": [
+    { "partyId": "01a05fde-29f6-79d3-9a7d-4db2a7c64abe", "weight": 1 },
+    { "partyId": "01a05fde-2a18-72c7-a2e1-ca26066301c7", "weight": 1 }
+  ]
+}
+# HTTP/2 201  {"paymentPlanId":"01a05fde-ae83-7d68-9171-841d98f211cf"}
+#   AC1 ✔ body carries amount / card / installmentCount / purchaseDate.
+#   AC3 ✔ optional N-way `split` accepted (holder implicit at weight index 0).
+#
+#   AC2 ✔ cutoff-driven cycle resolution, from the accrued installment rows:
+#     sqlite3 personalfinance.db "SELECT pp.Id, i.CycleYear, i.CycleMonth FROM financing_installments i
+#       JOIN financing_payment_plans pp ON pp.Id=i.PaymentPlanId;"
+#       Plan B  2026 | 7    purchase 2026-07-10 ≤ Master cutoff 28  → ciclo que cierra (julio)
+#       Plan C  2026 | 10   purchase 2026-09-20 >  Visa   cutoff 15  → ciclo siguiente
+#       Plan D  2026 | 9    purchase 2026-09-20 ≤  Master cutoff 28  → ciclo que cierra (septiembre)
+
+### US-3 AC4 — the split-aware accrual sums EXACTLY to the total
+# After the Outbox drains (~2 s) OnPaymentPlanCreated records the split intent (AccruedReceivable = 0,
+# D11 — not owed at plan creation) and links the receivable accounts. AccrueInstallments then posts the
+# closed July cycle, tagged InstallmentReferenceId + SplitReferenceId:
+#   sqlite3 personalfinance.db "SELECT a.Name, e.Direction, e.AmountMinorUnits FROM ledger_entries e
+#     JOIN ledger_accounts a ON a.Id=e.AccountId
+#     JOIN ledger_transactions t ON t.Id=e.TransactionId WHERE t.SplitReferenceId IS NOT NULL;"
+#       PF Master Purchases  | Debit  | 33334      ← holder bucket takes the odd cent
+#       PF Carol Receivable  | Debit  | 33333
+#       PF Dave Receivable   | Debit  | 33333
+#       PF Master Liability  | Credit | 100000
+#   Σ debits = 33334 + 33333 + 33333 = 100000 = Σ credits.  PhantomPennyAllocator: Σ(parts) == total,
+#   odd minor unit to the holder — no dropped, no duplicated centavo.
+#   sqlite3 personalfinance.db "SELECT TotalMinorUnits, HolderShareMinorUnits, AccruedReceivableMinorUnits
+#     FROM parties_expense_splits WHERE Source='CardPlan';"   →   100000 | 33334 | 66666
+
+### US-3 AC5 — each participant's share is queryable after creation
+GET {{parties}}/01a05fde-29f6-79d3-9a7d-4db2a7c64abe/balance
+Accept: application/json
+
+# HTTP/2 200  {"partyId":"01a05fde-29f6-…","name":"PF Carol","balanceMinorUnits":33333}
+
+GET {{parties}}/01a05fde-2a18-72c7-a2e1-ca26066301c7/balance
+Accept: application/json
+
+# HTTP/2 200  {"partyId":"01a05fde-2a18-…","name":"PF Dave","balanceMinorUnits":33333}
+
+# ═══════════════════════════════════════════════════════════════════════════
+# US-4 — Pagar el resumen de una tarjeta  (RF-4)
+#   AC1 ver, antes de pagar, el detalle de qué cuotas componen el total
+#   AC2 al confirmar el pago, deja de contar como deuda pendiente
+#   AC3 distinguir un mes ya pagado de uno pendiente en el historial
+# ═══════════════════════════════════════════════════════════════════════════
+
+### US-4 AC1 — ver, antes de pagar, el detalle de qué cuotas componen el total
+#
+# GET /v1/financing/statements/{id} — added Phase 11, closes the Fase-1 gap that used to be
+# noted at the end of this block. Itemizes the ACCRUED installments behind a statement's
+# AmountDue: plan, cuota N de M, fecha de compra, ciclo, monto, y si fue revertida.
+# Captured on a FRESH db with its own minimal seed (US4 Visa, corte 15; two plans whose
+# cuota 1 both land in the June cycle, closed as of the 2026-09-02 server clock):
+#   P1  60000 / 2  @2026-06-10        P2  40000 / 2  @2026-06-12
+GET {{financing}}/statements/01A0608C-CF46-7B25-8720-022EB7BCF8BF
+Accept: application/json
+
+# HTTP/2 200
+# {"statementId":"01a0608c-cf46-7b25-8720-022eb7bcf8bf","cardId":"01a0608b-e7ba-…","cardName":"US4 Visa",
+#  "cycleYear":2026,"cycleMonth":6,"amountDueMinorUnits":50000,"isPaid":false,"paidOnUtc":null,
+#  "installments":[
+#    {"planId":"01a0608b-e7f5-…","installmentId":"01a0608b-e7f9-…","sequence":1,"installmentCount":2,
+#     "purchaseDate":"2026-06-10","cycleYear":2026,"cycleMonth":6,"amountMinorUnits":30000,"isReversed":false},
+#    {"planId":"01a0608b-e839-…","installmentId":"01a0608b-e839-…","sequence":1,"installmentCount":2,
+#     "purchaseDate":"2026-06-12","cycleYear":2026,"cycleMonth":6,"amountMinorUnits":20000,"isReversed":false}]}
+#   Σ installments[].amountMinorUnits (non-reversed) = 30000 + 20000 = 50000 = amountDueMinorUnits.  ✔ AC1
+#   Each row carries sequence + installmentCount ("cuota 1 de 2") and purchaseDate.
+#   StatementId is set only at accrual (Installment.MarkAccrued), so this is exactly the accrued cuotas
+#   behind the total — never the future schedule (D11). Un-accrued cuotas: GET .../cards/{id}/future-schedule.
+
+### US-4 AC1 — after paying, the detail itself distinguishes paid from pending
+# POST {{financing}}/statements/01A0608C-CF46-7B25-8720-022EB7BCF8BF/pay   → HTTP/2 201
+GET {{financing}}/statements/01A0608C-CF46-7B25-8720-022EB7BCF8BF
+Accept: application/json
+
+# HTTP/2 200  … "isPaid":true,"paidOnUtc":"2026-09-02T12:00:00+00:00" …  (installments[] unchanged)  ✔ AC3
+
+### US-4 AC1 — unknown statement id → RFC-9457 404
+GET {{financing}}/statements/01a05fff-0000-7000-8000-000000000000
+Accept: application/json
+
+# HTTP/2 404
+# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.5","title":"The requested resource was not found.",
+#  "status":404,"detail":"The referenced monthly statement was not found.","code":"Financing.StatementNotFound"}
+
+### US-4 (main seed) — the AC1 detail also answers for the PF Master July statement paid just below
+# GET {{financing}}/statements/01a05fdf-2e57-7130-b778-bcfded8f845d  → 200, one row:
+#   Plan B, sequence 1, installmentCount 1, purchaseDate 2026-07-10, amountMinorUnits 100000,
+#   Σ (non-reversed) == amountDueMinorUnits == 100000 (the split touches only the Ledger legs,
+#   not the statement total). isReversed flips true after the US-6 reversal further down.
+
+### US-4 — pay the PF Master July statement (AmountDue 100000)
+POST {{financing}}/statements/01a05fdf-2e57-7130-b778-bcfded8f845d/pay
+Content-Type: application/json
+
+{ "bankAccountId": "01a05fdd-c302-7f01-a653-ae8af14bdff1", "paidOnUtc": "2026-09-02T02:30:00Z" }
+
+# HTTP/2 201  {"statementId":"01a05fdf-2e57-7130-b778-bcfded8f845d"}
+#   pay txn legs:  Dr PF Master Liability 100000 / Cr PF Checking 100000   (no carried credit yet)
+
+### US-4 AC2 — after paying, PF Master accrued liability is back to 0
+GET {{ledger}}/accounts/01a05fdd-c38f-7300-b0c3-1aa0abe67fc4/balance
+Accept: application/json
+
+# HTTP/2 200  {"accountId":"01a05fdd-c38f-7300-…","balanceMinorUnits":0,"currencyCode":"ARS","formatted":"0.00 ARS"}
+#   (and /reports/card-due-by-month PF Master Accrued row now reads amountMinorUnits 0)
+
+# US-4 AC3 — paid vs pending is distinguishable in stored state:
+#   sqlite3 personalfinance.db "SELECT c.Name, s.CycleYear||'-'||s.CycleMonth, s.AmountDueMinorUnits,
+#     COALESCE(s.PaidOnUtc,'(pendiente)') FROM financing_monthly_statements s
+#     JOIN financing_credit_cards c ON c.Id=s.CardId;"
+#       PF Visa   | 2026-8 | 30000  | (pendiente)
+#       PF Master | 2026-7 | 100000 | 2026-09-02 02:30:00+00:00     ← IsPaid = PaidOnUtc is not null
+
+# ═══════════════════════════════════════════════════════════════════════════
+# US-6 — Corregir un error de carga  (RF-6)
+#   AC1 revertir un gasto incluidas cuotas YA PAGADAS — el sistema no lo bloquea
+#   AC2 reversión completa (futuras + pagadas), deja un movimiento de reversión (no un borrado)
+#   AC3 si el gasto estaba repartido, la deuda del tercero se corrige en la misma acción
+#   AC4 saldo propio y de la tarjeta reflejan la corrección completa
+#   AC5 el historial muestra que fue revertido y cuándo
+# ═══════════════════════════════════════════════════════════════════════════
+
+### US-6 AC1 — reverse Plan B's accrual — whose installment was already PAID in US-4
+POST {{ledger}}/transactions/01a05fdf-2e5a-7e6f-864c-f2c756c4e1e7/reversal
+
+# HTTP/2 201
+# {"reversalTransactionId":"01a05fe1-5cc1-7570-842c-6c642bee7d33",
+#  "originalTransactionId":"01a05fdf-2e5a-7e6f-864c-f2c756c4e1e7","compensatingEntryPosted":true}
+#   AC1 ✔ not blocked by the confirmed statement payment — HTTP 201, compensatingEntryPosted true.
+
+# AC2 ✔ storno appended, original preserved, installment flagged (not deleted):
+#   sqlite3 personalfinance.db "SELECT substr(Id,1,18), PostedOnUtc FROM ledger_transactions ORDER BY rowid;"
+#     … 01A05FDF-2E5A-7E6F  2026-09-02 02:07:37…     ← original accrual, still present
+#        01A05FE1-5CC1-7570  2026-09-02 02:09:59…     ← storno (exact mirror)
+#        01A05FE1-5CCC-7F28  2026-09-02 02:09:59…     ← compensating (paid-installment leg)
+#   storno legs  = Dr PF Master Liability 100000 / Cr PF Master Purchases 33334 / Cr PF Carol Rec 33333 / Cr PF Dave Rec 33333
+#   installment  : sqlite3 … "SELECT Sequence, IsReversed FROM financing_installments
+#                  WHERE PaymentPlanId='01A05FDE-AE83-7D68-9171-841D98F211CF';"  → 1 | 1
+
+### US-6 AC3 — the split parties' debt is corrected by the same call
+GET {{parties}}/01a05fde-29f6-79d3-9a7d-4db2a7c64abe/balance
+Accept: application/json
+
+# HTTP/2 200  {"partyId":"01a05fde-29f6-…","name":"PF Carol","balanceMinorUnits":0}     (was 33333)
+
+GET {{parties}}/01a05fde-2a18-72c7-a2e1-ca26066301c7/balance
+Accept: application/json
+
+# HTTP/2 200  {"partyId":"01a05fde-2a18-…","name":"PF Dave","balanceMinorUnits":0}      (was 33333)
+#
+#   The storno's Cr Receivable legs moved the balances; Parties then only advances metadata (RNF-5, no
+#   ledger post):  sqlite3 … "SELECT AccruedReceivableMinorUnits, ReversedReceivableMinorUnits
+#     FROM parties_expense_splits WHERE Source='CardPlan';"   →   66666 | 66666
+
+### US-6 AC4 — own + card balances reflect the full correction
+GET {{ledger}}/accounts/01a05fdd-c38f-7300-b0c3-1aa0abe67fc4/balance
+Accept: application/json
+
+# HTTP/2 200  balanceMinorUnits 0      PF Master Liability — net of accrual +100000, pay −100000, storno −100000, compensating +100000
+
+GET {{ledger}}/accounts/01a05fdd-c396-7c48-ad1b-199bf2cf19fd/balance
+Accept: application/json
+
+# HTTP/2 200  balanceMinorUnits 100000     PF Master Credit — the compensating entry:
+#   Dr PF Master Credit 100000 / Cr PF Master Liability 100000   ← NOT Cr Gasto:Categoría (D12 / DESIGN.md
+#   doc-sync target — the storno already unwound the expense, so re-crediting Gasto would double count).
+#   sqlite3 … "SELECT CarriedCreditBalanceMinorUnits FROM financing_credit_cards WHERE Name='PF Master';" → 100000
+#   (carried credit nets the card's NEXT statement — the 2-leg / 3-leg forms are exercised in the Phase 10
+#    D12 re-verification block above.)
+
+# AC5 ✔ the reversal is in the history with its timestamp — storno row 01A05FE1-5CC1-7570,
+#   PostedOnUtc 2026-09-02T02:09:59Z, append-only; the original 01A05FDF-2E5A row never disappears.
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PRD §8 — success-metric check (checkable in principle, against this seed)
+# ═══════════════════════════════════════════════════════════════════════════
+# "De utilidad real" (§8):
+#   • "reemplaza el método anterior 4+ semanas" — needs real longitudinal use; not a checkpoint assertion.
+#   • "el saldo de cada tarjeta coincide con el resumen del banco" — GET /accounts/{cardLiability}/balance
+#     and the Accrued bucket (US-2 AC1/AC2) equal ONLY the cuotas cerradas = exactly what the bank will
+#     bill; the temporal boundary (D11) is what makes this hold. Structurally checkable now.
+#   • "el saldo con cada persona coincide con lo que reconoce" — GET /parties/{id}/balance + timeline
+#     (US-3 AC5, US-6 AC3) is a live read of the Receivable account; reconciling against a real person
+#     is out of scope for the checkpoint.
+# "De aprendizaje" (§8): met by the suite — double-entry invariants (DoubleEntryMustBalance),
+#   command/query separation, Outbox used only for PaymentPlanCreated (schedulers for clock work),
+#   module isolation enforced by PersonalFinance.Architecture.Tests (RNF-9).
+
+# ═══════════════════════════════════════════════════════════════════════════
+# FASE-1 GAP CLOSED (2026-09-02, Phase 11) — US-4 AC1
+# ═══════════════════════════════════════════════════════════════════════════
+# "Puedo ver, antes de pagar, el detalle de qué cuotas componen el total a pagar de una tarjeta ese mes."
+# GET /v1/financing/statements/{id} now itemizes the accrued installments behind a MonthlyStatement's
+# AmountDue (plan, cuota N de M, fecha de compra, ciclo, monto, isReversed) + isPaid / paidOnUtc, and
+# 404s on an unknown id. Walked live in the US-4 block above. There is no remaining Fase-1 acceptance gap.
+
+###

@@ -15,26 +15,27 @@ internal sealed class CreateCreditCardHandler(FinancingDbContext context, ILedge
             return validation.Error;
         }
         var name = command.Name.Trim();
+        var cardId = Guid.CreateVersion7();
         var liabilityAccount = await ledger.CreateAccountAsync(
-            new CreateAccountCommand($"{name} Liability", AccountType.Liability, AccountKind.CardLiability),
+            new CreateAccountCommand($"{name} Liability", AccountType.Liability, AccountKind.CardLiability, OwnerReferenceId: cardId),
             cancellationToken);
         if(liabilityAccount.IsFailure) {
             return liabilityAccount.Error;
         }
         var expenseAccount = await ledger.CreateAccountAsync(
-            new CreateAccountCommand($"{name} Purchases", AccountType.Expense, AccountKind.Expense),
+            new CreateAccountCommand($"{name} Purchases", AccountType.Expense, AccountKind.CardPurchases, OwnerReferenceId: cardId),
             cancellationToken);
         if(expenseAccount.IsFailure) {
             return expenseAccount.Error;
         }
         var creditAccount = await ledger.CreateAccountAsync(
-            new CreateAccountCommand($"{name} Credit", AccountType.Asset, AccountKind.CardCredit),
+            new CreateAccountCommand($"{name} Credit", AccountType.Asset, AccountKind.CardCredit, OwnerReferenceId: cardId),
             cancellationToken
         );
         if(creditAccount.IsFailure) {
             return creditAccount.Error;
         }
-        var card = CreditCard.Create(name, command.CutoffDate, liabilityAccount.Value, expenseAccount.Value, creditAccount.Value);
+        var card = CreditCard.Create(cardId, name, command.CutoffDate, liabilityAccount.Value, expenseAccount.Value, creditAccount.Value);
         if(card.IsFailure) {
             return card.Error;
         }

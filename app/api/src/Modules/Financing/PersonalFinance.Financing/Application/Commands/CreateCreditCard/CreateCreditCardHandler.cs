@@ -22,7 +22,7 @@ internal sealed class CreateCreditCardHandler(FinancingDbContext context, ILedge
             return liabilityAccount.Error;
         }
         var expenseAccount = await ledger.CreateAccountAsync(
-            new CreateAccountCommand($"{name} Purchases", AccountType.Expense, AccountKind.Expense),
+            new CreateAccountCommand($"{name} Purchases", AccountType.Expense, AccountKind.CardPurchases),
             cancellationToken);
         if(expenseAccount.IsFailure) {
             return expenseAccount.Error;

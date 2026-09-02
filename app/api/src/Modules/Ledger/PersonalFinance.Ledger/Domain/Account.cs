@@ -31,7 +31,7 @@ internal sealed class Account : AggregateRoot<Guid> {
         return kind switch {
             AccountKind.Bank or AccountKind.Cash or AccountKind.Receivable or AccountKind.CardCredit => type == AccountType.Asset,
             AccountKind.CardLiability => type == AccountType.Liability,
-            AccountKind.Expense => type == AccountType.Expense,
+            AccountKind.CardPurchases or AccountKind.Expense => type == AccountType.Expense,
             AccountKind.Income => type == AccountType.Income,
             AccountKind.Equity => type == AccountType.Equity,
             _ => false

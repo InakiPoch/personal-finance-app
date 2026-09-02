@@ -10,5 +10,5 @@ FROM ledger_entries e
 INNER JOIN ledger_accounts a     ON a.Id = e.AccountId
 INNER JOIN ledger_transactions t ON t.Id = e.TransactionId
 WHERE a.Type = 'Expense'
-  AND a.Kind <> 'Receivable'
+  AND a.Kind NOT IN ('Receivable', 'CardPurchases')
 GROUP BY strftime('%Y-%m', t.PostedOnUtc), a.Name;

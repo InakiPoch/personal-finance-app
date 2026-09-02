@@ -66,6 +66,7 @@ El banco baja $1.000 (real), el gasto propio es $500, y el derecho de cobro de $
   Dr  Pasivo:Tarjeta Visa        3.000
       Cr  Activo:Banco               3.000
   ```
+- **`GetMonthlyStatementQuery`** — read model, sin efectos. `GET /v1/financing/statements/{id}` lista, antes de pagar, las cuotas ya devengadas que componen el `AmountDue` del resumen (RF-4 AC1): por cuota, plan / secuencia N de M / fecha de compra / ciclo / monto / si fue revertida. Como `Installment.StatementId` sólo se asigna en el devengo, la respuesta es exactamente el pasivo contable ya reconocido (D11) — las cuotas futuras siguen en `GET /v1/financing/cards/{id}/future-schedule`.
 
 ### D3 — Reversión vía asiento inverso
 
@@ -167,7 +168,7 @@ Por ahora la API es de consumo puro (Swagger/Postman), sin autenticación más a
 | RF-1 | Resumen de gastos del mes (débito y efectivo) | Query | Reporting | Cubierto (D9; tarjeta aislada por `AccountKind.CardPurchases`) |
 | RF-2 | Cuánto pagar por mes agrupado por tarjeta | Query | Reporting (D11) | Cubierto (clave por tarjeta compartida vía `OwnerReferenceId`) |
 | RF-3 | Ingresar gasto (crédito, cuotas, deudor, split N) | Command + Event | Financing + Parties + Ledger | Cubierto (D8) |
-| RF-4 | Pagar cuotas del mes (resumen de tarjeta) | Command + Scheduler | Financing + Ledger | Cubierto (D2) |
+| RF-4 | Pagar cuotas del mes (resumen de tarjeta) | Command + Scheduler + Query | Financing + Ledger | Cubierto (D2; detalle pre-pago vía `GET /v1/financing/statements/{id}`) |
 | RF-5 | Pagar y autorrenovar suscripciones | Command + Scheduler | Subscriptions | Cubierto |
 | RF-6 | Revertir montos (asiento inverso, completo, con cascada) | Command | Ledger + Financing + Parties | Cubierto (D3, D12) |
 | RF-7 | Cuentas corrientes con terceros + liquidación | Command + Query | Parties + Ledger | Cubierto (D1, D4) |

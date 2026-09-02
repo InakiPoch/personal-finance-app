@@ -1468,14 +1468,50 @@ Accept: application/json
 #   AC3 distinguir un mes ya pagado de uno pendiente en el historial
 # ═══════════════════════════════════════════════════════════════════════════
 
-### US-4 AC1 — closest "before paying" view (see KNOWN GAP note below)
-GET {{ledger}}/accounts/01a05fdd-c38f-7300-b0c3-1aa0abe67fc4/balance
+### US-4 AC1 — ver, antes de pagar, el detalle de qué cuotas componen el total
+#
+# GET /v1/financing/statements/{id} — added Phase 11, closes the Fase-1 gap that used to be
+# noted at the end of this block. Itemizes the ACCRUED installments behind a statement's
+# AmountDue: plan, cuota N de M, fecha de compra, ciclo, monto, y si fue revertida.
+# Captured on a FRESH db with its own minimal seed (US4 Visa, corte 15; two plans whose
+# cuota 1 both land in the June cycle, closed as of the 2026-09-02 server clock):
+#   P1  60000 / 2  @2026-06-10        P2  40000 / 2  @2026-06-12
+GET {{financing}}/statements/01A0608C-CF46-7B25-8720-022EB7BCF8BF
 Accept: application/json
 
-# HTTP/2 200  {"accountId":"01a05fdd-c38f-7300-…","balanceMinorUnits":100000,"currencyCode":"ARS","formatted":"1000.00 ARS"}
-#   = the accrued PF Master Liability, i.e. the statement total about to be paid. The Accrued bucket of
-#   /reports/card-due-by-month carries the same 100000. Neither breaks that figure into its component
-#   installments-per-statement → see KNOWN FASE-1 GAP at the end of this block.
+# HTTP/2 200
+# {"statementId":"01a0608c-cf46-7b25-8720-022eb7bcf8bf","cardId":"01a0608b-e7ba-…","cardName":"US4 Visa",
+#  "cycleYear":2026,"cycleMonth":6,"amountDueMinorUnits":50000,"isPaid":false,"paidOnUtc":null,
+#  "installments":[
+#    {"planId":"01a0608b-e7f5-…","installmentId":"01a0608b-e7f9-…","sequence":1,"installmentCount":2,
+#     "purchaseDate":"2026-06-10","cycleYear":2026,"cycleMonth":6,"amountMinorUnits":30000,"isReversed":false},
+#    {"planId":"01a0608b-e839-…","installmentId":"01a0608b-e839-…","sequence":1,"installmentCount":2,
+#     "purchaseDate":"2026-06-12","cycleYear":2026,"cycleMonth":6,"amountMinorUnits":20000,"isReversed":false}]}
+#   Σ installments[].amountMinorUnits (non-reversed) = 30000 + 20000 = 50000 = amountDueMinorUnits.  ✔ AC1
+#   Each row carries sequence + installmentCount ("cuota 1 de 2") and purchaseDate.
+#   StatementId is set only at accrual (Installment.MarkAccrued), so this is exactly the accrued cuotas
+#   behind the total — never the future schedule (D11). Un-accrued cuotas: GET .../cards/{id}/future-schedule.
+
+### US-4 AC1 — after paying, the detail itself distinguishes paid from pending
+# POST {{financing}}/statements/01A0608C-CF46-7B25-8720-022EB7BCF8BF/pay   → HTTP/2 201
+GET {{financing}}/statements/01A0608C-CF46-7B25-8720-022EB7BCF8BF
+Accept: application/json
+
+# HTTP/2 200  … "isPaid":true,"paidOnUtc":"2026-09-02T12:00:00+00:00" …  (installments[] unchanged)  ✔ AC3
+
+### US-4 AC1 — unknown statement id → RFC-9457 404
+GET {{financing}}/statements/01a05fff-0000-7000-8000-000000000000
+Accept: application/json
+
+# HTTP/2 404
+# {"type":"https://tools.ietf.org/html/rfc9110#section-15.5.5","title":"The requested resource was not found.",
+#  "status":404,"detail":"The referenced monthly statement was not found.","code":"Financing.StatementNotFound"}
+
+### US-4 (main seed) — the AC1 detail also answers for the PF Master July statement paid just below
+# GET {{financing}}/statements/01a05fdf-2e57-7130-b778-bcfded8f845d  → 200, one row:
+#   Plan B, sequence 1, installmentCount 1, purchaseDate 2026-07-10, amountMinorUnits 100000,
+#   Σ (non-reversed) == amountDueMinorUnits == 100000 (the split touches only the Ledger legs,
+#   not the statement total). isReversed flips true after the US-6 reversal further down.
 
 ### US-4 — pay the PF Master July statement (AmountDue 100000)
 POST {{financing}}/statements/01a05fdf-2e57-7130-b778-bcfded8f845d/pay
@@ -1576,13 +1612,11 @@ Accept: application/json
 #   module isolation enforced by PersonalFinance.Architecture.Tests (RNF-9).
 
 # ═══════════════════════════════════════════════════════════════════════════
-# KNOWN FASE-1 GAP — US-4 AC1
+# FASE-1 GAP CLOSED (2026-09-02, Phase 11) — US-4 AC1
 # ═══════════════════════════════════════════════════════════════════════════
 # "Puedo ver, antes de pagar, el detalle de qué cuotas componen el total a pagar de una tarjeta ese mes."
-# There is no dedicated statement-detail endpoint. GET /reports/card-due-by-month (Accrued bucket) gives
-# the per-card total; GET /financing/cards/{id}/future-schedule gives the un-accrued breakdown. Neither
-# itemizes the installments rolled into one MonthlyStatement. Closing it = a small host route
-# (GET /v1/financing/statements/{id} → its component installments) + one query; NOT added in this pass
-# (no code green-light for Step 6). Recorded here as the one Fase-1 acceptance gap.
+# GET /v1/financing/statements/{id} now itemizes the accrued installments behind a MonthlyStatement's
+# AmountDue (plan, cuota N de M, fecha de compra, ciclo, monto, isReversed) + isPaid / paidOnUtc, and
+# 404s on an unknown id. Walked live in the US-4 block above. There is no remaining Fase-1 acceptance gap.
 
 ###

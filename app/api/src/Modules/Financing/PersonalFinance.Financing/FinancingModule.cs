@@ -10,6 +10,7 @@ using PersonalFinance.Financing.Application.Commands.MarkInstallmentReversed;
 using PersonalFinance.Financing.Application.Commands.PayStatement;
 using PersonalFinance.Financing.Application.Queries.GetCardFutureSchedule;
 using PersonalFinance.Financing.Application.Queries.GetInstallmentStatus;
+using PersonalFinance.Financing.Application.Queries.GetMonthlyStatement;
 using PersonalFinance.Financing.Application.Scheduling;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Financing.Contracts.Commands;
@@ -39,6 +40,7 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<ICommandHandler<LinkPaymentPlanSplitCommand>, LinkPaymentPlanSplitHandler>();
         services.AddScoped<IQueryHandler<GetInstallmentStatusQuery, InstallmentStatusResponse>, GetInstallmentStatusHandler>();
         services.AddScoped<IQueryHandler<GetCardFutureScheduleQuery, CardFutureScheduleResponse>, GetCardFutureScheduleHandler>();
+        services.AddScoped<IQueryHandler<GetMonthlyStatementQuery, MonthlyStatementDetailResponse>, GetMonthlyStatementHandler>();
         services.AddHostedService<AccrueInstallments>();
     }
 

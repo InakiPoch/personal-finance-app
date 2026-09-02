@@ -44,4 +44,31 @@ internal static class FinancingMappingExtensions {
             .ToList();
         return new CardFutureScheduleDto(cardId, rows);
     }
+
+    public static MonthlyStatementDetailDto ToMonthlyStatementDetailDto(this MonthlyStatementDetailResponse response) {
+        var installments = response.Installments
+            .Select(row => new MonthlyStatementInstallmentRowDto(
+                row.PlanId,
+                row.InstallmentId,
+                row.Sequence,
+                row.InstallmentCount,
+                row.PurchaseDate.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture),
+                row.CycleYear,
+                row.CycleMonth,
+                row.AmountMinorUnits,
+                row.IsReversed)
+            )
+            .ToList();
+        return new MonthlyStatementDetailDto(
+            response.StatementId,
+            response.CardId,
+            response.CardName,
+            response.CycleYear,
+            response.CycleMonth,
+            response.AmountDueMinorUnits,
+            response.IsPaid,
+            response.PaidOnUtc,
+            installments
+        );
+    }
 }

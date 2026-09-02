@@ -1,6 +1,5 @@
 import { defer, EmptyError, of, throwError } from 'rxjs';
 import { TestScheduler } from 'rxjs/testing';
-
 import { pollUntil } from './poll-until';
 
 describe('pollUntil', () => {

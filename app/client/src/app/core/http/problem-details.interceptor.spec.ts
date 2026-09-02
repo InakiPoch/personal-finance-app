@@ -1,14 +1,7 @@
-import {
-  HttpClient,
-  HttpContext,
-  HttpErrorResponse,
-  provideHttpClient,
-  withInterceptors,
-} from '@angular/common/http';
+import { HttpClient, HttpContext, HttpErrorResponse, provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-
 import { AppError } from '../types/app-error';
 import { problemDetailsInterceptor } from './problem-details.interceptor';
 import { SKIP_ERROR_MAPPING } from './skip-error-mapping';

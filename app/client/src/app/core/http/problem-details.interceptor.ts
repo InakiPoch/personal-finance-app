@@ -1,6 +1,5 @@
 import { HttpErrorResponse, HttpInterceptorFn } from '@angular/common/http';
 import { catchError, throwError } from 'rxjs';
-
 import { AppError } from '../types/app-error';
 import { SKIP_ERROR_MAPPING } from './skip-error-mapping';
 

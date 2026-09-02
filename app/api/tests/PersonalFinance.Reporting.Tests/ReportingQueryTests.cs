@@ -59,7 +59,7 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
-    public async Task DebtByParty_nets_each_partys_movements_into_a_single_row() {
+    public async Task DebtByParty_nets_each_parties_movements_into_a_single_row() {
         var response = await AskAsync(new GetDebtByPartyQuery());
         Assert.Equal(2, response.Rows.Count);
         var alice = Assert.Single(response.Rows, row => row.PartyId == fixture.AliceId);

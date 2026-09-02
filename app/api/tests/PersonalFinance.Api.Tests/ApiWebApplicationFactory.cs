@@ -36,7 +36,7 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>, I
     }
 
     protected override void ConfigureWebHost(IWebHostBuilder builder) {
-        builder.UseSetting("Sqlite:ConnectionString", $"Data Source={databasePath}");
+        builder.UseSetting("ConnectionStrings:PersonalFinanceDb", $"Data Source={databasePath}");
         builder.UseSetting("Sqlite:JournalMode", "DELETE");
         builder.UseSetting("Sqlite:BusyTimeoutMs", "5000");
         builder.UseSetting("Sqlite:ForeignKeys", "true");

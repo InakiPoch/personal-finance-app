@@ -6,7 +6,7 @@ namespace PersonalFinance.Ledger.Infrastructure.Persistence;
 
 internal sealed class LedgerDbContextFactory : IDesignTimeDbContextFactory<LedgerDbContext> {
     public LedgerDbContext CreateDbContext(string[] args) {
-        var connectionString = Environment.GetEnvironmentVariable("PF_SQLITE_CONNECTION") ?? $"Data Source={Path.Combine(SolutionRootLocatorHelper.FindSolutionRoot(), "personalfinance.db")}";
+        var connectionString = SqliteConnectionStringHelper.ResolveForDesignTime();
         var options = new DbContextOptionsBuilder<LedgerDbContext>()
             .UseSqlite(connectionString, sqlite => sqlite.MigrationsHistoryTable("__EFMigrationsHistory_Ledger"))
             .Options;

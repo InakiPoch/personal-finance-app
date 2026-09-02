@@ -6,7 +6,7 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence;
 
 internal sealed class PartiesDbContextFactory : IDesignTimeDbContextFactory<PartiesDbContext> {
     public PartiesDbContext CreateDbContext(string[] args) {
-        var connectionString = Environment.GetEnvironmentVariable("PF_SQLITE_CONNECTION") ?? $"Data Source={Path.Combine(SolutionRootLocatorHelper.FindSolutionRoot(), "personalfinance.db")}";
+        var connectionString = SqliteConnectionStringHelper.ResolveForDesignTime();
         var options = new DbContextOptionsBuilder<PartiesDbContext>()
             .UseSqlite(connectionString, sqlite => sqlite.MigrationsHistoryTable("__EFMigrationsHistory_Parties"))
             .Options;

@@ -55,7 +55,7 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         databasePath = Path.Combine(Path.GetTempPath(), $"pf-reporting-{Guid.CreateVersion7():N}.db");
         var builder = Host.CreateApplicationBuilder();
         builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?> {
-            ["Sqlite:ConnectionString"] = $"Data Source={databasePath}",
+            ["ConnectionStrings:PersonalFinanceDb"] = $"Data Source={databasePath}",
             ["Sqlite:JournalMode"] = "DELETE",
             ["Sqlite:BusyTimeoutMs"] = "5000",
             ["Sqlite:ForeignKeys"] = "true"

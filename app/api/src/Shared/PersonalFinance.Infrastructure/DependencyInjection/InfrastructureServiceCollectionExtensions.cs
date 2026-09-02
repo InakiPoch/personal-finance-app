@@ -15,7 +15,13 @@ public static class InfrastructureServiceCollectionExtensions {
         public IServiceCollection AddSharedInfrastructure(IConfiguration configuration) {
             ArgumentNullException.ThrowIfNull(services);
             ArgumentNullException.ThrowIfNull(configuration);
-            services.Configure<SqliteOptions>(configuration.GetSection(SqliteOptions.SectionName));
+            services.AddOptions<SqliteOptions>()
+                .Bind(configuration.GetSection(SqliteOptions.SectionName))
+                .PostConfigure(options =>
+                    options.ConnectionString = SqliteConnectionStringHelper.Resolve(
+                        configuration.GetConnectionString(SqliteConnectionStringHelper.ConnectionName)))
+                .ValidateDataAnnotations()
+                .ValidateOnStart();
             services.Configure<OutboxOptions>(configuration.GetSection(OutboxOptions.SectionName));
             services.TryAddSingleton(TimeProvider.System);
             services.TryAddSingleton<ISqliteConnectionFactory, SqliteConnectionFactory>();

@@ -324,6 +324,7 @@ README.md
 │   │       │   └── InboxConsumedMessage.cs          # ► base tabla idempotencia
 │   │       └── Persistence/
 │   │           ├── SqliteConnectionFactory.cs        # WAL + busy_timeout
+│   │           ├── SqliteConnectionStringHelper.cs   # resolución única del connection string (host + design-time)
 │   │           └── ModuleDbContextBase.cs            # MigrationsHistoryTable por contexto (ver §7)
 │   │
 │   ├── Modules/

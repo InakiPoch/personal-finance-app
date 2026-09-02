@@ -4,7 +4,6 @@ using PersonalFinance.Api.Endpoints;
 using PersonalFinance.Api.Handlers;
 using PersonalFinance.Api.OpenApi;
 using PersonalFinance.Infrastructure.DependencyInjection;
-using PersonalFinance.Infrastructure.Persistence;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -24,12 +23,6 @@ builder.Services.AddCors(options => {
 });
 
 builder.Services.AddSharedInfrastructure(builder.Configuration);
-
-builder.Services.PostConfigure<SqliteOptions>(options => {
-    if(string.IsNullOrWhiteSpace(options.ConnectionString)) {
-        options.ConnectionString = $"Data Source={Path.Combine(SolutionRootLocatorHelper.FindSolutionRoot(), "personalfinance.db")}";
-    }
-});
 
 builder.Services.AddModules(builder.Configuration);
 

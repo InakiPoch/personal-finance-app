@@ -67,7 +67,7 @@ dotnet ef database update \
   --context <Module>DbContext
 ```
 
-When `Sqlite:ConnectionString` is blank, the design-time factory and the host both resolve `personalfinance.db` at the solution root (via `SolutionRootLocatorHelper`), so `dotnet ef` and `dotnet run` hit the same file.
+The connection string comes from `ConnectionStrings:PersonalFinanceDb` (override with the `ConnectionStrings__PersonalFinanceDb` env var or user-secrets). Resolution is centralized in `SqliteConnectionStringHelper` (shared project `PersonalFinance.Infrastructure.Persistence`): the host calls `Resolve(configuration.GetConnectionString(...))` from `AddSharedInfrastructure`, each module's design-time factory calls `ResolveForDesignTime()`. When nothing is configured, both fall back to `PF_SQLITE_CONNECTION` (legacy design-time knob) and then to `personalfinance.db` at the solution root (via `SolutionRootLocatorHelper`), so `dotnet ef` and `dotnet run` hit the same file. `Data Source` is normalized to an absolute path; WAL / `busy_timeout` / `foreign_keys` stay as pragmas issued by `SqliteConnectionFactory`.
 
 ## Architecture
 

@@ -19,14 +19,14 @@ internal sealed class CreditCard : AggregateRoot<Guid> {
         CarriedCreditBalance = Money.Zero(Currency.Reference);
     }
 
-    public static Result<CreditCard> Create(string name, int cutoffDay, Guid liabilityAccountId, Guid expenseAccountId, Guid creditAccountId) {
+    public static Result<CreditCard> Create(Guid id, string name, int cutoffDay, Guid liabilityAccountId, Guid expenseAccountId, Guid creditAccountId) {
         if(string.IsNullOrWhiteSpace(name)) {
             return FinancingErrors.InvalidCardName;
         }
         if(cutoffDay is < 1 or > 31) {
             return FinancingErrors.InvalidCutoffDay;
         }
-        return new CreditCard(Guid.CreateVersion7(), name.Trim(), cutoffDay, liabilityAccountId, expenseAccountId, creditAccountId);
+        return new CreditCard(id, name.Trim(), cutoffDay, liabilityAccountId, expenseAccountId, creditAccountId);
     }
 
     public Result ApplyCredit(Money amount) {

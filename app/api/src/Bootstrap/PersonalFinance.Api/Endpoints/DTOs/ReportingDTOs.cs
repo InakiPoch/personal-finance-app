@@ -10,7 +10,8 @@ public sealed record CardDueRowDto(
     int? CycleYear,
     int? CycleMonth,
     long AmountMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    string? CardId
 );
 
 public sealed record CardDueByMonthDto(IReadOnlyList<CardDueRowDto> Rows);

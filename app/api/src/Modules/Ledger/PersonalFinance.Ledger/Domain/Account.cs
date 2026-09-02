@@ -10,6 +10,7 @@ internal sealed class Account : AggregateRoot<Guid> {
     public string Name { get; }
     public AccountType Type { get; }
     public AccountKind Kind { get; }
+    public Guid? OwnerReferenceId { get; private set; }
 
     private Account(Guid id, string name, AccountType type, AccountKind kind) : base(id) {
         Name = name;
@@ -17,14 +18,14 @@ internal sealed class Account : AggregateRoot<Guid> {
         Kind = kind;
     }
 
-    public static Result<Account> Create(string name, AccountType type, AccountKind kind) {
+    public static Result<Account> Create(string name, AccountType type, AccountKind kind, Guid? ownerReferenceId = null) {
         if(string.IsNullOrWhiteSpace(name)) {
             return LedgerErrors.InvalidAccountName;
         }
         if(!kindMatchesType(kind, type)) {
             return LedgerErrors.IncoherentAccountKind;
         }
-        return new Account(Guid.CreateVersion7(), name.Trim(), type, kind);
+        return new Account(Guid.CreateVersion7(), name.Trim(), type, kind) { OwnerReferenceId = ownerReferenceId };
     }
 
     private static bool kindMatchesType(AccountKind kind, AccountType type) {

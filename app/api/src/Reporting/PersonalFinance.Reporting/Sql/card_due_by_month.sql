@@ -4,7 +4,8 @@ SELECT
     NULL                       AS CycleYear,
     NULL                       AS CycleMonth,
     AccruedLiabilityMinorUnits AS AmountMinorUnits,
-    CurrencyCode               AS CurrencyCode
+    CurrencyCode               AS CurrencyCode,
+    lower(CardId)              AS CardId
 FROM vw_card_liability_accrued
 UNION ALL
 SELECT
@@ -13,7 +14,8 @@ SELECT
     CycleYear                  AS CycleYear,
     CycleMonth                 AS CycleMonth,
     SUM(AmountMinorUnits)      AS AmountMinorUnits,
-    CurrencyCode               AS CurrencyCode
+    CurrencyCode               AS CurrencyCode,
+    lower(CardId)              AS CardId
 FROM vw_card_future_schedule
-GROUP BY CardId, CycleYear, CycleMonth, CurrencyCode
-ORDER BY Bucket, Card, CycleYear, CycleMonth;
+GROUP BY CardId, CycleYear, CycleMonth, CurrencyCode, lower(CardId)
+ORDER BY CardId, Bucket, CycleYear, CycleMonth;

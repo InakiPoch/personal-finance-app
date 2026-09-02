@@ -9,7 +9,8 @@ public sealed record CardDueRow(
     int? CycleYear,
     int? CycleMonth,
     long AmountMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    string? CardId
 );
 
 public sealed record CardDueByMonthResponse(IReadOnlyList<CardDueRow> Rows);
@@ -36,7 +37,8 @@ internal sealed class CardDueByMonthHandler(IReadDbConnectionFactory connectionF
             reader.IsDBNull(2) ? null : reader.GetInt32(2),
             reader.IsDBNull(3) ? null : reader.GetInt32(3),
             reader.GetInt64(4),
-            reader.GetString(5)
+            reader.GetString(5),
+            reader.IsDBNull(6) ? null : reader.GetString(6)
         );
     }
 }

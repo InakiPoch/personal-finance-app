@@ -12,6 +12,7 @@ internal sealed class AccountConfiguration : IEntityTypeConfiguration<Account> {
         builder.Property(account => account.Name).IsRequired();
         builder.Property(account => account.Type).HasConversion<string>().IsRequired();
         builder.Property(account => account.Kind).HasConversion<string>().IsRequired();
+        builder.Property(account => account.OwnerReferenceId);
         builder.Ignore(account => account.DomainEvents);
     }
 }

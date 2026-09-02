@@ -68,7 +68,7 @@ public class InstallmentReversalTests {
     }
 
     private static CreditCard newCard() {
-        return CreditCard.Create("Visa", 15, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()).Value;
+        return CreditCard.Create(Guid.NewGuid(), "Visa", 15, Guid.NewGuid(), Guid.NewGuid(), Guid.NewGuid()).Value;
     }
 
     private static Money minorUnits(long amount) {

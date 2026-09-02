@@ -1,4 +1,4 @@
-import { HealthStatus } from '../health/health-status';
+import { HealthStatus } from './health-status';
 
 export type HealthCheckEntry = {
   name: string;

@@ -3,9 +3,9 @@ import { Routes } from '@angular/router';
 /**
  * Lazy routing shell. Each feature owns a `*.routes.ts`.
  * 
- * Wired so far: `reports` (the dashboard, and the default route), `instruments`.
- * The remaining Phase 1 steps append `financing` and `ledger` entries; a
- * `{ path: '**', redirectTo: 'reports' }` wildcard lands with the last feature step.
+ * Wired so far: `reports` (the dashboard, and the default route), `instruments`,
+ * `financing`. Step 1.7 appends `ledger` and the `{ path: '**', redirectTo: 'reports' }`
+ * wildcard.
  */
 export const routes: Routes = [
   { path: '', pathMatch: 'full', redirectTo: 'reports' },
@@ -16,5 +16,9 @@ export const routes: Routes = [
   {
     path: 'instruments',
     loadChildren: () => import('./features/instruments/instruments.routes').then((m) => m.routes),
+  },
+  {
+    path: 'financing',
+    loadChildren: () => import('./features/financing/financing.routes').then((m) => m.routes),
   },
 ];

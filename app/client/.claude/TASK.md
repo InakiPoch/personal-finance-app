@@ -173,8 +173,10 @@ permanent fix: install `chromium`, or add a `karma.conf.js` custom launcher. Lef
 
 ### 1.5 — Load-expense page (US-3 / `docs/PRD.md` §3.3)
 
-- [ ] `features/financing/pages/load-expense-page/` — `LoadExpensePage`: reactive form — amount (major units → `toMinorUnits` at submit), card (from `InstrumentRegistryService`), installment count, purchase date (`YYYY-MM-DD`), optional split rows (`partyId` from `ReportsService.debtSummary` + integer `weight`). On submit: call `createPaymentPlan`, confirm the returned `paymentPlanId` immediately, then — when a split was included — `pollUntil(() => partiesService.getBalance(partyId))` with a short bounded retry before showing the reconciled party balance (`docs/DESIGN.md` §7; API D8 eventual consistency). Client never computes cycle or split cents.
-- [ ] Route in `financing.routes.ts` + lazy-wire.
+- [x] `features/financing/validation-helpers.ts` — `positiveAmount`, `atMostTwoDecimals`, `positiveInteger` (covers both `installmentCount` and split `weight`), `isoDate` — control-level `ValidatorFn`s.
+- [x] `features/financing/pages/load-expense-page/` — `LoadExpensePage`: OnPush container, reactive form — `amount` (major → `toMinorUnits` at submit, guarded by `atMostTwoDecimals`), `cardId` (credit-only `computed` over `InstrumentRegistryService`), `installmentCount`, `purchaseDate` (`YYYY-MM-DD`), optional `split` `FormArray` (`partyId` from `ReportsService.debtSummary` loaded on init + integer `weight`). On submit: `createPaymentPlan` (`split` omitted when empty), confirm `paymentPlanId` immediately, then per participant snapshot `getBalance` → `pollUntil(() => partiesService.getBalance(pid), b => b.balanceMinorUnits !== prior, { intervalMs: 800, maxAttempts: 5 })` → render reconciled balance, or a "still reconciling" note on `EmptyError` (`docs/DESIGN.md` §7; API D8). Client computes no cycle / no split cents.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.spec.ts` — form validity, minor-units submit body, `split` present/absent, `AppError` on 422, reconciliation reconciled-vs-stalled paths (RxJS `TestScheduler` virtual time, no `fakeAsync`).
+- [x] Route `{ path: 'load-expense', component: LoadExpensePage }` in `financing.routes.ts` + `financing` `loadChildren` lazy-wired into `app.routes.ts` (first financing step).
 
 ### 1.6 — Statement detail & pay page (US-4 / `docs/PRD.md` §3.4)
 

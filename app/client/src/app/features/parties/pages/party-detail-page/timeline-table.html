@@ -1,0 +1,24 @@
+@if(rows().length === 0) {
+  <p class="timeline__empty">No movements recorded for this party yet.</p>
+} @else {
+  <table class="timeline">
+    <thead>
+      <tr>
+        <th scope="col">When</th>
+        <th scope="col">Description</th>
+        <th scope="col">Change</th>
+        <th scope="col">Running balance</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for(row of rows(); track $index) {
+        <tr>
+          <td>{{ row.movementOnUtc }}</td>
+          <td>{{ row.description }}</td>
+          <td [class.timeline__debit]="row.deltaMinorUnits < 0">{{ signed(row.deltaMinorUnits) }}</td>
+          <td>{{ formatArs(row.runningBalanceMinorUnits) }}</td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

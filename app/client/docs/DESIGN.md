@@ -145,6 +145,12 @@ no `I-` prefix.
 - `SubscriptionResult = { id: string }`
 - `ActiveSubscription = { subscriptionId: string; name: string; amountMinorUnits: Money;
   category: string; frequency: Frequency; anchorDay: number; nextDueDate: IsoDate }`
+- **Reconciliation (client D12, Phase 2):** the API's `RecurrenceFrequency` enum currently
+  implements `Monthly` only, and `GET /v1/subscriptions/active` serialises it PascalCase as
+  `"Monthly"`. The wider `Frequency` union above is aspirational. As shipped, the client types
+  `Frequency = 'monthly'`, `SubscriptionsService.listActive` normalises the `"Monthly"`
+  response to `'monthly'`, and the create form renders `frequency` as a fixed, disabled
+  control. The seam reopens here if the API adds `Weekly` / `Annually`.
 
 **Parties** (`CreatePartyDto`, `RegisterSharedExpenseDto`, `SettleCurrentAccountDto`,
 `CurrentAccountDTO`)

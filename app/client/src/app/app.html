@@ -1,1 +1,10 @@
+<nav aria-label="Primary" class="primary-nav">
+  <ul class="primary-nav__list">
+    @for(item of navItems; track item.path) {
+      <li>
+        <a [routerLink]="item.path" routerLinkActive="primary-nav__link--active">{{ item.label }}</a>
+      </li>
+    }
+  </ul>
+</nav>
 <router-outlet />

@@ -37,3 +37,33 @@ jobs:
         run: dotnet build PersonalFinance.sln --no-restore -c Release
       - name: Test (Release)
         run: dotnet test --solution PersonalFinance.sln --no-build -c Release
+
+  client-build-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: app/client
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          package_json_file: app/client/package.json
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: app/client/pnpm-lock.yaml
+      - name: Install (frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm ng lint
+      - name: Build (production)
+        run: pnpm ng build --configuration production
+      - name: Test (headless Chrome)
+        run: pnpm ng test --watch=false --browsers=ChromeHeadless --no-progress
+        env:
+          CHROME_BIN: /usr/bin/google-chrome

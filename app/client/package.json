@@ -1,12 +1,14 @@
 {
   "name": "client",
   "version": "0.0.0",
+  "packageManager": "pnpm@11.8.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "lint": "ng lint"
   },
   "prettier": {
     "printWidth": 100,
@@ -35,13 +37,20 @@
     "@angular/build": "^20.3.29",
     "@angular/cli": "^20.3.29",
     "@angular/compiler-cli": "^20.3.0",
+    "@eslint/js": "^9.39.5",
+    "@tailwindcss/postcss": "^4.3.3",
     "@types/jasmine": "~5.1.0",
+    "angular-eslint": "^20.7.0",
+    "eslint": "^9.39.5",
     "jasmine-core": "~5.9.0",
     "karma": "~6.4.0",
     "karma-chrome-launcher": "~3.2.0",
     "karma-coverage": "~2.2.0",
     "karma-jasmine": "~5.1.0",
     "karma-jasmine-html-reporter": "~2.1.0",
-    "typescript": "~5.9.2"
+    "postcss": "^8.5.26",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~5.9.2",
+    "typescript-eslint": "^8.69.0"
   }
 }

@@ -437,13 +437,13 @@ and confirm the message keys off `code`.
 
 ### Tasks
 
-- [ ] **4.1 Tailwind + UI-task groundwork** — install Tailwind and wire the build; tokens, theme, and components belong to the separate UI task. Trigger: UI task kickoff. (`docs/DESIGN.md` §10; `docs/PRD.md` §6)
+- [x] **4.1 Tailwind + UI-task groundwork** — install Tailwind and wire the build; tokens, theme, and components belong to the separate UI task. Trigger: UI task kickoff. (`docs/DESIGN.md` §10; `docs/PRD.md` §6) — **build wiring done** (see Completion notes; **D19**).
 - [ ] **4.2 API gap 1 — `GET /v1/instruments`** — when the endpoint ships, add the list method and retire the `InstrumentRegistryService` `localStorage` stopgap; forms then read cards/accounts from the API. (`docs/DESIGN.md` §11.1; `docs/PRD.md` §7.1)
 - [ ] **4.3 API gap 2 — `GET /v1/financing/cards/{id}/statements`** — make the Statement pay flow self-navigable; drop the id-only route entry. (`docs/DESIGN.md` §11.2; `docs/PRD.md` §7.2)
 - [ ] **4.4 API gap 3 — transactions feed (`GET /v1/ledger/transactions`)** — build a real history / reverse-picker view, replacing the id-driven `reverse-movement-page`. (`docs/DESIGN.md` §11.3; `docs/PRD.md` §7.3)
 - [ ] **4.5 API gap 4 — app-level auth surface** — when a backing endpoint exists, add login as a new cross-cutting feature (route guard, session). Not part of any view above. (`docs/DESIGN.md` §11.4; `docs/PRD.md` §2, §7.4)
-- [ ] **4.6 Client CI** — add `ng build` + `ng test` (and lint, once 4.7 lands) steps for `app/client/` to `/.github/workflows/ci.yml` (currently API-only). Trigger: Fase 1 merged. _(Scaffold-state gap — no PRD/DESIGN statement.)_
-- [ ] **4.7 ESLint config** — add `@angular-eslint` (none present today) before enforcing lint in CI. _(Scaffold-state gap — no PRD/DESIGN statement.)_
+- [x] **4.6 Client CI** — add `ng build` + `ng test` (and lint, once 4.7 lands) steps for `app/client/` to `/.github/workflows/ci.yml` (currently API-only). Trigger: Fase 1 merged. _(Scaffold-state gap — no PRD/DESIGN statement.)_ — **done** (`client-build-test` job; lint + build + test; API job untouched).
+- [x] **4.7 ESLint config** — add `@angular-eslint` (none present today) before enforcing lint in CI. _(Scaffold-state gap — no PRD/DESIGN statement.)_ — **done** (`angular-eslint@20` flat config + `lint` target; `pnpm ng lint` clean).
 
 ### Definition of done
 
@@ -451,7 +451,94 @@ and confirm the message keys off `code`.
 
 ### Completion notes
 
-_(filled by the implementer)_
+**Scope of this pass.** Three tooling items closed against triggers that have landed — **4.7**
+(ESLint), **4.1** (Tailwind — build wiring only), **4.6** (client CI). **4.2 / 4.3 / 4.4 / 4.5
+stay open**: the four backing endpoints (`GET /v1/instruments`,
+`GET /v1/financing/cards/{id}/statements`, `GET /v1/ledger/transactions`, the auth surface) do
+**not** exist in the API today — confirmed by reading the endpoint registrations — so there is
+nothing to build against. Execute-ready checklists for 4.2 / 4.3 / 4.4 are recorded below so each
+becomes a single green-lit step once its endpoint ships; 4.5 has no checklist (no endpoint to
+design to). **The phase DoD box stays unticked until those four close.**
+
+**4.7 — ESLint (scaffold-state gap).** `angular-eslint@20` flat config (`eslint.config.js`,
+CommonJS — the client has no `"type": "module"`): `@eslint/js` recommended + `typescript-eslint@8`
+recommended + `angular-eslint` ts-recommended for `**/*.ts`, template-recommended for `**/*.html`,
+`processInlineTemplates` for inline templates. A `lint` architect target
+(`@angular-eslint/builder:lint`, patterns `src/**/*.ts` + `src/**/*.html`) and a `pnpm lint`
+script. `pnpm ng lint` passes clean on the current tree. One deliberate rule override:
+`@angular-eslint/component-class-suffix` is **off** — `.claude/rules/typescript-frontend-style.md`
+§3 drops the `Component` suffix on every component class, which the default rule would flag on all
+14. Stylistic, template-accessibility, and type-checked rule sets are **excluded on purpose** —
+turning them on is codebase-wide work for the UI task, not part of wiring the tool up. Pinned to
+`eslint@9` / `angular-eslint@20`: the `@10` / `@22` majors on npm `latest` are not compatible
+with this Angular 20.3 line.
+
+**4.1 — Tailwind (build wiring only; `docs/DESIGN.md` §10, `docs/PRD.md` §6).** `tailwindcss@4` +
+`@tailwindcss/postcss@4` + `postcss@8`; a project-root `.postcssrc.json`
+(`{ "plugins": { "@tailwindcss/postcss": {} } }`, auto-discovered by `@angular/build`);
+`@import 'tailwindcss';` prepended to `src/styles.css`. **No `tailwind.config.js`** — see **D19**.
+Build stays green with no budget warning: emitted `styles*.css` is ~6.6 kB raw / ~1.8 kB transfer
+(Tailwind preflight + base layer only — zero utilities in use), initial-JS total 263.61 kB →
+270.20 kB raw. DESIGN §10's "tokens, theme, and components belong to that task" is unchanged; this
+pass only makes the utility layer compile. Cosmetic: v4 preflight resets browser defaults, so
+placeholder pages look flatter until the UI task styles them — no spec asserts computed styles, so
+the 139 tests are unaffected.
+
+**4.6 — Client CI (scaffold-state gap).** A second job `client-build-test` in
+`/.github/workflows/ci.yml` — the API `build-test` job is **untouched**. `ubuntu-latest`, working
+dir `app/client`: `actions/checkout@v4` → `pnpm/action-setup@v4` → `actions/setup-node@v4`
+(Node 22, `cache: pnpm`) → `pnpm install --frozen-lockfile` → `pnpm ng lint` →
+`pnpm ng build --configuration production` → `pnpm ng test --watch=false --browsers=ChromeHeadless`
+with `CHROME_BIN=/usr/bin/google-chrome` (preinstalled on the runner — non-root with user
+namespaces, so no `--no-sandbox` and no `karma.conf.js`). `"packageManager": "pnpm@11.8.0"` added
+to `package.json` so `action-setup` and `cache: pnpm` resolve the version. Both jobs run in
+parallel under the existing `ci-${{ github.ref }}` cancel-in-progress group. No `paths:` filter —
+matches the API job; split into a separate workflow if Actions-minutes cost ever matters.
+
+**Intentional deviation (continuing D-numbering from Phase 3's D18):**
+
+- **D19** — **Tailwind v4 CSS-first — no `tailwind.config.js`.** `docs/DESIGN.md` §10 calls this
+  "config groundwork", wording that predates Tailwind v4. v4 moves configuration into CSS
+  (`@import 'tailwindcss'` now; `@theme` tokens later, in `styles.css`) and auto-detects template
+  sources, so there is no JS config file to add — the wiring is `.postcssrc.json` plus the one
+  `@import` line. The UI task will add `@theme` tokens in CSS rather than a `theme.extend` object;
+  choosing v4 now avoids a v3→v4 migration mid-UI-work. **DESIGN §10 still reads "config
+  groundwork" — update it to the CSS-first wiring when the UI task picks this up.**
+
+---
+
+#### Gap checklists — execute-ready (one green-lit step each, when the endpoint ships)
+
+**4.2 — `GET /v1/instruments` (`docs/DESIGN.md` §11.1, `docs/PRD.md` §7.1)**
+- Service: `InstrumentsService.list(): Observable<Instrument[]>` → `GET /v1/instruments`, unwrap `{ rows }`.
+- New type: `features/instruments/types/instrument.ts` — `Instrument = { id; type: InstrumentType; name; cutoffDate: number | null }`, field-matched to `/openapi/v1.json` when it ships.
+- Retires: `core/registry/instrument-registry-service.ts` (+ spec) and the `localStorage` stopgap; reconcile `core/types/registered-instrument.ts`, DESIGN §8, `.claude/CLAUDE.md` "Current state".
+- 6 consumer sites switch from `registry.instruments()` to an `InstrumentsService.list()` call + local `WritableSignal` loaded in `ngOnInit`: `instruments-page` (re-fetch after create instead of `registry.add`), `load-expense-page` (`type === 'credit'`), `statement-page` (`type === 'debit'`), `subscriptions-page` (all types, D13), `party-detail-page` (settlement account), `shared-expense-page` (funding account, D17).
+- Routes: none.
+- Specs: `instruments-service.spec.ts` gains a `list()` case (URL, GET, `{ rows }` unwrap, `AppError`); each consumer spec swaps the registry stub for an `InstrumentsService` stub returning `of([...])`; delete `instrument-registry-service.spec.ts`.
+- Closes the Phase-0 D3 lineage; assign the next free D-number.
+
+**4.3 — `GET /v1/financing/cards/{id}/statements` (`docs/DESIGN.md` §11.2, `docs/PRD.md` §7.2)**
+- Service: `FinancingService.listStatements(cardId): Observable<MonthlyStatementSummary[]>` → `GET /v1/financing/cards/{id}/statements`, unwrap `{ rows }`.
+- New type: `features/financing/types/monthly-statement-summary.ts` — the `MonthlyStatement` row shape minus `installments`.
+- Retires placeholder `features/financing/pages/statement-index/` → new `statements-page/` (`StatementsPage`: pick a credit card, list its statements, row → `statements/:id`).
+- Routes (`financing.routes.ts`): `{ path: 'statements', component: StatementIndex }` → `StatementsPage`; keep `statements/:id` and `load-expense`. Delete `statement-index.{ts,html,css,spec.ts}`.
+- Specs: `financing-service.spec.ts` gains `listStatements`; new `statements-page.spec.ts` (rows, row-nav, loading/empty/error); delete `statement-index.spec.ts`.
+- Next free D-number.
+
+**4.4 — transactions feed `GET /v1/ledger/transactions` (`docs/DESIGN.md` §11.3, `docs/PRD.md` §7.3)**
+- Service: `LedgerService.listTransactions(params?: { accountId?; from?: IsoDate; to?: IsoDate }): Observable<TransactionRow[]>` → `GET /v1/ledger/transactions`, unwrap `{ rows }`, omit absent params.
+- New type: `features/ledger/types/transaction-row.ts` — `{ transactionId; postedOnUtc: IsoInstant; description: string | null; amountMinorUnits: Money; direction: Direction; isReversal: boolean; isReversed: boolean }`.
+- Retires placeholder `features/ledger/pages/reverse-index/` → new `transactions-page/` (`TransactionsPage`: history list + per-row "Reverse" → `transactions/:id/reverse`). Keep `ReverseMovementPage` as the confirm step.
+- Routes (`ledger.routes.ts`): `{ path: 'transactions', component: ReverseIndex }` → `TransactionsPage`; keep `transactions/:id/reverse`. Delete `reverse-index.{ts,html,css,spec.ts}`.
+- Specs: `ledger-service.spec.ts` gains `listTransactions`; new `transactions-page.spec.ts` (rows, reverse-nav trimming id, already-reversed badge disables the action, loading/empty/error); delete `reverse-index.spec.ts`.
+- Next free D-number.
+
+**Common to 4.2 / 4.3 / 4.4 when worked:** build stays < 500 kB initial; `pnpm ng test` green;
+`pnpm ng lint` clean; update `docs/DESIGN.md` §4/§9 + §8/§11, `docs/PRD.md` §7,
+`.claude/CLAUDE.md`; one conventional commit; record the closing D-number (D20 onward — D19 is
+taken by the Tailwind wiring above). **4.5 (auth) stays deferred** — `docs/DESIGN.md` §11.4,
+`docs/PRD.md` §7.4; no backing endpoint, nothing to design to.
 
 ---
 

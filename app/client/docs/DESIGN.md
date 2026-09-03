@@ -49,8 +49,9 @@ src/app/
     ledger/
       ledger-service.ts
       types/  (post-transaction.ts, transaction-line.ts, direction.ts,
-               post-transaction-result.ts, reverse-transaction-result.ts, account-balance.ts)
-      pages/  reverse-movement-page/
+               post-transaction-result.ts, reverse-transaction-result.ts, account-balance.ts,
+               transaction-row.ts)
+      pages/  transactions-page/, reverse-movement-page/
       ledger.routes.ts
     financing/
       financing-service.ts
@@ -183,6 +184,7 @@ One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(Http
 - **InstrumentsService** — `list(): Observable<Instrument[]>` (unwraps the `{ rows }` envelope);
   `create(body: CreateInstrument): Observable<InstrumentCreated>`
 - **LedgerService** — `postTransaction(body: PostTransaction): Observable<PostTransactionResult>`;
+  `listTransactions(filter?: { accountId?; from?; to? }): Observable<TransactionRow[]>` (unwraps the `{ rows }` envelope);
   `reverse(transactionId: string): Observable<ReverseTransactionResult>`;
   `getAccountBalance(accountId: string): Observable<AccountBalance>`
 - **FinancingService** — `createPaymentPlan(body: CreatePaymentPlan): Observable<CreatePaymentPlanResult>`;
@@ -291,29 +293,30 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 3 | POST | `/v1/ledger/transactions` | `LedgerService.postTransaction` | (low-level; internal) |
 | 4 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement |
 | 5 | GET | `/v1/ledger/accounts/{id}/balance` | `LedgerService.getAccountBalance` | (detail widgets) |
-| 6 | POST | `/v1/financing/payment-plans` | `FinancingService.createPaymentPlan` | Load expense |
-| 7 | GET | `/v1/financing/statements/{id}` | `FinancingService.getStatement` | Statement detail |
-| 8 | POST | `/v1/financing/statements/{id}/pay` | `FinancingService.payStatement` | Statement detail |
-| 9 | GET | `/v1/financing/cards/{id}/future-schedule` | `FinancingService.getFutureSchedule` | Statement detail |
-| 10 | GET | `/v1/financing/cards/{id}/statements` | `FinancingService.listStatements` | Statements list (card picker → row → Statement detail) |
-| 11 | POST | `/v1/subscriptions` | `SubscriptionsService.create` | Subscriptions |
-| 12 | DELETE | `/v1/subscriptions/{id}` | `SubscriptionsService.cancel` | Subscriptions |
-| 13 | GET | `/v1/subscriptions/active` | `SubscriptionsService.listActive` | Subscriptions |
-| 14 | POST | `/v1/parties` | `PartiesService.create` | Parties |
-| 15 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
-| 16 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
-| 17 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
-| 18 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
-| 19 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
-| 20 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
-| 21 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail |
-| 22 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
-| 23 | GET | `/health` | `HealthService.check` | (status indicator) |
+| 6 | GET | `/v1/ledger/transactions` | `LedgerService.listTransactions` | Transactions feed (account + date filter → row → Reverse movement) |
+| 7 | POST | `/v1/financing/payment-plans` | `FinancingService.createPaymentPlan` | Load expense |
+| 8 | GET | `/v1/financing/statements/{id}` | `FinancingService.getStatement` | Statement detail |
+| 9 | POST | `/v1/financing/statements/{id}/pay` | `FinancingService.payStatement` | Statement detail |
+| 10 | GET | `/v1/financing/cards/{id}/future-schedule` | `FinancingService.getFutureSchedule` | Statement detail |
+| 11 | GET | `/v1/financing/cards/{id}/statements` | `FinancingService.listStatements` | Statements list (card picker → row → Statement detail) |
+| 12 | POST | `/v1/subscriptions` | `SubscriptionsService.create` | Subscriptions |
+| 13 | DELETE | `/v1/subscriptions/{id}` | `SubscriptionsService.cancel` | Subscriptions |
+| 14 | GET | `/v1/subscriptions/active` | `SubscriptionsService.listActive` | Subscriptions |
+| 15 | POST | `/v1/parties` | `PartiesService.create` | Parties |
+| 16 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
+| 17 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
+| 18 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
+| 19 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
+| 20 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
+| 21 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
+| 22 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail |
+| 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
+| 24 | GET | `/health` | `HealthService.check` | (status indicator) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.
 
-Endpoints 18 and 21 (`/v1/parties/{id}/timeline`, `/v1/reports/parties/{id}/timeline`) both
+Endpoints 19 and 22 (`/v1/parties/{id}/timeline`, `/v1/reports/parties/{id}/timeline`) both
 return a `{ rows: [...] }` envelope; their service methods unwrap to the array via `map`
 (D14 — the design text had described endpoint 18 as returning the object as-is).
 
@@ -340,5 +343,8 @@ return a `{ rows: [...] }` envelope; their service methods unwrap to the array v
    **Resolved (Phase 12, D22):** the endpoint ships; the `Statements` nav item now opens a real
    `StatementsPage` (credit-card picker → statement rows → row opens `statement-page`), replacing the
    id-paste `StatementIndex` stopgap.
-3. A transactions feed (`GET /v1/ledger/transactions`) — enables a real history/reverse-picker view.
+3. ~~A transactions feed (`GET /v1/ledger/transactions`) — enables a real history/reverse-picker view.~~
+   **Resolved (Phase 12, D23):** the endpoint ships; the `Reverse` nav item now opens a real
+   `TransactionsPage` (account + date-range filter → movement rows → per-row Reverse, disabled on a
+   row that is itself a reversal or already reversed), replacing the id-paste `ReverseIndex` stopgap.
 4. App-level auth surface — deferred; no backing endpoint today.

@@ -19,6 +19,11 @@ internal static class EndpointExtensions {
                 .Produces<PostTransactionResultDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Ledger.Transactions, GetTransactions.Handle)
+                .WithSummary("List posted transactions, newest first.")
+                .WithDescription("Returns the Ledger transaction feed with a synthesized label per row, optionally narrowed to one account (?accountId=) and a posted-date range (?from=&to=, inclusive, yyyy-MM-dd). Each row flags whether it is itself a reversal and whether it has since been reversed.")
+                .Produces<TransactionFeedDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapPost(ApiRoutes.Ledger.Reversal, ReverseTransaction.Handle)
                 .WithSummary("Reverse a posted transaction.")
                 .WithDescription("Posts a storno reversal of the given transaction, plus a compensating card-credit entry if the reversed installment was already paid. Always succeeds unless the transaction is missing or is itself a reversal.")

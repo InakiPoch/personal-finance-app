@@ -11,6 +11,7 @@ using PersonalFinance.Ledger.Application.Commands.PostTransaction;
 using PersonalFinance.Ledger.Application.Commands.ReverseTransaction;
 using PersonalFinance.Ledger.Application.Queries.GetAccountBalance;
 using PersonalFinance.Ledger.Application.Queries.GetCardLiability;
+using PersonalFinance.Ledger.Application.Queries.GetTransactions;
 using PersonalFinance.Ledger.Application.Queries.ListInstrumentAccounts;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
@@ -40,5 +41,6 @@ public sealed class LedgerModule : IModule {
         services.AddScoped<IQueryHandler<GetAccountBalanceQuery, Money>, GetAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCardLiabilityQuery, Money>, GetCardLiabilityHandler>();
         services.AddScoped<IQueryHandler<ListInstrumentAccountsQuery, InstrumentAccountsResponse>, ListInstrumentAccountsHandler>();
+        services.AddScoped<IQueryHandler<GetTransactionsQuery, TransactionFeedResponse>, GetTransactionsHandler>();
     }
 }

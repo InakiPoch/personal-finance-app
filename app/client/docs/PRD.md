@@ -143,7 +143,10 @@ These are surfaced so the client design is honest about what a view can actually
    (Phase 12).** `GET /v1/financing/cards/{id}/statements` ships (one summary row per statement:
    `statementId`, cycle, `amountDueMinorUnits`, `isPaid`). The `Statements` view is now a real
    card-picker list; a row opens the statement detail with its id.
-3. **No general transaction/history feed.** US-6's reverse flow has no list to pick from; reversal
-   audit is fragmented across statement `isReversed` flags and party timelines. **Proposed API:** a
-   transactions feed, e.g. `GET /v1/ledger/transactions`.
+3. ~~**No general transaction/history feed.** US-6's reverse flow has no list to pick from; reversal
+   audit is fragmented across statement `isReversed` flags and party timelines.~~ **Resolved
+   (Phase 12).** `GET /v1/ledger/transactions` ships (newest-first feed, one
+   `{ transactionId, postedOnUtc, description, amountMinorUnits, isReversal, isReversed }` row each,
+   optional `accountId` / `from` / `to` filter). The `Reverse` view is now a real transaction picker
+   (filter → row → confirm), replacing the id-paste stopgap.
 4. **No auth surface.** App-level protection (§2) has no backing endpoint yet; login is deferred.

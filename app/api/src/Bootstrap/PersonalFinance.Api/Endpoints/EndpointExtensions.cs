@@ -66,6 +66,10 @@ internal static class EndpointExtensions {
                 .WithSummary("Get a card's future installment schedule.")
                 .WithDescription("Returns the not-yet-accrued installments for the given credit card.")
                 .Produces<CardFutureScheduleDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.CardStatements, GetCardStatements.Handle)
+                .WithSummary("List a card's monthly statements.")
+                .WithDescription("Returns every monthly statement raised for the given credit card, ordered by billing cycle, without the component installments. An unknown card yields an empty list.")
+                .Produces<CardStatementsDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

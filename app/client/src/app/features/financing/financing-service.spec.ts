@@ -12,6 +12,7 @@ import { CardFutureSchedule } from './types/card-future-schedule';
 import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { MonthlyStatement } from './types/monthly-statement';
+import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayStatement } from './types/pay-statement';
 import { PayStatementResult } from './types/pay-statement-result';
 import { FinancingService } from './financing-service';
@@ -29,7 +30,7 @@ describe('FinancingService', () => {
         provideZonelessChangeDetection(),
         provideHttpClient(withInterceptors([baseUrlInterceptor, problemDetailsInterceptor])),
         provideHttpClientTesting(),
-      ],
+      ]
     });
     service = TestBed.inject(FinancingService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -42,7 +43,7 @@ describe('FinancingService', () => {
       amountMinorUnits: money(1200000),
       cardId: 'card-1',
       installmentCount: 3,
-      purchaseDate: '2026-09-01',
+      purchaseDate: '2026-09-01'
     };
     let result: string | undefined;
     service.createPaymentPlan(body).subscribe((r: CreatePaymentPlanResult) => (result = r.paymentPlanId));
@@ -62,8 +63,8 @@ describe('FinancingService', () => {
       purchaseDate: '2026-09-01',
       split: [
         { partyId: 'p1', weight: 1 },
-        { partyId: 'p2', weight: 2 },
-      ],
+        { partyId: 'p2', weight: 2 }
+      ]
     };
     service.createPaymentPlan(body).subscribe();
     const req = httpMock.expectOne(`${base}/financing/payment-plans`);
@@ -90,7 +91,7 @@ describe('FinancingService', () => {
         cycleYear: 2026,
         cycleMonth: 9,
         amountMinorUnits: money(400000),
-        isReversed: false,
+        isReversed: false
       }]
     };
     let result: MonthlyStatement | undefined;
@@ -118,14 +119,14 @@ describe('FinancingService', () => {
       .subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
     httpMock.expectOne(`${base}/financing/statements/st-1/pay`).flush(
       { title: 'Conflict', status: 409, detail: 'already paid', code: 'Financing.AlreadyPaid' },
-      { status: 409, statusText: 'Conflict' },
+      { status: 409, statusText: 'Conflict' }
     );
     expect(error).toEqual({
       code: 'Financing.AlreadyPaid',
       title: 'Conflict',
       detail: 'already paid',
       status: 409,
-      metadata: {},
+      metadata: {}
     });
   });
   it('GETs a card future schedule and returns the object with rows intact', () => {
@@ -137,7 +138,7 @@ describe('FinancingService', () => {
         sequence: 2,
         cycleYear: 2026,
         cycleMonth: 10,
-        amountMinorUnits: money(400000),
+        amountMinorUnits: money(400000)
       }]
     };
     let result: CardFutureSchedule | undefined;
@@ -148,12 +149,31 @@ describe('FinancingService', () => {
     expect(result).toEqual(schedule);
   });
 
+  it('GETs a card statement list and unwraps the { rows } envelope', () => {
+    const rows: MonthlyStatementSummary[] = [{
+      statementId: 'st-1',
+      cardId: 'card-1',
+      cardName: 'Visa',
+      cycleYear: 2026,
+      cycleMonth: 9,
+      amountDueMinorUnits: money(400000),
+      isPaid: false,
+      paidOnUtc: null
+    }];
+    let result: MonthlyStatementSummary[] | undefined;
+    service.listStatements('card-1').subscribe((r: MonthlyStatementSummary[]) => (result = r));
+    const req = httpMock.expectOne(`${base}/financing/cards/card-1/statements`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ cardId: 'card-1', rows });
+    expect(result).toEqual(rows);
+  });
+
   it('maps a 404 on getStatement to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service.getStatement('missing').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
     httpMock.expectOne(`${base}/financing/statements/missing`).flush(
       { title: 'Not found', status: 404, detail: 'no such statement', code: 'Financing.StatementNotFound' },
-      { status: 404, statusText: 'Not Found' },
+      { status: 404, statusText: 'Not Found' }
     );
     expect(error?.code).toBe('Financing.StatementNotFound');
     expect(error?.status).toBe(404);

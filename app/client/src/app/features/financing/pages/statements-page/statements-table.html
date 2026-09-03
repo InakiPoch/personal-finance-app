@@ -1,0 +1,32 @@
+@if(statements().length === 0) {
+  <p class="statements__empty">This card has no statements yet.</p>
+} @else {
+  <table class="statements">
+    <thead>
+      <tr>
+        <th scope="col">Cycle</th>
+        <th scope="col">Amount due</th>
+        <th scope="col">Status</th>
+        <th scope="col">Open</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for(statement of statements(); track statement.statementId) {
+        <tr>
+          <td>{{ cycleLabel(statement) }}</td>
+          <td>{{ formatArs(statement.amountDueMinorUnits) }}</td>
+          <td>
+            @if(statement.isPaid) {
+              <span class="statements__badge">Paid</span>
+            } @else {
+              <span>Unpaid</span>
+            }
+          </td>
+          <td>
+            <button type="button" (click)="onOpen(statement.statementId)">Open</button>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

@@ -55,9 +55,10 @@ src/app/
     financing/
       financing-service.ts
       types/  (create-payment-plan.ts, split-participant.ts, create-payment-plan-result.ts,
-               monthly-statement.ts, monthly-statement-installment.ts, pay-statement.ts,
-               pay-statement-result.ts, card-future-schedule.ts, card-future-schedule-row.ts)
-      pages/  statement-page/, load-expense-page/
+               monthly-statement.ts, monthly-statement-installment.ts, monthly-statement-summary.ts,
+               pay-statement.ts, pay-statement-result.ts, card-future-schedule.ts,
+               card-future-schedule-row.ts)
+      pages/  statements-page/, statement-page/, load-expense-page/
       financing.routes.ts
     subscriptions/
       subscriptions-service.ts
@@ -187,7 +188,8 @@ One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(Http
 - **FinancingService** — `createPaymentPlan(body: CreatePaymentPlan): Observable<CreatePaymentPlanResult>`;
   `getStatement(id: string): Observable<MonthlyStatement>`;
   `payStatement(id: string, body: PayStatement): Observable<PayStatementResult>`;
-  `getFutureSchedule(cardId: string): Observable<CardFutureSchedule>`
+  `getFutureSchedule(cardId: string): Observable<CardFutureSchedule>`;
+  `listStatements(cardId: string): Observable<MonthlyStatementSummary[]>` (unwraps the `{ rows }` envelope)
 - **SubscriptionsService** — `create(body: CreateSubscription): Observable<SubscriptionResult>`;
   `cancel(id: string): Observable<void>`; `listActive(): Observable<ActiveSubscription[]>`
   (unwraps the `{ rows }` envelope)
@@ -293,26 +295,27 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 7 | GET | `/v1/financing/statements/{id}` | `FinancingService.getStatement` | Statement detail |
 | 8 | POST | `/v1/financing/statements/{id}/pay` | `FinancingService.payStatement` | Statement detail |
 | 9 | GET | `/v1/financing/cards/{id}/future-schedule` | `FinancingService.getFutureSchedule` | Statement detail |
-| 10 | POST | `/v1/subscriptions` | `SubscriptionsService.create` | Subscriptions |
-| 11 | DELETE | `/v1/subscriptions/{id}` | `SubscriptionsService.cancel` | Subscriptions |
-| 12 | GET | `/v1/subscriptions/active` | `SubscriptionsService.listActive` | Subscriptions |
-| 13 | POST | `/v1/parties` | `PartiesService.create` | Parties |
-| 14 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
-| 15 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
-| 16 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
-| 17 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
-| 18 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
-| 19 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
-| 20 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail |
-| 21 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
-| 22 | GET | `/health` | `HealthService.check` | (status indicator) |
+| 10 | GET | `/v1/financing/cards/{id}/statements` | `FinancingService.listStatements` | Statements list (card picker → row → Statement detail) |
+| 11 | POST | `/v1/subscriptions` | `SubscriptionsService.create` | Subscriptions |
+| 12 | DELETE | `/v1/subscriptions/{id}` | `SubscriptionsService.cancel` | Subscriptions |
+| 13 | GET | `/v1/subscriptions/active` | `SubscriptionsService.listActive` | Subscriptions |
+| 14 | POST | `/v1/parties` | `PartiesService.create` | Parties |
+| 15 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
+| 16 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
+| 17 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
+| 18 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
+| 19 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
+| 20 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
+| 21 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail |
+| 22 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
+| 23 | GET | `/health` | `HealthService.check` | (status indicator) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.
 
-Endpoints 17 and 20 (`/v1/parties/{id}/timeline`, `/v1/reports/parties/{id}/timeline`) both
+Endpoints 18 and 21 (`/v1/parties/{id}/timeline`, `/v1/reports/parties/{id}/timeline`) both
 return a `{ rows: [...] }` envelope; their service methods unwrap to the array via `map`
-(D14 — the design text had described endpoint 17 as returning the object as-is).
+(D14 — the design text had described endpoint 18 as returning the object as-is).
 
 ## 10. Configuration & tooling
 
@@ -333,6 +336,9 @@ return a `{ rows: [...] }` envelope; their service methods unwrap to the array v
 1. ~~`GET /v1/instruments` (and card/account listing) — removes the `localStorage` stopgap (§8).~~
    **Resolved (Phase 12, D21):** the endpoint ships; `InstrumentRegistryService` and the
    `localStorage` stopgap are removed (§8).
-2. `GET /v1/financing/cards/{id}/statements` — makes the Statement pay flow self-navigable.
+2. ~~`GET /v1/financing/cards/{id}/statements` — makes the Statement pay flow self-navigable.~~
+   **Resolved (Phase 12, D22):** the endpoint ships; the `Statements` nav item now opens a real
+   `StatementsPage` (credit-card picker → statement rows → row opens `statement-page`), replacing the
+   id-paste `StatementIndex` stopgap.
 3. A transactions feed (`GET /v1/ledger/transactions`) — enables a real history/reverse-picker view.
 4. App-level auth surface — deferred; no backing endpoint today.

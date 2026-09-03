@@ -439,7 +439,7 @@ and confirm the message keys off `code`.
 
 - [x] **4.1 Tailwind + UI-task groundwork** — install Tailwind and wire the build; tokens, theme, and components belong to the separate UI task. Trigger: UI task kickoff. (`docs/DESIGN.md` §10; `docs/PRD.md` §6) — **build wiring done** (see Completion notes; **D19**).
 - [x] **4.2 API gap 1 — `GET /v1/instruments`** — **done (Phase 12, D21).** `InstrumentsService.list()` unwraps `{ rows }`; new `Instrument` type (`features/instruments/types/instrument.ts`); `InstrumentRegistryService` + `core/types/registered-instrument.ts` + `core/registry/` deleted. 6 consumers load the list into a local `WritableSignal<Instrument[]>` in `ngOnInit` and keep their existing `computed()` `<select>` filters; `InstrumentsPage` re-fetches after create. (`docs/DESIGN.md` §8/§9/§11.1; `docs/PRD.md` §7.1)
-- [ ] **4.3 API gap 2 — `GET /v1/financing/cards/{id}/statements`** — make the Statement pay flow self-navigable; drop the id-only route entry. (`docs/DESIGN.md` §11.2; `docs/PRD.md` §7.2)
+- [x] **4.3 API gap 2 — `GET /v1/financing/cards/{id}/statements`** — **done (Phase 12, D22).** `FinancingService.listStatements(cardId)` unwraps `{ rows }`; new `MonthlyStatementSummary` type; `StatementsPage` (credit-card picker → `StatementsTable` rows → row opens `statements/:id`) replaces the id-paste `StatementIndex`, which was deleted. (`docs/DESIGN.md` §2/§4/§9/§11.2; `docs/PRD.md` §7.2)
 - [ ] **4.4 API gap 3 — transactions feed (`GET /v1/ledger/transactions`)** — build a real history / reverse-picker view, replacing the id-driven `reverse-movement-page`. (`docs/DESIGN.md` §11.3; `docs/PRD.md` §7.3)
 - [ ] **4.5 API gap 4 — app-level auth surface** — when a backing endpoint exists, add login as a new cross-cutting feature (route guard, session). Not part of any view above. (`docs/DESIGN.md` §11.4; `docs/PRD.md` §2, §7.4)
 - [x] **4.6 Client CI** — add `ng build` + `ng test` (and lint, once 4.7 lands) steps for `app/client/` to `/.github/workflows/ci.yml` (currently API-only). Trigger: Fase 1 merged. _(Scaffold-state gap — no PRD/DESIGN statement.)_ — **done** (`client-build-test` job; lint + build + test; API job untouched).
@@ -454,12 +454,12 @@ and confirm the message keys off `code`.
 **Scope of the tooling pass.** Three tooling items closed against triggers that have landed — **4.7**
 (ESLint), **4.1** (Tailwind — build wiring only), **4.6** (client CI).
 
-**4.2 closed (Phase 12).** `GET /v1/instruments` shipped on the API (API Phase 12, step 1); the
-client step retired the `localStorage` registry — see the completion note below. **4.3 / 4.4 / 4.5
-stay open**: `GET /v1/financing/cards/{id}/statements` and `GET /v1/ledger/transactions` are being
-added in the same API Phase 12 batch (client steps to follow); the auth surface (4.5) has no design.
-Execute-ready checklists for 4.3 / 4.4 are recorded below. **The phase DoD box stays unticked until
-4.3 / 4.4 / 4.5 close.**
+**4.2 + 4.3 closed (Phase 12).** `GET /v1/instruments` (step 1) and
+`GET /v1/financing/cards/{id}/statements` (step 3) shipped on the API; the matching client steps
+retired the `localStorage` registry and the id-paste `StatementIndex` — see the completion notes
+below. **4.4 / 4.5 stay open**: `GET /v1/ledger/transactions` is next in the same API Phase 12 batch
+(client step to follow); the auth surface (4.5) has no design. The execute-ready checklist for 4.4 is
+recorded below. **The phase DoD box stays unticked until 4.4 / 4.5 close.**
 
 **4.2 — `GET /v1/instruments` (Phase 12, D21).** `InstrumentsService` gains
 `list(): Observable<Instrument[]>` → `GET /v1/instruments`, `{ rows }` unwrapped via `map`. New type
@@ -478,6 +478,29 @@ consumer spec swapped its registry stub / `registry.add(...)` for
 `pnpm ng test` → **135 pass**; `pnpm ng build` 261 kB initial (< 500 kB); `pnpm ng lint` clean.
 Docs: `docs/DESIGN.md` §2/§4/§8/§9/§11, `docs/PRD.md` §7.1, `.claude/CLAUDE.md`. Not committed —
 the user commits.
+
+**4.3 — `GET /v1/financing/cards/{id}/statements` (Phase 12, D22).** `FinancingService` gains
+`listStatements(cardId): Observable<MonthlyStatementSummary[]>` → `GET
+/v1/financing/cards/{cardId}/statements`, `{ rows }` unwrapped via `map` (new module-scoped
+`RowsEnvelope<T>` helper — the other list-returning methods on this service still hand their object
+back as-is). New type `features/financing/types/monthly-statement-summary.ts` — `MonthlyStatement`
+minus `installments` (`statementId`, `cardId`, `cardName`, `cycleYear`, `cycleMonth`,
+`amountDueMinorUnits`, `isPaid`, `paidOnUtc`). New page `features/financing/pages/statements-page/`:
+`StatementsPage` container (credit-card `<select>` from `instrumentsService.list()` filtered
+`type === 'credit'`; a one-control reactive form whose `cardId` `valueChanges` drives
+`listStatements`; `LoadStatus = 'idle' | 'loading' | 'ready' | 'error'` — `'idle'` until a card is
+picked, back to `'idle'` if cleared) + `StatementsTable` presentational (`input.required` +
+`openStatement = output<string>()`, zero-padded `YYYY-MM` cycle, `formatArs` amount, `Paid`/`Unpaid`
+badge, per-row **Open** button; the container navigates `['financing', 'statements', statementId]`).
+`financing.routes.ts`: `{ path: 'statements', component: StatementsPage }` (was `StatementIndex`);
+`statements/:id` and `load-expense` unchanged. **Deleted:** `features/financing/pages/statement-index/`
+(`.ts/.html/.css/.spec.ts`). Specs: `financing-service.spec.ts` gains a `listStatements` `{ rows }`
+case; new `statements-table.spec.ts` (4 — padded cycle + amount, single `Paid` badge, `openStatement`
+emits the id, empty note) and `statements-page.spec.ts` (5 — credit-only picker + `'idle'` start,
+pick fetches + renders + `'ready'`, cleared picker no-fetch, `openStatement` navigates, load error →
+`'error'`). `pnpm ng test` → **142 pass**; `pnpm ng build` 261.91 kB initial (< 500 kB); `pnpm ng
+lint` clean. Docs: `docs/DESIGN.md` §2/§4/§9/§11.2, `docs/PRD.md` §7.2, `.claude/CLAUDE.md`. Not
+committed — the user commits.
 
 **4.7 — ESLint (scaffold-state gap).** `angular-eslint@20` flat config (`eslint.config.js`,
 CommonJS — the client has no `"type": "module"`): `@eslint/js` recommended + `typescript-eslint@8`
@@ -547,6 +570,17 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
   root signal — the registry's single source of truth is gone, but the lists are small and each page
   wants a fresh read on entry (`InstrumentsPage` also re-fetches after a successful create instead of
   the old optimistic `registry.add`).
+
+- **D22** — **`StatementIndex` id-paste page replaced by a real `StatementsPage`.** The Phase-1
+  gap-2 stopgap (`features/financing/pages/statement-index/` — paste a `statementId`, navigate to
+  `statements/:id`) was deleted once `GET /v1/financing/cards/{id}/statements` shipped (API Phase 12,
+  step 3). The new `StatementsPage` picks a credit card and lists its statements; a row's **Open**
+  button navigates to the same `statements/:id` detail route, so `StatementPage` is unchanged. The
+  card `<select>` reuses the D21 `instrumentsService.list()` pattern (`type === 'credit'` filter).
+  `LoadStatus` carries an `'idle'` state (no card picked yet) that the other pages' three-state
+  `LoadStatus` does not — the fetch is user-triggered here, not `ngOnInit`-triggered. New
+  `MonthlyStatementSummary` type is `MonthlyStatement` without `installments` (the list endpoint
+  omits them by design); the itemized `MonthlyStatement` is still what `statement-page` loads.
 
 ---
 

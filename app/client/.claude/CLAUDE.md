@@ -37,8 +37,9 @@ hyphen table — that is D7, not drift).
   in `styles.css`, no `tailwind.config.js` — D19). Utility layer only; `@theme` tokens, palette,
   and components remain the separate UI task (`docs/DESIGN.md` §10). **ESLint** —
   `angular-eslint@20` flat config (`eslint.config.js`), run via `pnpm ng lint`. **Client CI** —
-  the `client-build-test` job in `/.github/workflows/ci.yml` runs lint + build + test. API gap
-  4.2 (`GET /v1/instruments`) is closed in Phase 12 (D21); 4.3–4.5 stay open (TASK.md Phase 4).
+  the `client-build-test` job in `/.github/workflows/ci.yml` runs lint + build + test. API gaps
+  4.2 (`GET /v1/instruments`, D21) and 4.3 (`GET /v1/financing/cards/{id}/statements`, D22) are
+  closed in Phase 12; 4.4–4.5 stay open (TASK.md Phase 4).
 
 ## Current state
 

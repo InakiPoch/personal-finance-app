@@ -17,6 +17,7 @@ public sealed record ApiRoutes {
         public const string Statement = "/statements/{id:guid}";
         public const string StatementPayment = "/statements/{id:guid}/pay";
         public const string FutureSchedule = "/cards/{id:guid}/future-schedule";
+        public const string CardStatements = "/cards/{id:guid}/statements";
     }
 
     public sealed record Instruments {

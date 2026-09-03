@@ -138,9 +138,11 @@ These are surfaced so the client design is honest about what a view can actually
    `GET /v1/instruments` ships (Ledger debit/cash accounts + Financing credit cards merged, one
    `{ id, type, name, cutoffDate }` row each). Every form now populates its card/funding `<select>`
    from the API; the `localStorage` registry workaround was removed (`DESIGN.md` §8).
-2. **No statement-list per card.** US-4's pay flow needs a `statementId`, but nothing enumerates
-   statements and `card-due-by-month` exposes card + amount, not `statementId`. **Proposed API:**
-   `GET /v1/financing/cards/{id}/statements`.
+2. ~~**No statement-list per card.** US-4's pay flow needs a `statementId`, but nothing enumerates
+   statements and `card-due-by-month` exposes card + amount, not `statementId`.~~ **Resolved
+   (Phase 12).** `GET /v1/financing/cards/{id}/statements` ships (one summary row per statement:
+   `statementId`, cycle, `amountDueMinorUnits`, `isPaid`). The `Statements` view is now a real
+   card-picker list; a row opens the statement detail with its id.
 3. **No general transaction/history feed.** US-6's reverse flow has no list to pick from; reversal
    audit is fragmented across statement `isReversed` flags and party timelines. **Proposed API:** a
    transactions feed, e.g. `GET /v1/ledger/transactions`.

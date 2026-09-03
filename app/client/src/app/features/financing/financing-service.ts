@@ -1,12 +1,15 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
-import { Observable } from 'rxjs';
+import { Observable, map } from 'rxjs';
 import { CardFutureSchedule } from './types/card-future-schedule';
 import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { MonthlyStatement } from './types/monthly-statement';
+import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayStatement } from './types/pay-statement';
 import { PayStatementResult } from './types/pay-statement-result';
+
+type RowsEnvelope<T> = { rows: T[] };
 
 @Injectable({ providedIn: 'root' })
 export class FinancingService {
@@ -26,5 +29,11 @@ export class FinancingService {
 
   getFutureSchedule(cardId: string): Observable<CardFutureSchedule> {
     return this.http.get<CardFutureSchedule>(`financing/cards/${cardId}/future-schedule`);
+  }
+
+  listStatements(cardId: string): Observable<MonthlyStatementSummary[]> {
+    return this.http
+      .get<RowsEnvelope<MonthlyStatementSummary>>(`financing/cards/${cardId}/statements`)
+    .pipe(map((envelope: RowsEnvelope<MonthlyStatementSummary>) => envelope.rows));
   }
 }

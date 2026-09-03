@@ -1,6 +1,8 @@
+import { InstrumentType } from './instrument-type';
+
 export type RegisteredInstrument = {
   id: string;
-  type: 'debit' | 'credit' | 'cash';
+  type: InstrumentType;
   name: string;
   cutoffDate?: number;
 };

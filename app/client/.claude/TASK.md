@@ -147,14 +147,15 @@ permanent fix: install `chromium`, or add a `karma.conf.js` custom launcher. Lef
 
 ### 1.2 — Instruments feature + setup page (`docs/PRD.md` §3.2)
 
-- [ ] `features/instruments/types/instrument-type.ts` — `InstrumentType = 'debit' | 'credit' | 'cash'`.
-- [ ] `features/instruments/types/create-instrument.ts` — `CreateInstrument = { type: InstrumentType; name: string; cutoffDate?: number }` (required when `type === 'credit'`, 1–31).
-- [ ] `features/instruments/types/instrument-created.ts` — `InstrumentCreated = { id: string; type: InstrumentType }`.
-- [ ] `features/instruments/types/instrument.ts` — local registry shape (`id`, `type`, `name`, `cutoffDate?`).
-- [ ] `features/instruments/instruments-service.ts` — `create(body: CreateInstrument): Observable<InstrumentCreated>` → `POST /v1/instruments`.
-- [ ] `features/instruments/instruments-service.spec.ts` — `HttpTestingController`.
-- [ ] `features/instruments/pages/instruments-page/` — `InstrumentsPage`: reactive form (`type`; `name`; `cutoffDate` required 1–31 only when `credit`); list rendered from `InstrumentRegistryService`; on successful create, append the instrument to the registry (`docs/DESIGN.md` §8).
-- [ ] `features/instruments/instruments.routes.ts` + lazy-wire.
+- [x] `core/types/instrument-type.ts` — `InstrumentType = 'debit' | 'credit' | 'cash'`. **D9:** placed in `core/types/` (next to `CurrencyCode`), not `features/instruments/types/` — `core`'s `RegisteredInstrument` needs it, and `core` must not import from a feature.
+- [x] `features/instruments/types/create-instrument.ts` — `CreateInstrument = { type: InstrumentType; name: string; cutoffDate?: number }` (required when `type === 'credit'`, 1–31).
+- [x] `features/instruments/types/instrument-created.ts` — `InstrumentCreated = { id: string; type: InstrumentType }`.
+- [x] ~~`features/instruments/types/instrument.ts` — local registry shape~~ — not needed; `core/types/registered-instrument.ts` reconciled to import `InstrumentType` (closes **D3**).
+- [x] `features/instruments/instruments-service.ts` — `create(body: CreateInstrument): Observable<InstrumentCreated>` → `POST /v1/instruments` (relative URL; `baseUrlInterceptor` prefixes the host).
+- [x] `features/instruments/instruments-service.spec.ts` — `HttpTestingController` (URL, verb, body, `AppError` on a flushed 400 `Instruments.UnknownType`).
+- [x] `features/instruments/validation-helpers.ts` — `creditRequiresCutoff: ValidatorFn` (group-level): sets/clears `creditCutoff` on the `cutoffDate` control when `type === 'credit'` and the value is not an integer 1–31.
+- [x] `features/instruments/pages/instruments-page/` — `InstrumentsPage`: OnPush container, reactive form built in `initInstrumentForm()` from `ngOnInit` (`type` default `debit`, `name` required, `cutoffDate` gated by the group validator); list rendered from `InstrumentRegistryService`; on create success `registry.add(...)` (trimmed name, `cutoffDate` only for credit) then `form.reset()`; submit errors keyed off `AppError.code` via a message map (`docs/DESIGN.md` §8).
+- [x] `features/instruments/instruments.routes.ts` (`{ path: '', component: InstrumentsPage }`) + lazy-wired into `app.routes.ts` (`instruments` entry).
 
 ### 1.3 — Financing types + service (`docs/PRD.md` §3.3, §3.4)
 

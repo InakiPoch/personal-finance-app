@@ -1,0 +1,11 @@
+import { IsoDate } from '../../../core/types/iso-date';
+import { Money } from '../../../core/types/money';
+import { SplitParticipant } from './split-participant';
+
+export type CreatePaymentPlan = {
+  amountMinorUnits: Money;
+  cardId: string;
+  installmentCount: number;
+  purchaseDate: IsoDate;
+  split?: SplitParticipant[];
+};

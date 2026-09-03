@@ -1,0 +1,53 @@
+<section class="reverse-movement">
+  <header>
+    <h1>Reverse a movement</h1>
+  </header>
+  @if(transactionId(); as id) {
+    <dl class="reverse-movement__facts">
+      <div>
+        <dt>Transaction</dt>
+        <dd><code>{{ id }}</code></dd>
+      </div>
+    </dl>
+    <p class="reverse-movement__note">
+      Reversal is append-only. The original transaction is never deleted — the API posts a new
+      compensating entry that cancels it out. If it reverses an already-paid card installment,
+      that compensating entry is a card credit netted on the next statement.
+    </p>
+    @if(status() !== 'reversed') {
+      <button type="button" [disabled]="status() === 'reversing'" (click)="onConfirm()">
+        {{ status() === 'reversing' ? 'Reversing…' : 'Confirm reversal' }}
+      </button>
+    }
+    @if(error(); as appError) {
+      <p class="field__error" role="alert">{{ errorText(appError) }}</p>
+    }
+    @if(status() === 'reversed' && result(); as reversal) {
+      <section class="reverse-movement__result" role="status">
+        <h2>Reversal posted</h2>
+        <dl>
+          <div>
+            <dt>Reversal transaction</dt>
+            <dd><code>{{ reversal.reversalTransactionId }}</code></dd>
+          </div>
+          <div>
+            <dt>Original transaction</dt>
+            <dd><code>{{ reversal.originalTransactionId }}</code></dd>
+          </div>
+          <div>
+            <dt>Compensating entry</dt>
+            <dd>
+              @if(reversal.compensatingEntryPosted) {
+                A card credit was posted — it nets against the next statement for the card.
+              } @else {
+                None — a plain reversing entry was posted.
+              }
+            </dd>
+          </div>
+        </dl>
+      </section>
+    }
+  } @else {
+    <p role="alert">No transaction id in the route.</p>
+  }
+</section>

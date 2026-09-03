@@ -1,0 +1,112 @@
+<section class="load-expense">
+  <header>
+    <h1>Load a credit-card expense</h1>
+    <p class="load-expense__note">
+      Enter the raw purchase. The API allocates the billing cycle and, for a split, the per-party
+      cents — the client computes neither.
+    </p>
+  </header>
+  <form class="load-expense__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="field">
+      <label for="amount">Amount</label>
+      <input type="number" id="amount" min="0" step="0.01" formControlName="amount" />
+      @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
+        <p class="field__error" role="alert">{{ errorMessages['positiveAmount'] }}</p>
+      }
+      @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="field__error" role="alert">{{ errorMessages['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="cardId">Card</label>
+      <select id="cardId" formControlName="cardId">
+        <option value="">Choose a card</option>
+        @for(card of creditCards(); track card.id) {
+          <option [value]="card.id">{{ card.name }}</option>
+        }
+      </select>
+      @if(creditCards().length === 0) {
+        <p class="field__hint">No credit cards registered yet — add one on the Instruments page.</p>
+      }
+      @if(form.controls.cardId.touched && form.controls.cardId.hasError('required')) {
+        <p class="field__error" role="alert">{{ errorMessages['required'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="installmentCount">Installments</label>
+      <input type="number" id="installmentCount" min="1" step="1" formControlName="installmentCount" />
+      @if(form.controls.installmentCount.touched && form.controls.installmentCount.hasError('positiveInteger')) {
+        <p class="field__error" role="alert">{{ errorMessages['positiveInteger'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="purchaseDate">Purchase date</label>
+      <input type="date" id="purchaseDate" formControlName="purchaseDate" />
+      @if(form.controls.purchaseDate.touched && form.controls.purchaseDate.hasError('isoDate')) {
+        <p class="field__error" role="alert">{{ errorMessages['isoDate'] }}</p>
+      }
+    </div>
+    <fieldset class="split">
+      <legend>Split (optional)</legend>
+      @if(partiesStatus() === 'loading') {
+        <p>Loading parties…</p>
+      } @else if(partiesStatus() === 'error') {
+        <p role="alert">Could not load parties — a split cannot be added right now.</p>
+      } @else {
+        <div formArrayName="split">
+          @for(splitControl of form.controls.split.controls; track $index; let i = $index) {
+            <div class="split__row" [formGroupName]="i">
+              <select formControlName="partyId">
+                <option value="">Choose a party</option>
+                @for(party of parties(); track party.partyId) {
+                  <option [value]="party.partyId">{{ party.partyName }}</option>
+                }
+              </select>
+              <input type="number" min="1" step="1" formControlName="weight" aria-label="Weight" />
+              <button type="button" (click)="removeSplitRow(i)">Remove</button>
+            </div>
+          }
+        </div>
+        <button type="button" [disabled]="parties().length === 0" (click)="addSplitRow()">
+          Add participant
+        </button>
+      }
+    </fieldset>
+    <button type="submit" [disabled]="submitStatus() === 'submitting'">
+      {{ submitStatus() === 'submitting' ? 'Submitting…' : 'Load expense' }}
+    </button>
+    @if(submitError(); as error) {
+      <p class="field__error" role="alert">
+        {{ submitErrorText(error) }}
+      </p>
+    }
+  </form>
+  @if(submitStatus() === 'confirmed' && confirmedPlanId(); as planId) {
+    <section class="confirmation">
+      <p>Payment plan <code>{{ planId }}</code> created.</p>
+      @if(reconciliations().length > 0) {
+        <h3>Party balances</h3>
+        <ul>
+          @for(row of reconciliations(); track row.partyId) {
+            <li>
+              <span class="confirmation__party">{{ row.partyName }}</span>
+              @switch(row.status) {
+                @case('reconciling') {
+                  <span>reconciling…</span>
+                }
+                @case('reconciled') {
+                  @if(row.balanceMinorUnits !== null) {
+                    <span>{{ formatArs(row.balanceMinorUnits) }}</span>
+                  }
+                }
+                @case('stalled') {
+                  <span>still reconciling — the receivable is being posted, refresh shortly</span>
+                }
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</section>

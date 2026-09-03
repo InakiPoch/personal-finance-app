@@ -11,15 +11,16 @@ rounding, and invariants belong to the API. It mirrors the API DTOs with hand-wr
 2. `docs/DESIGN.md` — technical: folder tree §2, hand-written type model §3, services §4,
    HTTP + error model §5, state/forms §6, eventual consistency §7, local registry §8,
    endpoint traceability §9, config §10, open questions §11.
-3. `.claude/TASK.md` — the phased build order (Phase 0 done; Phase 1 = the five Fase-1 views).
-   Its "Deviations baked into Phases 0–3" and the Phase 0 "Completion notes" (D1–D8) record
-   every intentional departure from PRD/DESIGN — check there before flagging drift.
+3. `.claude/TASK.md` — the phased build order (Phases 0 and 1 done; Phase 1 shipped the five
+   Fase-1 views). Its "Deviations baked into Phases 0–3" and the per-phase "Completion notes"
+   (D1–D11) record every intentional departure from PRD/DESIGN — check there before flagging
+   drift.
 4. `.claude/rules/typescript-frontend-style.md` — the detailed style guide (formatting,
    naming, typing, component/service shape, forms, cleanup). It is authoritative; the notes
    below are the high-frequency subset, not a replacement.
 
 When two sources appear to conflict, surface it — do not silently pick one. Some conflicts
-are already resolved deliberately and recorded as D1–D8 in TASK.md's Phase 0 "Completion
+are already resolved deliberately and recorded as D1–D11 in TASK.md's per-phase "Completion
 notes" (e.g. DESIGN §2's dotted `*.interceptor.ts` naming overrides the style guide's
 hyphen table — that is D7, not drift).
 
@@ -36,7 +37,7 @@ hyphen table — that is D7, not drift).
 
 ## Current state
 
-Phase 0 is complete. `src/app/core/` holds:
+Phases 0 and 1 are complete. `src/app/core/` holds:
 
 - `types/` — every hand-written type, one per file, no `I-` prefix: `Money` (branded
   minor-units `number`), `CurrencyCode`, `IsoInstant`, `IsoDate`, `ProblemDetails`,
@@ -52,8 +53,10 @@ Phase 0 is complete. `src/app/core/` holds:
 - `health/` — `HealthService.check()`: `GET /health` at the host root, degradation-aware.
 
 Feature code lives under `src/app/features/<feature>/` (`<feature>-service.ts`, `types/`,
-`pages/<page>/`, `<feature>.routes.ts`). `app.routes.ts` is `Routes = []` with a documented
-comment block — each feature lazy-wires its own `loadChildren` entry in its Phase 1 step.
+`pages/<page>/`, `<feature>.routes.ts`). Phase 1 added five: `reports` (dashboard, the default
+route), `instruments`, `financing`, `parties` (partial — `getBalance` only), `ledger`.
+`app.routes.ts` lazy-wires `reports` / `instruments` / `financing` / `ledger` via `loadChildren`,
+redirects `''` → `reports`, and falls back `**` → `reports`.
 
 ## Conventions — the non-negotiables
 

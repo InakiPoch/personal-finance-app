@@ -1,0 +1,24 @@
+.installments {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.installments th,
+.installments td {
+  border-bottom: 1px solid #eee;
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+}
+
+.installments__badge {
+  background: #fdecea;
+  border-radius: 999px;
+  color: #b00020;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.5rem;
+}
+
+.installments__empty {
+  color: #555;
+  font-size: 0.875rem;
+}

@@ -1,0 +1,66 @@
+<section class="instruments">
+  <header>
+    <h1>Payment instruments</h1>
+    <p class="instruments__note">
+      Register the debit accounts, credit cards and cash pockets the other forms will offer as
+      choices. Stored on this device only — the API has no list endpoint yet.
+    </p>
+  </header>
+  <form class="instruments__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="field">
+      <label for="type">Type</label>
+      <select id="type" formControlName="type">
+        <option value="debit">Debit account</option>
+        <option value="credit">Credit card</option>
+        <option value="cash">Cash</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" id="name" formControlName="name" />
+      @if(form.controls.name.touched && form.controls.name.hasError('required')) {
+        <p class="field__error" role="alert">{{ nameErrors['required'] }}</p>
+      }
+    </div>
+    @if(form.controls.type.value === 'credit') {
+      <div class="field">
+        <label for="cutoffDate">Cutoff day</label>
+        <input
+          type="number"
+          id="cutoffDate"
+          min="1"
+          max="31"
+          step="1"
+          formControlName="cutoffDate"
+        />
+        @if(form.controls.cutoffDate.touched && form.controls.cutoffDate.hasError('creditCutoff')) {
+          <p class="field__error" role="alert">{{ cutoffErrors['creditCutoff'] }}</p>
+        }
+      </div>
+    }
+    <button type="submit" [disabled]="submitStatus() === 'submitting'">
+      {{ submitStatus() === 'submitting' ? 'Saving…' : 'Add instrument' }}
+    </button>
+    @if(submitError(); as error) {
+      <p class="field__error" role="alert">{{ submitErrorText(error) }}</p>
+    }
+  </form>
+  <section class="instruments__list">
+    <h2>Registered instruments</h2>
+    @if(registry.instruments().length === 0) {
+      <p>Nothing registered yet.</p>
+    } @else {
+      <ul>
+        @for(instrument of registry.instruments(); track instrument.id) {
+          <li>
+            <span class="instruments__name">{{ instrument.name }}</span>
+            <span class="instruments__type">{{ instrument.type }}</span>
+            @if(instrument.type === 'credit') {
+              <span class="instruments__cutoff">cutoff {{ instrument.cutoffDate }}</span>
+            }
+          </li>
+        }
+      </ul>
+    }
+  </section>
+</section>

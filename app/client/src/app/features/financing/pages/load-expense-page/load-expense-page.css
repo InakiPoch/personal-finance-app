@@ -1,0 +1,70 @@
+.load-expense {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1rem;
+}
+
+.load-expense__note {
+  color: #555;
+  font-size: 0.875rem;
+  max-width: 60ch;
+}
+
+.load-expense__form {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+  padding: 1rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field__error {
+  color: #b00020;
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.field__hint {
+  color: #555;
+  font-size: 0.8125rem;
+  margin: 0;
+}
+
+.split {
+  border: 1px solid #eee;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.split__row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.confirmation {
+  border: 1px solid #cde;
+  border-radius: 4px;
+  padding: 1rem;
+}
+
+.confirmation ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.confirmation li {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.25rem 0;
+}

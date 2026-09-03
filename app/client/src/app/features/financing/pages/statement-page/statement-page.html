@@ -1,0 +1,77 @@
+<section class="statement">
+  <header>
+    <h1>Statement detail</h1>
+  </header>
+  @if(loadStatus() === 'loading') {
+    <p>Loading statement…</p>
+  } @else if(loadStatus() === 'error') {
+    <p role="alert">Could not load the statement — check the id and try again.</p>
+  } @else if(statement(); as detail) {
+    <dl class="statement__facts">
+      <div>
+        <dt>Card</dt>
+        <dd>{{ detail.cardName }}</dd>
+      </div>
+      <div>
+        <dt>Cycle</dt>
+        <dd>{{ detail.cycleYear }}-{{ detail.cycleMonth }}</dd>
+      </div>
+      <div>
+        <dt>Amount due</dt>
+        <dd>{{ formatArs(detail.amountDueMinorUnits) }}</dd>
+      </div>
+      <div>
+        <dt>Status</dt>
+        <dd>
+          @if(detail.isPaid) {
+            Paid@if(detail.paidOnUtc) { on {{ detail.paidOnUtc }}}
+          } @else {
+            Unpaid
+          }
+        </dd>
+      </div>
+    </dl>
+    <h2>Installments</h2>
+    <app-installments-table [installments]="detail.installments" />
+    <p class="statement__note">
+      Reversing a paid installment does not refund cash. The API posts a credit that is netted
+      against your next statement for this card.
+    </p>
+    @if(!detail.isPaid) {
+      <form class="statement__pay" [formGroup]="form" (ngSubmit)="onSubmit()">
+        <h2>Pay this statement</h2>
+        <div class="field">
+          <label for="bankAccountId">Bank account</label>
+          <select id="bankAccountId" formControlName="bankAccountId">
+            <option value="">Choose an account</option>
+            @for(account of bankAccounts(); track account.id) {
+              <option [value]="account.id">{{ account.name }}</option>
+            }
+          </select>
+          @if(bankAccounts().length === 0) {
+            <p class="field__hint">No debit accounts registered yet — add one on the Instruments page.</p>
+          }
+          @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
+            <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+          }
+        </div>
+        <div class="field">
+          <label for="paidOnUtc">Paid on</label>
+          <input type="datetime-local" id="paidOnUtc" formControlName="paidOnUtc" />
+          @if(form.controls.paidOnUtc.touched && form.controls.paidOnUtc.hasError('required')) {
+            <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+          }
+        </div>
+        <button type="submit" [disabled]="payStatus() === 'paying'">
+          {{ payStatus() === 'paying' ? 'Recording…' : 'Record payment' }}
+        </button>
+        @if(payError(); as error) {
+          <p class="field__error" role="alert">{{ payErrorText(error) }}</p>
+        }
+      </form>
+    }
+    @if(payStatus() === 'paid') {
+      <p class="statement__paid" role="status">Payment recorded.</p>
+    }
+  }
+</section>

@@ -1,0 +1,82 @@
+<section class="dashboard">
+  <header class="dashboard__header">
+    <h1>Dashboard</h1>
+    <p class="dashboard__note">
+      Monthly expenses deliberately exclude card purchases and third-party receivables — this
+      is what actually left your pocket, not what you owe.
+    </p>
+  </header>
+  <section class="panel">
+    <div class="panel__title">
+      <h2>Monthly expenses by category</h2>
+      <label for="month">Month</label>
+      <input
+        type="month"
+        id="month"
+        name="month"
+        #monthInput
+        [value]="selectedMonth()"
+        (change)="onMonthChange(monthInput.value)"
+      />
+    </div>
+    @if(monthlyStatus() === 'loading') {
+      <p>Loading monthly expenses…</p>
+    } @else if(monthlyStatus() === 'error') {
+      <p role="alert">Could not load monthly expenses. Try again.</p>
+    } @else {
+      @if(expensesByCategory().length === 0) {
+        <p>No movements yet for this month.</p>
+      } @else {
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Category</th>
+              <th scope="col">Amount</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for(row of expensesByCategory(); track row.label) {
+              <tr>
+                <td>{{ row.label }}</td>
+                <td>{{ formatArs(row.totalMinorUnits) }}</td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+    }
+  </section>
+  <section class="panel">
+    <h2>Card amount due this cycle</h2>
+    @if(cardDueStatus() === 'loading') {
+      <p>Loading card dues…</p>
+    } @else if(cardDueStatus() === 'error') {
+      <p role="alert">Could not load card dues. Try again.</p>
+    } @else {
+      <div class="bucket">
+        <h3>Accrued</h3>
+        @if(accruedByCard().length === 0) {
+          <p>Nothing accrued this cycle.</p>
+        } @else {
+          <ul>
+            @for(row of accruedByCard(); track row.label) {
+              <li>{{ row.label }} — {{ formatArs(row.totalMinorUnits) }}</li>
+            }
+          </ul>
+        }
+      </div>
+      <div class="bucket">
+        <h3>Future</h3>
+        @if(futureByCard().length === 0) {
+          <p>Nothing committed for future cycles.</p>
+        } @else {
+          <ul>
+            @for(row of futureByCard(); track row.label) {
+              <li>{{ row.label }} — {{ formatArs(row.totalMinorUnits) }}</li>
+            }
+          </ul>
+        }
+      </div>
+    }
+  </section>
+</section>

@@ -1,0 +1,25 @@
+.statement-index {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+.statement-index__note {
+  color: #555;
+  font-size: 0.875rem;
+  max-width: 60ch;
+}
+
+.statement-index__form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  max-width: 28rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}

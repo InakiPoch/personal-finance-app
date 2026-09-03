@@ -1,0 +1,16 @@
+<section class="reverse-index">
+  <header>
+    <h1>Reverse a movement</h1>
+    <p class="reverse-index__note">
+      Fase 1 has no transaction feed. Paste the id of the ledger transaction you need reversed —
+      it is surfaced by the view that posted it.
+    </p>
+  </header>
+  <form class="reverse-index__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="field">
+      <label for="transactionId">Transaction id</label>
+      <input type="text" id="transactionId" formControlName="id" />
+    </div>
+    <button type="submit">Continue</button>
+  </form>
+</section>

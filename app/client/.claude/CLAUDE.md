@@ -33,7 +33,12 @@ hyphen table — that is D7, not drift).
 - **RxJS 7.8**. **`@angular/build`** application builder; budgets 500 kB warn / 1 MB error.
 - **Karma + Jasmine**. `zone.js/testing` is **not** loaded — no `fakeAsync` / `tick`; use
   RxJS `TestScheduler` marbles for timer-based tests.
-- No Tailwind / ESLint / client CI yet — all Phase 4 (see TASK.md deviation 5).
+- **Tailwind v4** wired into the build (CSS-first: `.postcssrc.json` + `@import 'tailwindcss'`
+  in `styles.css`, no `tailwind.config.js` — D19). Utility layer only; `@theme` tokens, palette,
+  and components remain the separate UI task (`docs/DESIGN.md` §10). **ESLint** —
+  `angular-eslint@20` flat config (`eslint.config.js`), run via `pnpm ng lint`. **Client CI** —
+  the `client-build-test` job in `/.github/workflows/ci.yml` runs lint + build + test. API gaps
+  4.2–4.5 stay open (TASK.md Phase 4).
 
 ## Current state
 
@@ -138,6 +143,7 @@ member.
 ```
 pnpm ng build                                # prod build
 pnpm ng build --configuration development     # dev build (swaps in environment.development.ts)
+pnpm ng lint                                  # angular-eslint flat config
 CHROME_BIN=/usr/bin/brave pnpm ng test --watch=false --browsers=ChromeHeadless
 ```
 

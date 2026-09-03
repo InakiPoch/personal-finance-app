@@ -505,6 +505,20 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
   choosing v4 now avoids a v3→v4 migration mid-UI-work. **DESIGN §10 still reads "config
   groundwork" — update it to the CSS-first wiring when the UI task picks this up.**
 
+- **D20** — **Reverse triggers on the installments table and the party timeline table —
+  blocked on the API, not wired.** The `task/client-design` nav-wiring pass planned a per-row
+  "Reverse" button on `InstallmentsTable` (statement page) and on `TimelineTable` (party
+  detail), each navigating to `/ledger/transactions/{txId}/reverse`. Verify-first check against
+  both the client types and the API DTOs: **neither row carries a ledger transaction id.**
+  `MonthlyStatementInstallmentRowDto` exposes `PlanId` + `InstallmentId` (Financing aggregate
+  ids); `CurrentAccountTimelineRowDto` exposes no id at all. `ReverseTransactionCommand` takes
+  `OriginalTransactionId` — a Ledger transaction id — and there is no client-reachable way to
+  resolve one from an `installmentId` or a timeline row. The buttons were deliberately **not**
+  added (no null/guessed id, no repurposing `installmentId`). Unblocked by **gap 3 / task 4.4**
+  (`GET /v1/ledger/transactions`), or by the statement / timeline DTOs growing a reversible
+  transaction id — whichever ships first. Until then the only reverse entry point stays the
+  id-lookup page (`/ledger/transactions`, reachable from the nav shell).
+
 ---
 
 #### Gap checklists — execute-ready (one green-lit step each, when the endpoint ships)
@@ -532,6 +546,7 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
 - Retires placeholder `features/ledger/pages/reverse-index/` → new `transactions-page/` (`TransactionsPage`: history list + per-row "Reverse" → `transactions/:id/reverse`). Keep `ReverseMovementPage` as the confirm step.
 - Routes (`ledger.routes.ts`): `{ path: 'transactions', component: ReverseIndex }` → `TransactionsPage`; keep `transactions/:id/reverse`. Delete `reverse-index.{ts,html,css,spec.ts}`.
 - Specs: `ledger-service.spec.ts` gains `listTransactions`; new `transactions-page.spec.ts` (rows, reverse-nav trimming id, already-reversed badge disables the action, loading/empty/error); delete `reverse-index.spec.ts`.
+- Also closes **D20**: with a `transactionId` now reachable, add the deferred per-row "Reverse" buttons to `InstallmentsTable` and `TimelineTable` (presentational — `output<string>()`; the container navigates to `/ledger/transactions/{txId}/reverse`) — either from this feed or from a reversible-transaction-id field added to the statement / timeline DTOs.
 - Next free D-number.
 
 **Common to 4.2 / 4.3 / 4.4 when worked:** build stays < 500 kB initial; `pnpm ng test` green;

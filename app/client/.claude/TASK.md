@@ -274,24 +274,72 @@ Phase 2+ only if a fifth view repeats the exact same triple.
 
 ### Tasks
 
-- [ ] `features/subscriptions/types/frequency.ts` — `Frequency = 'monthly' | 'weekly' | 'daily' | 'annually'`.
-- [ ] `features/subscriptions/types/create-subscription.ts` — `CreateSubscription = { name: string; amountMinorUnits: Money; category: string; fundingAccountId: string; frequency: Frequency; anchorDay: number }`.
-- [ ] `features/subscriptions/types/subscription-result.ts` — `SubscriptionResult = { id: string }`.
-- [ ] `features/subscriptions/types/active-subscription.ts` — `ActiveSubscription = { subscriptionId: string; name: string; amountMinorUnits: Money; category: string; frequency: Frequency; anchorDay: number; nextDueDate: IsoDate }`.
-- [ ] `features/subscriptions/subscriptions-service.ts` — `listActive(): Observable<ActiveSubscription[]>` → `GET /v1/subscriptions/active` (unwrap `{ rows }`); `create(body): Observable<SubscriptionResult>` → `POST /v1/subscriptions`; `cancel(id): Observable<void>` → `DELETE /v1/subscriptions/{id}`.
-- [ ] `features/subscriptions/subscriptions-service.spec.ts` — `HttpTestingController` (all three methods).
-- [ ] `features/subscriptions/pages/subscriptions-page/` — `SubscriptionsPage`: list (name, amount, category, frequency, anchor day, next due date); create form (note: first period is charged immediately — informational); cancel action (stops future renewals; past charges remain). No optimistic UI for scheduled effects — reflect latest state on load (API D6, `docs/DESIGN.md` §7).
-- [ ] `features/subscriptions/subscriptions.routes.ts` + lazy-wire into `app.routes.ts`.
+- [x] `features/subscriptions/types/frequency.ts` — shipped as `Frequency = 'monthly'` (single-value union — the API implements `Monthly` only; see **D12**).
+- [x] `features/subscriptions/types/create-subscription.ts` — `CreateSubscription = { name: string; amountMinorUnits: Money; category: string; fundingAccountId: string; frequency: Frequency; anchorDay: number }`.
+- [x] `features/subscriptions/types/subscription-result.ts` — `SubscriptionResult = { id: string }`.
+- [x] `features/subscriptions/types/active-subscription.ts` — `ActiveSubscription = { subscriptionId: string; name: string; amountMinorUnits: Money; category: string; frequency: Frequency; anchorDay: number; nextDueDate: IsoDate }`.
+- [x] `features/subscriptions/subscriptions-service.ts` — `listActive(): Observable<ActiveSubscription[]>` → `GET /v1/subscriptions/active` (unwrap `{ rows }`, normalise `"Monthly"` → `'monthly'` — D12); `create(body): Observable<SubscriptionResult>` → `POST /v1/subscriptions`; `cancel(id): Observable<void>` → `DELETE /v1/subscriptions/{id}`.
+- [x] `features/subscriptions/subscriptions-service.spec.ts` — `HttpTestingController` (all three methods).
+- [x] `features/subscriptions/pages/subscriptions-page/` — `SubscriptionsPage`: list (name, amount, category, frequency, anchor day, next due date); create form (note: first period is charged immediately — informational); cancel action (stops future renewals; past charges remain). No optimistic UI for scheduled effects — reflect latest state on load (API D6, `docs/DESIGN.md` §7).
+- [x] `features/subscriptions/subscriptions.routes.ts` + lazy-wire into `app.routes.ts`.
 
 ### Definition of done
 
-- [ ] Subscriptions view reachable via a lazy route.
-- [ ] `SubscriptionsService` spec covers URL, verb, body, `{ rows }` unwrap, and `AppError` mapping.
-- [ ] `pnpm ng build` + `pnpm ng test --watch=false --browsers=ChromeHeadless` green.
+- [x] Subscriptions view reachable via a lazy route (`/subscriptions` → `subscriptions-routes` chunk).
+- [x] `SubscriptionsService` spec covers URL, verb, body, `{ rows }` unwrap, and `AppError` mapping.
+- [x] `pnpm ng build` + `pnpm ng test --watch=false --browsers=ChromeHeadless` green.
 
 ### Completion notes
 
-_(filled by the implementer)_
+Done 2026-09-03. Built as 3 gated steps (2.1 → 2.3), one conventional commit per step on
+`feat/subscriptions-component`, one PR to `main` after 2.3.
+
+**Shipped — the Subscriptions view (US-5, §3.6), lazy-routed at `/subscriptions`:**
+
+- `subscriptions/types/` — `frequency`, `create-subscription`, `subscription-result`,
+  `active-subscription`, field-matched to the verified `CreateSubscriptionDto` /
+  `ActiveSubscriptionRowDto` (camelCase, `Money` minor units, `IsoDate` for `nextDueDate`).
+- `SubscriptionsService` — `listActive` (`GET /v1/subscriptions/active`, `{ rows }` unwrap +
+  `"Monthly"` → `'monthly'` normalisation), `create` (`POST /v1/subscriptions`), `cancel`
+  (`DELETE /v1/subscriptions/{id}` — the client's first `.delete<void>()`). Spec covers
+  URL/verb/body, envelope unwrap + normalisation, void DELETE, and `AppError` mapping on a
+  flushed 422 (`Subscriptions.NonPositiveAmount`) and 404 (`Subscriptions.SubscriptionNotFound`).
+- `SubscriptionsPage` — OnPush container: reactive create form (`name`, `amount` entered in
+  major units → `toMinorUnits` at submit, `category`, funding account, `frequency`,
+  `anchorDay`) + active list as a table with a per-row **Cancel** button. **No optimistic
+  UI** — `loadActive()` re-fetches after every create and cancel (API D6, `docs/DESIGN.md`
+  §7). Error copy keys off `AppError.code` (`Subscriptions.*` + `Http.*` fallbacks), never
+  `detail`. Informational notes rendered for both mutations ("charges the first period
+  immediately"; "Cancelling stops future renewals — past charges are not reversed").
+- `validation-helpers.ts` — control-level `ValidatorFn`s `positiveAmount`,
+  `atMostTwoDecimals`, `dayOfMonth` (integer 1–31).
+
+**Build / tests:** `pnpm ng build` clean — initial JS **255.59 kB** raw / 71.98 kB transfer
+(well under the 500 kB warn budget); `subscriptions-routes` is its own lazy chunk (11.73 kB
+raw / 3.42 kB transfer). Tests **112/112** green (`CHROME_BIN=/usr/bin/brave`, ChromeHeadless)
+— +5 service specs, +8 page specs over Phase 1's 99.
+
+**Manual smoke against a live API — deferred**, like Phase 1: the API is not running on
+`https://localhost:7095` (D1) and the browser needs the ASP.NET dev cert trusted. Steps when
+run: register an instrument, create a subscription, confirm it lists with a `nextDueDate`,
+cancel it, confirm it drops on re-fetch; force a 422 (`anchorDay` 40) and a 409 (cancel
+twice) and confirm the message keys off `code`.
+
+**Intentional deviations (continuing D-numbering from Phase 1's D11):**
+
+- **D12** — **Frequency contract.** `docs/DESIGN.md` §3 lists `Frequency = 'monthly' |
+  'weekly' | 'daily' | 'annually'`, but the API's `RecurrenceFrequency` enum defines only
+  `Monthly`; `POST /v1/subscriptions` parses the string case-insensitively and
+  `GET /v1/subscriptions/active` serialises it via `.ToString()` — the literal `"Monthly"`
+  (PascalCase). The client types `Frequency = 'monthly'` (single-value union, mirrors what
+  the API accepts), `SubscriptionsService.listActive` normalises the `"Monthly"` response to
+  `'monthly'` in its `map`, and the create form renders `frequency` as a fixed, disabled
+  control. `docs/DESIGN.md` §3 carries a reconciliation note.
+- **D13** — **Funding-account picker source.** The create form's funding-account `<select>`
+  offers **every** registered instrument (`debit` + `credit` + `cash`) from
+  `InstrumentRegistryService`, not just debit accounts. This diverges from the Statement-pay
+  `bankAccountId` precedent (debit-only, D-note at 1.6); a subscription may legitimately be
+  funded by a card or cash, and the API validates `FundingAccountId` server-side regardless.
 
 ---
 

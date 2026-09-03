@@ -1,0 +1,191 @@
+import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { FormControl, FormGroup } from '@angular/forms';
+import { Observable, of, throwError } from 'rxjs';
+import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
+import { AppError } from '../../../../core/types/app-error';
+import { Money } from '../../../../core/types/money';
+import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { SubscriptionsService } from '../../subscriptions-service';
+import { ActiveSubscription } from '../../types/active-subscription';
+import { CreateSubscription } from '../../types/create-subscription';
+import { Frequency } from '../../types/frequency';
+import { SubscriptionResult } from '../../types/subscription-result';
+import { SubscriptionsPage } from './subscriptions-page';
+
+type SubscriptionsView = {
+  form: FormGroup<{
+    name: FormControl<string>;
+    amount: FormControl<number | null>;
+    category: FormControl<string>;
+    fundingAccountId: FormControl<string>;
+    frequency: FormControl<Frequency>;
+    anchorDay: FormControl<number | null>;
+  }>;
+  listStatus: () => 'loading' | 'ready' | 'error';
+  submitStatus: () => 'idle' | 'submitting' | 'error';
+  submitError: () => AppError | null;
+  active: () => ActiveSubscription[];
+  onSubmit: () => void;
+  onCancel: (id: string) => void;
+  cancelStatusFor: (id: string) => 'idle' | 'cancelling' | 'error';
+  cancelErrorFor: (id: string) => AppError | null;
+};
+
+const activeRow: ActiveSubscription = {
+  subscriptionId: 'sub-1',
+  name: 'Netflix',
+  amountMinorUnits: 500000 as Money,
+  category: 'Entertainment',
+  frequency: 'monthly',
+  anchorDay: 15,
+  nextDueDate: '2026-10-15'
+};
+
+const instruments: RegisteredInstrument[] = [
+  { id: 'acc-1', type: 'debit', name: 'Checking' },
+  { id: 'card-1', type: 'credit', name: 'Visa', cutoffDate: 20 }
+];
+
+describe('SubscriptionsPage', () => {
+  let fixture: ComponentFixture<SubscriptionsPage>;
+  let view: SubscriptionsView;
+  let listActive: jasmine.Spy<() => Observable<ActiveSubscription[]>>;
+  let create: jasmine.Spy<(body: CreateSubscription) => Observable<SubscriptionResult>>;
+  let cancel: jasmine.Spy<(id: string) => Observable<void>>;
+
+  function setup(): void {
+    fixture = TestBed.createComponent(SubscriptionsPage);
+    view = fixture.componentInstance as unknown as SubscriptionsView;
+    fixture.detectChanges();
+  }
+
+  function text(): string {
+    return (fixture.nativeElement as HTMLElement).textContent ?? '';
+  }
+
+  beforeEach(() => {
+    listActive = jasmine
+      .createSpy('listActive')
+      .and.returnValue(of<ActiveSubscription[]>([activeRow]));
+    create = jasmine.createSpy('create').and.returnValue(of<SubscriptionResult>({ id: 'sub-9' }));
+    cancel = jasmine.createSpy('cancel').and.returnValue(of<void>(undefined));
+    TestBed.configureTestingModule({
+      imports: [SubscriptionsPage],
+      providers: [
+        provideZonelessChangeDetection(),
+        { provide: SubscriptionsService, useValue: { listActive, create, cancel } },
+        {
+          provide: InstrumentRegistryService,
+          useValue: { instruments: signal<RegisteredInstrument[]>(instruments) }
+        }
+      ]
+    });
+  });
+
+  it('creates', () => {
+    setup();
+    expect(fixture.componentInstance).toBeTruthy();
+  });
+
+  it('loads and renders the active list on init', () => {
+    setup();
+    expect(listActive).toHaveBeenCalledTimes(1);
+    expect(view.listStatus()).toBe('ready');
+    expect(view.active()).toEqual([activeRow]);
+    expect(text()).toContain('Netflix');
+  });
+
+  it('shows the empty state when there are no active subscriptions', () => {
+    listActive.and.returnValue(of<ActiveSubscription[]>([]));
+    setup();
+    expect(text()).toContain('No active subscriptions.');
+  });
+
+  it('blocks submit while the form is invalid', () => {
+    setup();
+    view.form.setValue({
+      name: '',
+      amount: null,
+      category: '',
+      fundingAccountId: '',
+      frequency: 'monthly',
+      anchorDay: null
+    });
+    view.onSubmit();
+    expect(create).not.toHaveBeenCalled();
+  });
+
+  it('submits a minor-units body and re-fetches the list instead of inserting optimistically', () => {
+    setup();
+    listActive.calls.reset();
+    view.form.setValue({
+      name: '  Spotify  ',
+      amount: 3000,
+      category: '  Music  ',
+      fundingAccountId: 'acc-1',
+      frequency: 'monthly',
+      anchorDay: 1
+    });
+    view.onSubmit();
+    expect(create).toHaveBeenCalledWith({
+      name: 'Spotify',
+      amountMinorUnits: 300000 as Money,
+      category: 'Music',
+      fundingAccountId: 'acc-1',
+      frequency: 'monthly',
+      anchorDay: 1,
+    });
+    expect(listActive).toHaveBeenCalledTimes(1);
+    expect(view.submitStatus()).toBe('idle');
+  });
+  it('renders submitErrorText keyed off the AppError code on a 422', () => {
+    const appError: AppError = {
+      code: 'Subscriptions.NonPositiveAmount',
+      title: 'Unprocessable entity',
+      detail: 'x',
+      status: 422,
+      metadata: {}
+    };
+    create.and.returnValue(throwError(() => appError));
+    setup();
+    view.form.setValue({
+      name: 'Spotify',
+      amount: 3000,
+      category: 'Music',
+      fundingAccountId: 'acc-1',
+      frequency: 'monthly',
+      anchorDay: 1
+    });
+    view.onSubmit();
+    fixture.detectChanges();
+    expect(view.submitStatus()).toBe('error');
+    expect(view.submitError()).toEqual(appError);
+    expect(text()).toContain('The amount must be greater than zero.');
+  });
+  it('cancels a row via the service and reflects the re-fetched list (no optimistic removal)', () => {
+    setup();
+    listActive.calls.reset();
+    listActive.and.returnValue(of<ActiveSubscription[]>([]));
+    view.onCancel('sub-1');
+    expect(cancel).toHaveBeenCalledWith('sub-1');
+    expect(listActive).toHaveBeenCalledTimes(1);
+    expect(view.active()).toEqual([]);
+  });
+  it('renders a per-row cancel error keyed off the AppError code on a 409', () => {
+    const appError: AppError = {
+      code: 'Subscriptions.SubscriptionNotActive',
+      title: 'Conflict',
+      detail: 'x',
+      status: 409,
+      metadata: {}
+    };
+    cancel.and.returnValue(throwError(() => appError));
+    setup();
+    view.onCancel('sub-1');
+    fixture.detectChanges();
+    expect(view.cancelStatusFor('sub-1')).toBe('error');
+    expect(view.cancelErrorFor('sub-1')).toEqual(appError);
+    expect(text()).toContain('That subscription was already cancelled.');
+  });
+});

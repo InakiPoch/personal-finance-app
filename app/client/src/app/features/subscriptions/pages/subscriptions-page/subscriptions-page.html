@@ -1,0 +1,119 @@
+<section class="subscriptions">
+  <header>
+    <h1>Subscriptions</h1>
+  </header>
+  <form class="subscriptions__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <h2>Create a subscription</h2>
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" id="name" formControlName="name" />
+      @if(form.controls.name.touched && form.controls.name.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="amount">Amount (ARS)</label>
+      <input type="number" id="amount" min="0" step="0.01" formControlName="amount" />
+      @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
+        <p class="field__error" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="field__error" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="category">Category</label>
+      <input type="text" id="category" formControlName="category" />
+      @if(form.controls.category.touched && form.controls.category.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="fundingAccountId">Funding account</label>
+      <select id="fundingAccountId" formControlName="fundingAccountId">
+        <option value="">Choose an account</option>
+        @for(instrument of fundingAccounts(); track instrument.id) {
+          <option [value]="instrument.id">{{ instrument.name }} ({{ instrument.type }})</option>
+        }
+      </select>
+      @if(fundingAccounts().length === 0) {
+        <p class="field__hint">No instruments registered yet — add one on the Instruments page.</p>
+      }
+      @if(form.controls.fundingAccountId.touched && form.controls.fundingAccountId.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="frequency">Frequency</label>
+      <select id="frequency" formControlName="frequency">
+        <option value="monthly">Monthly</option>
+      </select>
+      <p class="field__hint">The API bills monthly subscriptions only for now.</p>
+    </div>
+    <div class="field">
+      <label for="anchorDay">Anchor day</label>
+      <input type="number" id="anchorDay" min="1" max="31" step="1" formControlName="anchorDay" />
+      @if(form.controls.anchorDay.touched && form.controls.anchorDay.hasError('dayOfMonth')) {
+        <p class="field__error" role="alert">{{ fieldErrors['dayOfMonth'] }}</p>
+      }
+    </div>
+    <p class="subscriptions__note">Creating a subscription charges the first period immediately.</p>
+    <button type="submit" [disabled]="submitStatus() === 'submitting'">
+      {{ submitStatus() === 'submitting' ? 'Creating…' : 'Create subscription' }}
+    </button>
+    @if(submitError(); as error) {
+      <p class="field__error" role="alert">{{ submitErrorText(error) }}</p>
+    }
+  </form>
+  <section class="subscriptions__list">
+    <h2>Active subscriptions</h2>
+    @if(listStatus() === 'loading') {
+      <p>Loading subscriptions…</p>
+    } @else if(listStatus() === 'error') {
+      <p role="alert">Could not load subscriptions — try again in a moment.</p>
+    } @else if(active().length === 0) {
+      <p>No active subscriptions.</p>
+    } @else {
+      <table class="subscriptions__table">
+        <thead>
+          <tr>
+            <th scope="col">Name</th>
+            <th scope="col">Amount</th>
+            <th scope="col">Category</th>
+            <th scope="col">Frequency</th>
+            <th scope="col">Anchor day</th>
+            <th scope="col">Next due</th>
+            <th scope="col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for(subscription of active(); track subscription.subscriptionId) {
+            <tr>
+              <td>{{ subscription.name }}</td>
+              <td>{{ formatArs(subscription.amountMinorUnits) }}</td>
+              <td>{{ subscription.category }}</td>
+              <td>{{ subscription.frequency }}</td>
+              <td>{{ subscription.anchorDay }}</td>
+              <td>{{ subscription.nextDueDate }}</td>
+              <td>
+                <button
+                  type="button"
+                  [disabled]="cancelStatusFor(subscription.subscriptionId) === 'cancelling'"
+                  (click)="onCancel(subscription.subscriptionId)"
+                >
+                  {{ cancelStatusFor(subscription.subscriptionId) === 'cancelling' ? 'Cancelling…' : 'Cancel' }}
+                </button>
+                @if(cancelErrorFor(subscription.subscriptionId); as error) {
+                  <p class="field__error" role="alert">{{ cancelErrorText(error) }}</p>
+                }
+              </td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <p class="subscriptions__note">
+        Cancelling stops future renewals — past charges are not reversed.
+      </p>
+    }
+  </section>
+</section>

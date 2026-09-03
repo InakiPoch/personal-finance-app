@@ -198,20 +198,69 @@ permanent fix: install `chromium`, or add a `karma.conf.js` custom launcher. Lef
 
 ### 1.8 — Fase-1 integration pass
 
-- [ ] All Fase-1 feature routes lazy-wired in `app.routes.ts`; default route resolves to the dashboard.
-- [ ] `pnpm ng build` + `pnpm ng test --watch=false --browsers=ChromeHeadless` green.
-- [ ] Manual smoke against a local API (`http://localhost:5000/v1`): each view walked through loading / empty / error; a forced 409/422 renders an `AppError`.
+- [x] All Fase-1 feature routes lazy-wired in `app.routes.ts` (`reports`, `instruments`, `financing`, `ledger`); `''` → `reports` redirect + `**` → `reports` wildcard; default route resolves to the dashboard.
+- [x] `pnpm ng build` (255.50 kB initial JS, under the 500 kB warn budget) + `pnpm ng test --watch=false --browsers=ChromeHeadless` (99/99) green.
+- [ ] Manual smoke against a live API — **deferred**, API not running on `https://localhost:7095` (D1) at integration time. See Completion notes.
 
 ### Definition of done
 
-- [ ] Dashboard, Instruments setup, Load expense, Statement detail & pay, Reverse movement are all reachable via lazy routes.
-- [ ] `ReportsService`, `InstrumentsService`, `FinancingService`, `LedgerService`, and `PartiesService` (partial) each have an `HttpTestingController` spec covering URL, verb, body, `{ rows }` unwrap, and `AppError` mapping.
-- [ ] Money is entered in major units and submitted as minor units everywhere; no float arithmetic on `Money`.
-- [ ] Reversal-credit wording (API D12) is present on the Statement page.
+- [x] Dashboard, Instruments setup, Load expense, Statement detail & pay, Reverse movement are all reachable via lazy routes.
+- [x] `ReportsService`, `InstrumentsService`, `FinancingService`, `LedgerService`, and `PartiesService` (partial) each have an `HttpTestingController` spec covering URL, verb, body, `{ rows }` unwrap, and `AppError` mapping.
+- [x] Money is entered in major units and submitted as minor units everywhere; no float arithmetic on `Money`.
+- [x] Reversal-credit wording (API D12) is present on the Statement page.
 
 ### Completion notes
 
-_(filled by the implementer)_
+Done 2026-09-02. Built as 8 gated steps (1.1 → 1.8), one conventional commit per step on
+`feat/client-phase-1`, one PR to `main` after 1.8.
+
+**Shipped — the five Fase-1 views, all lazy-routed:**
+
+- `reports` — `DashboardPage` (US-1, US-2). Default route. `ReportsService.monthlyExpenses` /
+  `cardDueByMonth` / `debtSummary`, all `{ rows }` unwrap.
+- `instruments` — `InstrumentsPage` (§3.2). `InstrumentsService.create`; local list from
+  `InstrumentRegistryService` (API gap 1).
+- `financing/load-expense` — `LoadExpensePage` (US-3). Split `FormArray` + snapshot-then-
+  `pollUntil` reconciliation; `EmptyError` → "still reconciling".
+- `financing/statements/:id` (+ `statements` index) — `StatementPage` + presentational
+  `InstallmentsTable` (US-4). Pay form → `payStatement` + refetch. Reversal-credit note (D12).
+- `ledger/transactions/:id/reverse` (+ `transactions` index) — `ReverseMovementPage` (US-6).
+  Confirm → `reverse`; append-only result view, `compensatingEntryPosted` wording.
+
+**Build / tests:** `pnpm ng build` clean — initial JS **255.50 kB** (well under the 500 kB
+warn budget). Every feature view sits in its own lazy chunk — `reports-routes` 5.44 kB,
+`instruments-routes` 6.26 kB, `financing-routes` 22.23 kB, `ledger-routes` 6.88 kB — so the
+initial bundle grew only by the router wiring across steps 1.1 → 1.7 (240.54 → 255.50 kB).
+Tests **99/99** green (`CHROME_BIN=/usr/bin/brave`, ChromeHeadless).
+
+**`status-view` extraction — decided against.** The inline `@if (status() === 'loading')` /
+`'error'` chains are 3–4 lines per container and the copy differs per page; two of the four
+containers use domain-specific action statuses (`'paying'`/`'paid'`, `'reversing'`/`'reversed'`)
+rather than the plain `loading|ready|error` triple. A shared presentational component would
+need a slot or input per message and would not shrink the pages. Left inline; revisit in
+Phase 2+ only if a fifth view repeats the exact same triple.
+
+**Intentional deviations (continuing D-numbering from Phase 0's D8):**
+
+- **D9** — `InstrumentType` lives in `core/types/instrument-type.ts`, not
+  `features/instruments/types/`. `core/types/registered-instrument.ts` needs it and `core`
+  must not import from a feature. Closes the Phase-0 D3 placeholder. (Recorded inline at 1.2.)
+- **D10** — the Statement page's **future-schedule section is deferred**. `FinancingService.
+  getFutureSchedule` is implemented and spec-covered but no UI consumes it in Phase 1 — it
+  belongs to a card-centric view, not the pay flow. US-4's pay path is fully covered without
+  it.
+- **D11** — `LedgerService.reverse` POSTs an empty `{}` body (`HttpClient.post` requires a
+  body arg; the endpoint takes no payload). `postTransaction` is implemented + tested though
+  no Phase-1 view drives it (plan deviation #3).
+
+**Pending manual verification (needs the API up + trusted dev cert):**
+
+1. `dotnet dev-certs https --trust`, run the API on `https://localhost:7095` (D1), `pnpm ng serve`.
+2. Walk each of the five views through loading / empty / error.
+3. Force a 409 (pay an already-paid statement; reverse a reversal) and a 422 (bad payment
+   values) and confirm the rendered message is keyed off `AppError.code`, not `detail`.
+4. Include a split on Load expense against a live API and confirm the reconciliation note
+   resolves (or shows "still reconciling" after 5 attempts).
 
 ---
 

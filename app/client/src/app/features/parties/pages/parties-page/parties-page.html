@@ -1,0 +1,61 @@
+<section class="parties">
+  <header>
+    <h1>Parties</h1>
+  </header>
+  <form class="parties__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <h2>Add a party</h2>
+    <div class="field">
+      <label for="name">Name</label>
+      <input type="text" id="name" formControlName="name" />
+      @if(form.controls.name.touched && form.controls.name.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <button type="submit" [disabled]="submitStatus() === 'submitting'">
+      {{ submitStatus() === 'submitting' ? 'Adding…' : 'Add party' }}
+    </button>
+    @if(submitError(); as error) {
+      <p class="field__error" role="alert">{{ submitErrorText(error) }}</p>
+    }
+    @if(createdPartyId(); as id) {
+      <p class="parties__confirmation" role="status">
+        Party created (id <code>{{ id }}</code>). New parties appear in the list below once they
+        take part in a shared expense.
+      </p>
+    }
+  </form>
+  <section class="parties__list">
+    <h2>Debt summary</h2>
+    @if(listStatus() === 'loading') {
+      <p>Loading parties…</p>
+    } @else if(listStatus() === 'error') {
+      <p role="alert">Could not load parties — try again in a moment.</p>
+    } @else if(parties().length === 0) {
+      <p>No parties with movements yet.</p>
+    } @else {
+      <table class="parties__table">
+        <thead>
+          <tr>
+            <th scope="col">Party</th>
+            <th scope="col">Net balance</th>
+            <th scope="col">Direction</th>
+            <th scope="col">Detail</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for(party of parties(); track party.partyId) {
+            <tr>
+              <td>{{ party.partyName }}</td>
+              <td>{{ formatArs(party.netBalanceMinorUnits) }}</td>
+              <td>{{ balanceHint(party) }}</td>
+              <td><a [routerLink]="['/parties', party.partyId]">Open</a></td>
+            </tr>
+          }
+        </tbody>
+      </table>
+      <p class="parties__note">
+        Net balances are computed by the API — cross-debts are already netted.
+      </p>
+    }
+  </section>
+</section>

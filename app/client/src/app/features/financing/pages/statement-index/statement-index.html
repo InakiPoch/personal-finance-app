@@ -1,0 +1,15 @@
+<section class="statement-index">
+  <header>
+    <h1>Open a statement</h1>
+    <p class="statement-index__note">
+      Fase 1 has no statement feed. Paste the id returned when the billing cycle was closed.
+    </p>
+  </header>
+  <form class="statement-index__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="field">
+      <label for="statementId">Statement id</label>
+      <input type="text" id="statementId" formControlName="id" />
+    </div>
+    <button type="submit">Open</button>
+  </form>
+</section>

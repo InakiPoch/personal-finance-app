@@ -1,0 +1,30 @@
+@if(installments().length === 0) {
+  <p class="installments__empty">This statement has no itemized installments.</p>
+} @else {
+  <table class="installments">
+    <thead>
+      <tr>
+        <th scope="col">Installment</th>
+        <th scope="col">Purchase date</th>
+        <th scope="col">Amount</th>
+        <th scope="col">Status</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for(installment of installments(); track installment.installmentId) {
+        <tr>
+          <td>{{ installment.sequence }} of {{ installment.installmentCount }}</td>
+          <td>{{ installment.purchaseDate }}</td>
+          <td>{{ formatArs(installment.amountMinorUnits) }}</td>
+          <td>
+            @if(installment.isReversed) {
+              <span class="installments__badge">Reversed</span>
+            } @else {
+              <span>Active</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

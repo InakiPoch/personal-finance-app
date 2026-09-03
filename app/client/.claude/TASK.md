@@ -353,39 +353,81 @@ twice) and confirm the message keys off `code`.
 
 ### Tasks — types (`features/parties/types/`; `current-account-balance.ts` already exists from Step 1.4)
 
-- [ ] `create-party.ts` — `CreateParty = { name: string }`.
-- [ ] `party-result.ts` — `PartyResult = { id: string }`.
-- [ ] `current-account-timeline-row.ts` — `CurrentAccountTimelineRow = { movementOnUtc: IsoInstant; description: string; deltaMinorUnits: Money; runningBalanceMinorUnits: Money }`.
-- [ ] `shared-expense-participant.ts` — `SharedExpenseParticipant = { partyId: string; weight: number }`.
-- [ ] `register-shared-expense.ts` — `RegisterSharedExpense = { description: string; totalMinorUnits: Money; expenseAccountId: string; fundingAccountId: string; incurredOnUtc: IsoInstant; participants: SharedExpenseParticipant[] }`.
-- [ ] `shared-expense-result.ts` — `SharedExpenseResult = { splitReferenceId: string }`.
-- [ ] `settle-current-account.ts` — `SettleCurrentAccount = { amountMinorUnits: Money; bankAccountId: string; settledOnUtc: IsoInstant }`.
-- [ ] `settlement-result.ts` — `SettlementResult = { ledgerTransactionId: string }`.
+- [x] `create-party.ts` — `CreateParty = { name: string }`.
+- [x] `party-result.ts` — `PartyResult = { id: string }`.
+- [x] `current-account-timeline-row.ts` — `CurrentAccountTimelineRow = { movementOnUtc: IsoInstant; description: string; deltaMinorUnits: Money; runningBalanceMinorUnits: Money }`.
+- [x] `shared-expense-participant.ts` — `SharedExpenseParticipant = { partyId: string; weight: number }`.
+- [x] `register-shared-expense.ts` — `RegisterSharedExpense = { description: string; totalMinorUnits: Money; expenseAccountId: string; fundingAccountId: string; incurredOnUtc: IsoInstant; participants: SharedExpenseParticipant[] }`.
+- [x] `shared-expense-result.ts` — `SharedExpenseResult = { splitReferenceId: string }`.
+- [x] `settle-current-account.ts` — `SettleCurrentAccount = { amountMinorUnits: Money; bankAccountId: string; settledOnUtc: IsoInstant }`.
+- [x] `settlement-result.ts` — `SettlementResult = { ledgerTransactionId: string }`.
 
 ### Tasks — services
 
-- [ ] `features/parties/parties-service.ts` — add `create(body): Observable<PartyResult>` → `POST /v1/parties`; `registerSharedExpense(body): Observable<SharedExpenseResult>` → `POST /v1/parties/shared-expenses`; `settle(partyId, body): Observable<SettlementResult>` → `POST /v1/parties/{id}/settlements`; `getTimeline(partyId): Observable<CurrentAccountTimelineRow[]>` → `GET /v1/parties/{id}/timeline`.
-- [ ] `features/reports/types/party-timeline-row.ts` — `PartyTimelineRow = { movementOnUtc: IsoInstant; description: string; deltaMinorUnits: Money; runningBalanceMinorUnits: Money; currencyCode: CurrencyCode }`.
-- [ ] `features/reports/reports-service.ts` — add `partyTimeline(partyId): Observable<PartyTimelineRow[]>` → `GET /v1/reports/parties/{id}/timeline` (unwrap `{ rows }`; reporting equivalent of `getTimeline`).
-- [ ] Extend `parties-service.spec.ts` and `reports-service.spec.ts` for the new methods.
+- [x] `features/parties/parties-service.ts` — add `create(body): Observable<PartyResult>` → `POST /v1/parties`; `registerSharedExpense(body): Observable<SharedExpenseResult>` → `POST /v1/parties/shared-expenses`; `settle(partyId, body): Observable<SettlementResult>` → `POST /v1/parties/{id}/settlements`; `getTimeline(partyId): Observable<CurrentAccountTimelineRow[]>` → `GET /v1/parties/{id}/timeline` (**unwraps `{ rows }`** — D14).
+- [x] `features/reports/types/party-timeline-row.ts` — `PartyTimelineRow = { movementOnUtc: IsoInstant; description: string; deltaMinorUnits: Money; runningBalanceMinorUnits: Money; currencyCode: CurrencyCode }`.
+- [x] `features/reports/reports-service.ts` — add `partyTimeline(partyId): Observable<PartyTimelineRow[]>` → `GET /v1/reports/parties/{id}/timeline` (unwrap `{ rows }`; reporting equivalent of `getTimeline`).
+- [x] Extend `parties-service.spec.ts` and `reports-service.spec.ts` for the new methods.
 
 ### Tasks — pages
 
-- [ ] `features/parties/pages/parties-page/` — `PartiesPage`: list every party with net balance from `ReportsService.debtSummary` (positive = they owe you); create-party form.
-- [ ] `features/parties/pages/party-detail-page/` — `PartyDetailPage`: party id from route param; current balance (`PartiesService.getBalance`) + movement timeline (chronological, running balance) from `getTimeline` or `ReportsService.partyTimeline`; actions to register a shared expense and to register a settlement; surface reversal state where the timeline exposes it (`docs/PRD.md` §3.5 audit visibility, §3.7). Cross-debts net server-side — show the resulting net only.
-- [ ] `features/parties/pages/shared-expense-page/` — `SharedExpensePage`: reactive form — description, total (major → minor at submit), `expenseAccountId`, `fundingAccountId`, `incurredOnUtc`, participant rows (`partyId` + integer `weight`); calls `registerSharedExpense`.
-- [ ] `features/parties/parties.routes.ts` + lazy-wire into `app.routes.ts`.
+- [x] `features/parties/pages/parties-page/` — `PartiesPage`: list every party with net balance from `ReportsService.debtSummary` (positive = they owe you); create-party form.
+- [x] `features/parties/pages/party-detail-page/` — `PartyDetailPage`: party id from route param; current balance (`PartiesService.getBalance`) + movement timeline (chronological, running balance) from `ReportsService.partyTimeline` (currency-aware — D16); actions to register a shared expense and to register a settlement; reversal state rendered verbatim as its own negative timeline row via presentational `TimelineTable` (`docs/PRD.md` §3.5 audit visibility, §3.7). Cross-debts net server-side — the net is shown as-is.
+- [x] `features/parties/pages/shared-expense-page/` — `SharedExpensePage`: reactive form — description, total (major → minor at submit), `expenseAccountId` (hand-entered UUID — D17), `fundingAccountId`, `incurredOnUtc`, participant `FormArray` (`partyId` + integer `weight`); calls `registerSharedExpense`. `?party=` query param pre-fills the first row.
+- [x] `features/parties/parties.routes.ts` + lazy-wire into `app.routes.ts`. Final order: `''`, `'shared-expense'` (static), `':id'` (param) last.
 
 ### Definition of done
 
-- [ ] Parties list, party detail, and shared-expense views reachable via lazy routes.
-- [ ] `PartiesService` (full) and `ReportsService.partyTimeline` have `HttpTestingController` coverage.
-- [ ] Net balances and timelines render the API's values as-is (no client-side accounting).
-- [ ] `pnpm ng build` + `pnpm ng test --watch=false --browsers=ChromeHeadless` green; manual smoke against a local API.
+- [x] Parties list, party detail, and shared-expense views reachable via lazy routes.
+- [x] `PartiesService` (full) and `ReportsService.partyTimeline` have `HttpTestingController` coverage.
+- [x] Net balances and timelines render the API's values as-is (no client-side accounting).
+- [x] `pnpm ng build` + `pnpm ng test --watch=false --browsers=ChromeHeadless` green. Manual smoke against a local API **deferred** (D1 — API not running on `https://localhost:7095`).
 
 ### Completion notes
 
-_(filled by the implementer)_
+**Shipped:** the three Fase-3 views (`PartiesPage`, `PartyDetailPage`, `SharedExpensePage`) plus
+the presentational `TimelineTable`, the eight `features/parties/types/*` DTO types,
+`features/reports/types/party-timeline-row.ts`, the full `PartiesService`
+(`create` / `registerSharedExpense` / `settle` / `getTimeline`), `ReportsService.partyTimeline`,
+and `features/parties/validation-helpers.ts` (`positiveAmount`, `atMostTwoDecimals`,
+`positiveInteger`). Routes: `parties` lazy-wired in `app.routes.ts`; `parties.routes.ts` =
+`''` → list, `'shared-expense'` → registration, `':id'` → detail.
+
+**Build/test:** `pnpm ng build` clean — initial JS 263.61 kB (Phase 2 baseline 255.59 kB; +8 kB
+one-time, esbuild promoted the router-link runtime to a shared initial chunk once a second lazy
+chunk began using `RouterLink`; ~47 % under the 500 kB warn budget). `parties-routes` lazy chunk
+26.42 kB. Tests **139/139** (Phase 2 baseline 112; +27: +9 service specs, +18 page/table specs).
+
+**Intentional deviations (continuing D-numbering from Phase 2's D13):**
+
+- **D14** — **`/v1/parties/{id}/timeline` envelope.** `docs/DESIGN.md` §9 and this file's task list
+  described the endpoint as returning the timeline object as-is, but the API returns a
+  `{ rows: [...] }` envelope (`CurrentAccountTimelineDto`). `PartiesService.getTimeline` unwraps
+  `{ rows }` via `map`, like every other list endpoint. `docs/DESIGN.md` §4/§9 carry a
+  reconciliation note.
+- **D15** — **New parties are invisible until they have a movement.** `GET
+  /v1/reports/parties/debt-summary` only returns parties that already carry a current-account
+  movement, so a just-created party does not appear in `PartiesPage`'s list. The page shows a
+  post-create confirmation panel with the new party id and a note ("new parties appear in the
+  list once they take part in a shared expense") instead of a client-side merge — the server
+  stays the single source of truth.
+- **D16** — **Timeline source for the detail view.** `PartyDetailPage` renders
+  `ReportsService.partyTimeline` (carries `currencyCode`, consistent with the debt-summary list).
+  `PartiesService.getTimeline` is implemented and `HttpTestingController`-covered for service
+  parity but is not consumed by any view (precedent: D11 `LedgerService.postTransaction`).
+- **D17** — **`expenseAccountId` is hand-entered.** Expense accounts are not registered
+  instruments and there is no list endpoint, so `SharedExpensePage` takes the expense-account
+  UUID as free text with a helper note (same shape as the gap-2 / gap-3 id-index pages).
+  `fundingAccountId` offers every registered instrument (as in Subscriptions D13).
+- **D18** — **No `pollUntil` in Phase 3.** The shared-expense and settlement ledger postings are
+  synchronous API-side, so `PartyDetailPage` plainly re-fetches balance + timeline after each
+  mutation (Subscriptions D6 pattern) rather than running a reconciliation poll.
+
+**Manual smoke — deferred** (D1): create a party → register a shared expense with it as a
+participant → confirm it appears in the debt-summary list with a net balance → open detail,
+confirm the timeline row and running balance → register a settlement → confirm the balance drops
+and a negative timeline row appears → force a 422 (`weight` 0) and a 409 (settle more than owed)
+and confirm the message keys off `code`.
 
 ---
 

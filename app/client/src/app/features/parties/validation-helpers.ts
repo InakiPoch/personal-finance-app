@@ -18,3 +18,9 @@ export const atMostTwoDecimals: ValidatorFn = (control: AbstractControl): Valida
   const fraction: string = text.split('.')[1] ?? '';
   return fraction.length > 2 ? { atMostTwoDecimals: true } : null;
 };
+
+export const positiveInteger: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const value: unknown = control.value;
+  const valid: boolean = typeof value === 'number' && Number.isInteger(value) && value >= 1;
+  return valid ? null : { positiveInteger: true };
+};

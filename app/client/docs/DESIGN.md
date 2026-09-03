@@ -197,6 +197,7 @@ One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(Http
   `settle(partyId: string, body: SettleCurrentAccount): Observable<SettlementResult>`;
   `getBalance(partyId: string): Observable<CurrentAccountBalance>`;
   `getTimeline(partyId: string): Observable<CurrentAccountTimelineRow[]>`
+  (unwraps the `{ rows }` envelope — see D14 in `.claude/TASK.md` Phase 3)
 - **ReportsService** — `monthlyExpenses(month?: string): Observable<MonthlyExpenseRow[]>`;
   `cardDueByMonth(): Observable<CardDueRow[]>`; `debtSummary(): Observable<PartyDebtRow[]>`;
   `partyTimeline(partyId: string): Observable<PartyTimelineRow[]>`
@@ -294,7 +295,7 @@ documented stopgap, not the intended end state (see PRD §7).
 | 13 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
 | 14 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
 | 15 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
-| 16 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | Party detail |
+| 16 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
 | 17 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
 | 18 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
 | 19 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail |
@@ -303,6 +304,10 @@ documented stopgap, not the intended end state (see PRD §7).
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.
+
+Endpoints 16 and 19 (`/v1/parties/{id}/timeline`, `/v1/reports/parties/{id}/timeline`) both
+return a `{ rows: [...] }` envelope; their service methods unwrap to the array via `map`
+(D14 — the design text had described endpoint 16 as returning the object as-is).
 
 ## 10. Configuration & tooling
 

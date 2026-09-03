@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { PartyDebtRow } from './types/party-debt-row';
+import { PartyTimelineRow } from './types/party-timeline-row';
 
 type RowsEnvelope<T> = { rows: T[] };
 
@@ -27,5 +28,11 @@ export class ReportsService {
     return this.http
       .get<RowsEnvelope<PartyDebtRow>>('reports/parties/debt-summary')
     .pipe(map((envelope: RowsEnvelope<PartyDebtRow>) => envelope.rows));
+  }
+
+  partyTimeline(partyId: string): Observable<PartyTimelineRow[]> {
+    return this.http
+      .get<RowsEnvelope<PartyTimelineRow>>(`reports/parties/${partyId}/timeline`)
+      .pipe(map((envelope: RowsEnvelope<PartyTimelineRow>) => envelope.rows));
   }
 }

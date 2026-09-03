@@ -10,6 +10,7 @@ import { environment } from '../../environments/environment';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { PartyDebtRow } from './types/party-debt-row';
+import { PartyTimelineRow } from './types/party-timeline-row';
 import { ReportsService } from './reports-service';
 
 describe('ReportsService', () => {
@@ -78,6 +79,23 @@ describe('ReportsService', () => {
     let result: PartyDebtRow[] | undefined;
     service.debtSummary().subscribe((r: PartyDebtRow[]) => (result = r));
     const req = httpMock.expectOne(debtSummaryUrl);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows });
+    expect(result).toEqual(rows);
+  });
+  it('GETs parties/{id}/timeline and unwraps { rows }', () => {
+    const rows: PartyTimelineRow[] = [
+      {
+        movementOnUtc: '2026-09-01T20:00:00.000Z',
+        description: 'Dinner split',
+        deltaMinorUnits: money(300000),
+        runningBalanceMinorUnits: money(300000),
+        currencyCode: 'ARS',
+      },
+    ];
+    let result: PartyTimelineRow[] | undefined;
+    service.partyTimeline('p1').subscribe((r: PartyTimelineRow[]) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/reports/parties/p1/timeline`);
     expect(req.request.method).toBe('GET');
     req.flush({ rows });
     expect(result).toEqual(rows);

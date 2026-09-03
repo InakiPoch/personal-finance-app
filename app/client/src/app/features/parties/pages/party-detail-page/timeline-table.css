@@ -1,0 +1,20 @@
+.timeline {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.timeline th,
+.timeline td {
+  border-bottom: 1px solid #eee;
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+}
+
+.timeline__debit {
+  color: #b00020;
+}
+
+.timeline__empty {
+  color: #555;
+  font-size: 0.875rem;
+}

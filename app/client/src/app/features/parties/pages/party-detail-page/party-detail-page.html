@@ -1,0 +1,84 @@
+<section class="party-detail">
+  <header>
+    <h1>Party detail</h1>
+    <a [routerLink]="['/parties']">Back to parties</a>
+  </header>
+  <section class="party-detail__balance">
+    <h2>Current-account balance</h2>
+    @if(balanceStatus() === 'loading') {
+      <p>Loading balance…</p>
+    } @else if(balanceStatus() === 'error') {
+      <p role="alert">Could not load the balance — try again in a moment.</p>
+    } @else if(balance(); as current) {
+      <p class="party-detail__name">{{ current.name }}</p>
+      <p class="party-detail__amount">{{ formatArs(current.balanceMinorUnits) }}</p>
+    }
+    @if(partyId(); as id) {
+      <a [routerLink]="['/parties', 'shared-expense']" [queryParams]="{ party: id }">
+        Register a shared expense with this party
+      </a>
+    }
+  </section>
+  <section class="party-detail__timeline">
+    <h2>Timeline</h2>
+    @if(timelineStatus() === 'loading') {
+      <p>Loading timeline…</p>
+    } @else if(timelineStatus() === 'error') {
+      <p role="alert">Could not load the timeline — try again in a moment.</p>
+    } @else {
+      <app-timeline-table [rows]="timeline()" />
+    }
+    <p class="party-detail__note">
+      Balances and movements are reported by the API — a reversal is its own negative row.
+    </p>
+  </section>
+  <section class="party-detail__settle">
+    <h2>Register a settlement</h2>
+    <form [formGroup]="form" (ngSubmit)="onSubmit()">
+      <div class="field">
+        <label for="amount">Amount (ARS)</label>
+        <input type="number" id="amount" min="0" step="0.01" formControlName="amount" />
+        @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
+          <p class="field__error" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+        }
+        @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
+          <p class="field__error" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+        }
+      </div>
+      <div class="field">
+        <label for="bankAccountId">Bank account</label>
+        <select id="bankAccountId" formControlName="bankAccountId">
+          <option value="">Choose an account</option>
+          @for(instrument of bankAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }}</option>
+          }
+        </select>
+        @if(bankAccounts().length === 0) {
+          <p class="field__hint">No debit accounts registered yet — add one on the Instruments page.</p>
+        }
+        @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
+          <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+        }
+      </div>
+      <div class="field">
+        <label for="settledOnUtc">Settled on</label>
+        <input type="datetime-local" id="settledOnUtc" formControlName="settledOnUtc" />
+        @if(form.controls.settledOnUtc.touched && form.controls.settledOnUtc.hasError('required')) {
+          <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+        }
+      </div>
+      <p class="party-detail__note">
+        Settling posts a ledger transaction that reduces this party's balance.
+      </p>
+      <button type="submit" [disabled]="settleStatus() === 'settling'">
+        {{ settleStatus() === 'settling' ? 'Recording…' : 'Record settlement' }}
+      </button>
+      @if(settleStatus() === 'settled') {
+        <p class="party-detail__confirmation" role="status">Settlement recorded.</p>
+      }
+      @if(settleError(); as error) {
+        <p class="field__error" role="alert">{{ settleErrorText(error) }}</p>
+      }
+    </form>
+  </section>
+</section>

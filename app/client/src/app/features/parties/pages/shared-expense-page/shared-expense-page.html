@@ -1,0 +1,105 @@
+<section class="shared-expense">
+  <header>
+    <h1>Register a shared expense</h1>
+    <a [routerLink]="['/parties']">Back to parties</a>
+    <p class="shared-expense__note">
+      The API splits the total across the account holder (implicit weight 1) and every listed
+      participant, allocating the cents server-side. This form collects participant weights only.
+    </p>
+  </header>
+  <form class="shared-expense__form" [formGroup]="form" (ngSubmit)="onSubmit()">
+    <div class="field">
+      <label for="description">Description</label>
+      <input type="text" id="description" formControlName="description" />
+      @if(form.controls.description.touched && form.controls.description.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="total">Total (ARS)</label>
+      <input type="number" id="total" min="0" step="0.01" formControlName="total" />
+      @if(form.controls.total.touched && form.controls.total.hasError('positiveAmount')) {
+        <p class="field__error" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(form.controls.total.touched && form.controls.total.hasError('atMostTwoDecimals')) {
+        <p class="field__error" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="expenseAccountId">Expense account id</label>
+      <input type="text" id="expenseAccountId" formControlName="expenseAccountId" />
+      <p class="field__hint">
+        Expense accounts are not registered instruments and have no list endpoint yet — paste the
+        account UUID.
+      </p>
+      @if(form.controls.expenseAccountId.touched && form.controls.expenseAccountId.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="fundingAccountId">Funding account</label>
+      <select id="fundingAccountId" formControlName="fundingAccountId">
+        <option value="">Choose an account</option>
+        @for(instrument of fundingAccounts(); track instrument.id) {
+          <option [value]="instrument.id">{{ instrument.name }} ({{ instrument.type }})</option>
+        }
+      </select>
+      @if(fundingAccounts().length === 0) {
+        <p class="field__hint">No instruments registered yet — add one on the Instruments page.</p>
+      }
+      @if(form.controls.fundingAccountId.touched && form.controls.fundingAccountId.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="field">
+      <label for="incurredOnUtc">Incurred on</label>
+      <input type="datetime-local" id="incurredOnUtc" formControlName="incurredOnUtc" />
+      @if(form.controls.incurredOnUtc.touched && form.controls.incurredOnUtc.hasError('required')) {
+        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <fieldset class="participants">
+      <legend>Participants</legend>
+      @if(partiesStatus() === 'loading') {
+        <p>Loading parties…</p>
+      } @else if(partiesStatus() === 'error') {
+        <p role="alert">Could not load parties — try again in a moment.</p>
+      } @else {
+        <div formArrayName="participants">
+          @for(row of form.controls.participants.controls; track $index; let i = $index) {
+            <div class="participants__row" [formGroupName]="i">
+              <select formControlName="partyId" aria-label="Party">
+                <option value="">Choose a party</option>
+                @for(party of parties(); track party.partyId) {
+                  <option [value]="party.partyId">{{ party.partyName }}</option>
+                }
+              </select>
+              <input type="number" min="1" step="1" formControlName="weight" aria-label="Weight" />
+              <button type="button" (click)="removeParticipant(i)">Remove</button>
+            </div>
+          }
+        </div>
+        @if(form.controls.participants.length === 0) {
+          <p class="field__hint">Add at least one participant.</p>
+        }
+        <button type="button" [disabled]="parties().length === 0" (click)="addParticipant()">
+          Add participant
+        </button>
+      }
+    </fieldset>
+    <button type="submit" [disabled]="submitStatus() === 'submitting'">
+      {{ submitStatus() === 'submitting' ? 'Submitting…' : 'Register shared expense' }}
+    </button>
+    @if(submitError(); as error) {
+      <p class="field__error" role="alert">{{ submitErrorText(error) }}</p>
+    }
+  </form>
+  @if(submitStatus() === 'confirmed' && splitReferenceId(); as reference) {
+    <section class="confirmation" role="status">
+      <p>Shared expense registered — split reference <code>{{ reference }}</code>.</p>
+      @if(prefilledPartyId(); as id) {
+        <a [routerLink]="['/parties', id]">Open party detail</a>
+      }
+    </section>
+  }
+</section>

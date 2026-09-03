@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
+import { PartyDebtRow } from './types/party-debt-row';
 
 type RowsEnvelope<T> = { rows: T[] };
 
@@ -20,5 +21,11 @@ export class ReportsService {
 
   cardDueByMonth(): Observable<CardDueRow[]> {
     return this.http.get<RowsEnvelope<CardDueRow>>('reports/card-due-by-month').pipe(map((envelope: RowsEnvelope<CardDueRow>) => envelope.rows));
+  }
+
+  debtSummary(): Observable<PartyDebtRow[]> {
+    return this.http
+      .get<RowsEnvelope<PartyDebtRow>>('reports/parties/debt-summary')
+    .pipe(map((envelope: RowsEnvelope<PartyDebtRow>) => envelope.rows));
   }
 }

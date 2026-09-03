@@ -14,4 +14,5 @@ public interface ILedgerApi {
     Task<Result<Guid>> CreateAccountAsync(CreateAccountCommand command, CancellationToken ct = default);
     Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default);
     Task<Money> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default);
+    Task<InstrumentAccountsResponse> ListInstrumentAccountsAsync(ListInstrumentAccountsQuery query, CancellationToken ct = default);
 }

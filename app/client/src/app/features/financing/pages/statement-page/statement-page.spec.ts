@@ -3,9 +3,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { FinancingService } from '../../financing-service';
 import { MonthlyStatement } from '../../types/monthly-statement';
 import { PayStatement } from '../../types/pay-statement';
@@ -68,8 +69,12 @@ describe('StatementPage', () => {
     view.form.setValue({ bankAccountId: 'acct-debit', paidOnUtc: '2026-09-15T10:30' });
   }
 
+  const instruments: Instrument[] = [
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 }
+  ];
+
   beforeEach(() => {
-    localStorage.clear();
     getStatement = jasmine.createSpy('getStatement').and.returnValue(of(unpaidStatement));
     payStatement = jasmine
       .createSpy('payStatement')
@@ -79,15 +84,11 @@ describe('StatementPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: FinancingService, useValue: { getStatement, payStatement } },
+        { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'st-1' })) } }
       ]
     });
-    const registry: InstrumentRegistryService = TestBed.inject(InstrumentRegistryService);
-    registry.add({ id: 'acct-debit', type: 'debit', name: 'Checking' });
-    registry.add({ id: 'card-credit', type: 'credit', name: 'Visa' });
   });
-
-  afterEach(() => localStorage.clear());
 
   it('loads the statement named by the route param', () => {
     setup();

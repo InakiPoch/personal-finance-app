@@ -13,11 +13,11 @@ import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } 
 import { ActivatedRoute, ParamMap } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs } from '../../../../core/money/money';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { IsoInstant } from '../../../../core/types/iso-instant';
 import { Money } from '../../../../core/types/money';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { FinancingService } from '../../financing-service';
 import { MonthlyStatement } from '../../types/monthly-statement';
 import { PayStatement } from '../../types/pay-statement';
@@ -47,8 +47,8 @@ export class StatementPage implements OnInit, OnDestroy {
   protected readonly loadStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly payStatus: WritableSignal<PayStatus> = signal<PayStatus>('idle');
   protected readonly payError: WritableSignal<AppError | null> = signal<AppError | null>(null);
-  protected readonly bankAccounts: Signal<RegisteredInstrument[]> = computed(() =>
-    this.registry.instruments().filter((instrument: RegisteredInstrument) => instrument.type === 'debit')
+  protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
+    this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
   );
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.'
@@ -57,7 +57,8 @@ export class StatementPage implements OnInit, OnDestroy {
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly financing: FinancingService = inject(FinancingService);
-  private readonly registry: InstrumentRegistryService = inject(InstrumentRegistryService);
+  private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
+  private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly payErrorMessages: Record<string, string> = {
     'Financing.AlreadyPaid': 'This statement has already been paid.',
     'Financing.StatementNotFound': 'No statement matches that id.',
@@ -102,6 +103,13 @@ export class StatementPage implements OnInit, OnDestroy {
     return this.payErrorMessages[error.code] ?? 'The payment could not be recorded.';
   }
 
+  private loadInstruments(): void {
+    this.instrumentsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+    .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+  }
+
   private loadStatement(id: string): void {
     this.loadStatus.set('loading');
     this.financing
@@ -126,6 +134,7 @@ export class StatementPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initPayForm();
+    this.loadInstruments();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {
         const id: string | null = params.get('id');

@@ -1,11 +1,11 @@
-import { provideZonelessChangeDetection, signal } from '@angular/core';
+import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { Observable, of, throwError } from 'rxjs';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { SubscriptionsService } from '../../subscriptions-service';
 import { ActiveSubscription } from '../../types/active-subscription';
 import { CreateSubscription } from '../../types/create-subscription';
@@ -42,8 +42,8 @@ const activeRow: ActiveSubscription = {
   nextDueDate: '2026-10-15'
 };
 
-const instruments: RegisteredInstrument[] = [
-  { id: 'acc-1', type: 'debit', name: 'Checking' },
+const instruments: Instrument[] = [
+  { id: 'acc-1', type: 'debit', name: 'Checking', cutoffDate: null },
   { id: 'card-1', type: 'credit', name: 'Visa', cutoffDate: 20 }
 ];
 
@@ -76,8 +76,8 @@ describe('SubscriptionsPage', () => {
         provideZonelessChangeDetection(),
         { provide: SubscriptionsService, useValue: { listActive, create, cancel } },
         {
-          provide: InstrumentRegistryService,
-          useValue: { instruments: signal<RegisteredInstrument[]>(instruments) }
+          provide: InstrumentsService,
+          useValue: { list: () => of<Instrument[]>(instruments) }
         }
       ]
     });

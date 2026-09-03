@@ -79,6 +79,10 @@ internal static class EndpointExtensions {
                 .Produces<InstrumentCreatedDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status400BadRequest)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Instruments.List, GetInstruments.Handle)
+                .WithSummary("List registered payment instruments.")
+                .WithDescription("Unified read of every registered instrument: debit and cash accounts from Ledger plus credit cards from Financing, each tagged with its instrument type.")
+                .Produces<InstrumentsListDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

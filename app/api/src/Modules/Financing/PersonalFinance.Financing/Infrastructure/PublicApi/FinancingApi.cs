@@ -34,4 +34,8 @@ internal sealed class FinancingApi(ICommandBus commandBus, IQueryBus queryBus) :
     public Task<CardFutureScheduleResponse> GetCardFutureScheduleAsync(GetCardFutureScheduleQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }
+
+    public Task<ListCreditCardsResponse> ListCreditCardsAsync(ListCreditCardsQuery query, CancellationToken ct = default) {
+        return queryBus.AskAsync(query, ct);
+    }
 }

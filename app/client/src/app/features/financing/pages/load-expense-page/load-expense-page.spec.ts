@@ -3,9 +3,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormArray, FormControl, FormGroup } from '@angular/forms';
 import { Observable, of, throwError } from 'rxjs';
 import { TestScheduler } from 'rxjs/testing';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
 import { PartiesService } from '../../../parties/parties-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
@@ -70,8 +71,12 @@ describe('LoadExpensePage', () => {
     view.form.controls.split.at(0).patchValue({ partyId, weight });
   }
 
+  const instruments: Instrument[] = [
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 },
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null }
+  ];
+
   beforeEach(() => {
-    localStorage.clear();
     createPaymentPlan = jasmine
       .createSpy('createPaymentPlan')
       .and.returnValue(of<CreatePaymentPlanResult>({ paymentPlanId: 'plan-1' }));
@@ -84,24 +89,20 @@ describe('LoadExpensePage', () => {
         { provide: FinancingService, useValue: { createPaymentPlan } },
         { provide: PartiesService, useValue: { getBalance } },
         { provide: ReportsService, useValue: { debtSummary } },
-      ],
+        { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } }
+      ]
     });
-    const registry: InstrumentRegistryService = TestBed.inject(InstrumentRegistryService);
-    registry.add({ id: 'card-credit', type: 'credit', name: 'Visa' });
-    registry.add({ id: 'acct-debit', type: 'debit', name: 'Checking' });
     fixture = TestBed.createComponent(LoadExpensePage);
     view = fixture.componentInstance as unknown as LoadExpenseView;
     fixture.detectChanges();
   });
-
-  afterEach(() => localStorage.clear());
 
   it('creates and loads the party list', () => {
     expect(fixture.componentInstance).toBeTruthy();
     expect(view.partiesStatus()).toBe('ready');
     expect(view.parties()).toEqual(partyRows);
   });
-  it('offers only credit cards from the registry', () => {
+  it('offers only credit cards from the instrument list', () => {
     expect(view.form.value.cardId).toBe('');
     const view2 = fixture.componentInstance as unknown as { creditCards: () => Array<{ id: string }> };
     expect(view2.creditCards().map((c) => c.id)).toEqual(['card-credit']);

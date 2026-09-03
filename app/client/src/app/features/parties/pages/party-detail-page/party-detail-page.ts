@@ -13,11 +13,11 @@ import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } 
 import { ActivatedRoute, ParamMap, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs, toMinorUnits } from '../../../../core/money/money';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { IsoInstant } from '../../../../core/types/iso-instant';
 import { Money } from '../../../../core/types/money';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
@@ -53,8 +53,8 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly settleStatus: WritableSignal<SettleStatus> = signal<SettleStatus>('idle');
   protected readonly settleError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly partyId: WritableSignal<string | null> = signal<string | null>(null);
-  protected readonly bankAccounts: Signal<RegisteredInstrument[]> = computed(() =>
-    this.registry.instruments().filter((instrument: RegisteredInstrument) => instrument.type === 'debit')
+  protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
+    this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
   );
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
@@ -66,7 +66,8 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly partiesService: PartiesService = inject(PartiesService);
   private readonly reports: ReportsService = inject(ReportsService);
-  private readonly registry: InstrumentRegistryService = inject(InstrumentRegistryService);
+  private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
+  private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly settleErrorMessages: Record<string, string> = {
     'Parties.NonPositiveAmount': 'The settlement amount must be greater than zero.',
     'Parties.UnknownFundingAccount': 'Choose a debit account registered with the API.',
@@ -117,6 +118,13 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     return this.settleErrorMessages[error.code] ?? 'The settlement could not be recorded.';
   }
 
+  private loadInstruments(): void {
+    this.instrumentsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+  }
+
   private loadBalance(id: string): void {
     this.balanceStatus.set('loading');
     this.partiesService
@@ -159,6 +167,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initSettlementForm();
+    this.loadInstruments();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {
         const id: string | null = params.get('id');

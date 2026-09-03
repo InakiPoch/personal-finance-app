@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PersonalFinance.Abstractions.Messaging;
@@ -12,6 +11,7 @@ using PersonalFinance.Ledger.Application.Commands.PostTransaction;
 using PersonalFinance.Ledger.Application.Commands.ReverseTransaction;
 using PersonalFinance.Ledger.Application.Queries.GetAccountBalance;
 using PersonalFinance.Ledger.Application.Queries.GetCardLiability;
+using PersonalFinance.Ledger.Application.Queries.ListInstrumentAccounts;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.Ledger.Contracts.Queries;
@@ -39,9 +39,6 @@ public sealed class LedgerModule : IModule {
         services.AddScoped<ICommandHandler<CreateAccountCommand, Guid>, CreateAccountHandler>();
         services.AddScoped<IQueryHandler<GetAccountBalanceQuery, Money>, GetAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCardLiabilityQuery, Money>, GetCardLiabilityHandler>();
-    }
-
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) {
-        // Intentionally empty in Phase 2 — see the type summary.
+        services.AddScoped<IQueryHandler<ListInstrumentAccountsQuery, InstrumentAccountsResponse>, ListInstrumentAccountsHandler>();
     }
 }

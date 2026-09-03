@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PersonalFinance.Abstractions.Messaging;
@@ -34,9 +33,5 @@ public sealed class SubscriptionsModule : IModule {
         services.AddScoped<ICommandHandler<CancelSubscriptionCommand>, CancelSubscriptionHandler>();
         services.AddScoped<IQueryHandler<GetActiveSubscriptionsQuery, ActiveSubscriptionsResponse>, GetActiveSubscriptionsHandler>();
         services.AddHostedService<RenewDueSubscriptions>();
-    }
-
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) {
-        // HTTP surface is host-owned (src/Bootstrap/PersonalFinance.Api/Endpoints/) — see LedgerModule.
     }
 }

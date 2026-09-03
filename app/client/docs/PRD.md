@@ -134,10 +134,10 @@ does not expose. Login/app-protection is deferred (no backing endpoints — §2,
 
 These are surfaced so the client design is honest about what a view can actually show today.
 
-1. **No list endpoint for instruments/cards/accounts** (`POST` only). Forms that need to offer a
-   card or funding account can't populate from the API. **Client workaround:** local registry of
-   created instruments, persisted to `localStorage` (`DESIGN.md` §8). **Proposed API:**
-   `GET /v1/instruments`.
+1. ~~**No list endpoint for instruments/cards/accounts** (`POST` only).~~ **Resolved (Phase 12).**
+   `GET /v1/instruments` ships (Ledger debit/cash accounts + Financing credit cards merged, one
+   `{ id, type, name, cutoffDate }` row each). Every form now populates its card/funding `<select>`
+   from the API; the `localStorage` registry workaround was removed (`DESIGN.md` §8).
 2. **No statement-list per card.** US-4's pay flow needs a `statementId`, but nothing enumerates
    statements and `card-due-by-month` exposes card + amount, not `statementId`. **Proposed API:**
    `GET /v1/financing/cards/{id}/statements`.

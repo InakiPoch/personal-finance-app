@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PersonalFinance.Abstractions.Messaging;
@@ -11,6 +10,7 @@ using PersonalFinance.Financing.Application.Commands.PayStatement;
 using PersonalFinance.Financing.Application.Queries.GetCardFutureSchedule;
 using PersonalFinance.Financing.Application.Queries.GetInstallmentStatus;
 using PersonalFinance.Financing.Application.Queries.GetMonthlyStatement;
+using PersonalFinance.Financing.Application.Queries.ListCreditCards;
 using PersonalFinance.Financing.Application.Scheduling;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Financing.Contracts.Commands;
@@ -41,10 +41,7 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<IQueryHandler<GetInstallmentStatusQuery, InstallmentStatusResponse>, GetInstallmentStatusHandler>();
         services.AddScoped<IQueryHandler<GetCardFutureScheduleQuery, CardFutureScheduleResponse>, GetCardFutureScheduleHandler>();
         services.AddScoped<IQueryHandler<GetMonthlyStatementQuery, MonthlyStatementDetailResponse>, GetMonthlyStatementHandler>();
+        services.AddScoped<IQueryHandler<ListCreditCardsQuery, ListCreditCardsResponse>, ListCreditCardsHandler>();
         services.AddHostedService<AccrueInstallments>();
-    }
-
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) {
-        // HTTP surface is host-owned (src/Bootstrap/PersonalFinance.Api/Endpoints/) — see LedgerModule.
     }
 }

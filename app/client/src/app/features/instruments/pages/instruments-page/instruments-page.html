@@ -3,7 +3,7 @@
     <h1>Payment instruments</h1>
     <p class="instruments__note">
       Register the debit accounts, credit cards and cash pockets the other forms will offer as
-      choices. Stored on this device only — the API has no list endpoint yet.
+      choices. The list is served by the API.
     </p>
   </header>
   <form class="instruments__form" [formGroup]="form" (ngSubmit)="onSubmit()">
@@ -47,11 +47,11 @@
   </form>
   <section class="instruments__list">
     <h2>Registered instruments</h2>
-    @if(registry.instruments().length === 0) {
+    @if(instruments().length === 0) {
       <p>Nothing registered yet.</p>
     } @else {
       <ul>
-        @for(instrument of registry.instruments(); track instrument.id) {
+        @for(instrument of instruments(); track instrument.id) {
           <li>
             <span class="instruments__name">{{ instrument.name }}</span>
             <span class="instruments__type">{{ instrument.type }}</span>

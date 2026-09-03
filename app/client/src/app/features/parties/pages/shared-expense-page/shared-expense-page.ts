@@ -20,10 +20,10 @@ import {
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { toMinorUnits } from '../../../../core/money/money';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { IsoInstant } from '../../../../core/types/iso-instant';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
 import { RegisterSharedExpense } from '../../types/register-shared-expense';
@@ -64,8 +64,8 @@ export class SharedExpensePage implements OnInit, OnDestroy {
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly splitReferenceId: WritableSignal<string | null> = signal<string | null>(null);
   protected readonly prefilledPartyId: WritableSignal<string | null> = signal<string | null>(null);
-  protected readonly fundingAccounts: Signal<RegisteredInstrument[]> = computed(() =>
-    this.registry.instruments()
+  protected readonly fundingAccounts: Signal<Instrument[]> = computed(() =>
+    this.instruments()
   );
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
@@ -78,7 +78,8 @@ export class SharedExpensePage implements OnInit, OnDestroy {
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly partiesService: PartiesService = inject(PartiesService);
   private readonly reports: ReportsService = inject(ReportsService);
-  private readonly registry: InstrumentRegistryService = inject(InstrumentRegistryService);
+  private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
+  private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
     'Parties.NonPositiveAmount': 'The total must be greater than zero.',
     'Parties.InvalidParticipants': 'Add at least one participant with a positive weight.',
@@ -148,6 +149,13 @@ export class SharedExpensePage implements OnInit, OnDestroy {
     );
   }
 
+  private loadInstruments(): void {
+    this.instrumentsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+  }
+
   private loadParties(): void {
     this.partiesStatus.set('loading');
     this.reports
@@ -185,6 +193,7 @@ export class SharedExpensePage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initSharedExpenseForm();
+    this.loadInstruments();
     this.loadParties();
     const party: string | null = this.route.snapshot.queryParamMap.get('party');
     if(party !== null) {

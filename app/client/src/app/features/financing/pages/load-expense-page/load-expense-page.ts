@@ -13,10 +13,10 @@ import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Va
 import { Subject, map, switchMap, takeUntil } from 'rxjs';
 import { pollUntil } from '../../../../core/http/poll-until';
 import { formatArs, toMinorUnits } from '../../../../core/money/money';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
 import { PartiesService } from '../../../parties/parties-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
@@ -67,8 +67,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly confirmedPlanId: WritableSignal<string | null> = signal<string | null>(null);
   protected readonly reconciliations: WritableSignal<ReconciliationRow[]> = signal<ReconciliationRow[]>([]);
-  protected readonly creditCards: Signal<RegisteredInstrument[]> = computed(() =>
-    this.registry.instruments().filter((instrument: RegisteredInstrument) => instrument.type === 'credit')
+  protected readonly creditCards: Signal<Instrument[]> = computed(() =>
+    this.instruments().filter((instrument: Instrument) => instrument.type === 'credit')
   );
   protected readonly errorMessages: Record<string, string> = {
     positiveAmount: 'Enter an amount greater than zero.',
@@ -82,7 +82,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   private readonly financingService: FinancingService = inject(FinancingService);
   private readonly partiesService: PartiesService = inject(PartiesService);
   private readonly reportsService: ReportsService = inject(ReportsService);
-  private readonly registry: InstrumentRegistryService = inject(InstrumentRegistryService);
+  private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
+  private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
     'Financing.CardNotFound': 'That card is not registered with the API yet.',
     'Http.BadRequest': 'The expense could not be loaded — check the values and try again.',
@@ -209,6 +210,13 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     );
   }
 
+  private loadInstruments(): void {
+    this.instrumentsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+  }
+
   private createSplitRow(): SplitRow {
     return this.fb.group({
       partyId: this.fb.nonNullable.control('', { validators: Validators.required }),
@@ -230,6 +238,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initLoadExpenseForm();
+    this.loadInstruments();
     this.loadParties();
   }
 

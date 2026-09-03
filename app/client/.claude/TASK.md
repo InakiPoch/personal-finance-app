@@ -438,7 +438,7 @@ and confirm the message keys off `code`.
 ### Tasks
 
 - [x] **4.1 Tailwind + UI-task groundwork** — install Tailwind and wire the build; tokens, theme, and components belong to the separate UI task. Trigger: UI task kickoff. (`docs/DESIGN.md` §10; `docs/PRD.md` §6) — **build wiring done** (see Completion notes; **D19**).
-- [ ] **4.2 API gap 1 — `GET /v1/instruments`** — when the endpoint ships, add the list method and retire the `InstrumentRegistryService` `localStorage` stopgap; forms then read cards/accounts from the API. (`docs/DESIGN.md` §11.1; `docs/PRD.md` §7.1)
+- [x] **4.2 API gap 1 — `GET /v1/instruments`** — **done (Phase 12, D21).** `InstrumentsService.list()` unwraps `{ rows }`; new `Instrument` type (`features/instruments/types/instrument.ts`); `InstrumentRegistryService` + `core/types/registered-instrument.ts` + `core/registry/` deleted. 6 consumers load the list into a local `WritableSignal<Instrument[]>` in `ngOnInit` and keep their existing `computed()` `<select>` filters; `InstrumentsPage` re-fetches after create. (`docs/DESIGN.md` §8/§9/§11.1; `docs/PRD.md` §7.1)
 - [ ] **4.3 API gap 2 — `GET /v1/financing/cards/{id}/statements`** — make the Statement pay flow self-navigable; drop the id-only route entry. (`docs/DESIGN.md` §11.2; `docs/PRD.md` §7.2)
 - [ ] **4.4 API gap 3 — transactions feed (`GET /v1/ledger/transactions`)** — build a real history / reverse-picker view, replacing the id-driven `reverse-movement-page`. (`docs/DESIGN.md` §11.3; `docs/PRD.md` §7.3)
 - [ ] **4.5 API gap 4 — app-level auth surface** — when a backing endpoint exists, add login as a new cross-cutting feature (route guard, session). Not part of any view above. (`docs/DESIGN.md` §11.4; `docs/PRD.md` §2, §7.4)
@@ -451,14 +451,33 @@ and confirm the message keys off `code`.
 
 ### Completion notes
 
-**Scope of this pass.** Three tooling items closed against triggers that have landed — **4.7**
-(ESLint), **4.1** (Tailwind — build wiring only), **4.6** (client CI). **4.2 / 4.3 / 4.4 / 4.5
-stay open**: the four backing endpoints (`GET /v1/instruments`,
-`GET /v1/financing/cards/{id}/statements`, `GET /v1/ledger/transactions`, the auth surface) do
-**not** exist in the API today — confirmed by reading the endpoint registrations — so there is
-nothing to build against. Execute-ready checklists for 4.2 / 4.3 / 4.4 are recorded below so each
-becomes a single green-lit step once its endpoint ships; 4.5 has no checklist (no endpoint to
-design to). **The phase DoD box stays unticked until those four close.**
+**Scope of the tooling pass.** Three tooling items closed against triggers that have landed — **4.7**
+(ESLint), **4.1** (Tailwind — build wiring only), **4.6** (client CI).
+
+**4.2 closed (Phase 12).** `GET /v1/instruments` shipped on the API (API Phase 12, step 1); the
+client step retired the `localStorage` registry — see the completion note below. **4.3 / 4.4 / 4.5
+stay open**: `GET /v1/financing/cards/{id}/statements` and `GET /v1/ledger/transactions` are being
+added in the same API Phase 12 batch (client steps to follow); the auth surface (4.5) has no design.
+Execute-ready checklists for 4.3 / 4.4 are recorded below. **The phase DoD box stays unticked until
+4.3 / 4.4 / 4.5 close.**
+
+**4.2 — `GET /v1/instruments` (Phase 12, D21).** `InstrumentsService` gains
+`list(): Observable<Instrument[]>` → `GET /v1/instruments`, `{ rows }` unwrapped via `map`. New type
+`features/instruments/types/instrument.ts` — `Instrument = { id; type: InstrumentType; name;
+cutoffDate: number | null }` (field-matched to `/openapi/v1.json`). **Deleted:**
+`core/registry/instrument-registry-service.ts` (+ spec), `core/types/registered-instrument.ts`, the
+empty `core/registry/` dir. **6 consumers** dropped `inject(InstrumentRegistryService)` for
+`inject(InstrumentsService)` + a `private instruments: WritableSignal<Instrument[]>` loaded in
+`ngOnInit` via `list().pipe(takeUntil(this.destroy$))`; each existing `computed()` `<select>` filter
+was repointed at `this.instruments()` unchanged (`instruments-page` all + re-fetch after create;
+`load-expense-page` `type === 'credit'`; `statement-page` `type === 'debit'`; `subscriptions-page`
+all, D13; `party-detail-page` `type === 'debit'`; `shared-expense-page` all, D17). Specs: each
+consumer spec swapped its registry stub / `registry.add(...)` for
+`{ provide: InstrumentsService, useValue: { list: () => of([...]) } }`;
+`instruments-service.spec.ts` gained a `list()` case; `instrument-registry-service.spec.ts` deleted.
+`pnpm ng test` → **135 pass**; `pnpm ng build` 261 kB initial (< 500 kB); `pnpm ng lint` clean.
+Docs: `docs/DESIGN.md` §2/§4/§8/§9/§11, `docs/PRD.md` §7.1, `.claude/CLAUDE.md`. Not committed —
+the user commits.
 
 **4.7 — ESLint (scaffold-state gap).** `angular-eslint@20` flat config (`eslint.config.js`,
 CommonJS — the client has no `"type": "module"`): `@eslint/js` recommended + `typescript-eslint@8`
@@ -518,6 +537,16 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
   (`GET /v1/ledger/transactions`), or by the statement / timeline DTOs growing a reversible
   transaction id — whichever ships first. Until then the only reverse entry point stays the
   id-lookup page (`/ledger/transactions`, reachable from the nav shell).
+
+- **D21** — **`InstrumentRegistryService` retired for `GET /v1/instruments`.** The Phase-0 D3
+  `localStorage` instrument registry (and `core/types/registered-instrument.ts`, `core/registry/`)
+  was deleted once the API endpoint shipped (API Phase 12). `InstrumentsService.list()` replaces it;
+  the client-owned `Instrument` type (`features/instruments/types/instrument.ts`) mirrors the DTO
+  (`cutoffDate: number | null`, always present — was `cutoffDate?: number`). Each of the 6 pickers
+  loads the list into its own `WritableSignal<Instrument[]>` in `ngOnInit` rather than sharing one
+  root signal — the registry's single source of truth is gone, but the lists are small and each page
+  wants a fresh read on entry (`InstrumentsPage` also re-fetches after a successful create instead of
+  the old optimistic `registry.add`).
 
 ---
 

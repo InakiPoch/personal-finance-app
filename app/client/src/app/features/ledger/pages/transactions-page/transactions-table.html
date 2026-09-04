@@ -1,28 +1,65 @@
 @if(transactions().length === 0) {
-  <p class="transactions__empty">No transactions match the current filter.</p>
+  <p class="transactions__empty text-sm text-ink-soft">
+    No transactions match the current filter.
+  </p>
 } @else {
-  <table class="transactions">
+  <table class="w-full text-left">
     <thead>
-      <tr>
-        <th scope="col">Posted</th>
-        <th scope="col">Description</th>
-        <th scope="col">Amount</th>
-        <th scope="col">Reverse</th>
+      <tr class="border-b border-rule">
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Posted
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Description
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Amount
+        </th>
+        <th scope="col" class="pb-2 text-right">
+          <span class="sr-only">Reverse</span>
+        </th>
       </tr>
     </thead>
     <tbody>
-      @for(row of transactions(); track row.transactionId) {
-        <tr>
-          <td>{{ datePart(row) }}</td>
-          <td>{{ row.description }}</td>
-          <td>{{ formatArs(row.amountMinorUnits) }}</td>
-          <td>
-            <button type="button" [disabled]="isLocked(row)" (click)="onReverse(row.transactionId)">
-              Reverse
-            </button>
-            @if(isLocked(row)) {
-              <span class="transactions__note">{{ lockReason(row) }}</span>
-            }
+      @for(row of transactions(); track row.transactionId; let i = $index) {
+        <tr class="txn-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ datePart(row) }}
+          </td>
+          <td class="py-2.5 text-sm text-ink">{{ row.description }}</td>
+          <td
+            class="py-2.5 text-right text-sm [font-variant-numeric:tabular-nums_lining-nums]"
+            [class.text-ink]="!isLocked(row)"
+            [class.font-medium]="!isLocked(row)"
+            [class.text-ink-faint]="isLocked(row)"
+          >
+            {{ formatArs(row.amountMinorUnits) }}
+          </td>
+          <td class="py-2.5 text-right">
+            <div class="inline-flex items-baseline justify-end gap-2">
+              @if(isLocked(row)) {
+                <span class="transactions__note text-[0.6875rem] uppercase tracking-[0.1em] text-ink-faint">
+                  {{ lockReason(row) }}
+                </span>
+              }
+              <button
+                type="button"
+                [disabled]="isLocked(row)"
+                (click)="onReverse(row.transactionId)"
+                class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+              >
+                Reverse
+              </button>
+            </div>
           </td>
         </tr>
       }

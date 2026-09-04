@@ -1,59 +1,23 @@
-.shared-expense {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem;
+/*
+ * Occasional-surface entrances only — see docs/SYSTEM.md "Motion".
+ * A participant row fades up when "Add participant" is clicked; the
+ * confirmation panel fades up once the shared expense is registered.
+ */
+.participant-row,
+.conf-panel {
+  animation: row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
-.shared-expense__note {
-  color: #555;
-  font-size: 0.875rem;
-  margin: 0;
-  max-width: 60ch;
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
-.shared-expense__form {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  max-width: 28rem;
-  padding: 1rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.field__error {
-  color: #b00020;
-  font-size: 0.8125rem;
-  margin: 0;
-}
-
-.field__hint {
-  color: #555;
-  font-size: 0.8125rem;
-  margin: 0;
-}
-
-.participants {
-  border: 1px solid #eee;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.participants__row {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.confirmation {
-  color: #1b5e20;
-  font-size: 0.875rem;
+@media (prefers-reduced-motion: reduce) {
+  .participant-row,
+  .conf-panel {
+    animation: none;
+  }
 }

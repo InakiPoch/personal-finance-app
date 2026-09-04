@@ -1,84 +1,192 @@
-<section class="party-detail">
-  <header>
-    <h1>Party detail</h1>
-    <a [routerLink]="['/parties']">Back to parties</a>
+<div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
+  <header class="mb-10">
+    <p class="font-serif text-sm italic text-stamp">Personal ledger</p>
+    <h1 class="mt-1 font-serif text-2xl font-medium tracking-tight text-heading">Party detail</h1>
+    <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+      One party's running balance and every movement behind it. The API nets the balance and
+      reports each movement — the client computes nothing.
+    </p>
+    <a
+      [routerLink]="['/parties']"
+      class="group mt-4 inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+    >
+      <span aria-hidden="true" class="transition-transform group-hover:-translate-x-0.5">&lsaquo;</span>
+      Back to parties
+    </a>
   </header>
-  <section class="party-detail__balance">
-    <h2>Current-account balance</h2>
+
+  <section class="mb-12" aria-labelledby="balance-label">
+    <h2 id="balance-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Current-account balance
+    </h2>
+
     @if(balanceStatus() === 'loading') {
-      <p>Loading balance…</p>
+      <p class="mt-6 text-sm text-ink-faint">Reading the balance…</p>
     } @else if(balanceStatus() === 'error') {
-      <p role="alert">Could not load the balance — try again in a moment.</p>
+      <p role="alert" class="mt-6 text-sm text-negative">
+        Could not load the balance — try again in a moment.
+      </p>
     } @else if(balance(); as current) {
-      <p class="party-detail__name">{{ current.name }}</p>
-      <p class="party-detail__amount">{{ formatArs(current.balanceMinorUnits) }}</p>
+      <p class="mt-6 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+        {{ current.name }}
+      </p>
+      <p
+        class="mt-2 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] [font-variant-numeric:tabular-nums_lining-nums]"
+        [class.text-stamp]="current.balanceMinorUnits !== 0"
+        [class.text-ledger]="current.balanceMinorUnits === 0"
+      >
+        {{ formatArs(current.balanceMinorUnits) }}
+      </p>
+      <div class="mt-3 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
+      <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+        @if(current.balanceMinorUnits > 0) {
+          What this party owes you right now.
+        } @else if(current.balanceMinorUnits < 0) {
+          What you owe this party right now.
+        } @else {
+          Nothing outstanding — you're square.
+        }
+      </p>
     }
+
     @if(partyId(); as id) {
-      <a [routerLink]="['/parties', 'shared-expense']" [queryParams]="{ party: id }">
+      <a
+        [routerLink]="['/parties', 'shared-expense']"
+        [queryParams]="{ party: id }"
+        class="group mt-5 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+      >
+        <span class="text-stamp" aria-hidden="true">+</span>
         Register a shared expense with this party
+        <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
       </a>
     }
   </section>
-  <section class="party-detail__timeline">
-    <h2>Timeline</h2>
+
+  <section class="mb-12" aria-labelledby="timeline-label">
+    <h2 id="timeline-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Timeline
+    </h2>
+
     @if(timelineStatus() === 'loading') {
-      <p>Loading timeline…</p>
+      <p class="mt-6 text-sm text-ink-faint">Reading the timeline…</p>
     } @else if(timelineStatus() === 'error') {
-      <p role="alert">Could not load the timeline — try again in a moment.</p>
+      <p role="alert" class="mt-6 text-sm text-negative">
+        Could not load the timeline — try again in a moment.
+      </p>
     } @else {
-      <app-timeline-table [rows]="timeline()" (reverseClick)="openReverse($event)" />
+      <div class="mt-6">
+        <app-timeline-table [rows]="timeline()" (reverseClick)="openReverse($event)" />
+      </div>
     }
-    <p class="party-detail__note">
+    <p class="mt-4 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
       Balances and movements are reported by the API — a reversal is its own negative row.
     </p>
   </section>
-  <section class="party-detail__settle">
-    <h2>Register a settlement</h2>
-    <form [formGroup]="form" (ngSubmit)="onSubmit()">
-      <div class="field">
-        <label for="amount">Amount (ARS)</label>
-        <input type="number" id="amount" min="0" step="0.01" formControlName="amount" />
-        @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
-          <p class="field__error" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
-        }
-        @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
-          <p class="field__error" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
-        }
-      </div>
-      <div class="field">
-        <label for="bankAccountId">Bank account</label>
-        <select id="bankAccountId" formControlName="bankAccountId">
+
+  <form
+    class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+    [formGroup]="form"
+    (ngSubmit)="onSubmit()"
+    aria-labelledby="settle-label"
+  >
+    <h2 id="settle-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Register a settlement
+    </h2>
+    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+      Settling posts a ledger transaction that reduces this party's balance.
+    </p>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="amount"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Amount (ARS)
+      </label>
+      <input
+        type="number"
+        id="amount"
+        min="0"
+        step="0.01"
+        inputmode="decimal"
+        formControlName="amount"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+      />
+      @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="bankAccountId"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Bank account
+      </label>
+      <div class="relative">
+        <select
+          id="bankAccountId"
+          formControlName="bankAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
           <option value="">Choose an account</option>
           @for(instrument of bankAccounts(); track instrument.id) {
             <option [value]="instrument.id">{{ instrument.name }}</option>
           }
         </select>
-        @if(bankAccounts().length === 0) {
-          <p class="field__hint">No debit accounts registered yet — add one on the Instruments page.</p>
-        }
-        @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
-          <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-        }
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
       </div>
-      <div class="field">
-        <label for="settledOnUtc">Settled on</label>
-        <input type="datetime-local" id="settledOnUtc" formControlName="settledOnUtc" />
-        @if(form.controls.settledOnUtc.touched && form.controls.settledOnUtc.hasError('required')) {
-          <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-        }
-      </div>
-      <p class="party-detail__note">
-        Settling posts a ledger transaction that reduces this party's balance.
-      </p>
-      <button type="submit" [disabled]="settleStatus() === 'settling'">
+      @if(bankAccounts().length === 0) {
+        <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+          No debit accounts registered yet — add one on the Instruments page.
+        </p>
+      }
+      @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="settledOnUtc"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Settled on
+      </label>
+      <input
+        type="datetime-local"
+        id="settledOnUtc"
+        formControlName="settledOnUtc"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(form.controls.settledOnUtc.touched && form.controls.settledOnUtc.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="settleStatus() === 'settling'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
         {{ settleStatus() === 'settling' ? 'Recording…' : 'Record settlement' }}
       </button>
       @if(settleStatus() === 'settled') {
-        <p class="party-detail__confirmation" role="status">Settlement recorded.</p>
+        <p class="text-[0.8125rem] text-ledger" role="status">Settlement recorded.</p>
       }
       @if(settleError(); as error) {
-        <p class="field__error" role="alert">{{ settleErrorText(error) }}</p>
+        <p class="text-xs text-negative" role="alert">{{ settleErrorText(error) }}</p>
       }
-    </form>
-  </section>
-</section>
+    </div>
+  </form>
+</div>

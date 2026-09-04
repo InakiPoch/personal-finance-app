@@ -1,50 +1,33 @@
-.dashboard {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem;
+/*
+ * Signature element: the cycle bar. The Future segment is hatched so it reads as
+ * "committed, not yet real" against the solid-ink Accrued segment. Repeating
+ * gradient can't be expressed as a utility, so it lives here.
+ */
+.cycle-future {
+  background-color: var(--paper-inset);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    var(--ink-faint) 0,
+    var(--ink-faint) 1px,
+    transparent 1px,
+    transparent 5px
+  );
 }
 
-.dashboard__note {
-  color: #555;
-  font-size: 0.875rem;
-  max-width: 60ch;
+/* Quiet entrance for the category ledger — an occasional surface, not a hot path. */
+.cat-row {
+  animation: cat-row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
-.panel {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  padding: 1rem;
+@keyframes cat-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
-.panel__title {
-  align-items: baseline;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-}
-
-.panel__title h2 {
-  margin-right: auto;
-}
-
-table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-th,
-td {
-  border-bottom: 1px solid #eee;
-  padding: 0.375rem 0.5rem;
-  text-align: left;
-}
-
-th:last-child,
-td:last-child {
-  text-align: right;
-}
-
-.bucket {
-  margin-top: 0.75rem;
+@media (prefers-reduced-motion: reduce) {
+  .cat-row {
+    animation: none;
+  }
 }

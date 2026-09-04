@@ -11,11 +11,15 @@ rounding, and invariants belong to the API. It mirrors the API DTOs with hand-wr
 2. `docs/DESIGN.md` — technical: folder tree §2, hand-written type model §3, services §4,
    HTTP + error model §5, state/forms §6, eventual consistency §7, local registry §8,
    endpoint traceability §9, config §10, open questions §11.
-3. `.claude/TASK.md` — the phased build order (Phases 0 and 1 done; Phase 1 shipped the five
+3. `docs/SYSTEM.md` — the interface system: direction & feel, tokens, typography, depth &
+   spacing, focal pattern, component patterns, the pre-ship checks. This is the "separate UI
+   task" DESIGN §10 defers to — now built out. **Every view has been redesigned against it**;
+   hold to its values and extend the file when styling something new.
+4. `.claude/TASK.md` — the phased build order (Phases 0 and 1 done; Phase 1 shipped the five
    Fase-1 views). Its "Deviations baked into Phases 0–3" and the per-phase "Completion notes"
    (D1–D11) record every intentional departure from PRD/DESIGN — check there before flagging
    drift.
-4. `.claude/rules/typescript-frontend-style.md` — the detailed style guide (formatting,
+5. `.claude/rules/typescript-frontend-style.md` — the detailed style guide (formatting,
    naming, typing, component/service shape, forms, cleanup). It is authoritative; the notes
    below are the high-frequency subset, not a replacement.
 
@@ -34,8 +38,11 @@ hyphen table — that is D7, not drift).
 - **Karma + Jasmine**. `zone.js/testing` is **not** loaded — no `fakeAsync` / `tick`; use
   RxJS `TestScheduler` marbles for timer-based tests.
 - **Tailwind v4** wired into the build (CSS-first: `.postcssrc.json` + `@import 'tailwindcss'`
-  in `styles.css`, no `tailwind.config.js` — D19). Utility layer only; `@theme` tokens, palette,
-  and components remain the separate UI task (`docs/DESIGN.md` §10). **ESLint** —
+  in `styles.css`, no `tailwind.config.js` — D19). The design system is now built: a
+  `@theme inline` token block over CSS custom properties in `styles.css`, IBM Plex Serif + Sans
+  loaded via `<link>` in `index.html`, one committed light palette (**no dark mode**, no
+  toggle). Bind the semantic utilities (`bg-paper`, `text-ink`, `text-stamp`, `border-rule`) —
+  never a raw palette class (`bg-gray-100`) or hex. Full spec in `docs/SYSTEM.md`. **ESLint** —
   `angular-eslint@20` flat config (`eslint.config.js`), run via `pnpm ng lint`. **Client CI** —
   the `client-build-test` job in `/.github/workflows/ci.yml` runs lint + build + test. API gaps
   4.2 (`GET /v1/instruments`, D21), 4.3 (`GET /v1/financing/cards/{id}/statements`, D22) and
@@ -63,10 +70,12 @@ Phases 0 and 1 are complete. `src/app/core/` holds:
 - `health/` — `HealthService.check()`: `GET /health` at the host root, degradation-aware.
 
 Feature code lives under `src/app/features/<feature>/` (`<feature>-service.ts`, `types/`,
-`pages/<page>/`, `<feature>.routes.ts`). Phase 1 added five: `reports` (dashboard, the default
-route), `instruments`, `financing`, `parties` (partial — `getBalance` only), `ledger`.
-`app.routes.ts` lazy-wires `reports` / `instruments` / `financing` / `ledger` via `loadChildren`,
-redirects `''` → `reports`, and falls back `**` → `reports`.
+`pages/<page>/`, `<feature>.routes.ts`). Six features exist: `reports` (dashboard, the default
+route), `instruments`, `financing`, `parties`, `ledger`, `subscriptions`. `app.routes.ts`
+lazy-wires all six via `loadChildren`, redirects `''` → `reports`, and falls back `**` →
+`reports`. **Every page has been redesigned against `docs/SYSTEM.md`** — the markup was
+rewritten; component logic and its specs were largely left in place (specs test logic, not the
+DOM).
 
 ## Conventions — the non-negotiables
 
@@ -86,6 +95,10 @@ member.
 - `NgOptimizedImage` for static images (not for inline base64).
 - Container vs presentational: containers inject services and own state; presentational
   components get everything via `input()` and emit via `output()`.
+- Styling: Tailwind utilities bound to the `docs/SYSTEM.md` semantic tokens — no raw palette
+  classes, no hex, no dark-mode variants. A pattern that can't be a utility (the cycle-bar
+  hatch `repeating-linear-gradient`, keyframes) goes in the page's `.css` file. Name the one
+  focal element per view first, then demote the rest (SYSTEM.md "Focal pattern").
 
 **State**
 - **Signals-first.** All synchronous state is signals; derived state is `computed()`.

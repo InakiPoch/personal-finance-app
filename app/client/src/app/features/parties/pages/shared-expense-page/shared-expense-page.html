@@ -1,105 +1,276 @@
-<section class="shared-expense">
-  <header>
-    <h1>Register a shared expense</h1>
-    <a [routerLink]="['/parties']">Back to parties</a>
-    <p class="shared-expense__note">
-      The API splits the total across the account holder (implicit weight 1) and every listed
-      participant, allocating the cents server-side. This form collects participant weights only.
+<div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
+  <header class="mb-10">
+    <p class="font-serif text-sm italic text-stamp">Personal ledger</p>
+    <h1 class="mt-1 font-serif text-2xl font-medium tracking-tight text-heading">
+      Register a shared expense
+    </h1>
+    <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+      Enter the expense once. The API splits the total across the account holder (implicit weight 1)
+      and every listed participant, allocating the per-party cents itself — the client computes
+      nothing.
     </p>
+    <a
+      [routerLink]="['/parties']"
+      class="group mt-4 inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+    >
+      <span aria-hidden="true" class="transition-transform group-hover:-translate-x-0.5">&lsaquo;</span>
+      Back to parties
+    </a>
   </header>
-  <form class="shared-expense__form" [formGroup]="form" (ngSubmit)="onSubmit()">
-    <div class="field">
-      <label for="description">Description</label>
-      <input type="text" id="description" formControlName="description" />
-      @if(form.controls.description.touched && form.controls.description.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-    <div class="field">
-      <label for="total">Total (ARS)</label>
-      <input type="number" id="total" min="0" step="0.01" formControlName="total" />
-      @if(form.controls.total.touched && form.controls.total.hasError('positiveAmount')) {
-        <p class="field__error" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
-      }
-      @if(form.controls.total.touched && form.controls.total.hasError('atMostTwoDecimals')) {
-        <p class="field__error" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
-      }
-    </div>
-    <div class="field">
-      <label for="expenseAccountId">Expense account id</label>
-      <input type="text" id="expenseAccountId" formControlName="expenseAccountId" />
-      <p class="field__hint">
-        Expense accounts are not registered instruments and have no list endpoint yet — paste the
-        account UUID.
-      </p>
-      @if(form.controls.expenseAccountId.touched && form.controls.expenseAccountId.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-    <div class="field">
-      <label for="fundingAccountId">Funding account</label>
-      <select id="fundingAccountId" formControlName="fundingAccountId">
-        <option value="">Choose an account</option>
-        @for(instrument of fundingAccounts(); track instrument.id) {
-          <option [value]="instrument.id">{{ instrument.name }} ({{ instrument.type }})</option>
+
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <section
+      class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+      aria-labelledby="expense-label"
+    >
+      <h2 id="expense-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+        The expense
+      </h2>
+
+      <div class="mt-6 flex flex-col gap-1.5">
+        <label
+          for="description"
+          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Description
+        </label>
+        <input
+          type="text"
+          id="description"
+          formControlName="description"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        />
+        @if(form.controls.description.touched && form.controls.description.hasError('required')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
         }
-      </select>
-      @if(fundingAccounts().length === 0) {
-        <p class="field__hint">No instruments registered yet — add one on the Instruments page.</p>
-      }
-      @if(form.controls.fundingAccountId.touched && form.controls.fundingAccountId.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-    <div class="field">
-      <label for="incurredOnUtc">Incurred on</label>
-      <input type="datetime-local" id="incurredOnUtc" formControlName="incurredOnUtc" />
-      @if(form.controls.incurredOnUtc.touched && form.controls.incurredOnUtc.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-    <fieldset class="participants">
-      <legend>Participants</legend>
+      </div>
+
+      <div class="mt-6 flex flex-col gap-1.5">
+        <label
+          for="total"
+          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Total (ARS)
+        </label>
+        <div
+          class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp"
+        >
+          <span class="font-serif text-xl text-stamp" aria-hidden="true">$</span>
+          <input
+            type="number"
+            id="total"
+            min="0"
+            step="0.01"
+            inputmode="decimal"
+            placeholder="0.00"
+            formControlName="total"
+            class="w-full bg-transparent pb-1 font-serif text-[1.75rem] leading-none text-ink outline-none [font-variant-numeric:tabular-nums_lining-nums] placeholder:text-ink-faint"
+          />
+        </div>
+        <div class="mt-2 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
+        @if(form.controls.total.touched && form.controls.total.hasError('positiveAmount')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+        }
+        @if(form.controls.total.touched && form.controls.total.hasError('atMostTwoDecimals')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+        }
+      </div>
+
+      <div class="mt-6 flex flex-col gap-1.5">
+        <label
+          for="expenseAccountId"
+          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Expense account id
+        </label>
+        <input
+          type="text"
+          id="expenseAccountId"
+          formControlName="expenseAccountId"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        />
+        <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+          Expense accounts are not registered instruments and have no list endpoint yet — paste the
+          account UUID.
+        </p>
+        @if(form.controls.expenseAccountId.touched && form.controls.expenseAccountId.hasError('required')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+        }
+      </div>
+
+      <div class="mt-6 grid gap-6 sm:grid-cols-2">
+        <div class="flex flex-col gap-1.5">
+          <label
+            for="fundingAccountId"
+            class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+          >
+            Funding account
+          </label>
+          <div class="relative">
+            <select
+              id="fundingAccountId"
+              formControlName="fundingAccountId"
+              class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+            >
+              <option value="">Choose an account</option>
+              @for(instrument of fundingAccounts(); track instrument.id) {
+                <option [value]="instrument.id">{{ instrument.name }} ({{ instrument.type }})</option>
+              }
+            </select>
+            <span
+              class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+              aria-hidden="true"
+            >
+              &#9662;
+            </span>
+          </div>
+          @if(fundingAccounts().length === 0) {
+            <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+              No instruments registered yet — add one on the Instruments page.
+            </p>
+          }
+          @if(form.controls.fundingAccountId.touched && form.controls.fundingAccountId.hasError('required')) {
+            <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label
+            for="incurredOnUtc"
+            class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+          >
+            Incurred on
+          </label>
+          <input
+            type="datetime-local"
+            id="incurredOnUtc"
+            formControlName="incurredOnUtc"
+            class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+          />
+          @if(form.controls.incurredOnUtc.touched && form.controls.incurredOnUtc.hasError('required')) {
+            <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+          }
+        </div>
+      </div>
+    </section>
+
+    <section
+      class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+      formArrayName="participants"
+      aria-labelledby="participants-label"
+    >
+      <h2
+        id="participants-label"
+        class="text-xs font-semibold uppercase tracking-[0.14em] text-heading"
+      >
+        Participants
+      </h2>
+      <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+        Each participant carries a whole-number weight; the account holder is an implicit weight of 1.
+      </p>
+
       @if(partiesStatus() === 'loading') {
-        <p>Loading parties…</p>
+        <p class="mt-6 text-sm text-ink-faint">Loading parties…</p>
       } @else if(partiesStatus() === 'error') {
-        <p role="alert">Could not load parties — try again in a moment.</p>
+        <p class="mt-6 text-sm text-negative" role="alert">
+          Could not load parties — try again in a moment.
+        </p>
       } @else {
-        <div formArrayName="participants">
+        <div class="mt-6 flex flex-col">
           @for(row of form.controls.participants.controls; track $index; let i = $index) {
-            <div class="participants__row" [formGroupName]="i">
-              <select formControlName="partyId" aria-label="Party">
-                <option value="">Choose a party</option>
-                @for(party of parties(); track party.partyId) {
-                  <option [value]="party.partyId">{{ party.partyName }}</option>
-                }
-              </select>
-              <input type="number" min="1" step="1" formControlName="weight" aria-label="Weight" />
-              <button type="button" (click)="removeParticipant(i)">Remove</button>
+            <div
+              class="participant-row grid grid-cols-[1fr_auto_auto] items-baseline gap-3 border-b border-rule py-2.5 first:pt-0 last:border-0"
+              [formGroupName]="i"
+            >
+              <div class="relative">
+                <select
+                  formControlName="partyId"
+                  aria-label="Party"
+                  class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+                >
+                  <option value="">Choose a party</option>
+                  @for(party of parties(); track party.partyId) {
+                    <option [value]="party.partyId">{{ party.partyName }}</option>
+                  }
+                </select>
+                <span
+                  class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+                  aria-hidden="true"
+                >
+                  &#9662;
+                </span>
+              </div>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                formControlName="weight"
+                aria-label="Weight"
+                class="w-16 border-b border-rule bg-transparent pb-1 text-right font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+              />
+              <button
+                type="button"
+                (click)="removeParticipant(i)"
+                class="text-xs text-ink-faint transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+              >
+                Remove
+              </button>
             </div>
           }
         </div>
         @if(form.controls.participants.length === 0) {
-          <p class="field__hint">Add at least one participant.</p>
+          <p class="mt-6 text-sm text-ink-soft">Add at least one participant.</p>
         }
-        <button type="button" [disabled]="parties().length === 0" (click)="addParticipant()">
+        <button
+          type="button"
+          [disabled]="parties().length === 0"
+          (click)="addParticipant()"
+          class="group mt-4 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:opacity-60"
+        >
+          <span class="text-stamp" aria-hidden="true">+</span>
           Add participant
         </button>
       }
-    </fieldset>
-    <button type="submit" [disabled]="submitStatus() === 'submitting'">
-      {{ submitStatus() === 'submitting' ? 'Submitting…' : 'Register shared expense' }}
-    </button>
-    @if(submitError(); as error) {
-      <p class="field__error" role="alert">{{ submitErrorText(error) }}</p>
-    }
+    </section>
+
+    <div class="flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="submitStatus() === 'submitting'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        <span aria-hidden="true">+</span>
+        {{ submitStatus() === 'submitting' ? 'Submitting…' : 'Register shared expense' }}
+      </button>
+      @if(submitError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ submitErrorText(error) }}</p>
+      }
+    </div>
   </form>
+
   @if(submitStatus() === 'confirmed' && splitReferenceId(); as reference) {
-    <section class="confirmation" role="status">
-      <p>Shared expense registered — split reference <code>{{ reference }}</code>.</p>
+    <section
+      class="conf-panel mt-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+      role="status"
+      aria-labelledby="confirmed-label"
+    >
+      <h2 id="confirmed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+        Registered
+      </h2>
+      <p class="mt-4 text-sm text-ledger">
+        Shared expense registered — split reference
+        <code class="text-ink [font-variant-numeric:tabular-nums_lining-nums]">{{ reference }}</code>.
+      </p>
       @if(prefilledPartyId(); as id) {
-        <a [routerLink]="['/parties', id]">Open party detail</a>
+        <a
+          [routerLink]="['/parties', id]"
+          class="group mt-4 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+        >
+          Open party detail
+          <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+        </a>
       }
     </section>
   }
-</section>
+</div>

@@ -36,7 +36,7 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         var creditorAccountId = Guid.CreateVersion7();
         var command = new CreatePaymentPlanCommand(
             10000, cardId, 3, new DateOnly(2026, 1, 10),
-            CreditorId: creditorId, CreditorAccountId: creditorAccountId);
+            Description: "New laptop", CreditorId: creditorId, CreditorAccountId: creditorAccountId);
         Guid planId;
         await using(var context = NewContext()) {
             var result = await new CreatePaymentPlanHandler(context, new FinancingOutboxWriter(context)).HandleAsync(command, cancellationToken);
@@ -53,7 +53,7 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
     public async Task Handle_leaves_creditor_fields_null_when_absent() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var cardId = await SeedCardAsync(cancellationToken);
-        var command = new CreatePaymentPlanCommand(10000, cardId, 3, new DateOnly(2026, 1, 10));
+        var command = new CreatePaymentPlanCommand(10000, cardId, 3, new DateOnly(2026, 1, 10), Description: "New laptop");
         Guid planId;
         await using(var context = NewContext()) {
             var result = await new CreatePaymentPlanHandler(context, new FinancingOutboxWriter(context)).HandleAsync(command, cancellationToken);
@@ -64,6 +64,22 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         var plan = await verifyContext.PaymentPlans.SingleAsync(p => p.Id == planId, cancellationToken);
         Assert.Null(plan.CreditorId);
         Assert.Null(plan.CreditorAccountId);
+    }
+
+    [Fact]
+    public async Task Handle_persists_the_trimmed_description() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync(cancellationToken);
+        var command = new CreatePaymentPlanCommand(10000, cardId, 3, new DateOnly(2026, 1, 10), Description: "  New laptop  ");
+        Guid planId;
+        await using(var context = NewContext()) {
+            var result = await new CreatePaymentPlanHandler(context, new FinancingOutboxWriter(context)).HandleAsync(command, cancellationToken);
+            Assert.True(result.IsSuccess);
+            planId = result.Value;
+        }
+        await using var verifyContext = NewContext();
+        var plan = await verifyContext.PaymentPlans.SingleAsync(p => p.Id == planId, cancellationToken);
+        Assert.Equal("New laptop", plan.Description);
     }
 
     private async Task<Guid> SeedCardAsync(CancellationToken cancellationToken) {

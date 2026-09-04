@@ -1,3 +1,4 @@
+using PersonalFinance.Api.Endpoints.Creditors;
 using PersonalFinance.Api.Endpoints.DTOs;
 using PersonalFinance.Api.Endpoints.Financing;
 using PersonalFinance.Api.Endpoints.Ledger;
@@ -92,6 +93,22 @@ internal static class EndpointExtensions {
                 .WithSummary("List registered payment instruments.")
                 .WithDescription("Unified read of every registered instrument: debit and cash accounts from Ledger plus credit cards from Financing, each tagged with its instrument type.")
                 .Produces<InstrumentsListDto>(StatusCodes.Status200OK);
+            return endpoints;
+        }
+
+        public IEndpointRouteBuilder MapCreditorEndpoints() {
+            var group = endpoints.MapGroup(ApiRoutes.Creditors.Base)
+                .WithTags("Creditors")
+                .ProducesProblem(StatusCodes.Status500InternalServerError);
+            group.MapPost(ApiRoutes.Creditors.Create, PostCreditor.Handle)
+                .WithSummary("Register a creditor together with its accounts.")
+                .WithDescription("Creates a creditor and its destination accounts in one submit. Accounts are optional and free-text (label + CBU/CVU/alias identifier).")
+                .Produces<CreditorResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Creditors.List, GetCreditors.Handle)
+                .WithSummary("List registered creditors.")
+                .WithDescription("Returns every creditor with its accounts, ordered by name.")
+                .Produces<CreditorListDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

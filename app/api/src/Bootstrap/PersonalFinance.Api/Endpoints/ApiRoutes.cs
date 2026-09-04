@@ -26,6 +26,12 @@ public sealed record ApiRoutes {
         public const string List = "/";
     }
 
+    public sealed record Creditors {
+        public const string Base = V1 + "/creditors";
+        public const string Create = "/";
+        public const string List = "/";
+    }
+
     public sealed record Subscriptions {
         public const string Base = V1 + "/subscriptions";
         public const string Create = "/";

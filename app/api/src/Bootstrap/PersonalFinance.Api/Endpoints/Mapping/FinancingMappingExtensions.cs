@@ -64,6 +64,21 @@ internal static class FinancingMappingExtensions {
         return new CardStatementsDto(cardId, rows);
     }
 
+    public static CardPurchasesDto ToCardPurchasesDto(this CardPurchasesResponse response) {
+        var rows = response.Rows
+            .Select(row => new CardPurchaseRowDto(
+                row.PlanId,
+                row.Description,
+                row.TotalMinorUnits,
+                row.InstallmentCount,
+                row.OutstandingCount,
+                row.PurchaseDate,
+                row.IsCreditorPayment)
+            )
+            .ToList();
+        return new CardPurchasesDto(response.CardId, rows);
+    }
+
     public static MonthlyStatementDetailDto ToMonthlyStatementDetailDto(this MonthlyStatementDetailResponse response) {
         var installments = response.Installments
             .Select(row => new MonthlyStatementInstallmentRowDto(

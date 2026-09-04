@@ -76,6 +76,10 @@ internal static class EndpointExtensions {
                 .WithSummary("List a card's monthly statements.")
                 .WithDescription("Returns every monthly statement raised for the given credit card, ordered by billing cycle, without the component installments. An unknown card yields an empty list.")
                 .Produces<CardStatementsDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.CardPurchases, GetCardPurchases.Handle)
+                .WithSummary("List a card's outstanding purchases.")
+                .WithDescription("Returns every outstanding purchase (payment plan) on the given credit card, current-cycle purchases first. An unknown card yields an empty list.")
+                .Produces<CardPurchasesDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

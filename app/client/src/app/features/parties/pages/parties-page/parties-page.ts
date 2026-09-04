@@ -3,14 +3,16 @@ import {
   Component,
   OnDestroy,
   OnInit,
+  Signal,
   WritableSignal,
+  computed,
   inject,
   signal,
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { formatArs } from '../../../../core/money/money';
+import { formatArs, fromMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { ReportsService } from '../../../reports/reports-service';
@@ -38,6 +40,30 @@ export class PartiesPage implements OnInit, OnDestroy {
   protected readonly formatArs: (value: Money) => string = formatArs;
   protected readonly listStatus: WritableSignal<ListStatus> = signal<ListStatus>('loading');
   protected readonly parties: WritableSignal<PartyDebtRow[]> = signal<PartyDebtRow[]>([]);
+  protected readonly totalReceivable: Signal<Money> = computed(() =>
+    fromMinorUnits(
+      this.parties().reduce(
+        (sum: number, row: PartyDebtRow) =>
+          row.netBalanceMinorUnits > 0 ? sum + row.netBalanceMinorUnits : sum,
+        0
+      )
+    )
+  );
+  protected readonly totalPayable: Signal<Money> = computed(() =>
+    fromMinorUnits(
+      this.parties().reduce(
+        (sum: number, row: PartyDebtRow) =>
+          row.netBalanceMinorUnits < 0 ? sum - row.netBalanceMinorUnits : sum,
+        0
+      )
+    )
+  );
+  protected readonly maxMagnitude: Signal<number> = computed(() =>
+    this.parties().reduce(
+      (max: number, row: PartyDebtRow) => Math.max(max, Math.abs(row.netBalanceMinorUnits)),
+      0
+    )
+  );
   protected readonly submitStatus: WritableSignal<SubmitStatus> = signal<SubmitStatus>('idle');
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly createdPartyId: WritableSignal<string | null> = signal<string | null>(null);
@@ -95,6 +121,12 @@ export class PartiesPage implements OnInit, OnDestroy {
 
   protected submitErrorText(error: AppError): string {
     return this.submitErrorMessages[error.code] ?? 'The party could not be created.';
+  }
+
+  /** Width (%) of the magnitude tick behind a party row, relative to the largest |net balance|. */
+  protected tickWidth(row: PartyDebtRow): number {
+    const max: number = this.maxMagnitude();
+    return max === 0 ? 0 : Math.round((Math.abs(row.netBalanceMinorUnits) / max) * 100);
   }
 
   private loadParties(): void {

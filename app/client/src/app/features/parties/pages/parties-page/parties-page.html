@@ -1,61 +1,134 @@
-<section class="parties">
-  <header>
-    <h1>Parties</h1>
+<div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
+  <header class="mb-10">
+    <p class="font-serif text-sm italic text-stamp">Personal ledger</p>
+    <h1 class="mt-1 font-serif text-2xl font-medium tracking-tight text-heading">Parties</h1>
+    <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+      Who owes whom after the shared expenses. The API nets every cross-debt, so each party
+      shows a single balance.
+    </p>
   </header>
-  <form class="parties__form" [formGroup]="form" (ngSubmit)="onSubmit()">
-    <h2>Add a party</h2>
-    <div class="field">
-      <label for="name">Name</label>
-      <input type="text" id="name" formControlName="name" />
-      @if(form.controls.name.touched && form.controls.name.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-      }
+
+  <section class="mb-12" aria-labelledby="balances-label">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+      <h2 id="balances-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+        Owed to you
+      </h2>
     </div>
-    <button type="submit" [disabled]="submitStatus() === 'submitting'">
-      {{ submitStatus() === 'submitting' ? 'Adding…' : 'Add party' }}
-    </button>
-    @if(submitError(); as error) {
-      <p class="field__error" role="alert">{{ submitErrorText(error) }}</p>
-    }
-    @if(createdPartyId(); as id) {
-      <p class="parties__confirmation" role="status">
-        Party created (id <code>{{ id }}</code>). New parties appear in the list below once they
-        take part in a shared expense.
-      </p>
-    }
-  </form>
-  <section class="parties__list">
-    <h2>Debt summary</h2>
+
     @if(listStatus() === 'loading') {
-      <p>Loading parties…</p>
+      <p class="mt-6 text-sm text-ink-faint">Reading the balances…</p>
     } @else if(listStatus() === 'error') {
-      <p role="alert">Could not load parties — try again in a moment.</p>
-    } @else if(parties().length === 0) {
-      <p>No parties with movements yet.</p>
-    } @else {
-      <table class="parties__table">
-        <thead>
-          <tr>
-            <th scope="col">Party</th>
-            <th scope="col">Net balance</th>
-            <th scope="col">Direction</th>
-            <th scope="col">Detail</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for(party of parties(); track party.partyId) {
-            <tr>
-              <td>{{ party.partyName }}</td>
-              <td>{{ formatArs(party.netBalanceMinorUnits) }}</td>
-              <td>{{ balanceHint(party) }}</td>
-              <td><a [routerLink]="['/parties', party.partyId]">Open</a></td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      <p class="parties__note">
-        Net balances are computed by the API — cross-debts are already netted.
+      <p role="alert" class="mt-6 text-sm text-negative">
+        Could not load parties — try again in a moment.
       </p>
+    } @else {
+      <p
+        class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
+      >
+        {{ formatArs(totalReceivable()) }}
+      </p>
+      <div class="mt-3 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
+      <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+        What parties owe you across every open balance.
+        @if(totalPayable() > 0) {
+          <span class="text-ink-soft">You owe {{ formatArs(totalPayable()) }} back.</span>
+        }
+      </p>
+
+      @if(parties().length === 0) {
+        <p class="mt-8 text-sm text-ink-soft">No parties with movements yet.</p>
+      } @else {
+        <ul class="mt-8">
+          @for(party of parties(); track party.partyId; let i = $index) {
+            <li
+              class="party-row relative py-2.5"
+              [style.animation-delay.ms]="i * 40"
+            >
+              <span
+                aria-hidden="true"
+                class="absolute bottom-0 left-0 h-0.5 rounded-full bg-stamp-soft"
+                [style.width.%]="tickWidth(party)"
+              ></span>
+              <div class="flex items-baseline justify-between gap-4">
+                <a
+                  [routerLink]="['/parties', party.partyId]"
+                  class="group inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink"
+                >
+                  {{ party.partyName }}
+                  <span
+                    aria-hidden="true"
+                    class="transition-transform group-hover:translate-x-0.5"
+                  >&rsaquo;</span>
+                </a>
+                <span
+                  class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]"
+                  [class.text-ledger]="party.netBalanceMinorUnits === 0"
+                >
+                  {{ formatArs(party.netBalanceMinorUnits) }}
+                </span>
+              </div>
+              <p class="mt-0.5 text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">
+                {{ balanceHint(party) }}
+              </p>
+            </li>
+          }
+        </ul>
+        <p class="mt-4 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+          Balances shift as parties take part in shared expenses and settlements.
+        </p>
+      }
     }
   </section>
-</section>
+
+  <form
+    class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+    [formGroup]="form"
+    (ngSubmit)="onSubmit()"
+    aria-labelledby="add-label"
+  >
+    <h2 id="add-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Add a party
+    </h2>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="name"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Name
+      </label>
+      <input
+        type="text"
+        id="name"
+        formControlName="name"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(form.controls.name.touched && form.controls.name.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="submitStatus() === 'submitting'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        <span aria-hidden="true">+</span>
+        {{ submitStatus() === 'submitting' ? 'Adding…' : 'Add party' }}
+      </button>
+      @if(submitError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ submitErrorText(error) }}</p>
+      }
+      @if(createdPartyId(); as id) {
+        <p
+          class="max-w-[52ch] text-[0.8125rem] leading-relaxed text-ledger text-pretty"
+          role="status"
+        >
+          Party created (id <code class="font-sans text-ink-soft">{{ id }}</code>). New parties
+          appear in the list above once they take part in a shared expense.
+        </p>
+      }
+    </div>
+  </form>
+</div>

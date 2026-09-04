@@ -1,60 +1,21 @@
-.parties {
-  display: flex;
-  flex-direction: column;
-  gap: 1.5rem;
-  padding: 1rem;
+/*
+ * Row entrance — occasional-surface level, see docs/SYSTEM.md "Motion".
+ * Party balance rows fade up 4px when the list loads, staggered via
+ * [style.animation-delay.ms] on each row.
+ */
+.party-row {
+  animation: row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
 }
 
-.parties__note {
-  color: #555;
-  font-size: 0.875rem;
-  margin: 0;
-  max-width: 60ch;
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
 }
 
-.parties__confirmation {
-  color: #1b5e20;
-  font-size: 0.875rem;
-  margin: 0;
-  max-width: 60ch;
-}
-
-.parties__form {
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  max-width: 24rem;
-  padding: 1rem;
-}
-
-.field {
-  display: flex;
-  flex-direction: column;
-  gap: 0.25rem;
-}
-
-.field__error {
-  color: #b00020;
-  font-size: 0.8125rem;
-  margin: 0;
-}
-
-.field__hint {
-  color: #555;
-  font-size: 0.8125rem;
-  margin: 0;
-}
-
-.parties__table {
-  border-collapse: collapse;
-  width: 100%;
-}
-
-.parties__table th,
-.parties__table td {
-  border-bottom: 1px solid #eee;
-  padding: 0.375rem 0.5rem;
-  text-align: left;
+@media (prefers-reduced-motion: reduce) {
+  .party-row {
+    animation: none;
+  }
 }

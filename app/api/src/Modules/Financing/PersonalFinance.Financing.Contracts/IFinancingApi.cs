@@ -13,4 +13,6 @@ public interface IFinancingApi {
     Task<InstallmentStatusResponse> GetInstallmentStatusAsync(GetInstallmentStatusQuery query, CancellationToken ct = default);
     Task<CardFutureScheduleResponse> GetCardFutureScheduleAsync(GetCardFutureScheduleQuery query, CancellationToken ct = default);
     Task<ListCreditCardsResponse> ListCreditCardsAsync(ListCreditCardsQuery query, CancellationToken ct = default);
+    Task<Result<Guid>> CreateCreditorAsync(CreateCreditorCommand command, CancellationToken ct = default);
+    Task<ListCreditorsResponse> ListCreditorsAsync(ListCreditorsQuery query, CancellationToken ct = default);
 }

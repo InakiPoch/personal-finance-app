@@ -38,4 +38,12 @@ internal sealed class FinancingApi(ICommandBus commandBus, IQueryBus queryBus) :
     public Task<ListCreditCardsResponse> ListCreditCardsAsync(ListCreditCardsQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }
+
+    public Task<Result<Guid>> CreateCreditorAsync(CreateCreditorCommand command, CancellationToken ct = default) {
+        return commandBus.SendAsync(command, ct);
+    }
+
+    public Task<ListCreditorsResponse> ListCreditorsAsync(ListCreditorsQuery query, CancellationToken ct = default) {
+        return queryBus.AskAsync(query, ct);
+    }
 }

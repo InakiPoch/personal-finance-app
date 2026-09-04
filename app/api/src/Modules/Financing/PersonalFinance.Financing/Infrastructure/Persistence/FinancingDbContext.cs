@@ -8,6 +8,7 @@ internal sealed class FinancingDbContext(DbContextOptions<FinancingDbContext> op
     public DbSet<CreditCard> CreditCards => Set<CreditCard>();
     public DbSet<PaymentPlan> PaymentPlans => Set<PaymentPlan>();
     public DbSet<MonthlyStatement> MonthlyStatements => Set<MonthlyStatement>();
+    public DbSet<Creditor> Creditors => Set<Creditor>();
 
     protected override string ModuleName => "Financing";
 

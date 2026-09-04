@@ -44,6 +44,7 @@
             class="py-2.5 text-right text-sm font-medium [font-variant-numeric:tabular-nums_lining-nums]"
             [class.text-negative]="row.deltaMinorUnits < 0"
             [class.text-ink]="row.deltaMinorUnits >= 0"
+            [class.timeline__debit]="row.deltaMinorUnits < 0"
           >
             {{ signed(row.deltaMinorUnits) }}
           </td>
@@ -55,7 +56,7 @@
           <td class="py-2.5 text-right">
             <div class="inline-flex items-baseline justify-end gap-2">
               @if(isReversalRow(row)) {
-                <span class="text-[0.6875rem] uppercase tracking-[0.1em] text-ink-faint">
+                <span class="timeline__note text-[0.6875rem] uppercase tracking-widest text-ink-faint">
                   Reversal entry
                 </span>
               }

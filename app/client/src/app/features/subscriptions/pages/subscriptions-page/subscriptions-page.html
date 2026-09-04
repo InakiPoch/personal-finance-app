@@ -1,119 +1,317 @@
-<section class="subscriptions">
-  <header>
-    <h1>Subscriptions</h1>
+<div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
+  <header class="mb-10">
+    <p class="font-serif text-sm italic text-stamp">Personal ledger</p>
+    <h1 class="mt-1 font-serif text-2xl font-medium tracking-tight text-heading">
+      Subscriptions
+    </h1>
+    <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+      The recurring charges on autopilot. Creating one bills the first period immediately;
+      the API schedules every renewal after that.
+    </p>
   </header>
-  <form class="subscriptions__form" [formGroup]="form" (ngSubmit)="onSubmit()">
-    <h2>Create a subscription</h2>
-    <div class="field">
-      <label for="name">Name</label>
-      <input type="text" id="name" formControlName="name" />
-      @if(form.controls.name.touched && form.controls.name.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-    <div class="field">
-      <label for="amount">Amount (ARS)</label>
-      <input type="number" id="amount" min="0" step="0.01" formControlName="amount" />
+
+  <form
+    class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+    [formGroup]="form"
+    (ngSubmit)="onSubmit()"
+    aria-labelledby="new-label"
+  >
+    <h2 id="new-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      New subscription
+    </h2>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="amount"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Amount per period
+      </label>
+      <div
+        class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp"
+      >
+        <span class="font-serif text-xl text-stamp" aria-hidden="true">$</span>
+        <input
+          type="number"
+          id="amount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          placeholder="0.00"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-serif text-[1.75rem] leading-none text-ink outline-none [font-variant-numeric:tabular-nums_lining-nums] placeholder:text-ink-faint"
+        />
+      </div>
+      <div class="mt-2 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
       @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
-        <p class="field__error" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
       }
       @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
-        <p class="field__error" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
       }
     </div>
-    <div class="field">
-      <label for="category">Category</label>
-      <input type="text" id="category" formControlName="category" />
-      @if(form.controls.category.touched && form.controls.category.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-    <div class="field">
-      <label for="fundingAccountId">Funding account</label>
-      <select id="fundingAccountId" formControlName="fundingAccountId">
-        <option value="">Choose an account</option>
-        @for(instrument of fundingAccounts(); track instrument.id) {
-          <option [value]="instrument.id">{{ instrument.name }} ({{ instrument.type }})</option>
+
+    <div class="mt-6 grid gap-6 sm:grid-cols-2">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="name"
+          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Name
+        </label>
+        <input
+          type="text"
+          id="name"
+          formControlName="name"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        />
+        @if(form.controls.name.touched && form.controls.name.hasError('required')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
         }
-      </select>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="category"
+          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Category
+        </label>
+        <input
+          type="text"
+          id="category"
+          formControlName="category"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        />
+        @if(form.controls.category.touched && form.controls.category.hasError('required')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+        }
+      </div>
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="fundingAccountId"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Funding account
+      </label>
+      <div class="relative">
+        <select
+          id="fundingAccountId"
+          formControlName="fundingAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
+          <option value="">Choose an account</option>
+          @for(instrument of fundingAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }} ({{ instrument.type }})</option>
+          }
+        </select>
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
+      </div>
       @if(fundingAccounts().length === 0) {
-        <p class="field__hint">No instruments registered yet — add one on the Instruments page.</p>
+        <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+          No instruments registered yet — add one on the Instruments page.
+        </p>
       }
       @if(form.controls.fundingAccountId.touched && form.controls.fundingAccountId.hasError('required')) {
-        <p class="field__error" role="alert">{{ fieldErrors['required'] }}</p>
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
       }
     </div>
-    <div class="field">
-      <label for="frequency">Frequency</label>
-      <select id="frequency" formControlName="frequency">
-        <option value="monthly">Monthly</option>
-      </select>
-      <p class="field__hint">The API bills monthly subscriptions only for now.</p>
+
+    <div class="mt-6 grid gap-6 sm:grid-cols-2">
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="frequency"
+          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Frequency
+        </label>
+        <div class="relative">
+          <select
+            id="frequency"
+            formControlName="frequency"
+            class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp disabled:opacity-70"
+          >
+            <option value="monthly">Monthly</option>
+          </select>
+          <span
+            class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+            aria-hidden="true"
+          >
+            &#9662;
+          </span>
+        </div>
+        <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+          The API bills monthly subscriptions only for now.
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-1.5">
+        <label
+          for="anchorDay"
+          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Anchor day
+        </label>
+        <input
+          type="number"
+          id="anchorDay"
+          min="1"
+          max="31"
+          step="1"
+          inputmode="numeric"
+          formControlName="anchorDay"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        @if(form.controls.anchorDay.touched && form.controls.anchorDay.hasError('dayOfMonth')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['dayOfMonth'] }}</p>
+        }
+      </div>
     </div>
-    <div class="field">
-      <label for="anchorDay">Anchor day</label>
-      <input type="number" id="anchorDay" min="1" max="31" step="1" formControlName="anchorDay" />
-      @if(form.controls.anchorDay.touched && form.controls.anchorDay.hasError('dayOfMonth')) {
-        <p class="field__error" role="alert">{{ fieldErrors['dayOfMonth'] }}</p>
+
+    <p class="mt-6 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+      Creating a subscription charges the first period immediately.
+    </p>
+
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="submitStatus() === 'submitting'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        <span aria-hidden="true">+</span>
+        {{ submitStatus() === 'submitting' ? 'Creating…' : 'Create subscription' }}
+      </button>
+      @if(submitError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ submitErrorText(error) }}</p>
       }
     </div>
-    <p class="subscriptions__note">Creating a subscription charges the first period immediately.</p>
-    <button type="submit" [disabled]="submitStatus() === 'submitting'">
-      {{ submitStatus() === 'submitting' ? 'Creating…' : 'Create subscription' }}
-    </button>
-    @if(submitError(); as error) {
-      <p class="field__error" role="alert">{{ submitErrorText(error) }}</p>
-    }
   </form>
-  <section class="subscriptions__list">
-    <h2>Active subscriptions</h2>
-    @if(listStatus() === 'loading') {
-      <p>Loading subscriptions…</p>
-    } @else if(listStatus() === 'error') {
-      <p role="alert">Could not load subscriptions — try again in a moment.</p>
-    } @else if(active().length === 0) {
-      <p>No active subscriptions.</p>
-    } @else {
-      <table class="subscriptions__table">
-        <thead>
-          <tr>
-            <th scope="col">Name</th>
-            <th scope="col">Amount</th>
-            <th scope="col">Category</th>
-            <th scope="col">Frequency</th>
-            <th scope="col">Anchor day</th>
-            <th scope="col">Next due</th>
-            <th scope="col">Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          @for(subscription of active(); track subscription.subscriptionId) {
-            <tr>
-              <td>{{ subscription.name }}</td>
-              <td>{{ formatArs(subscription.amountMinorUnits) }}</td>
-              <td>{{ subscription.category }}</td>
-              <td>{{ subscription.frequency }}</td>
-              <td>{{ subscription.anchorDay }}</td>
-              <td>{{ subscription.nextDueDate }}</td>
-              <td>
-                <button
-                  type="button"
-                  [disabled]="cancelStatusFor(subscription.subscriptionId) === 'cancelling'"
-                  (click)="onCancel(subscription.subscriptionId)"
+
+  <section aria-labelledby="active-label">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+      <h2
+        id="active-label"
+        class="text-xs font-semibold uppercase tracking-[0.14em] text-heading"
+      >
+        Active subscriptions
+      </h2>
+      @if(listStatus() === 'ready' && active().length > 0) {
+        <span class="text-xs text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]">
+          {{ active().length }} active
+        </span>
+      }
+    </div>
+
+    <div class="mt-6">
+      @if(listStatus() === 'loading') {
+        <p class="text-sm text-ink-faint">Loading subscriptions…</p>
+      } @else if(listStatus() === 'error') {
+        <p class="text-sm text-negative" role="alert">
+          Could not load subscriptions — try again in a moment.
+        </p>
+      } @else if(active().length === 0) {
+        <p class="text-sm text-ink-soft">No active subscriptions.</p>
+      } @else {
+        <div class="overflow-x-auto">
+          <table class="w-full text-left">
+            <thead>
+              <tr class="border-b border-rule">
+                <th
+                  scope="col"
+                  class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
                 >
-                  {{ cancelStatusFor(subscription.subscriptionId) === 'cancelling' ? 'Cancelling…' : 'Cancel' }}
-                </button>
-                @if(cancelErrorFor(subscription.subscriptionId); as error) {
-                  <p class="field__error" role="alert">{{ cancelErrorText(error) }}</p>
-                }
-              </td>
-            </tr>
-          }
-        </tbody>
-      </table>
-      <p class="subscriptions__note">
-        Cancelling stops future renewals — past charges are not reversed.
-      </p>
-    }
+                  Name
+                </th>
+                <th
+                  scope="col"
+                  class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+                >
+                  Amount
+                </th>
+                <th
+                  scope="col"
+                  class="pb-2 pl-4 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+                >
+                  Category
+                </th>
+                <th
+                  scope="col"
+                  class="pb-2 pl-4 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+                >
+                  Schedule
+                </th>
+                <th
+                  scope="col"
+                  class="pb-2 pl-4 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+                >
+                  Next due
+                </th>
+                <th scope="col" class="pb-2 pl-4 text-right">
+                  <span class="sr-only">Cancel</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              @for(subscription of active(); track subscription.subscriptionId; let i = $index) {
+                <tr
+                  class="sub-row border-b border-rule last:border-0"
+                  [style.animation-delay.ms]="i * 40"
+                >
+                  <td class="py-2.5 pr-4 text-sm text-ink">{{ subscription.name }}</td>
+                  <td
+                    class="py-2.5 text-right text-sm font-medium text-ink [font-variant-numeric:tabular-nums_lining-nums]"
+                  >
+                    {{ formatArs(subscription.amountMinorUnits) }}
+                  </td>
+                  <td class="py-2.5 pl-4 text-sm text-ink-soft">{{ subscription.category }}</td>
+                  <td class="py-2.5 pl-4 text-sm text-ink-soft">
+                    <span class="capitalize">{{ subscription.frequency }}</span>
+                    <span class="text-ink-faint"> &middot; day </span>
+                    <span class="[font-variant-numeric:tabular-nums_lining-nums]">
+                      {{ subscription.anchorDay }}
+                    </span>
+                  </td>
+                  <td
+                    class="py-2.5 pl-4 text-right text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]"
+                  >
+                    {{ subscription.nextDueDate }}
+                  </td>
+                  <td class="py-2.5 pl-4 text-right">
+                    <div class="inline-flex flex-col items-end gap-1">
+                      <button
+                        type="button"
+                        [disabled]="cancelStatusFor(subscription.subscriptionId) === 'cancelling'"
+                        (click)="onCancel(subscription.subscriptionId)"
+                        class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                      >
+                        {{ cancelStatusFor(subscription.subscriptionId) === 'cancelling' ? 'Cancelling…' : 'Cancel' }}
+                      </button>
+                      @if(cancelErrorFor(subscription.subscriptionId); as error) {
+                        <p
+                          class="max-w-[28ch] text-right text-[0.6875rem] leading-relaxed text-negative text-pretty"
+                          role="alert"
+                        >
+                          {{ cancelErrorText(error) }}
+                        </p>
+                      }
+                    </div>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+        <p class="mt-4 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+          Cancelling stops future renewals — past charges are not reversed.
+        </p>
+      }
+    </div>
   </section>
-</section>
+</div>

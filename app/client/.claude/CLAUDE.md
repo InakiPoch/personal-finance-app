@@ -74,11 +74,12 @@ Feature code lives under `src/app/features/<feature>/` (`<feature>-service.ts`, 
 route), `instruments`, `financing`, `parties`, `ledger`, `subscriptions`, `creditors` (new — Slice 1
 of `docs/creditor-expense-fields/slice-1-creditors-crud.md`: register a creditor + optional
 free-text destination accounts, label + identifier (CBU/CVU/alias, nullable); CRUD-only, styled to
-`docs/SYSTEM.md` from the start — Slice 2's Load-expense wiring is not built yet). `app.routes.ts`
-lazy-wires all seven via `loadChildren`, redirects `''` → `reports`, and falls back `**` →
-`reports`. **Every other page has been redesigned against `docs/SYSTEM.md`** — the markup was
-rewritten; component logic and its specs were largely left in place (specs test logic, not the
-DOM).
+`docs/SYSTEM.md` from the start; **Slice 2 — Load-expense integration — now built**: creditor picker
++ account-to-pay selector revealed by a "Different creditor" toggle, wired into `load-expense-page`
+as pure optional metadata). `app.routes.ts` lazy-wires all seven via `loadChildren`, redirects `''`
+→ `reports`, and falls back `**` → `reports`. **Every other page has been redesigned against
+`docs/SYSTEM.md`** — the markup was rewritten; component logic and its specs were largely left in
+place (specs test logic, not the DOM).
 
 ## Conventions — the non-negotiables
 

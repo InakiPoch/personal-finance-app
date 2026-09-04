@@ -707,6 +707,33 @@ Built one green-lit step at a time per `docs/creditor-expense-fields/slice-1-cre
 
 ---
 
+## Phase 6 — Creditors (Slice 2: Load-Expense integration)
+
+**Goal:** Wire the Creditor entity into the Load-Expense form as pure optional metadata — a toggle to mark a payment with a specific creditor and destination account.
+
+**Traces to:** `docs/creditor-expense-fields/slice-2-load-expense-integration.md` (continued planning doc).
+
+**Depends on:** Phase 5 (Creditors CRUD must exist first) + Phase 1 (Load-Expense page is the primary consumer).
+
+### Tasks
+
+- [x] `features/financing/types/create-payment-plan.ts` — add `creditorId?: string; creditorAccountId?: string;` to the type.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` — inject `CreditorsService`; add `creditors: WritableSignal<Creditor[]>` loaded on init; extend `LoadExpenseForm` with `differentCreditor: FormControl<boolean>` (default false), `creditorId: FormControl<string>`, `creditorAccountId: FormControl<string>`; add `creditorAccounts: WritableSignal<CreditorAccount[]>` populated by subscription to `creditorId.valueChanges`; add validator-toggle subscription for `differentCreditor.valueChanges` (sets/clears `Validators.required` on the two fields, resets them when toggled off); modify `onSubmit()` to spread `{ creditorId, creditorAccountId }` into request body only when `differentCreditor` is true.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.html` — add "Creditor" `<section>` after Split section with checkbox toggle; conditionally-revealed (on toggle true) native `<select>`s for creditor and account-to-pay, styled to `docs/SYSTEM.md` tokens.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.spec.ts` — add 4 new specs: toggle-on makes both fields required; selecting a creditor populates accounts and auto-selects first; submit body includes creditor fields when toggle is on; submit body omits them when toggle is off. Original 9 specs remain green (regression bar).
+
+### Definition of done
+
+- [x] Load-Expense form extends to wire optional Creditor + Account-to-Pay metadata, gated by toggle.
+- [x] All 13 Load-Expense specs pass (original 9 + 4 new), zero regressions.
+- [x] `pnpm ng build` + `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **168 passed** (164 baseline + 4 new).
+
+### Completion notes (2026-09-04)
+
+Slice 2 built and verified live per `docs/creditor-expense-fields/slice-2-load-expense-integration.md`. All changes localized to the Load-Expense page (form shape, template markup, subscription logic, request body shape); `CreatePaymentPlan` type extended with two optional fields; `financing-service.ts` requires no change (same endpoint, same shape pass-through). Creditor selection auto-populates accounts and auto-selects the first account id (UX convenience, no server-side dependency). No deviations from the spec, no new D-numbers needed (no drift from PRD/DESIGN docs). Zero scope creep — creditor/account metadata is optional, read-only-on-views, no ledger posting or balance tracking yet. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

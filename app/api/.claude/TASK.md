@@ -630,3 +630,30 @@ Built via the 8-step plan `today-we-will-implement-dynamic-pizza.md` (4 API step
 ### Completion notes (2026-09-04)
 
 Built one green-lit step at a time per `docs/creditor-expense-fields/slice-1-creditors-crud.md`. No domain validation exists for a blank `Label` — only `Name` (creditor) is guarded (`FinancingErrors.InvalidCreditorName`); `Label` presence is enforced client-side plus the EF `IsRequired()`/`NOT NULL` column — `Identifier` is the only truly optional field. Slice 2 (wiring a creditor + destination account into the Load-expense form) is **not started** — this phase is CRUD-only. Not committed by this session for most of the work — the user commits their own.
+
+---
+
+## Phase 14 — Load-expense integration (Slice 2)
+
+**Goal:** Extend `CreatePaymentPlan` with two optional metadata fields (`CreditorId`, `CreditorAccountId`) to record who was paid and to which account, separate from Parties expense-splitting. No ledger impact, no cross-validation — pure metadata per the spec.
+
+**Depends on:** Phase 3 (`CreatePaymentPlan` command exists, `PaymentPlan` aggregate) + Phase 13 (`Creditor` entities exist and are reference data).
+
+### Tasks
+- [x] Extend `CreatePaymentPlanCommand` with two new nullable Guid fields: `Guid? CreditorId = null, Guid? CreditorAccountId = null` (object-initializer set, no new params to constructor).
+- [x] Extend `PaymentPlan` domain aggregate: add `public Guid? CreditorId { get; private set; }` and `public Guid? CreditorAccountId { get; private set; }`; thread both as optional trailing params into `PaymentPlan.Create(...)` (precedent: `SplitReferenceId`).
+- [x] `PaymentPlanConfiguration`: map both as plain nullable columns via `builder.Property(plan => plan.CreditorId);` / `CreditorAccountId` (mirrors `SplitReferenceId`).
+- [x] `CreatePaymentPlanHandler`: pass `command.CreditorId`/`command.CreditorAccountId` into `PaymentPlan.Create(...)`. No validation beyond lenient nullable-through.
+- [x] `CreatePaymentPlanDTO`: add `Guid? CreditorId = null, Guid? CreditorAccountId = null`.
+- [x] `FinancingMappingExtensions.ToCreatePaymentPlanCommand`: thread the two new fields through. `Endpoints/Financing/PostPaymentPlan.cs` needs no change (it just calls `body.ToCreatePaymentPlanCommand()`).
+- [x] EF migration `AddCreditorToPaymentPlan`: ALTER adding two nullable TEXT columns to `financing_payment_plans` table (`CreditorId`, `CreditorAccountId`). Hand-authored migration file, no schema change, no new table.
+- [x] Tests: `tests/PersonalFinance.Financing.Tests/CreatePaymentPlanHandlerTests.cs` (2 facts: CreditorId/CreditorAccountId persist when supplied, stay null when absent; in-memory SQLite harness mirrors `CreditorHandlersTests.cs` pattern) + `tests/PersonalFinance.Api.Tests/FinancingMappingExtensionsTests.cs` (2 facts: fields thread through `ToCreatePaymentPlanCommand` / stay null). No new module edge — `.Contracts`-only so `Architecture.Tests` (RNF-9) stays green.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln` 0W/0E; `dotnet test --solution` → **153 passed** (149 baseline + 4 new); `PersonalFinance.Architecture.Tests` (RNF-9) green.
+- [x] Migration applies cleanly against the shared SQLite file; both columns verified nullable via `PRAGMA table_info`.
+- [x] End-to-end verified against running API + live SQLite: POST with creditorId+creditorAccountId persists both; POST without them leaves both NULL. No cross-validation (lenient design).
+
+### Completion notes (2026-09-04)
+
+Built per `docs/creditor-expense-fields/slice-2-load-expense-integration.md`. Design is intentionally lenient — no validation that `CreditorId` exists as a `Creditor`, no validation that `CreditorAccountId` belongs to that creditor; cross-cutting validation is out of scope (deferred to a future phase if needed). No ledger posting/balances/settlement for creditors, no surfacing of creditor/account on read views (statements, timelines), no editing/deleting creditors. Slice 3 (integrating the creditor selector into the client's Load-expense form) is out of scope — this phase is API metadata integration only. Not committed by this session for most of the work — the user commits their own.

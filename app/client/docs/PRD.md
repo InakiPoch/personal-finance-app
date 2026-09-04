@@ -115,8 +115,11 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 - **Source:** `POST /v1/creditors`, `GET /v1/creditors`.
 - **Notes:** distinct from **Parties** (§3.7) — a Party tracks shared-expense *debt*; a Creditor is
   just *who gets paid*, with no debt or balance of its own. This is Slice 1 of
-  `docs/creditor-expense-fields/slice-1-creditors-crud.md` — CRUD only. Slice 2 (recording which
-  creditor + account a Load-expense entry paid) is a separate, not-yet-built enhancement to §3.3.
+  `docs/creditor-expense-fields/slice-1-creditors-crud.md` — CRUD only. **Slice 2** (Load-Expense
+  integration, `docs/creditor-expense-fields/slice-2-load-expense-integration.md`) is now built:
+  §3.3's Load-Expense form extends with an optional "Different creditor" toggle that reveals a
+  creditor picker and account-to-pay selector; both fields are required when toggled on, submitted
+  as optional metadata in the payment-plan request, and excluded when toggled off.
 
 ## 4. Cross-cutting client requirements
 

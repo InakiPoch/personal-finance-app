@@ -77,4 +77,9 @@ internal static class FinancingErrors {
         "Financing.InvalidSplitReference",
         "A split link requires a split reference and at least one resolved party receivable account."
     );
+
+    public static readonly Error InvalidCreditorName = new(
+        "Financing.InvalidCreditorName",
+        "A creditor name must not be blank."
+    );
 }

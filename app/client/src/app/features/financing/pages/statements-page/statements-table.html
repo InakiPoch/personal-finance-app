@@ -1,29 +1,64 @@
 @if(statements().length === 0) {
-  <p class="statements__empty">This card has no statements yet.</p>
+  <p class="statements__empty text-sm text-ink-soft">This card has no statements yet.</p>
 } @else {
-  <table class="statements">
+  <table class="w-full text-left">
     <thead>
-      <tr>
-        <th scope="col">Cycle</th>
-        <th scope="col">Amount due</th>
-        <th scope="col">Status</th>
-        <th scope="col">Open</th>
+      <tr class="border-b border-rule">
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Cycle
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Amount due
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Status
+        </th>
+        <th scope="col" class="pb-2">
+          <span class="sr-only">Open statement</span>
+        </th>
       </tr>
     </thead>
     <tbody>
-      @for(statement of statements(); track statement.statementId) {
-        <tr>
-          <td>{{ cycleLabel(statement) }}</td>
-          <td>{{ formatArs(statement.amountDueMinorUnits) }}</td>
-          <td>
+      @for(statement of statements(); track statement.statementId; let i = $index) {
+        <tr class="stmt-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ cycleLabel(statement) }}
+          </td>
+          <td
+            class="py-2.5 text-right text-sm [font-variant-numeric:tabular-nums_lining-nums]"
+            [class.text-stamp]="!statement.isPaid"
+            [class.font-medium]="!statement.isPaid"
+            [class.text-ink-faint]="statement.isPaid"
+          >
+            {{ formatArs(statement.amountDueMinorUnits) }}
+          </td>
+          <td class="py-2.5 text-right">
             @if(statement.isPaid) {
               <span class="statements__badge">Paid</span>
             } @else {
-              <span>Unpaid</span>
+              <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">Due</span>
             }
           </td>
-          <td>
-            <button type="button" (click)="onOpen(statement.statementId)">Open</button>
+          <td class="py-2.5 text-right">
+            <button
+              type="button"
+              (click)="onOpen(statement.statementId)"
+              class="group inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+            >
+              Open
+              <span class="transition-transform group-hover:translate-x-0.5" aria-hidden="true">
+                &rsaquo;
+              </span>
+            </button>
           </td>
         </tr>
       }

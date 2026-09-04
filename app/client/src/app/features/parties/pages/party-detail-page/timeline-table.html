@@ -1,30 +1,73 @@
 @if(rows().length === 0) {
-  <p class="timeline__empty">No movements recorded for this party yet.</p>
+  <p class="text-sm text-ink-soft">No movements recorded for this party yet.</p>
 } @else {
-  <table class="timeline">
+  <table class="w-full text-left">
     <thead>
-      <tr>
-        <th scope="col">When</th>
-        <th scope="col">Description</th>
-        <th scope="col">Change</th>
-        <th scope="col">Running balance</th>
-        <th scope="col">Reverse</th>
+      <tr class="border-b border-rule">
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          When
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Description
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Change
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Running balance
+        </th>
+        <th scope="col" class="pb-2 text-right">
+          <span class="sr-only">Reverse</span>
+        </th>
       </tr>
     </thead>
     <tbody>
-      @for(row of rows(); track $index) {
-        <tr>
-          <td>{{ row.movementOnUtc }}</td>
-          <td>{{ row.description }}</td>
-          <td [class.timeline__debit]="row.deltaMinorUnits < 0">{{ signed(row.deltaMinorUnits) }}</td>
-          <td>{{ formatArs(row.runningBalanceMinorUnits) }}</td>
-          <td>
-            <button type="button" [disabled]="isReversalRow(row)" (click)="onReverse(row)">
-              Reverse
-            </button>
-            @if(isReversalRow(row)) {
-              <span class="timeline__note">Reversal entry</span>
-            }
+      @for(row of rows(); track row.transactionId; let i = $index) {
+        <tr class="tl-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ row.movementOnUtc.slice(0, 10) }}
+          </td>
+          <td class="py-2.5 text-sm text-ink">{{ row.description }}</td>
+          <td
+            class="py-2.5 text-right text-sm font-medium [font-variant-numeric:tabular-nums_lining-nums]"
+            [class.text-negative]="row.deltaMinorUnits < 0"
+            [class.text-ink]="row.deltaMinorUnits >= 0"
+          >
+            {{ signed(row.deltaMinorUnits) }}
+          </td>
+          <td
+            class="py-2.5 text-right text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]"
+          >
+            {{ formatArs(row.runningBalanceMinorUnits) }}
+          </td>
+          <td class="py-2.5 text-right">
+            <div class="inline-flex items-baseline justify-end gap-2">
+              @if(isReversalRow(row)) {
+                <span class="text-[0.6875rem] uppercase tracking-[0.1em] text-ink-faint">
+                  Reversal entry
+                </span>
+              }
+              <button
+                type="button"
+                [disabled]="isReversalRow(row)"
+                (click)="onReverse(row)"
+                class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+              >
+                Reverse
+              </button>
+            </div>
           </td>
         </tr>
       }

@@ -1,1 +1,59 @@
 @import 'tailwindcss';
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-paper-raised: var(--paper-raised);
+  --color-paper-inset: var(--paper-inset);
+  --color-heading: var(--heading);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-ink-faint: var(--ink-faint);
+  --color-rule: var(--rule);
+  --color-rule-strong: var(--rule-strong);
+  --color-stamp: var(--stamp);
+  --color-stamp-soft: var(--stamp-soft);
+  --color-ledger: var(--ledger);
+  --color-negative: var(--negative);
+
+  --font-sans: 'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'IBM Plex Serif', ui-serif, Georgia, 'Times New Roman', serif;
+
+  --radius-card: 0.5rem;
+  --shadow-card: 0 1px 2px rgba(42, 38, 34, 0.05), 0 2px 8px rgba(42, 38, 34, 0.06);
+}
+
+:root {
+  color-scheme: light;
+
+  --paper: #f7f2e7;
+  --paper-raised: #fffdf7;
+  --paper-inset: #ece5d6;
+  --heading: #0f0f0f;
+  --ink: #234a86;
+  --ink-soft: #3a5f9a;
+  --ink-faint: #476594;
+  --rule: rgba(38, 34, 28, 0.13);
+  --rule-strong: rgba(38, 34, 28, 0.22);
+  --stamp: #2f5a8c;
+  --stamp-soft: #9ec3e5;
+  --ledger: #3f7a54;
+  --negative: #a5443a;
+}
+
+@layer base {
+  body {
+    background-color: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  h1,
+  h2,
+  h3 {
+    color: var(--heading);
+    text-wrap: balance;
+  }
+}

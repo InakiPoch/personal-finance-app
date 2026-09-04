@@ -9,26 +9,16 @@
       per-party cents — the client computes neither.
     </p>
   </header>
-
   <form [formGroup]="form" (ngSubmit)="onSubmit()">
-    <section
-      class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
-      aria-labelledby="purchase-label"
-    >
+    <section class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="purchase-label">
       <h2 id="purchase-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
         The purchase
       </h2>
-
       <div class="mt-6 flex flex-col gap-1.5">
-        <label
-          for="amount"
-          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-        >
+        <label for="amount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
           Amount
         </label>
-        <div
-          class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp"
-        >
+        <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
           <span class="font-serif text-xl text-stamp" aria-hidden="true">$</span>
           <input
             type="number"
@@ -49,12 +39,8 @@
           <p class="text-xs text-negative" role="alert">{{ errorMessages['atMostTwoDecimals'] }}</p>
         }
       </div>
-
       <div class="mt-6 flex flex-col gap-1.5">
-        <label
-          for="cardId"
-          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-        >
+        <label for="cardId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
           Card
         </label>
         <div class="relative">
@@ -68,10 +54,7 @@
               <option [value]="card.id">{{ card.name }}</option>
             }
           </select>
-          <span
-            class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
-            aria-hidden="true"
-          >
+          <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
             &#9662;
           </span>
         </div>
@@ -84,13 +67,9 @@
           <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
         }
       </div>
-
       <div class="mt-6 grid gap-6 sm:grid-cols-2">
         <div class="flex flex-col gap-1.5">
-          <label
-            for="installmentCount"
-            class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-          >
+          <label for="installmentCount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
             Installments
           </label>
           <input
@@ -106,12 +85,8 @@
             <p class="text-xs text-negative" role="alert">{{ errorMessages['positiveInteger'] }}</p>
           }
         </div>
-
         <div class="flex flex-col gap-1.5">
-          <label
-            for="purchaseDate"
-            class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-          >
+          <label for="purchaseDate" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
             Purchase date
           </label>
           <input
@@ -126,11 +101,7 @@
         </div>
       </div>
     </section>
-
-    <section
-      class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
-      aria-labelledby="split-label"
-    >
+    <section class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="split-label">
       <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
         <h2 id="split-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
           Split
@@ -141,7 +112,6 @@
         Add the parties who owe you a share. The API rounds the per-party cents and posts the
         receivables; their balances reconcile below once confirmed.
       </p>
-
       @if(partiesStatus() === 'loading') {
         <p class="mt-6 text-sm text-ink-faint">Loading parties…</p>
       } @else if(partiesStatus() === 'error') {
@@ -166,10 +136,7 @@
                     <option [value]="party.partyId">{{ party.partyName }}</option>
                   }
                 </select>
-                <span
-                  class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
-                  aria-hidden="true"
-                >
+                <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
                   &#9662;
                 </span>
               </div>
@@ -203,7 +170,83 @@
         </button>
       }
     </section>
+    <section class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="creditor-label">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <h2 id="creditor-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+          Creditor
+        </h2>
+        <span class="text-xs text-ink-faint">optional</span>
+      </div>
+      <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+        Record who you're paying and which of their accounts to send money to, when this
+        purchase isn't for yourself.
+      </p>
+      <label class="mt-6 flex items-center gap-2 text-sm text-ink-soft">
+        <input
+          type="checkbox"
+          formControlName="differentCreditor"
+          class="h-4 w-4 rounded border-rule text-stamp outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+        />
+        Different creditor
+      </label>
+      @if(form.controls.differentCreditor.value) {
+        <div class="mt-6 grid gap-6 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label
+              for="creditorId"
+              class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+            >
+              Creditor
+            </label>
+            <div class="relative">
+              <select
+                id="creditorId"
+                formControlName="creditorId"
+                class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+              >
+                <option value="">Choose a creditor</option>
+                @for(creditor of creditors(); track creditor.id) {
+                  <option [value]="creditor.id">{{ creditor.name }}</option>
+                }
+              </select>
+              <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+                &#9662;
+              </span>
+            </div>
+            @if(form.controls.creditorId.touched && form.controls.creditorId.hasError('required')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+            }
+          </div>
 
+          <div class="flex flex-col gap-1.5">
+            <label for="creditorAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Account to pay
+            </label>
+            <div class="relative">
+              <select
+                id="creditorAccountId"
+                formControlName="creditorAccountId"
+                class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+              >
+                <option value="">Choose an account</option>
+                @for(account of creditorAccounts(); track account.id) {
+                  <option [value]="account.id">{{ account.label }}</option>
+                }
+              </select>
+              <span
+                class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+                aria-hidden="true"
+              >
+                &#9662;
+              </span>
+            </div>
+            @if(form.controls.creditorAccountId.touched && form.controls.creditorAccountId.hasError('required')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+            }
+          </div>
+        </div>
+      }
+    </section>
     <div class="flex flex-col gap-2">
       <button
         type="submit"
@@ -224,10 +267,7 @@
       class="conf-panel mt-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
       aria-labelledby="confirmed-label"
     >
-      <h2
-        id="confirmed-label"
-        class="text-xs font-semibold uppercase tracking-[0.14em] text-heading"
-      >
+      <h2 id="confirmed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
         Confirmed
       </h2>
       <p class="mt-4 text-sm text-ink-soft">
@@ -235,7 +275,6 @@
         <code class="text-ink [font-variant-numeric:tabular-nums_lining-nums]">{{ planId }}</code>
         created.
       </p>
-
       @if(reconciliations().length > 0) {
         <h3 class="mt-6 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
           Party balances

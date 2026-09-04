@@ -18,6 +18,10 @@ import { creditRequiresCutoff } from '../../validation-helpers';
 
 type SubmitStatus = 'idle' | 'submitting' | 'error';
 
+type ListStatus = 'loading' | 'error' | 'ready';
+
+type TypeOption = { value: InstrumentType; label: string };
+
 type InstrumentForm = FormGroup<{
   type: FormControl<InstrumentType>;
   name: FormControl<string>;
@@ -38,6 +42,12 @@ export class InstrumentsPage implements OnInit, OnDestroy {
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly nameErrors: Record<string, string> = { required: 'Name is required.' };
   protected readonly cutoffErrors: Record<string, string> = { creditCutoff: 'Credit cards need a cutoff day between 1 and 31.'};
+  protected readonly listStatus: WritableSignal<ListStatus> = signal<ListStatus>('loading');
+  protected readonly typeOptions: readonly TypeOption[] = [
+    { value: 'debit', label: 'Debit account' },
+    { value: 'credit', label: 'Credit card' },
+    { value: 'cash', label: 'Cash' },
+  ];
 
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
@@ -85,11 +95,22 @@ export class InstrumentsPage implements OnInit, OnDestroy {
     return this.submitErrorMessages[error.code] ?? 'The instrument could not be created.';
   }
 
+  protected typeLabel(type: InstrumentType): string {
+    return this.typeOptions.find((option: TypeOption): boolean => option.value === type)?.label ?? type;
+  }
+
   private loadInstruments(): void {
+    this.listStatus.set('loading');
     this.instrumentsService
       .list()
       .pipe(takeUntil(this.destroy$))
-      .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+      .subscribe({
+        next: (rows: Instrument[]) => {
+          this.instruments.set(rows);
+          this.listStatus.set('ready');
+        },
+        error: () => this.listStatus.set('error'),
+      });
   }
 
   private initInstrumentForm(): void {

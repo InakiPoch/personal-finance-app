@@ -2,7 +2,7 @@ using PersonalFinance.Abstractions.Messaging;
 
 namespace PersonalFinance.Financing.Contracts.Queries;
 
-public sealed record CreditorAccountRow(Guid Id, string Label, string Identifier);
+public sealed record CreditorAccountRow(Guid Id, string Label, string? Identifier);
 
 public sealed record CreditorRow(Guid Id, string Name, IReadOnlyList<CreditorAccountRow> Accounts);
 

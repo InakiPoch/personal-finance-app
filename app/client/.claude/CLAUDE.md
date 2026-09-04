@@ -70,10 +70,13 @@ Phases 0 and 1 are complete. `src/app/core/` holds:
 - `health/` — `HealthService.check()`: `GET /health` at the host root, degradation-aware.
 
 Feature code lives under `src/app/features/<feature>/` (`<feature>-service.ts`, `types/`,
-`pages/<page>/`, `<feature>.routes.ts`). Six features exist: `reports` (dashboard, the default
-route), `instruments`, `financing`, `parties`, `ledger`, `subscriptions`. `app.routes.ts`
-lazy-wires all six via `loadChildren`, redirects `''` → `reports`, and falls back `**` →
-`reports`. **Every page has been redesigned against `docs/SYSTEM.md`** — the markup was
+`pages/<page>/`, `<feature>.routes.ts`). Seven features exist: `reports` (dashboard, the default
+route), `instruments`, `financing`, `parties`, `ledger`, `subscriptions`, `creditors` (new — Slice 1
+of `docs/creditor-expense-fields/slice-1-creditors-crud.md`: register a creditor + optional
+free-text destination accounts, label + identifier (CBU/CVU/alias, nullable); CRUD-only, styled to
+`docs/SYSTEM.md` from the start — Slice 2's Load-expense wiring is not built yet). `app.routes.ts`
+lazy-wires all seven via `loadChildren`, redirects `''` → `reports`, and falls back `**` →
+`reports`. **Every other page has been redesigned against `docs/SYSTEM.md`** — the markup was
 rewritten; component logic and its specs were largely left in place (specs test logic, not the
 DOM).
 

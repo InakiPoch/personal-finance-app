@@ -41,27 +41,34 @@
         <div formArrayName="accounts" class="flex flex-col">
           @for(accountControl of form.controls.accounts.controls; track $index; let i = $index) {
             <div
-              class="account-row grid grid-cols-[1fr_1fr_auto] items-baseline gap-3 border-b border-rule py-2.5 first:pt-0 last:border-0"
+              class="account-row grid grid-cols-[1fr_1fr_auto] items-start gap-3 border-b border-rule py-2.5 first:pt-0 last:border-0"
               [formGroupName]="i"
             >
-              <input
-                type="text"
-                formControlName="label"
-                aria-label="Account label"
-                placeholder="e.g. Galicia"
-                class="border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus-visible:border-stamp"
-              />
-              <input
-                type="text"
-                formControlName="identifier"
-                aria-label="Account identifier (CBU / CVU / alias)"
-                placeholder="CBU / CVU / alias"
-                class="border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus-visible:border-stamp"
-              />
+              <div class="flex flex-col gap-1">
+                <input
+                  type="text"
+                  formControlName="label"
+                  aria-label="Account label"
+                  placeholder="e.g. Galicia"
+                  class="border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus-visible:border-stamp"
+                />
+                @if(accountControl.controls.label.touched && accountControl.controls.label.hasError('required')) {
+                  <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+                }
+              </div>
+              <div class="flex flex-col gap-1">
+                <input
+                  type="text"
+                  formControlName="identifier"
+                  aria-label="Account identifier (CBU / CVU / alias)"
+                  placeholder="CBU / CVU / alias (optional)"
+                  class="border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors placeholder:text-ink-faint focus-visible:border-stamp"
+                />
+              </div>
               <button
                 type="button"
                 (click)="removeAccountRow(i)"
-                class="text-xs text-ink-faint transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+                class="mt-1 text-xs text-ink-faint transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
               >
                 Remove
               </button>
@@ -119,7 +126,10 @@
               <ul class="mt-1.5 flex flex-col gap-0.5">
                 @for(account of creditor.accounts; track account.id) {
                   <li class="text-xs text-ink-faint">
-                    {{ account.label }} — {{ account.identifier }}
+                    {{ account.label }}
+                    @if(account.identifier) {
+                      — {{ account.identifier }}
+                    }
                   </li>
                 }
               </ul>

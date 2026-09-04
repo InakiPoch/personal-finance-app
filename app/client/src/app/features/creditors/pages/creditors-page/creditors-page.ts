@@ -74,10 +74,13 @@ export class CreditorsPage implements OnInit, OnDestroy {
       this.form.getRawValue();
     const body: CreateCreditor = {
       name: raw.name.trim(),
-      accounts: raw.accounts.map((account) => ({
-        label: account.label.trim(),
-        identifier: account.identifier.trim()
-      }))
+      accounts: raw.accounts.map((account) => {
+        const identifier = account.identifier.trim();
+        return {
+          label: account.label.trim(),
+          identifier: identifier.length > 0 ? identifier : null
+        };
+      })
     };
     this.submitError.set(null);
     this.submitStatus.set('submitting');
@@ -121,7 +124,7 @@ export class CreditorsPage implements OnInit, OnDestroy {
   private createAccountRow(): AccountRow {
     return this.fb.group({
       label: this.fb.nonNullable.control('', { validators: Validators.required }),
-      identifier: this.fb.nonNullable.control('', { validators: Validators.required })
+      identifier: this.fb.nonNullable.control('')
     });
   }
 

@@ -10,6 +10,5 @@ internal sealed class CreditorAccountConfiguration : IEntityTypeConfiguration<Cr
         builder.HasKey(account => account.Id);
         builder.Property(account => account.Id).ValueGeneratedNever();
         builder.Property(account => account.Label).IsRequired();
-        builder.Property(account => account.Identifier).IsRequired();
     }
 }

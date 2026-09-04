@@ -36,4 +36,11 @@ public class CreditorTests {
         Assert.True(result.IsSuccess);
         Assert.Empty(result.Value.Accounts);
     }
+
+    [Fact]
+    public void Create_normalizes_a_blank_identifier_to_null() {
+        var result = Creditor.Create(Guid.NewGuid(), "Juan", [("Galicia", "   ")]);
+        Assert.True(result.IsSuccess);
+        Assert.Null(result.Value.Accounts[0].Identifier);
+    }
 }

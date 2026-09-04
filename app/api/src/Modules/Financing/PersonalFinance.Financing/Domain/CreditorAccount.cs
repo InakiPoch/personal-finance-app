@@ -5,15 +5,17 @@ namespace PersonalFinance.Financing.Domain;
 internal sealed class CreditorAccount : Entity<Guid> {
     public Guid CreditorId { get; }
     public string Label { get; }
-    public string Identifier { get; }
+    public string? Identifier { get; private set; }
 
-    private CreditorAccount(Guid id, Guid creditorId, string label, string identifier) : base(id) {
+    private CreditorAccount(Guid id, Guid creditorId, string label) : base(id) {
         CreditorId = creditorId;
         Label = label;
-        Identifier = identifier;
     }
 
-    internal static CreditorAccount Create(Guid creditorId, string label, string identifier) {
-        return new CreditorAccount(Guid.CreateVersion7(), creditorId, label, identifier);
+    internal static CreditorAccount Create(Guid creditorId, string label, string? identifier) {
+        var account = new CreditorAccount(Guid.CreateVersion7(), creditorId, label) {
+            Identifier = string.IsNullOrWhiteSpace(identifier) ? null : identifier.Trim()
+        };
+        return account;
     }
 }

@@ -605,3 +605,28 @@ Built via the 8-step plan `today-we-will-implement-dynamic-pizza.md` (4 API step
   - **Naming note.** The contract/DTO field is `ReversalTransactionId` (client-side `reversalTransactionId` in Step 8) per the approved plan, though the value is the *accrual/original* transaction id, i.e. the id you submit to the Reverse action — documented on the `CurrentAccountTimelineRow` / `FindAccrualTransactionIdsQuery` summaries.
   - **Tests.** `tests/PersonalFinance.Api.Tests/AccrualTransactionIdsTests.cs` (2 facts, resolving `ILedgerApi` from `factory.Services` — no HTTP surface for this facade method): post a manual balanced tx carrying an `InstallmentReferenceId`, assert `FindAccrualTransactionIdsAsync` maps it to that tx and **still** maps it to the same tx after `ReverseTransactionAsync`; empty request → empty map. `ReportingQueryTests.PartyTimeline_rows_carry_the_ledger_transaction_behind_each_movement` — every `GetPartyTimelineQuery` row has a non-`Guid.Empty` `TransactionId` (exercises the rebuilt view end-to-end via the migrate-all fixture). The statement `reversalTransactionId` happy path needs the `AccrueInstallments` scheduler (stripped from the WAF) → deferred to the `PersonalFinance.Api.http` walk, Phase 11 precedent.
 - **Not committed by this session** — the user commits all Phase 12 work.
+
+---
+
+## Phase 13 — Creditors CRUD (Slice 1)
+
+**Goal:** Deliver a self-contained CRUD vertical for a new `Creditor` reference entity (who the user pays) with nested `CreditorAccount` destination accounts — a prerequisite for a later Load-expense enhancement (Slice 2, `docs/creditor-expense-fields/slice-2-load-expense-integration.md`) that lets a user record who was paid and to which account, separately from splitting a shared expense with Parties.
+
+**Depends on:** Phase 3 (Financing module scaffolding — mirrors `CreditCard`'s domain/CQRS/host shape).
+
+### Tasks
+- [x] `Domain/Creditor.cs` (aggregate root, `Name` + `IReadOnlyList<CreditorAccount> Accounts`), `Domain/CreditorAccount.cs` (entity, `Label` + optional `Identifier`) — mirrors `CreditCard`/`Installment`'s private-ctor + static `Create` pattern; `FinancingErrors.InvalidCreditorName`.
+- [x] Contracts: `CreateCreditorCommand`/`CreditorAccountPayload`, `ListCreditorsQuery`/`CreditorRow`/`CreditorAccountRow`/`ListCreditorsResponse`; `IFinancingApi.CreateCreditorAsync`/`ListCreditorsAsync`.
+- [x] `CreateCreditorHandler`, `ListCreditorsHandler` (Application layer); `FinancingModule` registrations.
+- [x] `CreditorConfiguration`/`CreditorAccountConfiguration` (EF), `FinancingDbContext.Creditors`; migration `AddCreditors` (`financing_creditors`, `financing_creditor_accounts`, FK cascade).
+- [x] Host: `ApiRoutes.Creditors`, `EndpointExtensions.MapCreditorEndpoints`, `Endpoints/Creditors/PostCreditor.cs` + `GetCreditors.cs`, `CreditorsDTO.cs`, `CreditorMappingExtensions.cs` — `POST /v1/creditors` (201 + `{ creditorId }`), `GET /v1/creditors` (`{ rows: [...] }`).
+- [x] Tests: `CreditorTests.cs` (domain), `CreditorHandlersTests.cs` (in-memory SQLite) — `PersonalFinance.Financing.Tests.csproj` gained a direct `Microsoft.EntityFrameworkCore.Sqlite` reference + regenerated `packages.lock.json`.
+- [x] **Follow-up: make `CreditorAccount.Identifier` genuinely optional.** Domain normalizes blank/whitespace → `null`, trims otherwise; property moved to a private setter (EF can't reliably constructor-bind a nullable reference type — same fix as `Installment.AccruedOnUtc`). New migration `MakeCreditorAccountIdentifierNullable` (real `AlterColumn` — a prior hand-edit of the already-applied `AddCreditors` migration file had no effect on the live schema). `CreditorAccountConfiguration` dropped `.IsRequired()` on `Identifier`; contracts/DTOs widened to `string?`.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln` 0W/0E; `dotnet test --solution` → **149 passed** (140 baseline + 9 new); `PersonalFinance.Architecture.Tests` (RNF-9) green — both new `IFinancingApi` members are `.Contracts`-only.
+- [x] Migration applies cleanly against the shared SQLite file; `Identifier` column verified nullable via `PRAGMA table_info`.
+
+### Completion notes (2026-09-04)
+
+Built one green-lit step at a time per `docs/creditor-expense-fields/slice-1-creditors-crud.md`. No domain validation exists for a blank `Label` — only `Name` (creditor) is guarded (`FinancingErrors.InvalidCreditorName`); `Label` presence is enforced client-side plus the EF `IsRequired()`/`NOT NULL` column — `Identifier` is the only truly optional field. Slice 2 (wiring a creditor + destination account into the Load-expense form) is **not started** — this phase is CRUD-only. Not committed by this session for most of the work — the user commits their own.

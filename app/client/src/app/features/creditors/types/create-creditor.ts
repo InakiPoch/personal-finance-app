@@ -1,6 +1,6 @@
 export type CreateCreditorAccount = {
   label: string;
-  identifier: string;
+  identifier: string | null;
 };
 
 export type CreateCreditor = {

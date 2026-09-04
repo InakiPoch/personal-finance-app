@@ -2,7 +2,7 @@ using PersonalFinance.Abstractions.Messaging;
 
 namespace PersonalFinance.Financing.Contracts.Commands;
 
-public sealed record CreditorAccountPayload(string Label, string Identifier);
+public sealed record CreditorAccountPayload(string Label, string? Identifier);
 
 /// <summary>
 /// Registers a creditor together with its accounts in one submit.

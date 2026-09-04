@@ -12,7 +12,7 @@ internal sealed class Creditor : AggregateRoot<Guid> {
         Name = name;
     }
 
-    public static Result<Creditor> Create(Guid id, string name, IReadOnlyList<(string Label, string Identifier)> accounts) {
+    public static Result<Creditor> Create(Guid id, string name, IReadOnlyList<(string Label, string? Identifier)> accounts) {
         if(string.IsNullOrWhiteSpace(name)) {
             return FinancingErrors.InvalidCreditorName;
         }

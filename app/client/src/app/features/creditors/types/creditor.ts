@@ -1,7 +1,7 @@
 export type CreditorAccount = {
   id: string;
   label: string;
-  identifier: string;
+  identifier: string | null;
 };
 
 export type Creditor = {

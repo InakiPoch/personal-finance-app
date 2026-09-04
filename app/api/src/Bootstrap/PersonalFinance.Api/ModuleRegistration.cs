@@ -19,9 +19,6 @@ internal static class ModuleRegistration {
     }
 
     public static IEndpointRouteBuilder MapModuleEndpoints(this IEndpointRouteBuilder endpoints) {
-        foreach(var module in modules) {
-            module.MapEndpoints(endpoints);
-        }
         endpoints.MapLedgerEndpoints();
         endpoints.MapFinancingEndpoints();
         endpoints.MapInstrumentsEndpoints();

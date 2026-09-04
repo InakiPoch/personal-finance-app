@@ -438,9 +438,9 @@ and confirm the message keys off `code`.
 ### Tasks
 
 - [x] **4.1 Tailwind + UI-task groundwork** — install Tailwind and wire the build; tokens, theme, and components belong to the separate UI task. Trigger: UI task kickoff. (`docs/DESIGN.md` §10; `docs/PRD.md` §6) — **build wiring done** (see Completion notes; **D19**).
-- [ ] **4.2 API gap 1 — `GET /v1/instruments`** — when the endpoint ships, add the list method and retire the `InstrumentRegistryService` `localStorage` stopgap; forms then read cards/accounts from the API. (`docs/DESIGN.md` §11.1; `docs/PRD.md` §7.1)
-- [ ] **4.3 API gap 2 — `GET /v1/financing/cards/{id}/statements`** — make the Statement pay flow self-navigable; drop the id-only route entry. (`docs/DESIGN.md` §11.2; `docs/PRD.md` §7.2)
-- [ ] **4.4 API gap 3 — transactions feed (`GET /v1/ledger/transactions`)** — build a real history / reverse-picker view, replacing the id-driven `reverse-movement-page`. (`docs/DESIGN.md` §11.3; `docs/PRD.md` §7.3)
+- [x] **4.2 API gap 1 — `GET /v1/instruments`** — **done (Phase 12, D21).** `InstrumentsService.list()` unwraps `{ rows }`; new `Instrument` type (`features/instruments/types/instrument.ts`); `InstrumentRegistryService` + `core/types/registered-instrument.ts` + `core/registry/` deleted. 6 consumers load the list into a local `WritableSignal<Instrument[]>` in `ngOnInit` and keep their existing `computed()` `<select>` filters; `InstrumentsPage` re-fetches after create. (`docs/DESIGN.md` §8/§9/§11.1; `docs/PRD.md` §7.1)
+- [x] **4.3 API gap 2 — `GET /v1/financing/cards/{id}/statements`** — **done (Phase 12, D22).** `FinancingService.listStatements(cardId)` unwraps `{ rows }`; new `MonthlyStatementSummary` type; `StatementsPage` (credit-card picker → `StatementsTable` rows → row opens `statements/:id`) replaces the id-paste `StatementIndex`, which was deleted. (`docs/DESIGN.md` §2/§4/§9/§11.2; `docs/PRD.md` §7.2)
+- [x] **4.4 API gap 3 — transactions feed (`GET /v1/ledger/transactions`)** — **done (Phase 12, D23).** `LedgerService.listTransactions(filter?)` unwraps `{ rows }`; new `TransactionRow` type; `TransactionsPage` (account + date-range filter → `TransactionsTable` rows → per-row **Reverse**, disabled on a reversal/already-reversed row) replaces the id-paste `ReverseIndex`, which was deleted. `ReverseMovementPage` (`transactions/:id/reverse`) unchanged. (`docs/DESIGN.md` §2/§4/§9/§11.3; `docs/PRD.md` §7.3)
 - [ ] **4.5 API gap 4 — app-level auth surface** — when a backing endpoint exists, add login as a new cross-cutting feature (route guard, session). Not part of any view above. (`docs/DESIGN.md` §11.4; `docs/PRD.md` §2, §7.4)
 - [x] **4.6 Client CI** — add `ng build` + `ng test` (and lint, once 4.7 lands) steps for `app/client/` to `/.github/workflows/ci.yml` (currently API-only). Trigger: Fase 1 merged. _(Scaffold-state gap — no PRD/DESIGN statement.)_ — **done** (`client-build-test` job; lint + build + test; API job untouched).
 - [x] **4.7 ESLint config** — add `@angular-eslint` (none present today) before enforcing lint in CI. _(Scaffold-state gap — no PRD/DESIGN statement.)_ — **done** (`angular-eslint@20` flat config + `lint` target; `pnpm ng lint` clean).
@@ -451,14 +451,86 @@ and confirm the message keys off `code`.
 
 ### Completion notes
 
-**Scope of this pass.** Three tooling items closed against triggers that have landed — **4.7**
-(ESLint), **4.1** (Tailwind — build wiring only), **4.6** (client CI). **4.2 / 4.3 / 4.4 / 4.5
-stay open**: the four backing endpoints (`GET /v1/instruments`,
-`GET /v1/financing/cards/{id}/statements`, `GET /v1/ledger/transactions`, the auth surface) do
-**not** exist in the API today — confirmed by reading the endpoint registrations — so there is
-nothing to build against. Execute-ready checklists for 4.2 / 4.3 / 4.4 are recorded below so each
-becomes a single green-lit step once its endpoint ships; 4.5 has no checklist (no endpoint to
-design to). **The phase DoD box stays unticked until those four close.**
+**Scope of the tooling pass.** Three tooling items closed against triggers that have landed — **4.7**
+(ESLint), **4.1** (Tailwind — build wiring only), **4.6** (client CI).
+
+**4.2 + 4.3 + 4.4 closed (Phase 12).** `GET /v1/instruments` (step 1),
+`GET /v1/financing/cards/{id}/statements` (step 3) and `GET /v1/ledger/transactions` (step 5) shipped
+on the API; the matching client steps retired the `localStorage` registry, the id-paste
+`StatementIndex`, and the id-paste `ReverseIndex`, and **D20 is closed** (step 7 threaded the
+reversible ledger transaction id onto the statement + timeline rows; step 8 added the per-row
+Reverse buttons, D24) — see the completion notes below. **4.5 stays
+open**: the auth surface has no design. **The phase DoD box stays unticked until 4.5 closes.**
+
+**4.2 — `GET /v1/instruments` (Phase 12, D21).** `InstrumentsService` gains
+`list(): Observable<Instrument[]>` → `GET /v1/instruments`, `{ rows }` unwrapped via `map`. New type
+`features/instruments/types/instrument.ts` — `Instrument = { id; type: InstrumentType; name;
+cutoffDate: number | null }` (field-matched to `/openapi/v1.json`). **Deleted:**
+`core/registry/instrument-registry-service.ts` (+ spec), `core/types/registered-instrument.ts`, the
+empty `core/registry/` dir. **6 consumers** dropped `inject(InstrumentRegistryService)` for
+`inject(InstrumentsService)` + a `private instruments: WritableSignal<Instrument[]>` loaded in
+`ngOnInit` via `list().pipe(takeUntil(this.destroy$))`; each existing `computed()` `<select>` filter
+was repointed at `this.instruments()` unchanged (`instruments-page` all + re-fetch after create;
+`load-expense-page` `type === 'credit'`; `statement-page` `type === 'debit'`; `subscriptions-page`
+all, D13; `party-detail-page` `type === 'debit'`; `shared-expense-page` all, D17). Specs: each
+consumer spec swapped its registry stub / `registry.add(...)` for
+`{ provide: InstrumentsService, useValue: { list: () => of([...]) } }`;
+`instruments-service.spec.ts` gained a `list()` case; `instrument-registry-service.spec.ts` deleted.
+`pnpm ng test` → **135 pass**; `pnpm ng build` 261 kB initial (< 500 kB); `pnpm ng lint` clean.
+Docs: `docs/DESIGN.md` §2/§4/§8/§9/§11, `docs/PRD.md` §7.1, `.claude/CLAUDE.md`. Not committed —
+the user commits.
+
+**4.3 — `GET /v1/financing/cards/{id}/statements` (Phase 12, D22).** `FinancingService` gains
+`listStatements(cardId): Observable<MonthlyStatementSummary[]>` → `GET
+/v1/financing/cards/{cardId}/statements`, `{ rows }` unwrapped via `map` (new module-scoped
+`RowsEnvelope<T>` helper — the other list-returning methods on this service still hand their object
+back as-is). New type `features/financing/types/monthly-statement-summary.ts` — `MonthlyStatement`
+minus `installments` (`statementId`, `cardId`, `cardName`, `cycleYear`, `cycleMonth`,
+`amountDueMinorUnits`, `isPaid`, `paidOnUtc`). New page `features/financing/pages/statements-page/`:
+`StatementsPage` container (credit-card `<select>` from `instrumentsService.list()` filtered
+`type === 'credit'`; a one-control reactive form whose `cardId` `valueChanges` drives
+`listStatements`; `LoadStatus = 'idle' | 'loading' | 'ready' | 'error'` — `'idle'` until a card is
+picked, back to `'idle'` if cleared) + `StatementsTable` presentational (`input.required` +
+`openStatement = output<string>()`, zero-padded `YYYY-MM` cycle, `formatArs` amount, `Paid`/`Unpaid`
+badge, per-row **Open** button; the container navigates `['financing', 'statements', statementId]`).
+`financing.routes.ts`: `{ path: 'statements', component: StatementsPage }` (was `StatementIndex`);
+`statements/:id` and `load-expense` unchanged. **Deleted:** `features/financing/pages/statement-index/`
+(`.ts/.html/.css/.spec.ts`). Specs: `financing-service.spec.ts` gains a `listStatements` `{ rows }`
+case; new `statements-table.spec.ts` (4 — padded cycle + amount, single `Paid` badge, `openStatement`
+emits the id, empty note) and `statements-page.spec.ts` (5 — credit-only picker + `'idle'` start,
+pick fetches + renders + `'ready'`, cleared picker no-fetch, `openStatement` navigates, load error →
+`'error'`). `pnpm ng test` → **142 pass**; `pnpm ng build` 261.91 kB initial (< 500 kB); `pnpm ng
+lint` clean. Docs: `docs/DESIGN.md` §2/§4/§9/§11.2, `docs/PRD.md` §7.2, `.claude/CLAUDE.md`. Not
+committed — the user commits.
+
+**4.4 — `GET /v1/ledger/transactions` (Phase 12, D23).** `LedgerService` gains
+`listTransactions(filter: { accountId?; from?: IsoDate; to?: IsoDate } = {}): Observable<TransactionRow[]>`
+→ `GET /v1/ledger/transactions`, `{ rows }` unwrapped via `map`; the filter goes out as `HttpParams`,
+each key omitted when falsy (the `ReportsService.monthlyExpenses` precedent). New type
+`features/ledger/types/transaction-row.ts` — field-matched to the Step-5 DTO (`transactionId`,
+`postedOnUtc: IsoInstant`, `description`, `amountMinorUnits: Money`, `isReversal`, `isReversed`,
+`installmentReferenceId: string | null`, `splitReferenceId: string | null`); **no `direction` field**
+(the old TASK.md sketch had one — the API row carries a signed debit-side total, not a side). New page
+`features/ledger/pages/transactions-page/`: `TransactionsPage` container (a three-control reactive
+filter form — `accountId` `<select>` from `instrumentsService.list()` filtered `type !== 'credit'`
+(credit-card ids are not Ledger account ids), `from` / `to` native date inputs; `(ngSubmit)` →
+`applyFilter()` re-fetches; `LoadStatus = 'loading' | 'ready' | 'error'` — no `'idle'`, the feed
+loads in `ngOnInit`) + `TransactionsTable` presentational (`input.required` + `reverseTransaction =
+output<string>()`; `postedOnUtc.slice(0, 10)` date, `formatArs` amount; a **Reverse** button per row,
+`[disabled]` + a short note (`Reversal entry` / `Already reversed`) when `isReversal || isReversed`;
+the container navigates `['ledger', 'transactions', transactionId, 'reverse']`). `ledger.routes.ts`:
+`{ path: 'transactions', component: TransactionsPage }` (was `ReverseIndex`); `transactions/:id/reverse`
+→ `ReverseMovementPage` unchanged. **Deleted:** `features/ledger/pages/reverse-index/`
+(`.ts/.html/.css/.spec.ts`). Specs: `ledger-service.spec.ts` gains two `listTransactions` cases (no
+filter → no query params + `{ rows }` unwrap; full filter → `accountId`/`from`/`to` params asserted);
+new `transactions-table.spec.ts` (4 — date/label/amount render, locked action on a reversal row +
+note, `reverseTransaction` emits the id on an active click, empty note) and `transactions-page.spec.ts`
+(4 — loads on init + non-credit-only account picker, Apply re-fetches with the filter object,
+`openReverse` navigates the 4-segment path, load error → `'error'`). `pnpm ng test` → **149 pass**
+(142 + 10 new − 3 deleted); `pnpm ng build` 261.91 kB initial (< 500 kB); `pnpm ng lint` clean.
+Docs: `docs/DESIGN.md` §2/§4/§9/§11.3, `docs/PRD.md` §7.3, `.claude/CLAUDE.md`. **D20 stays open** —
+it is closed in steps 7–8 (reversible-tx-id into the timeline / statement DTOs, then the per-row
+buttons). Not committed — the user commits.
 
 **4.7 — ESLint (scaffold-state gap).** `angular-eslint@20` flat config (`eslint.config.js`,
 CommonJS — the client has no `"type": "module"`): `@eslint/js` recommended + `typescript-eslint@8`
@@ -505,6 +577,71 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
   choosing v4 now avoids a v3→v4 migration mid-UI-work. **DESIGN §10 still reads "config
   groundwork" — update it to the CSS-first wiring when the UI task picks this up.**
 
+- **D20** — **Reverse triggers on the installments table and the party timeline table —
+  blocked on the API, not wired.** The `task/client-design` nav-wiring pass planned a per-row
+  "Reverse" button on `InstallmentsTable` (statement page) and on `TimelineTable` (party
+  detail), each navigating to `/ledger/transactions/{txId}/reverse`. Verify-first check against
+  both the client types and the API DTOs: **neither row carries a ledger transaction id.**
+  `MonthlyStatementInstallmentRowDto` exposes `PlanId` + `InstallmentId` (Financing aggregate
+  ids); `CurrentAccountTimelineRowDto` exposes no id at all. `ReverseTransactionCommand` takes
+  `OriginalTransactionId` — a Ledger transaction id — and there is no client-reachable way to
+  resolve one from an `installmentId` or a timeline row. The buttons were deliberately **not**
+  added (no null/guessed id, no repurposing `installmentId`). Unblocked by **gap 3 / task 4.4**
+  (`GET /v1/ledger/transactions`), or by the statement / timeline DTOs growing a reversible
+  transaction id — whichever ships first. Until then the only reverse entry point stays the
+  id-lookup page (`/ledger/transactions`, reachable from the nav shell).
+  **Closed (Phase 12, steps 7–8, D24).** API step 7 threaded a reversible ledger transaction id
+  onto both surfaces: `MonthlyStatementInstallmentRowDto.reversalTransactionId` (the accrual tx,
+  or `null`) and `CurrentAccountTimelineRowDto` / `PartyTimelineRowDto` `.transactionId`. Client
+  step 8 gave `InstallmentsTable` and `TimelineTable` a per-row `reverseClick = output<string>()`
+  and a Reverse button — disabled for an installment with no live accrual (`reversalTransactionId`
+  null or `isReversed`) and for a timeline row that is itself a `'Reversal'`. `StatementPage` and
+  `PartyDetailPage` inject `Router` and navigate `['ledger', 'transactions', $event, 'reverse']`.
+
+- **D21** — **`InstrumentRegistryService` retired for `GET /v1/instruments`.** The Phase-0 D3
+  `localStorage` instrument registry (and `core/types/registered-instrument.ts`, `core/registry/`)
+  was deleted once the API endpoint shipped (API Phase 12). `InstrumentsService.list()` replaces it;
+  the client-owned `Instrument` type (`features/instruments/types/instrument.ts`) mirrors the DTO
+  (`cutoffDate: number | null`, always present — was `cutoffDate?: number`). Each of the 6 pickers
+  loads the list into its own `WritableSignal<Instrument[]>` in `ngOnInit` rather than sharing one
+  root signal — the registry's single source of truth is gone, but the lists are small and each page
+  wants a fresh read on entry (`InstrumentsPage` also re-fetches after a successful create instead of
+  the old optimistic `registry.add`).
+
+- **D22** — **`StatementIndex` id-paste page replaced by a real `StatementsPage`.** The Phase-1
+  gap-2 stopgap (`features/financing/pages/statement-index/` — paste a `statementId`, navigate to
+  `statements/:id`) was deleted once `GET /v1/financing/cards/{id}/statements` shipped (API Phase 12,
+  step 3). The new `StatementsPage` picks a credit card and lists its statements; a row's **Open**
+  button navigates to the same `statements/:id` detail route, so `StatementPage` is unchanged. The
+  card `<select>` reuses the D21 `instrumentsService.list()` pattern (`type === 'credit'` filter).
+  `LoadStatus` carries an `'idle'` state (no card picked yet) that the other pages' three-state
+  `LoadStatus` does not — the fetch is user-triggered here, not `ngOnInit`-triggered. New
+  `MonthlyStatementSummary` type is `MonthlyStatement` without `installments` (the list endpoint
+  omits them by design); the itemized `MonthlyStatement` is still what `statement-page` loads.
+
+- **D23** — **`ReverseIndex` id-paste page replaced by a real `TransactionsPage`.** The Phase-1
+  gap-3 stopgap (`features/ledger/pages/reverse-index/` — paste a `transactionId`, navigate to
+  `transactions/:id/reverse`) was deleted once `GET /v1/ledger/transactions` shipped (API Phase 12,
+  step 5). `TransactionsPage` lists the ledger feed with an account + date-range filter; each row's
+  **Reverse** button navigates to the same `transactions/:id/reverse` confirm route, so
+  `ReverseMovementPage` is unchanged. The account `<select>` filters `instrumentsService.list()` to
+  `type !== 'credit'` (only debit/cash instruments map to a Ledger `accountId`). `LoadStatus` has no
+  `'idle'` state — unlike `StatementsPage` (D22), the feed loads in `ngOnInit`, not on a pick. The
+  `TransactionRow` type drops the `direction` field the old sketch carried (the API row is a signed
+  debit-side total). D20 is **not** closed here — the per-row Reverse buttons on `InstallmentsTable`
+  / `TimelineTable` still need a reversible-transaction id threaded through those DTOs (steps 7–8).
+
+- **D24** — **D20 closed: per-row Reverse on `InstallmentsTable` + `TimelineTable`.** Both tables
+  stay presentational — a `reverseClick = output<string>()` emits the ledger transaction id; the
+  container (`StatementPage` / `PartyDetailPage`, both now inject `Router`) navigates to
+  `transactions/:id/reverse` (the same confirm route the feed's rows use). Types grew a field to
+  match API step 7: `monthly-statement-installment.ts` `+ reversalTransactionId: string | null`,
+  `party-timeline-row.ts` + `current-account-timeline-row.ts` `+ transactionId: string`. The
+  installments button is disabled when `reversalTransactionId` is null or `isReversed`; the timeline
+  button is disabled on a row whose `description === 'Reversal'`. `pnpm ng test` → 155 pass
+  (149 + 6); build 261.91 kB initial (unchanged — the deltas are inside the lazy feature chunks);
+  lint clean. Docs: `docs/DESIGN.md` §9/§11.3, `docs/PRD.md` §3.4/§3.5.
+
 ---
 
 #### Gap checklists — execute-ready (one green-lit step each, when the endpoint ships)
@@ -532,6 +669,7 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
 - Retires placeholder `features/ledger/pages/reverse-index/` → new `transactions-page/` (`TransactionsPage`: history list + per-row "Reverse" → `transactions/:id/reverse`). Keep `ReverseMovementPage` as the confirm step.
 - Routes (`ledger.routes.ts`): `{ path: 'transactions', component: ReverseIndex }` → `TransactionsPage`; keep `transactions/:id/reverse`. Delete `reverse-index.{ts,html,css,spec.ts}`.
 - Specs: `ledger-service.spec.ts` gains `listTransactions`; new `transactions-page.spec.ts` (rows, reverse-nav trimming id, already-reversed badge disables the action, loading/empty/error); delete `reverse-index.spec.ts`.
+- Also closes **D20**: with a `transactionId` now reachable, add the deferred per-row "Reverse" buttons to `InstallmentsTable` and `TimelineTable` (presentational — `output<string>()`; the container navigates to `/ledger/transactions/{txId}/reverse`) — either from this feed or from a reversible-transaction-id field added to the statement / timeline DTOs.
 - Next free D-number.
 
 **Common to 4.2 / 4.3 / 4.4 when worked:** build stays < 500 kB initial; `pnpm ng test` green;

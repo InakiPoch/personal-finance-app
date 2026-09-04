@@ -1,0 +1,39 @@
+<section class="transactions-page">
+  <header>
+    <h1>Transactions</h1>
+    <p class="transactions-page__note">
+      The ledger movement feed, newest first. Reverse is available on any movement that is not
+      itself a reversal and has not already been reversed.
+    </p>
+  </header>
+  <form class="transactions-page__form" [formGroup]="form" (ngSubmit)="applyFilter()">
+    <div class="field">
+      <label for="accountId">Account</label>
+      <select id="accountId" formControlName="accountId">
+        <option value="">All accounts</option>
+        @for(account of accounts(); track account.id) {
+          <option [value]="account.id">{{ account.name }}</option>
+        }
+      </select>
+    </div>
+    <div class="field">
+      <label for="from">From</label>
+      <input type="date" id="from" formControlName="from" />
+    </div>
+    <div class="field">
+      <label for="to">To</label>
+      <input type="date" id="to" formControlName="to" />
+    </div>
+    <button type="submit">Apply</button>
+  </form>
+  @if(loadStatus() === 'loading') {
+    <p>Loading transactions…</p>
+  } @else if(loadStatus() === 'error') {
+    <p role="alert">Could not load the transactions — try again in a moment.</p>
+  } @else {
+    <app-transactions-table
+      [transactions]="transactions()"
+      (reverseTransaction)="openReverse($event)"
+    />
+  }
+</section>

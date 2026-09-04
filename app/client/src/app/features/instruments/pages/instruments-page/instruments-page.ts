@@ -9,13 +9,11 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { InstrumentType } from '../../../../core/types/instrument-type';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
 import { InstrumentsService } from '../../instruments-service';
 import { CreateInstrument } from '../../types/create-instrument';
-import { InstrumentCreated } from '../../types/instrument-created';
+import { Instrument } from '../../types/instrument';
 import { creditRequiresCutoff } from '../../validation-helpers';
 
 type SubmitStatus = 'idle' | 'submitting' | 'error';
@@ -35,14 +33,14 @@ type InstrumentForm = FormGroup<{
 })
 export class InstrumentsPage implements OnInit, OnDestroy {
   protected form!: InstrumentForm;
-  protected readonly registry: InstrumentRegistryService = inject(InstrumentRegistryService);
+  protected readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   protected readonly submitStatus: WritableSignal<SubmitStatus> = signal<SubmitStatus>('idle');
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly nameErrors: Record<string, string> = { required: 'Name is required.' };
   protected readonly cutoffErrors: Record<string, string> = { creditCutoff: 'Credit cards need a cutoff day between 1 and 31.'};
 
   private readonly fb: FormBuilder = inject(FormBuilder);
-  private readonly instruments: InstrumentsService = inject(InstrumentsService);
+  private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly submitErrorMessages: Record<string, string> = {
     'Instruments.UnknownType': 'That instrument type is not supported.',
     'Http.BadRequest': 'The instrument could not be created — check the values and try again.',
@@ -66,31 +64,32 @@ export class InstrumentsPage implements OnInit, OnDestroy {
     };
     this.submitError.set(null);
     this.submitStatus.set('submitting');
-    this.instruments
+    this.instrumentsService
       .create(body)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (created: InstrumentCreated) => {
-          const registered: RegisteredInstrument = {
-            id: created.id,
-            type: created.type,
-            name: body.name,
-            ...(body.cutoffDate !== undefined ? { cutoffDate: body.cutoffDate } : {}),
-          };
-          this.registry.add(registered);
+        next: () => {
+          this.loadInstruments();
           this.form.reset({ type: 'debit', name: '', cutoffDate: null });
           this.submitStatus.set('idle');
         },
         error: (error: AppError) => {
           this.submitError.set(error);
           this.submitStatus.set('error');
-        },
+        }
       }
     );
   }
 
   protected submitErrorText(error: AppError): string {
     return this.submitErrorMessages[error.code] ?? 'The instrument could not be created.';
+  }
+
+  private loadInstruments(): void {
+    this.instrumentsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((rows: Instrument[]) => this.instruments.set(rows));
   }
 
   private initInstrumentForm(): void {
@@ -108,6 +107,7 @@ export class InstrumentsPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initInstrumentForm();
+    this.loadInstruments();
   }
 
   ngOnDestroy(): void {

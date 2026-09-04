@@ -1,0 +1,31 @@
+@if(transactions().length === 0) {
+  <p class="transactions__empty">No transactions match the current filter.</p>
+} @else {
+  <table class="transactions">
+    <thead>
+      <tr>
+        <th scope="col">Posted</th>
+        <th scope="col">Description</th>
+        <th scope="col">Amount</th>
+        <th scope="col">Reverse</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for(row of transactions(); track row.transactionId) {
+        <tr>
+          <td>{{ datePart(row) }}</td>
+          <td>{{ row.description }}</td>
+          <td>{{ formatArs(row.amountMinorUnits) }}</td>
+          <td>
+            <button type="button" [disabled]="isLocked(row)" (click)="onReverse(row.transactionId)">
+              Reverse
+            </button>
+            @if(isLocked(row)) {
+              <span class="transactions__note">{{ lockReason(row) }}</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

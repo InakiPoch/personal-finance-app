@@ -12,4 +12,5 @@ public interface IFinancingApi {
     Task<Result> LinkSplitAsync(LinkPaymentPlanSplitCommand command, CancellationToken ct = default);
     Task<InstallmentStatusResponse> GetInstallmentStatusAsync(GetInstallmentStatusQuery query, CancellationToken ct = default);
     Task<CardFutureScheduleResponse> GetCardFutureScheduleAsync(GetCardFutureScheduleQuery query, CancellationToken ct = default);
+    Task<ListCreditCardsResponse> ListCreditCardsAsync(ListCreditCardsQuery query, CancellationToken ct = default);
 }

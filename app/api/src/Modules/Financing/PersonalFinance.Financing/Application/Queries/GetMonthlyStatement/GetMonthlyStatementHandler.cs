@@ -3,10 +3,12 @@ using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Ledger.Contracts.Queries;
 
 namespace PersonalFinance.Financing.Application.Queries.GetMonthlyStatement;
 
-internal sealed class GetMonthlyStatementHandler(FinancingDbContext context) : IQueryHandler<GetMonthlyStatementQuery, MonthlyStatementDetailResponse> {
+internal sealed class GetMonthlyStatementHandler(FinancingDbContext context, ILedgerApi ledger) : IQueryHandler<GetMonthlyStatementQuery, MonthlyStatementDetailResponse> {
     public async Task<MonthlyStatementDetailResponse> HandleAsync(GetMonthlyStatementQuery query, CancellationToken cancellationToken) {
         var statement = await context.MonthlyStatements
             .Where(candidate => candidate.Id == query.StatementId)
@@ -42,6 +44,9 @@ internal sealed class GetMonthlyStatementHandler(FinancingDbContext context) : I
                 installment.IsReversed
             }
         ).ToListAsync(cancellationToken);
+        var accrualTransactionIds = await ledger.FindAccrualTransactionIdsAsync(
+            new FindAccrualTransactionIdsQuery(accrued.Select(row => row.Id).ToList()),
+            cancellationToken);
         var installments = accrued
             .OrderBy(row => row.PurchaseDate)
             .ThenBy(row => row.Sequence)
@@ -54,7 +59,8 @@ internal sealed class GetMonthlyStatementHandler(FinancingDbContext context) : I
                 row.CycleYear,
                 row.CycleMonth,
                 row.Amount.MinorUnits,
-                row.IsReversed))
+                row.IsReversed,
+                accrualTransactionIds.ByInstallmentReferenceId.TryGetValue(row.Id, out var transactionId) ? transactionId : null))
             .ToList();
         return new MonthlyStatementDetailResponse(
             true,

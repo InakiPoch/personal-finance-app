@@ -38,7 +38,10 @@ hyphen table — that is D7, not drift).
   and components remain the separate UI task (`docs/DESIGN.md` §10). **ESLint** —
   `angular-eslint@20` flat config (`eslint.config.js`), run via `pnpm ng lint`. **Client CI** —
   the `client-build-test` job in `/.github/workflows/ci.yml` runs lint + build + test. API gaps
-  4.2–4.5 stay open (TASK.md Phase 4).
+  4.2 (`GET /v1/instruments`, D21), 4.3 (`GET /v1/financing/cards/{id}/statements`, D22) and
+  4.4 (`GET /v1/ledger/transactions`, D23) are closed in Phase 12, and **D20** (per-row Reverse
+  buttons on the statement-installment + party-timeline tables, D24) with it; 4.5 (auth) stays
+  open (TASK.md Phase 4).
 
 ## Current state
 
@@ -53,8 +56,10 @@ Phases 0 and 1 are complete. `src/app/core/` holds:
   URLs pass through), `problemDetailsInterceptor` (maps failures to `AppError`, trusts
   `HttpErrorResponse.status`), `pollUntil` (bounded reconciliation poll), `SKIP_ERROR_MAPPING`
   (`HttpContextToken` opt-out). Both interceptors are wired in `app.config.ts`.
-- `registry/` — `InstrumentRegistryService`: `localStorage`-backed signal, stopgap for the
-  missing `GET /v1/instruments` (API gap 1).
+- (`registry/` — removed in Phase 12. `InstrumentsService.list()` now serves the instrument
+  list from `GET /v1/instruments`; every card/funding `<select>` loads it into a local
+  `WritableSignal<Instrument[]>` in `ngOnInit`. `Instrument` type lives at
+  `features/instruments/types/instrument.ts`. D21.)
 - `health/` — `HealthService.check()`: `GET /health` at the host root, degradation-aware.
 
 Feature code lives under `src/app/features/<feature>/` (`<feature>-service.ts`, `types/`,

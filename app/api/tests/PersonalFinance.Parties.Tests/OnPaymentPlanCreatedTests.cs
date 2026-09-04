@@ -123,6 +123,18 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         public Task<Money> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
+
+        public Task<InstrumentAccountsResponse> ListInstrumentAccountsAsync(ListInstrumentAccountsQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
+
+        public Task<TransactionFeedResponse> GetTransactionsAsync(GetTransactionsQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
+
+        public Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class FakeFinancingApi : IFinancingApi {
@@ -154,6 +166,10 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         }
 
         public Task<CardFutureScheduleResponse> GetCardFutureScheduleAsync(GetCardFutureScheduleQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
+
+        public Task<ListCreditCardsResponse> ListCreditCardsAsync(ListCreditCardsQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
     }

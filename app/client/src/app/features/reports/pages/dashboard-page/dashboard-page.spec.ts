@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
@@ -8,7 +9,6 @@ import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
 import { DashboardPage } from './dashboard-page';
 
-/** Structural view of the component's template surface, for assertions in the spec. */
 type DashboardView = {
   selectedMonth: () => string;
   monthlyStatus: () => 'loading' | 'ready' | 'error';
@@ -30,12 +30,12 @@ describe('DashboardPage', () => {
   const monthlyRows: MonthlyExpenseRow[] = [
     { month: '2026-09', category: 'Groceries', amountMinorUnits: money(120000), currencyCode: 'ARS' },
     { month: '2026-09', category: 'Groceries', amountMinorUnits: money(30000), currencyCode: 'ARS' },
-    { month: '2026-09', category: 'Transport', amountMinorUnits: money(45000), currencyCode: 'ARS' },
+    { month: '2026-09', category: 'Transport', amountMinorUnits: money(45000), currencyCode: 'ARS' }
   ];
   const cardDueRows: CardDueRow[] = [
     { bucket: 'Accrued', card: 'Visa', cycleYear: 2026, cycleMonth: 9, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
     { bucket: 'Future', card: 'Visa', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
-    { bucket: 'Future', card: 'Amex', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(250000), currencyCode: 'ARS', cardId: 'c2' },
+    { bucket: 'Future', card: 'Amex', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(250000), currencyCode: 'ARS', cardId: 'c2' }
   ];
 
   function setup(): void {
@@ -51,7 +51,8 @@ describe('DashboardPage', () => {
       imports: [DashboardPage],
       providers: [
         provideZonelessChangeDetection(),
-        { provide: ReportsService, useValue: { monthlyExpenses, cardDueByMonth } },
+        provideRouter([]),
+        { provide: ReportsService, useValue: { monthlyExpenses, cardDueByMonth } }
       ],
     });
   });
@@ -73,7 +74,7 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     expect(view.expensesByCategory()).toEqual([
       { label: 'Groceries', totalMinorUnits: 150000 },
-      { label: 'Transport', totalMinorUnits: 45000 },
+      { label: 'Transport', totalMinorUnits: 45000 }
     ]);
   });
   it('splits card dues into Accrued and Future, grouped by card', () => {
@@ -82,7 +83,7 @@ describe('DashboardPage', () => {
     expect(view.accruedByCard()).toEqual([{ label: 'Visa', totalMinorUnits: 500000 }]);
     expect(view.futureByCard()).toEqual([
       { label: 'Visa', totalMinorUnits: 500000 },
-      { label: 'Amex', totalMinorUnits: 250000 },
+      { label: 'Amex', totalMinorUnits: 250000 }
     ]);
   });
   it('refetches only monthly expenses when the month changes', () => {

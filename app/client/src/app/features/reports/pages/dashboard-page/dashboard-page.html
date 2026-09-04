@@ -5,6 +5,9 @@
       Monthly expenses deliberately exclude card purchases and third-party receivables — this
       is what actually left your pocket, not what you owe.
     </p>
+    <nav aria-label="Quick actions" class="dashboard__links">
+      <a [routerLink]="'/financing/load-expense'">Record an expense</a>
+    </nav>
   </header>
   <section class="panel">
     <div class="panel__title">
@@ -47,7 +50,10 @@
     }
   </section>
   <section class="panel">
-    <h2>Card amount due this cycle</h2>
+    <div class="panel__title">
+      <h2>Card amount due this cycle</h2>
+      <a [routerLink]="'/financing/statements'">Pay a statement</a>
+    </div>
     @if(cardDueStatus() === 'loading') {
       <p>Loading card dues…</p>
     } @else if(cardDueStatus() === 'error') {

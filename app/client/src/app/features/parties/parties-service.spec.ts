@@ -60,7 +60,6 @@ describe('PartiesService', () => {
     expect(error?.code).toBe('Parties.NotFound');
     expect(error?.status).toBe(404);
   });
-
   it('POSTs the create-party body and returns the new id', () => {
     const body: CreateParty = { name: 'Bob' };
     let result: PartyResult | undefined;
@@ -71,7 +70,6 @@ describe('PartiesService', () => {
     req.flush({ id: 'p9' });
     expect(result).toEqual({ id: 'p9' });
   });
-
   it('maps a 422 on create to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service.create({ name: '' }).subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
@@ -82,7 +80,6 @@ describe('PartiesService', () => {
     expect(error?.code).toBe('Parties.InvalidName');
     expect(error?.status).toBe(422);
   });
-
   it('POSTs a shared expense with the participants array intact', () => {
     const body: RegisterSharedExpense = {
       description: 'Dinner',
@@ -103,7 +100,6 @@ describe('PartiesService', () => {
     req.flush({ splitReferenceId: 'split-1' });
     expect(result).toEqual({ splitReferenceId: 'split-1' });
   });
-
   it('maps a 422 on a shared expense to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service
@@ -127,7 +123,6 @@ describe('PartiesService', () => {
     expect(error?.code).toBe('Parties.InvalidParticipants');
     expect(error?.status).toBe(422);
   });
-
   it('POSTs a settlement for a party and returns the ledger transaction id', () => {
     const body: SettleCurrentAccount = {
       amountMinorUnits: money(250000),
@@ -142,7 +137,6 @@ describe('PartiesService', () => {
     req.flush({ ledgerTransactionId: 'tx-1' });
     expect(result).toEqual({ ledgerTransactionId: 'tx-1' });
   });
-
   it('maps a 409 on a settlement to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service
@@ -163,10 +157,10 @@ describe('PartiesService', () => {
     expect(error?.code).toBe('Parties.SettlementExceedsBalance');
     expect(error?.status).toBe(409);
   });
-
   it('GETs the current-account timeline and unwraps { rows }', () => {
     const rows: CurrentAccountTimelineRow[] = [
       {
+        transactionId: 'tx-1',
         movementOnUtc: '2026-09-01T20:00:00.000Z',
         description: 'Dinner split',
         deltaMinorUnits: money(300000),
@@ -180,7 +174,6 @@ describe('PartiesService', () => {
     req.flush({ rows });
     expect(result).toEqual(rows);
   });
-
   it('maps a 404 on the timeline to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service.getTimeline('missing').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });

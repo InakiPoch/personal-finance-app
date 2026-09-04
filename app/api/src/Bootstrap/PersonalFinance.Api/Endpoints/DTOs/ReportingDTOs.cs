@@ -17,6 +17,7 @@ public sealed record CardDueRowDto(
 public sealed record CardDueByMonthDto(IReadOnlyList<CardDueRowDto> Rows);
 
 public sealed record PartyTimelineRowDto(
+    Guid TransactionId,
     DateTimeOffset MovementOnUtc,
     string Description,
     long DeltaMinorUnits,

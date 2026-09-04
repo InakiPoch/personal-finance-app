@@ -10,14 +10,14 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, ParamMap } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs } from '../../../../core/money/money';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { IsoInstant } from '../../../../core/types/iso-instant';
 import { Money } from '../../../../core/types/money';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { FinancingService } from '../../financing-service';
 import { MonthlyStatement } from '../../types/monthly-statement';
 import { PayStatement } from '../../types/pay-statement';
@@ -47,17 +47,19 @@ export class StatementPage implements OnInit, OnDestroy {
   protected readonly loadStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly payStatus: WritableSignal<PayStatus> = signal<PayStatus>('idle');
   protected readonly payError: WritableSignal<AppError | null> = signal<AppError | null>(null);
-  protected readonly bankAccounts: Signal<RegisteredInstrument[]> = computed(() =>
-    this.registry.instruments().filter((instrument: RegisteredInstrument) => instrument.type === 'debit')
+  protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
+    this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
   );
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.'
   };
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly router: Router = inject(Router);
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly financing: FinancingService = inject(FinancingService);
-  private readonly registry: InstrumentRegistryService = inject(InstrumentRegistryService);
+  private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
+  private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly payErrorMessages: Record<string, string> = {
     'Financing.AlreadyPaid': 'This statement has already been paid.',
     'Financing.StatementNotFound': 'No statement matches that id.',
@@ -78,7 +80,7 @@ export class StatementPage implements OnInit, OnDestroy {
     const raw: { bankAccountId: string; paidOnUtc: string } = this.form.getRawValue();
     const body: PayStatement = {
       bankAccountId: raw.bankAccountId,
-      paidOnUtc: new Date(raw.paidOnUtc).toISOString() as IsoInstant,
+      paidOnUtc: new Date(raw.paidOnUtc).toISOString() as IsoInstant
     };
     this.payError.set(null);
     this.payStatus.set('paying');
@@ -93,13 +95,24 @@ export class StatementPage implements OnInit, OnDestroy {
         error: (error: AppError) => {
           this.payError.set(error);
           this.payStatus.set('error');
-        },
+        }
       }
     );
   }
 
   protected payErrorText(error: AppError): string {
     return this.payErrorMessages[error.code] ?? 'The payment could not be recorded.';
+  }
+
+  protected openReverse(transactionId: string): void {
+    this.router.navigate(['ledger', 'transactions', transactionId, 'reverse']);
+  }
+
+  private loadInstruments(): void {
+    this.instrumentsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+    .subscribe((rows: Instrument[]) => this.instruments.set(rows));
   }
 
   private loadStatement(id: string): void {
@@ -126,6 +139,7 @@ export class StatementPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initPayForm();
+    this.loadInstruments();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {
         const id: string | null = params.get('id');

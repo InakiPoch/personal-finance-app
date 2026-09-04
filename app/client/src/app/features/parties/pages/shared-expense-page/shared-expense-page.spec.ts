@@ -3,9 +3,10 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormArray, FormControl, FormGroup } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
 import { RegisterSharedExpense } from '../../types/register-shared-expense';
@@ -42,6 +43,10 @@ const debtRows: PartyDebtRow[] = [
   { partyId: 'p2', partyName: 'Bob', netBalanceMinorUnits: 0 as Money, currencyCode: 'ARS' }
 ];
 
+const instruments: Instrument[] = [
+  { id: 'acct-1', type: 'debit', name: 'Checking', cutoffDate: null }
+];
+
 describe('SharedExpensePage', () => {
   let fixture: ComponentFixture<SharedExpensePage>;
   let view: SharedExpenseView;
@@ -57,14 +62,13 @@ describe('SharedExpensePage', () => {
         provideRouter([]),
         { provide: PartiesService, useValue: { registerSharedExpense } },
         { provide: ReportsService, useValue: { debtSummary } },
+        { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         {
           provide: ActivatedRoute,
           useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } }
         }
       ]
     });
-    const registry: InstrumentRegistryService = TestBed.inject(InstrumentRegistryService);
-    registry.add({ id: 'acct-1', type: 'debit', name: 'Checking' });
     fixture = TestBed.createComponent(SharedExpensePage);
     view = fixture.componentInstance as unknown as SharedExpenseView;
     fixture.detectChanges();
@@ -85,15 +89,12 @@ describe('SharedExpensePage', () => {
   }
 
   beforeEach(() => {
-    localStorage.clear();
     queryParams = {};
     debtSummary = jasmine.createSpy('debtSummary').and.returnValue(of<PartyDebtRow[]>(debtRows));
     registerSharedExpense = jasmine
       .createSpy('registerSharedExpense')
       .and.returnValue(of<SharedExpenseResult>({ splitReferenceId: 'split-1' }));
   });
-
-  afterEach(() => localStorage.clear());
 
   it('loads the parties list on init and offers them as participant options', () => {
     setup();

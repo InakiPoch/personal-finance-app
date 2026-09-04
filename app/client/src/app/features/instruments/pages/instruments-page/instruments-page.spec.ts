@@ -2,11 +2,11 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { Observable, of, throwError } from 'rxjs';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { InstrumentType } from '../../../../core/types/instrument-type';
 import { InstrumentsService } from '../../instruments-service';
 import { CreateInstrument } from '../../types/create-instrument';
+import { Instrument } from '../../types/instrument';
 import { InstrumentCreated } from '../../types/instrument-created';
 import { InstrumentsPage } from './instruments-page';
 
@@ -16,6 +16,7 @@ type InstrumentsView = {
     name: FormControl<string>;
     cutoffDate: FormControl<number | null>;
   }>;
+  instruments: () => Instrument[];
   submitStatus: () => 'idle' | 'submitting' | 'error';
   submitError: () => AppError | null;
   onSubmit: () => void;
@@ -24,31 +25,33 @@ type InstrumentsView = {
 describe('InstrumentsPage', () => {
   let fixture: ComponentFixture<InstrumentsPage>;
   let view: InstrumentsView;
-  let registry: InstrumentRegistryService;
   let create: jasmine.Spy<(body: CreateInstrument) => Observable<InstrumentCreated>>;
+  let list: jasmine.Spy<() => Observable<Instrument[]>>;
+
+  const visa: Instrument = { id: 'inst-1', type: 'credit', name: 'Visa', cutoffDate: 20 };
 
   beforeEach(() => {
-    localStorage.clear();
     create = jasmine
       .createSpy('create')
       .and.returnValue(of<InstrumentCreated>({ id: 'inst-1', type: 'credit' }));
+    list = jasmine.createSpy('list').and.returnValue(of<Instrument[]>([]));
     TestBed.configureTestingModule({
       imports: [InstrumentsPage],
       providers: [
         provideZonelessChangeDetection(),
-        { provide: InstrumentsService, useValue: { create } },
+        { provide: InstrumentsService, useValue: { create, list } },
       ],
     });
     fixture = TestBed.createComponent(InstrumentsPage);
     view = fixture.componentInstance as unknown as InstrumentsView;
-    registry = TestBed.inject(InstrumentRegistryService);
     fixture.detectChanges();
   });
 
-  afterEach(() => localStorage.clear());
-
   it('creates', () => {
     expect(fixture.componentInstance).toBeTruthy();
+  });
+  it('loads the instrument list from the API on init', () => {
+    expect(list).toHaveBeenCalledTimes(1);
   });
   it('is invalid without a name', () => {
     view.form.setValue({ type: 'debit', name: '', cutoffDate: null });
@@ -68,25 +71,26 @@ describe('InstrumentsPage', () => {
     expect(view.form.controls.cutoffDate.hasError('creditCutoff')).toBe(false);
     expect(view.form.valid).toBe(true);
   });
-  it('submits the instrument, trims the name and appends it to the registry', () => {
+  it('submits the instrument, trims the name and re-fetches the list from the API', () => {
+    list.calls.reset();
+    list.and.returnValue(of<Instrument[]>([visa]));
     view.form.setValue({ type: 'credit', name: '  Visa  ', cutoffDate: 20 });
     view.onSubmit();
     expect(create).toHaveBeenCalledWith({ type: 'credit', name: 'Visa', cutoffDate: 20 });
-    expect(registry.instruments()).toEqual([
-      { id: 'inst-1', type: 'credit', name: 'Visa', cutoffDate: 20 },
-    ]);
+    expect(list).toHaveBeenCalledTimes(1);
+    expect(view.instruments()).toEqual([visa]);
     expect(view.form.controls.name.value).toBe('');
     expect(view.submitStatus()).toBe('idle');
   });
   it('omits cutoffDate from the payload for non-credit instruments', () => {
     create.and.returnValue(of<InstrumentCreated>({ id: 'inst-2', type: 'debit' }));
+    list.calls.reset();
     view.form.setValue({ type: 'debit', name: 'Checking', cutoffDate: null });
     view.onSubmit();
     expect(create).toHaveBeenCalledWith({ type: 'debit', name: 'Checking' });
-    expect(registry.instruments()).toEqual([{ id: 'inst-2', type: 'debit', name: 'Checking' }]);
+    expect(list).toHaveBeenCalledTimes(1);
   });
-
-  it('surfaces an AppError and does not touch the registry when create fails', () => {
+  it('surfaces an AppError and does not re-fetch when create fails', () => {
     const appError: AppError = {
       code: 'Instruments.UnknownType',
       title: 'Bad request',
@@ -95,10 +99,11 @@ describe('InstrumentsPage', () => {
       metadata: {},
     };
     create.and.returnValue(throwError(() => appError));
+    list.calls.reset();
     view.form.setValue({ type: 'debit', name: 'Checking', cutoffDate: null });
     view.onSubmit();
     expect(view.submitError()).toEqual(appError);
     expect(view.submitStatus()).toBe('error');
-    expect(registry.instruments()).toEqual([]);
+    expect(list).not.toHaveBeenCalled();
   });
 });

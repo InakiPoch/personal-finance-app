@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using PersonalFinance.Abstractions.Messaging;
@@ -17,9 +16,5 @@ public sealed class ReportingModule : IModule {
         services.AddScoped<IQueryHandler<CardDueByMonthQuery, CardDueByMonthResponse>, CardDueByMonthHandler>();
         services.AddScoped<IQueryHandler<GetPartyTimelineQuery, PartyTimelineResponse>, GetPartyTimelineHandler>();
         services.AddScoped<IQueryHandler<GetDebtByPartyQuery, DebtByPartyResponse>, GetDebtByPartyHandler>();
-    }
-
-    public void MapEndpoints(IEndpointRouteBuilder endpoints) {
-        // HTTP surface is host-owned (src/Bootstrap/PersonalFinance.Api/Endpoints/) — see LedgerModule.
     }
 }

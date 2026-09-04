@@ -1,11 +1,12 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
@@ -38,8 +39,9 @@ const balance: CurrentAccountBalance = {
 };
 
 const timelineRows: PartyTimelineRow[] = [{
+    transactionId: 'tx-1',
     movementOnUtc: '2026-09-01T20:00:00.000Z',
-    description: 'Dinner split',
+    description: 'Shared expense',
     deltaMinorUnits: money(250000),
     runningBalanceMinorUnits: money(250000),
     currencyCode: 'ARS'
@@ -70,8 +72,11 @@ describe('PartyDetailPage', () => {
     });
   }
 
+  const instruments: Instrument[] = [
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null }
+  ];
+
   beforeEach(() => {
-    localStorage.clear();
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance));
     partyTimeline = jasmine.createSpy('partyTimeline').and.returnValue(of(timelineRows));
     settle = jasmine
@@ -84,14 +89,11 @@ describe('PartyDetailPage', () => {
         provideRouter([]),
         { provide: PartiesService, useValue: { getBalance, settle } },
         { provide: ReportsService, useValue: { partyTimeline } },
+        { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
       ]
     });
-    const registry: InstrumentRegistryService = TestBed.inject(InstrumentRegistryService);
-    registry.add({ id: 'acct-debit', type: 'debit', name: 'Checking' });
   });
-
-  afterEach(() => localStorage.clear());
 
   it('loads the balance and timeline named by the route param', () => {
     setup();
@@ -100,7 +102,15 @@ describe('PartyDetailPage', () => {
     expect(view.balanceStatus()).toBe('ready');
     expect(view.timelineStatus()).toBe('ready');
     expect(view.balance()?.name).toBe('Alice');
-    expect(text()).toContain('Dinner split');
+    expect(text()).toContain('Shared expense');
+  });
+  it('navigates to the id-driven reverse route when a timeline Reverse button is clicked', () => {
+    setup();
+    const navigate: jasmine.Spy = spyOn(TestBed.inject(Router), 'navigate');
+    const button: HTMLButtonElement =
+      fixture.nativeElement.querySelector('app-timeline-table tbody tr button');
+    button.click();
+    expect(navigate).toHaveBeenCalledWith(['ledger', 'transactions', 'tx-1', 'reverse']);
   });
   it('keeps the settlement form invalid until amount, account and date are chosen', () => {
     setup();

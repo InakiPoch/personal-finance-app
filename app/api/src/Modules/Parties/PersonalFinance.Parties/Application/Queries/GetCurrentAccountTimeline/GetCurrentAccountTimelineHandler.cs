@@ -13,6 +13,7 @@ internal sealed class GetCurrentAccountTimelineHandler(PartiesDbContext context)
             .AsNoTracking()
             .Where(entry => entry.PartyId == query.PartyId)
             .Select(entry => new {
+                entry.TransactionId,
                 entry.MovementOnUtc,
                 entry.Description,
                 entry.DeltaMinorUnits,
@@ -22,6 +23,7 @@ internal sealed class GetCurrentAccountTimelineHandler(PartiesDbContext context)
         var rows = movements
             .OrderBy(entry => entry.MovementOnUtc)
             .Select(entry => new CurrentAccountTimelineRow(
+                entry.TransactionId,
                 entry.MovementOnUtc,
                 entry.Description,
                 entry.DeltaMinorUnits,

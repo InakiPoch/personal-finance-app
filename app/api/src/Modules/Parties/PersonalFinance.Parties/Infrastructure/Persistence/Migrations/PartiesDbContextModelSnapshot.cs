@@ -145,6 +145,43 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
                     b.ToTable("parties_parties", (string)null);
                 });
 
+            modelBuilder.Entity("PersonalFinance.Parties.Infrastructure.Persistence.ReadModels.CurrentAccountTimelineEntry", b =>
+                {
+                    b.Property<Guid>("AccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CurrencyCode")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("DeltaMinorUnits")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("MovementOnUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PartyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PartyName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("RunningBalanceMinorUnits")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("TransactionId")
+                        .HasColumnType("TEXT");
+
+                    b.ToTable((string)null);
+
+                    b.ToView("vw_current_account_timeline", (string)null);
+                });
+
             modelBuilder.Entity("PersonalFinance.Parties.Domain.ExpenseSplitParticipant", b =>
                 {
                     b.HasOne("PersonalFinance.Parties.Domain.ExpenseSplit", null)

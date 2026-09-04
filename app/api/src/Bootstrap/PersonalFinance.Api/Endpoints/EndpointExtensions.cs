@@ -19,6 +19,11 @@ internal static class EndpointExtensions {
                 .Produces<PostTransactionResultDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Ledger.Transactions, GetTransactions.Handle)
+                .WithSummary("List posted transactions, newest first.")
+                .WithDescription("Returns the Ledger transaction feed with a synthesized label per row, optionally narrowed to one account (?accountId=) and a posted-date range (?from=&to=, inclusive, yyyy-MM-dd). Each row flags whether it is itself a reversal and whether it has since been reversed.")
+                .Produces<TransactionFeedDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapPost(ApiRoutes.Ledger.Reversal, ReverseTransaction.Handle)
                 .WithSummary("Reverse a posted transaction.")
                 .WithDescription("Posts a storno reversal of the given transaction, plus a compensating card-credit entry if the reversed installment was already paid. Always succeeds unless the transaction is missing or is itself a reversal.")
@@ -66,6 +71,10 @@ internal static class EndpointExtensions {
                 .WithSummary("Get a card's future installment schedule.")
                 .WithDescription("Returns the not-yet-accrued installments for the given credit card.")
                 .Produces<CardFutureScheduleDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.CardStatements, GetCardStatements.Handle)
+                .WithSummary("List a card's monthly statements.")
+                .WithDescription("Returns every monthly statement raised for the given credit card, ordered by billing cycle, without the component installments. An unknown card yields an empty list.")
+                .Produces<CardStatementsDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 
@@ -79,6 +88,10 @@ internal static class EndpointExtensions {
                 .Produces<InstrumentCreatedDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status400BadRequest)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Instruments.List, GetInstruments.Handle)
+                .WithSummary("List registered payment instruments.")
+                .WithDescription("Unified read of every registered instrument: debit and cash accounts from Ledger plus credit cards from Financing, each tagged with its instrument type.")
+                .Produces<InstrumentsListDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

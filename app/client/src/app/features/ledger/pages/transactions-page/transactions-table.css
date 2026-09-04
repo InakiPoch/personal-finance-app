@@ -1,0 +1,22 @@
+.transactions {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.transactions th,
+.transactions td {
+  border-bottom: 1px solid #eee;
+  padding: 0.375rem 0.5rem;
+  text-align: left;
+}
+
+.transactions__note {
+  color: #555;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+}
+
+.transactions__empty {
+  color: #555;
+  font-size: 0.875rem;
+}

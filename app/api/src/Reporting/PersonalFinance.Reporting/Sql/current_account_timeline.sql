@@ -1,4 +1,5 @@
 SELECT
+    TransactionId,
     MovementOnUtc,
     Description,
     DeltaMinorUnits,

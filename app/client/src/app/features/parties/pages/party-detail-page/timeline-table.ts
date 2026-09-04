@@ -1,4 +1,11 @@
-import { ChangeDetectionStrategy, Component, InputSignal, input } from '@angular/core';
+import {
+  ChangeDetectionStrategy,
+  Component,
+  InputSignal,
+  OutputEmitterRef,
+  input,
+  output,
+} from '@angular/core';
 import { formatArs } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
@@ -12,11 +19,20 @@ import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 })
 export class TimelineTable {
   readonly rows: InputSignal<PartyTimelineRow[]> = input.required<PartyTimelineRow[]>();
+  readonly reverseClick: OutputEmitterRef<string> = output<string>();
 
   protected readonly formatArs: (value: Money) => string = formatArs;
 
   protected signed(value: Money): string {
     const formatted: string = this.formatArs(value);
     return value > 0 ? `+${formatted}` : formatted;
+  }
+
+  protected isReversalRow(row: PartyTimelineRow): boolean {
+    return row.description === 'Reversal';
+  }
+
+  protected onReverse(row: PartyTimelineRow): void {
+    this.reverseClick.emit(row.transactionId);
   }
 }

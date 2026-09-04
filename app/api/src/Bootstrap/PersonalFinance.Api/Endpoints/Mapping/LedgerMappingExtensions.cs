@@ -1,6 +1,8 @@
+using System.Globalization;
 using PersonalFinance.Api.Endpoints.DTOs;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
+using PersonalFinance.Ledger.Contracts.Queries;
 using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Api.Endpoints.Mapping;
@@ -46,5 +48,28 @@ internal static class LedgerMappingExtensions {
 
     public static AccountBalanceDto ToAccountBalanceDto(this Money balance, Guid accountId) {
         return new AccountBalanceDto(accountId, balance.MinorUnits, balance.Currency.Code, balance.ToString());
+    }
+
+    public static GetTransactionsQuery ToGetTransactionsQuery(this Guid? accountId, string? from, string? to) {
+        return new GetTransactionsQuery(accountId, parseDateOnly(from), parseDateOnly(to));
+    }
+
+    public static TransactionFeedDto ToTransactionFeedDto(this TransactionFeedResponse response) {
+        var rows = response.Rows
+            .Select(row => new TransactionFeedRowDto(
+                row.TransactionId,
+                row.PostedOnUtc,
+                row.Description,
+                row.AmountMinorUnits,
+                row.IsReversal,
+                row.IsReversed,
+                row.InstallmentReferenceId,
+                row.SplitReferenceId))
+            .ToList();
+        return new TransactionFeedDto(rows);
+    }
+
+    private static DateOnly? parseDateOnly(string? value) {
+        return string.IsNullOrWhiteSpace(value) ? null : DateOnly.Parse(value, CultureInfo.InvariantCulture);
     }
 }

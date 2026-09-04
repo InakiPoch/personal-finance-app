@@ -4,9 +4,6 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Ledger.Contracts;
 
-/// <summary>
-/// The only cross-module surface of the Ledger context.
-/// </summary>
 public interface ILedgerApi {
     Task<Result<Guid>> PostTransactionAsync(PostTransactionCommand command, CancellationToken ct = default);
     Task<Result<Guid>> PostReceivableAsync(PostReceivableCommand command, CancellationToken ct = default);
@@ -14,4 +11,7 @@ public interface ILedgerApi {
     Task<Result<Guid>> CreateAccountAsync(CreateAccountCommand command, CancellationToken ct = default);
     Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default);
     Task<Money> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default);
+    Task<InstrumentAccountsResponse> ListInstrumentAccountsAsync(ListInstrumentAccountsQuery query, CancellationToken ct = default);
+    Task<TransactionFeedResponse> GetTransactionsAsync(GetTransactionsQuery query, CancellationToken ct = default);
+    Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default);
 }

@@ -12,10 +12,10 @@ import {
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs, toMinorUnits } from '../../../../core/money/money';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
-import { RegisteredInstrument } from '../../../../core/types/registered-instrument';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { SubscriptionsService } from '../../subscriptions-service';
 import { ActiveSubscription } from '../../types/active-subscription';
 import { CreateSubscription } from '../../types/create-subscription';
@@ -45,8 +45,8 @@ type SubscriptionForm = FormGroup<{
 export class SubscriptionsPage implements OnInit, OnDestroy {
   protected form!: SubscriptionForm;
   protected readonly formatArs: (value: Money) => string = formatArs;
-  protected readonly fundingAccounts: Signal<RegisteredInstrument[]> = computed(() =>
-    this.registry.instruments()
+  protected readonly fundingAccounts: Signal<Instrument[]> = computed(() =>
+    this.instruments()
   );
   protected readonly listStatus: WritableSignal<ListStatus> = signal<ListStatus>('loading');
   protected readonly active: WritableSignal<ActiveSubscription[]> = signal<ActiveSubscription[]>([]);
@@ -67,7 +67,8 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
 
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly subscriptions: SubscriptionsService = inject(SubscriptionsService);
-  private readonly registry: InstrumentRegistryService = inject(InstrumentRegistryService);
+  private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
+  private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
     'Subscriptions.InvalidName': 'Enter a name for the subscription.',
     'Subscriptions.InvalidCategory': 'Enter a category.',
@@ -171,6 +172,13 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
     return this.cancelErrorMessages[error.code] ?? 'The subscription could not be cancelled.';
   }
 
+  private loadInstruments(): void {
+    this.instrumentsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+  }
+
   private loadActive(): void {
     this.listStatus.set('loading');
     this.subscriptions
@@ -216,6 +224,7 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initSubscriptionForm();
+    this.loadInstruments();
     this.loadActive();
   }
 

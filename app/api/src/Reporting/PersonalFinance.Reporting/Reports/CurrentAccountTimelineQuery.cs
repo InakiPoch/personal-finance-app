@@ -4,6 +4,7 @@ using PersonalFinance.Abstractions.Messaging;
 namespace PersonalFinance.Reporting.Reports;
 
 public sealed record PartyTimelineRow(
+    Guid TransactionId,
     DateTimeOffset MovementOnUtc,
     string Description,
     long DeltaMinorUnits,
@@ -36,11 +37,12 @@ internal sealed class GetPartyTimelineHandler(IReadDbConnectionFactory connectio
 
     private static PartyTimelineRow map(DbDataReader reader) {
         return new PartyTimelineRow(
-            reader.GetFieldValue<DateTimeOffset>(0),
-            reader.GetString(1),
-            reader.GetInt64(2),
+            Guid.Parse(reader.GetString(0)),
+            reader.GetFieldValue<DateTimeOffset>(1),
+            reader.GetString(2),
             reader.GetInt64(3),
-            reader.GetString(4)
+            reader.GetInt64(4),
+            reader.GetString(5)
         );
     }
 }

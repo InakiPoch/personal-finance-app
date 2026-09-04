@@ -38,8 +38,6 @@ src/app/
       app-error.ts         -> AppError         (domain error the app handles)
     money/
       money.ts             -> fromMinorUnits / toMinorUnits / formatArs (pure fns)
-    registry/
-      instrument-registry-service.ts -> InstrumentRegistryService (local cache, gap #1)
     health/
       health-service.ts    -> HealthService
   features/
@@ -51,15 +49,17 @@ src/app/
     ledger/
       ledger-service.ts
       types/  (post-transaction.ts, transaction-line.ts, direction.ts,
-               post-transaction-result.ts, reverse-transaction-result.ts, account-balance.ts)
-      pages/  reverse-movement-page/
+               post-transaction-result.ts, reverse-transaction-result.ts, account-balance.ts,
+               transaction-row.ts)
+      pages/  transactions-page/, reverse-movement-page/
       ledger.routes.ts
     financing/
       financing-service.ts
       types/  (create-payment-plan.ts, split-participant.ts, create-payment-plan-result.ts,
-               monthly-statement.ts, monthly-statement-installment.ts, pay-statement.ts,
-               pay-statement-result.ts, card-future-schedule.ts, card-future-schedule-row.ts)
-      pages/  statement-page/, load-expense-page/
+               monthly-statement.ts, monthly-statement-installment.ts, monthly-statement-summary.ts,
+               pay-statement.ts, pay-statement-result.ts, card-future-schedule.ts,
+               card-future-schedule-row.ts)
+      pages/  statements-page/, statement-page/, load-expense-page/
       financing.routes.ts
     subscriptions/
       subscriptions-service.ts
@@ -181,14 +181,17 @@ no `I-` prefix.
 One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(HttpClient)` and a
 `baseUrl` from `environment`, returning `Observable<DomainType>`. Signatures:
 
-- **InstrumentsService** — `create(body: CreateInstrument): Observable<InstrumentCreated>`
+- **InstrumentsService** — `list(): Observable<Instrument[]>` (unwraps the `{ rows }` envelope);
+  `create(body: CreateInstrument): Observable<InstrumentCreated>`
 - **LedgerService** — `postTransaction(body: PostTransaction): Observable<PostTransactionResult>`;
+  `listTransactions(filter?: { accountId?; from?; to? }): Observable<TransactionRow[]>` (unwraps the `{ rows }` envelope);
   `reverse(transactionId: string): Observable<ReverseTransactionResult>`;
   `getAccountBalance(accountId: string): Observable<AccountBalance>`
 - **FinancingService** — `createPaymentPlan(body: CreatePaymentPlan): Observable<CreatePaymentPlanResult>`;
   `getStatement(id: string): Observable<MonthlyStatement>`;
   `payStatement(id: string, body: PayStatement): Observable<PayStatementResult>`;
-  `getFutureSchedule(cardId: string): Observable<CardFutureSchedule>`
+  `getFutureSchedule(cardId: string): Observable<CardFutureSchedule>`;
+  `listStatements(cardId: string): Observable<MonthlyStatementSummary[]>` (unwraps the `{ rows }` envelope)
 - **SubscriptionsService** — `create(body: CreateSubscription): Observable<SubscriptionResult>`;
   `cancel(id: string): Observable<void>`; `listActive(): Observable<ActiveSubscription[]>`
   (unwraps the `{ rows }` envelope)
@@ -267,47 +270,55 @@ nested. Exact wire shape:
 - **Scheduler-driven accrual/renewal (API D6):** the client cannot trigger these; it reflects the
   latest state on load. No optimistic UI for scheduled effects.
 
-## 8. Local instrument registry (gap #1 workaround)
+## 8. Instrument list (was: local registry — removed in Phase 12)
 
-Because the API has no list endpoint for instruments/cards/accounts, `InstrumentRegistryService`
-keeps the instruments the client created (id, type, name, cutoff) in a signal persisted to
-`localStorage` (guarded by try/catch; empty-safe). Forms that need to offer a card or funding account
-read from this registry until a real `GET /v1/instruments` exists. Cards for split targets and party
-choices come from `ReportsService.debtSummary` / `cardDueByMonth` where possible. This is a
-documented stopgap, not the intended end state (see PRD §7).
+The API now serves `GET /v1/instruments` (a merge of Ledger debit/cash accounts and Financing
+credit cards, each row `{ id, type, name, cutoffDate }`). `InstrumentsService.list()` unwraps the
+`{ rows }` envelope; every form that offers a card or funding account loads it into a local
+`WritableSignal<Instrument[]>` in `ngOnInit` and derives its `<select>` options with a `computed()`
+(`type === 'credit'` for card pickers, `type === 'debit'` for bank pickers, all types for the
+Subscriptions and Shared-expense funding pickers — D13/D17). `InstrumentsPage` re-fetches the list
+after a successful create.
+
+The former `InstrumentRegistryService` — a `localStorage`-persisted signal of instruments created
+in this browser — was the gap-#1 stopgap. It and `core/types/registered-instrument.ts` were
+deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instruments/types/instrument.ts`.
 
 ## 9. Endpoint → service → view traceability
 
 | # | Method | Route | Service method | View |
 |---|--------|-------|----------------|------|
 | 1 | POST | `/v1/instruments` | `InstrumentsService.create` | Instruments setup |
-| 2 | POST | `/v1/ledger/transactions` | `LedgerService.postTransaction` | (low-level; internal) |
-| 3 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement |
-| 4 | GET | `/v1/ledger/accounts/{id}/balance` | `LedgerService.getAccountBalance` | (detail widgets) |
-| 5 | POST | `/v1/financing/payment-plans` | `FinancingService.createPaymentPlan` | Load expense |
-| 6 | GET | `/v1/financing/statements/{id}` | `FinancingService.getStatement` | Statement detail |
-| 7 | POST | `/v1/financing/statements/{id}/pay` | `FinancingService.payStatement` | Statement detail |
-| 8 | GET | `/v1/financing/cards/{id}/future-schedule` | `FinancingService.getFutureSchedule` | Statement detail |
-| 9 | POST | `/v1/subscriptions` | `SubscriptionsService.create` | Subscriptions |
-| 10 | DELETE | `/v1/subscriptions/{id}` | `SubscriptionsService.cancel` | Subscriptions |
-| 11 | GET | `/v1/subscriptions/active` | `SubscriptionsService.listActive` | Subscriptions |
-| 12 | POST | `/v1/parties` | `PartiesService.create` | Parties |
-| 13 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
-| 14 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
-| 15 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
-| 16 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
-| 17 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
-| 18 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
-| 19 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail |
-| 20 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
-| 21 | GET | `/health` | `HealthService.check` | (status indicator) |
+| 2 | GET | `/v1/instruments` | `InstrumentsService.list` | Instruments setup + every card/funding `<select>` (Load expense, Statement pay, Subscriptions, Party settlement, Shared expense) |
+| 3 | POST | `/v1/ledger/transactions` | `LedgerService.postTransaction` | (low-level; internal) |
+| 4 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement |
+| 5 | GET | `/v1/ledger/accounts/{id}/balance` | `LedgerService.getAccountBalance` | (detail widgets) |
+| 6 | GET | `/v1/ledger/transactions` | `LedgerService.listTransactions` | Transactions feed (account + date filter → row → Reverse movement) |
+| 7 | POST | `/v1/financing/payment-plans` | `FinancingService.createPaymentPlan` | Load expense |
+| 8 | GET | `/v1/financing/statements/{id}` | `FinancingService.getStatement` | Statement detail (installment row → Reverse movement) |
+| 9 | POST | `/v1/financing/statements/{id}/pay` | `FinancingService.payStatement` | Statement detail |
+| 10 | GET | `/v1/financing/cards/{id}/future-schedule` | `FinancingService.getFutureSchedule` | Statement detail |
+| 11 | GET | `/v1/financing/cards/{id}/statements` | `FinancingService.listStatements` | Statements list (card picker → row → Statement detail) |
+| 12 | POST | `/v1/subscriptions` | `SubscriptionsService.create` | Subscriptions |
+| 13 | DELETE | `/v1/subscriptions/{id}` | `SubscriptionsService.cancel` | Subscriptions |
+| 14 | GET | `/v1/subscriptions/active` | `SubscriptionsService.listActive` | Subscriptions |
+| 15 | POST | `/v1/parties` | `PartiesService.create` | Parties |
+| 16 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
+| 17 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
+| 18 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
+| 19 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
+| 20 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
+| 21 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
+| 22 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail (timeline row → Reverse movement) |
+| 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
+| 24 | GET | `/health` | `HealthService.check` | (status indicator) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.
 
-Endpoints 16 and 19 (`/v1/parties/{id}/timeline`, `/v1/reports/parties/{id}/timeline`) both
+Endpoints 19 and 22 (`/v1/parties/{id}/timeline`, `/v1/reports/parties/{id}/timeline`) both
 return a `{ rows: [...] }` envelope; their service methods unwrap to the array via `map`
-(D14 — the design text had described endpoint 16 as returning the object as-is).
+(D14 — the design text had described endpoint 18 as returning the object as-is).
 
 ## 10. Configuration & tooling
 
@@ -325,7 +336,19 @@ return a `{ rows: [...] }` envelope; their service methods unwrap to the array v
 
 ## 11. Open questions (see PRD §7)
 
-1. `GET /v1/instruments` (and card/account listing) — removes the `localStorage` stopgap (§8).
-2. `GET /v1/financing/cards/{id}/statements` — makes the Statement pay flow self-navigable.
-3. A transactions feed (`GET /v1/ledger/transactions`) — enables a real history/reverse-picker view.
+1. ~~`GET /v1/instruments` (and card/account listing) — removes the `localStorage` stopgap (§8).~~
+   **Resolved (Phase 12, D21):** the endpoint ships; `InstrumentRegistryService` and the
+   `localStorage` stopgap are removed (§8).
+2. ~~`GET /v1/financing/cards/{id}/statements` — makes the Statement pay flow self-navigable.~~
+   **Resolved (Phase 12, D22):** the endpoint ships; the `Statements` nav item now opens a real
+   `StatementsPage` (credit-card picker → statement rows → row opens `statement-page`), replacing the
+   id-paste `StatementIndex` stopgap.
+3. ~~A transactions feed (`GET /v1/ledger/transactions`) — enables a real history/reverse-picker view.~~
+   **Resolved (Phase 12, D23):** the endpoint ships; the `Reverse` nav item now opens a real
+   `TransactionsPage` (account + date-range filter → movement rows → per-row Reverse, disabled on a
+   row that is itself a reversal or already reversed), replacing the id-paste `ReverseIndex` stopgap.
+   **D20 closed too (Phase 12, D24):** the API now threads the reversible ledger transaction id onto
+   the statement-installment rows (`reversalTransactionId`) and the party-timeline rows
+   (`transactionId`), so `InstallmentsTable` and `TimelineTable` carry their own per-row Reverse
+   button — the container navigates to `transactions/:id/reverse`.
 4. App-level auth surface — deferred; no backing endpoint today.

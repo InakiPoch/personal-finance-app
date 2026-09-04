@@ -3,6 +3,7 @@ import { Money } from '../../../core/types/money';
 
 /** One row of `GET /v1/parties/{id}/timeline` — a current-account movement and its running balance. */
 export type CurrentAccountTimelineRow = {
+  transactionId: string;
   movementOnUtc: IsoInstant;
   description: string;
   deltaMinorUnits: Money;

@@ -9,6 +9,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs, fromMinorUnits } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
@@ -33,16 +34,16 @@ function sumByLabel<T>(rows: T[], labelOf: (row: T) => string, amountOf: (row: T
   }
   return Array.from(totals, ([label, total]: [string, number]) => ({
     label,
-    totalMinorUnits: fromMinorUnits(total),
+    totalMinorUnits: fromMinorUnits(total)
   }));
 }
 
 @Component({
   selector: 'app-dashboard-page',
-  imports: [],
+  imports: [RouterLink],
   templateUrl: './dashboard-page.html',
   styleUrl: './dashboard-page.css',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardPage implements OnInit, OnDestroy {
   protected readonly formatArs: (value: Money) => string = formatArs;

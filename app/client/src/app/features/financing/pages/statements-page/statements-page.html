@@ -1,0 +1,27 @@
+<section class="statements-page">
+  <header>
+    <h1>Statements</h1>
+    <p class="statements-page__note">Pick a credit card to see the statements it has raised.</p>
+  </header>
+  <form class="statements-page__form" [formGroup]="form">
+    <div class="field">
+      <label for="cardId">Credit card</label>
+      <select id="cardId" formControlName="cardId">
+        <option value="">Choose a card</option>
+        @for(card of creditCards(); track card.id) {
+          <option [value]="card.id">{{ card.name }}</option>
+        }
+      </select>
+      @if(creditCards().length === 0) {
+        <p class="field__hint">No credit cards registered yet — add one on the Instruments page.</p>
+      }
+    </div>
+  </form>
+  @if(loadStatus() === 'loading') {
+    <p>Loading statements…</p>
+  } @else if(loadStatus() === 'error') {
+    <p role="alert">Could not load the statements — try again in a moment.</p>
+  } @else if(loadStatus() === 'ready') {
+    <app-statements-table [statements]="statements()" (openStatement)="openStatement($event)" />
+  }
+</section>

@@ -1,11 +1,12 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { InstrumentRegistryService } from '../../../../core/registry/instrument-registry-service';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { FinancingService } from '../../financing-service';
 import { MonthlyStatement } from '../../types/monthly-statement';
 import { PayStatement } from '../../types/pay-statement';
@@ -29,6 +30,7 @@ describe('StatementPage', () => {
   let view: StatementView;
   let getStatement: jasmine.Spy<(id: string) => Observable<MonthlyStatement>>;
   let payStatement: jasmine.Spy<(id: string, body: PayStatement) => Observable<PayStatementResult>>;
+  let navigate: jasmine.Spy<(commands: unknown[]) => Promise<boolean>>;
 
   const money = (value: number): Money => value as Money;
 
@@ -50,13 +52,14 @@ describe('StatementPage', () => {
       cycleYear: 2026,
       cycleMonth: 9,
       amountMinorUnits: money(150000),
-      isReversed: false
+      isReversed: false,
+      reversalTransactionId: 'tx-acc-1'
     }]
   };
   const paidStatement: MonthlyStatement = {
     ...unpaidStatement,
     isPaid: true,
-    paidOnUtc: '2026-09-20T12:00:00Z',
+    paidOnUtc: '2026-09-20T12:00:00Z'
   };
 
   function setup(): void {
@@ -68,26 +71,28 @@ describe('StatementPage', () => {
     view.form.setValue({ bankAccountId: 'acct-debit', paidOnUtc: '2026-09-15T10:30' });
   }
 
+  const instruments: Instrument[] = [
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 }
+  ];
+
   beforeEach(() => {
-    localStorage.clear();
     getStatement = jasmine.createSpy('getStatement').and.returnValue(of(unpaidStatement));
     payStatement = jasmine
       .createSpy('payStatement')
       .and.returnValue(of<PayStatementResult>({ statementId: 'st-1' }));
+    navigate = jasmine.createSpy('navigate').and.resolveTo(true);
     TestBed.configureTestingModule({
       imports: [StatementPage],
       providers: [
         provideZonelessChangeDetection(),
         { provide: FinancingService, useValue: { getStatement, payStatement } },
+        { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
+        { provide: Router, useValue: { navigate } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'st-1' })) } }
       ]
     });
-    const registry: InstrumentRegistryService = TestBed.inject(InstrumentRegistryService);
-    registry.add({ id: 'acct-debit', type: 'debit', name: 'Checking' });
-    registry.add({ id: 'card-credit', type: 'credit', name: 'Visa' });
   });
-
-  afterEach(() => localStorage.clear());
 
   it('loads the statement named by the route param', () => {
     setup();
@@ -109,6 +114,14 @@ describe('StatementPage', () => {
     setup();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('netted');
+  });
+  it('navigates to the id-driven reverse route when an installment Reverse button is clicked', () => {
+    setup();
+    fixture.detectChanges();
+    const button: HTMLButtonElement =
+      fixture.nativeElement.querySelector('app-installments-table tbody tr button');
+    button.click();
+    expect(navigate).toHaveBeenCalledWith(['ledger', 'transactions', 'tx-acc-1', 'reverse']);
   });
   it('keeps the pay form invalid until an account and date are chosen', () => {
     setup();

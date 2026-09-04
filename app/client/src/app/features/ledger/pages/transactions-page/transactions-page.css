@@ -1,21 +1,21 @@
-.reverse-index {
+.transactions-page {
   display: flex;
   flex-direction: column;
   gap: 1rem;
   padding: 1rem;
 }
 
-.reverse-index__note {
+.transactions-page__note {
   color: #555;
   font-size: 0.875rem;
   max-width: 60ch;
 }
 
-.reverse-index__form {
+.transactions-page__form {
+  align-items: end;
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 0.75rem;
-  max-width: 28rem;
 }
 
 .field {

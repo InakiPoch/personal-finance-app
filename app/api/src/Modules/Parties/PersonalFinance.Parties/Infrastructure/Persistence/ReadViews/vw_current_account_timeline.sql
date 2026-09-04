@@ -3,6 +3,7 @@ SELECT
     p.Id                       AS PartyId,
     p.Name                     AS PartyName,
     m.AccountId,
+    m.TransactionId,
     m.PostedOnUtc              AS MovementOnUtc,
     CASE
         WHEN m.IsReversal = 1          THEN 'Reversal'

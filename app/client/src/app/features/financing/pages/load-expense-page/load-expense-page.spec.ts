@@ -26,6 +26,7 @@ type LoadExpenseView = {
     cardId: FormControl<string>;
     installmentCount: FormControl<number | null>;
     purchaseDate: FormControl<string>;
+    description: FormControl<string>;
     split: FormArray<SplitRow>;
     differentCreditor: FormControl<boolean>;
     creditorId: FormControl<string>;
@@ -37,6 +38,7 @@ type LoadExpenseView = {
   submitStatus: () => 'idle' | 'submitting' | 'confirmed' | 'error';
   submitError: () => AppError | null;
   confirmedPlanId: () => string | null;
+  confirmedDescription: () => string | null;
   reconciliations: () => Array<{
     partyId: string;
     partyName: string;
@@ -68,7 +70,8 @@ describe('LoadExpensePage', () => {
       amount: 1234.5,
       cardId: 'card-credit',
       installmentCount: 3,
-      purchaseDate: '2026-09-01'
+      purchaseDate: '2026-09-01',
+      description: 'New laptop'
     });
   }
 
@@ -142,9 +145,35 @@ describe('LoadExpensePage', () => {
     expect(body.amountMinorUnits).toBe(money(123450));
     expect(body.installmentCount).toBe(3);
     expect(body.purchaseDate).toBe('2026-09-01');
+    expect(body.description).toBe('New laptop');
     expect('split' in body).toBe(false);
     expect(view.submitStatus()).toBe('confirmed');
     expect(view.confirmedPlanId()).toBe('plan-1');
+  });
+  it('rejects a whitespace-only description', () => {
+    fillValidForm();
+    view.form.controls.description.setValue('   ');
+    expect(view.form.controls.description.hasError('noBlank')).toBe(true);
+  });
+  it('rejects a description over 120 characters', () => {
+    fillValidForm();
+    view.form.controls.description.setValue('a'.repeat(121));
+    expect(view.form.controls.description.hasError('maxlength')).toBe(true);
+  });
+  it('submits the trimmed description', () => {
+    fillValidForm();
+    view.form.controls.description.setValue('  New laptop  ');
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect(body.description).toBe('New laptop');
+  });
+  it('renders the description in the confirmation panel', () => {
+    fillValidForm();
+    view.onSubmit();
+    fixture.detectChanges();
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('New laptop');
+    expect(view.confirmedDescription()).toBe('New laptop');
   });
   it('includes the split array when participants were added', () => {
     fillValidForm();

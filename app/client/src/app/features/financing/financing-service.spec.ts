@@ -42,7 +42,8 @@ describe('FinancingService', () => {
       amountMinorUnits: money(1200000),
       cardId: 'card-1',
       installmentCount: 3,
-      purchaseDate: '2026-09-01'
+      purchaseDate: '2026-09-01',
+      description: 'New laptop'
     };
     let result: string | undefined;
     service.createPaymentPlan(body).subscribe((r: CreatePaymentPlanResult) => (result = r.paymentPlanId));
@@ -59,6 +60,7 @@ describe('FinancingService', () => {
       cardId: 'card-1',
       installmentCount: 1,
       purchaseDate: '2026-09-01',
+      description: 'Concert tickets',
       split: [
         { partyId: 'p1', weight: 1 },
         { partyId: 'p2', weight: 2 }

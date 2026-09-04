@@ -172,5 +172,13 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         public Task<ListCreditCardsResponse> ListCreditCardsAsync(ListCreditCardsQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
+
+        public Task<Result<Guid>> CreateCreditorAsync(CreateCreditorCommand command, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
+
+        public Task<ListCreditorsResponse> ListCreditorsAsync(ListCreditorsQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
     }
 }

@@ -17,6 +17,8 @@ import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
+import { CreditorsService } from '../../../creditors/creditors-service';
+import { Creditor, CreditorAccount } from '../../../creditors/types/creditor';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
 import { PartiesService } from '../../../parties/parties-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
@@ -49,6 +51,9 @@ type LoadExpenseForm = FormGroup<{
   installmentCount: FormControl<number | null>;
   purchaseDate: FormControl<string>;
   split: FormArray<SplitRow>;
+  differentCreditor: FormControl<boolean>;
+  creditorId: FormControl<string>;
+  creditorAccountId: FormControl<string>;
 }>;
 
 @Component({
@@ -56,7 +61,7 @@ type LoadExpenseForm = FormGroup<{
   imports: [ReactiveFormsModule],
   templateUrl: './load-expense-page.html',
   styleUrl: './load-expense-page.css',
-  changeDetection: ChangeDetectionStrategy.OnPush,
+  changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class LoadExpensePage implements OnInit, OnDestroy {
   protected form!: LoadExpenseForm;
@@ -70,6 +75,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   protected readonly creditCards: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'credit')
   );
+  protected readonly creditors: WritableSignal<Creditor[]> = signal<Creditor[]>([]);
+  protected readonly creditorAccounts: WritableSignal<CreditorAccount[]> = signal<CreditorAccount[]>([]);
   protected readonly errorMessages: Record<string, string> = {
     positiveAmount: 'Enter an amount greater than zero.',
     atMostTwoDecimals: 'Use at most two decimal places.',
@@ -80,6 +87,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
 
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly financingService: FinancingService = inject(FinancingService);
+  private readonly creditorsService: CreditorsService = inject(CreditorsService);
   private readonly partiesService: PartiesService = inject(PartiesService);
   private readonly reportsService: ReportsService = inject(ReportsService);
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
@@ -116,6 +124,9 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       installmentCount: number | null;
       purchaseDate: string;
       split: Array<{ partyId: string; weight: number | null }>;
+      differentCreditor: boolean;
+      creditorId: string;
+      creditorAccountId: string;
     } = this.form.getRawValue();
     const participants: SplitParticipant[] = raw.split.map((row) => ({
       partyId: row.partyId,
@@ -127,6 +138,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       installmentCount: raw.installmentCount as number,
       purchaseDate: raw.purchaseDate,
       ...(participants.length > 0 ? { split: participants } : {}),
+      ...(raw.differentCreditor ? { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId } : {})
     };
     this.submitError.set(null);
     this.confirmedPlanId.set(null);
@@ -146,7 +158,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         error: (error: AppError) => {
           this.submitError.set(error);
           this.submitStatus.set('error');
-        },
+        }
       }
     );
   }
@@ -157,8 +169,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         partyId: participant.partyId,
         partyName: this.partyName(participant.partyId),
         status: 'reconciling' as ReconciliationStatus,
-        balanceMinorUnits: null,
-      })),
+        balanceMinorUnits: null
+      }))
     );
     for(const participant of participants) {
       this.partiesService
@@ -172,12 +184,12 @@ export class LoadExpensePage implements OnInit, OnDestroy {
               { intervalMs: 800, maxAttempts: 5 },
             ),
           ),
-          takeUntil(this.destroy$),
+          takeUntil(this.destroy$)
         )
         .subscribe({
           next: (balance: CurrentAccountBalance) =>
             this.updateReconciliation(participant.partyId, 'reconciled', balance.balanceMinorUnits),
-          error: () => this.updateReconciliation(participant.partyId, 'stalled', null),
+          error: () => this.updateReconciliation(participant.partyId, 'stalled', null)
         }
       );
     }
@@ -186,8 +198,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   private updateReconciliation(partyId: string, status: ReconciliationStatus, balanceMinorUnits: Money | null): void {
     this.reconciliations.update((rows: ReconciliationRow[]) =>
       rows.map((row: ReconciliationRow) =>
-        row.partyId === partyId ? { ...row, status, balanceMinorUnits } : row,
-      ),
+        row.partyId === partyId ? { ...row, status, balanceMinorUnits } : row
+      )
     );
   }
 
@@ -205,7 +217,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
           this.parties.set(rows);
           this.partiesStatus.set('ready');
         },
-        error: () => this.partiesStatus.set('error'),
+        error: () => this.partiesStatus.set('error')
       }
     );
   }
@@ -214,7 +226,42 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     this.instrumentsService
       .list()
       .pipe(takeUntil(this.destroy$))
-      .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+    .subscribe((rows: Instrument[]) => this.instruments.set(rows));
+  }
+
+  private loadCreditors(): void {
+    this.creditorsService
+      .list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((rows: Creditor[]) => this.creditors.set(rows));
+  }
+
+  private watchDifferentCreditorToggle(): void {
+    this.form.controls.differentCreditor.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((enabled: boolean) => {
+      const creditorIdControl = this.form.controls.creditorId;
+      const creditorAccountIdControl = this.form.controls.creditorAccountId;
+      if(enabled) {
+        creditorIdControl.setValidators(Validators.required);
+        creditorAccountIdControl.setValidators(Validators.required);
+      } else {
+        creditorIdControl.clearValidators();
+        creditorAccountIdControl.clearValidators();
+        creditorIdControl.setValue('');
+        creditorAccountIdControl.setValue('');
+        this.creditorAccounts.set([]);
+      }
+      creditorIdControl.updateValueAndValidity();
+      creditorAccountIdControl.updateValueAndValidity();
+    });
+  }
+
+  private watchCreditorSelection(): void {
+    this.form.controls.creditorId.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((creditorId: string) => {
+      const accounts: CreditorAccount[] =
+        this.creditors().find((candidate: Creditor) => candidate.id === creditorId)?.accounts ?? [];
+      this.creditorAccounts.set(accounts);
+      this.form.controls.creditorAccountId.setValue(accounts.length > 0 ? accounts[0].id : '');
+    });
   }
 
   private createSplitRow(): SplitRow {
@@ -233,6 +280,9 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       installmentCount: this.fb.control<number | null>(1, { validators: positiveInteger }),
       purchaseDate: this.fb.nonNullable.control('', { validators: isoDate }),
       split: this.fb.array<SplitRow>([]),
+      differentCreditor: this.fb.nonNullable.control(false),
+      creditorId: this.fb.nonNullable.control(''),
+      creditorAccountId: this.fb.nonNullable.control('')
     });
   }
 
@@ -240,6 +290,9 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     this.initLoadExpenseForm();
     this.loadInstruments();
     this.loadParties();
+    this.loadCreditors();
+    this.watchDifferentCreditorToggle();
+    this.watchCreditorSelection();
   }
 
   ngOnDestroy(): void {

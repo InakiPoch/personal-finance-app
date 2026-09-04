@@ -5,6 +5,8 @@ import { Observable, of, throwError } from 'rxjs';
 import { TestScheduler } from 'rxjs/testing';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { CreditorsService } from '../../../creditors/creditors-service';
+import { Creditor, CreditorAccount } from '../../../creditors/types/creditor';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
@@ -25,7 +27,11 @@ type LoadExpenseView = {
     installmentCount: FormControl<number | null>;
     purchaseDate: FormControl<string>;
     split: FormArray<SplitRow>;
+    differentCreditor: FormControl<boolean>;
+    creditorId: FormControl<string>;
+    creditorAccountId: FormControl<string>;
   }>;
+  creditorAccounts: () => CreditorAccount[];
   parties: () => PartyDebtRow[];
   partiesStatus: () => 'loading' | 'ready' | 'error';
   submitStatus: () => 'idle' | 'submitting' | 'confirmed' | 'error';
@@ -50,7 +56,7 @@ describe('LoadExpensePage', () => {
 
   const money = (value: number): Money => value as Money;
   const partyRows: PartyDebtRow[] = [
-    { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: money(0), currencyCode: 'ARS' },
+    { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: money(0), currencyCode: 'ARS' }
   ];
 
   function balance(value: number): CurrentAccountBalance {
@@ -62,7 +68,7 @@ describe('LoadExpensePage', () => {
       amount: 1234.5,
       cardId: 'card-credit',
       installmentCount: 3,
-      purchaseDate: '2026-09-01',
+      purchaseDate: '2026-09-01'
     });
   }
 
@@ -74,6 +80,16 @@ describe('LoadExpensePage', () => {
   const instruments: Instrument[] = [
     { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 },
     { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null }
+  ];
+  const creditors: Creditor[] = [
+    {
+      id: 'creditor-1',
+      name: 'Juan',
+      accounts: [
+        { id: 'acct-1', label: 'Galicia', identifier: 'CBU1' },
+        { id: 'acct-2', label: 'Mercado Pago', identifier: null }
+      ]
+    }
   ];
 
   beforeEach(() => {
@@ -89,7 +105,8 @@ describe('LoadExpensePage', () => {
         { provide: FinancingService, useValue: { createPaymentPlan } },
         { provide: PartiesService, useValue: { getBalance } },
         { provide: ReportsService, useValue: { debtSummary } },
-        { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } }
+        { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
+        { provide: CreditorsService, useValue: { list: () => of<Creditor[]>(creditors) } }
       ]
     });
     fixture = TestBed.createComponent(LoadExpensePage);
@@ -142,7 +159,7 @@ describe('LoadExpensePage', () => {
       title: 'Unprocessable',
       detail: 'x',
       status: 422,
-      metadata: {},
+      metadata: {}
     };
     createPaymentPlan.and.returnValue(throwError(() => appError));
     fillValidForm();
@@ -179,5 +196,33 @@ describe('LoadExpensePage', () => {
       view.onSubmit();
     });
     expect(view.reconciliations()[0].status).toBe('stalled');
+  });
+  it('makes the creditor fields required once "Different creditor" is toggled on', () => {
+    expect(view.form.controls.creditorId.hasError('required')).toBe(false);
+    view.form.controls.differentCreditor.setValue(true);
+    expect(view.form.controls.creditorId.hasError('required')).toBe(true);
+    expect(view.form.controls.creditorAccountId.hasError('required')).toBe(true);
+  });
+  it('populates the account options and auto-selects the first when a creditor is chosen', () => {
+    view.form.controls.differentCreditor.setValue(true);
+    view.form.controls.creditorId.setValue('creditor-1');
+    expect(view.creditorAccounts().map((account) => account.id)).toEqual(['acct-1', 'acct-2']);
+    expect(view.form.controls.creditorAccountId.value).toBe('acct-1');
+  });
+  it('includes creditorId and creditorAccountId in the submit body when the toggle is on', () => {
+    fillValidForm();
+    view.form.controls.differentCreditor.setValue(true);
+    view.form.controls.creditorId.setValue('creditor-1');
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect(body.creditorId).toBe('creditor-1');
+    expect(body.creditorAccountId).toBe('acct-1');
+  });
+  it('omits creditorId and creditorAccountId from the submit body when the toggle is off', () => {
+    fillValidForm();
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect('creditorId' in body).toBe(false);
+    expect('creditorAccountId' in body).toBe(false);
   });
 });

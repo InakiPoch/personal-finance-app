@@ -18,6 +18,7 @@ export class App {
     { label: 'Statements', path: '/financing/statements' },
     { label: 'Reverse', path: '/ledger/transactions' },
     { label: 'Subscriptions', path: '/subscriptions' },
-    { label: 'Parties', path: '/parties' }
+    { label: 'Parties', path: '/parties' },
+    { label: 'Creditors', path: '/creditors' }
   ];
 }

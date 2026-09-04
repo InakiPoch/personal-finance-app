@@ -680,6 +680,60 @@ taken by the Tailwind wiring above). **4.5 (auth) stays deferred** — `docs/DES
 
 ---
 
+## Phase 5 — Creditors (Slice 1: CRUD)
+
+**Goal:** Ship a self-contained CRUD vertical for a new `Creditor` reference entity (who the user pays), each with optional free-text destination accounts (label + CBU/CVU/alias identifier). Prerequisite for a later Load-expense enhancement (Slice 2) that lets the user record who was paid and to which account — not part of any of the original three Fases (`docs/PRD.md` never named this capability).
+
+**Traces to:** `docs/creditor-expense-fields/slice-1-creditors-crud.md` (a standalone planning doc, not `docs/PRD.md`/`docs/DESIGN.md` — those are unmodified for Slice 1).
+
+**Depends on:** Phase 1 conventions (mirrors `features/instruments/` for the service/types/routes shape, and `load-expense-page`'s split `FormArray` for the dynamic account rows).
+
+### Tasks
+- [x] `features/creditors/types/creditor.ts`, `create-creditor.ts`, `creditor-created.ts` — field-matched to the API's `CreditorsDTO.cs` (`identifier: string | null`, after the nullable-identifier follow-up).
+- [x] `features/creditors/creditors-service.ts` — `list()` (unwrap `{ rows }`), `create()`.
+- [x] `features/creditors/creditors.routes.ts` + lazy-wired into `app.routes.ts`; `{ label: 'Creditors', path: '/creditors' }` added to `app.ts` `navItems`.
+- [x] `features/creditors/pages/creditors-page/` — `CreditorsPage`: reactive form (`name` required; `accounts` `FormArray` starting with one row, `label` required, `identifier` optional after the follow-up fix); add/remove row; submit → create → reset form → reload list; list loading/empty/error states. Styled to `docs/SYSTEM.md` from the start (no unstyled-then-restyled pass, unlike every Phase 0–3 view).
+- [x] `creditors-page.spec.ts` — form validation (blank label blocks submit, blank identifier does not), trimming, submitted body shape, list re-fetch after create.
+- [x] **Follow-up: identifier made genuinely optional**, matching the API's `MakeCreditorAccountIdentifierNullable` migration — dropped `Validators.required` on the identifier control, widened the type to `string | null`, submit sends `null` for a blank/whitespace value (mirroring the domain's own normalization), list rendering hides the "— identifier" suffix when absent.
+
+### Definition of done
+- [x] `/creditors` reachable via a lazy route from the nav.
+- [x] `CreditorsService` has coverage via the page spec (mocked service, not a dedicated service spec — see Completion notes).
+- [x] `pnpm ng build` + `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **164 passed** (155 baseline + 9 new).
+
+### Completion notes (2026-09-04)
+
+Built one green-lit step at a time per `docs/creditor-expense-fields/slice-1-creditors-crud.md`. **Deviation from the usual service-spec convention:** unlike every other feature, `creditors-service.ts` did not get its own dedicated `HttpTestingController` spec — coverage lives entirely in `creditors-page.spec.ts` via a jasmine spy on `CreditorsService`. Worth adding a dedicated service spec later for parity with the rest of the codebase. Slice 2 (wiring a creditor + destination account into `load-expense-page`) is **not started**. Not committed by this session for most of the work — the user commits their own.
+
+---
+
+## Phase 6 — Creditors (Slice 2: Load-Expense integration)
+
+**Goal:** Wire the Creditor entity into the Load-Expense form as pure optional metadata — a toggle to mark a payment with a specific creditor and destination account.
+
+**Traces to:** `docs/creditor-expense-fields/slice-2-load-expense-integration.md` (continued planning doc).
+
+**Depends on:** Phase 5 (Creditors CRUD must exist first) + Phase 1 (Load-Expense page is the primary consumer).
+
+### Tasks
+
+- [x] `features/financing/types/create-payment-plan.ts` — add `creditorId?: string; creditorAccountId?: string;` to the type.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` — inject `CreditorsService`; add `creditors: WritableSignal<Creditor[]>` loaded on init; extend `LoadExpenseForm` with `differentCreditor: FormControl<boolean>` (default false), `creditorId: FormControl<string>`, `creditorAccountId: FormControl<string>`; add `creditorAccounts: WritableSignal<CreditorAccount[]>` populated by subscription to `creditorId.valueChanges`; add validator-toggle subscription for `differentCreditor.valueChanges` (sets/clears `Validators.required` on the two fields, resets them when toggled off); modify `onSubmit()` to spread `{ creditorId, creditorAccountId }` into request body only when `differentCreditor` is true.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.html` — add "Creditor" `<section>` after Split section with checkbox toggle; conditionally-revealed (on toggle true) native `<select>`s for creditor and account-to-pay, styled to `docs/SYSTEM.md` tokens.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.spec.ts` — add 4 new specs: toggle-on makes both fields required; selecting a creditor populates accounts and auto-selects first; submit body includes creditor fields when toggle is on; submit body omits them when toggle is off. Original 9 specs remain green (regression bar).
+
+### Definition of done
+
+- [x] Load-Expense form extends to wire optional Creditor + Account-to-Pay metadata, gated by toggle.
+- [x] All 13 Load-Expense specs pass (original 9 + 4 new), zero regressions.
+- [x] `pnpm ng build` + `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **168 passed** (164 baseline + 4 new).
+
+### Completion notes (2026-09-04)
+
+Slice 2 built and verified live per `docs/creditor-expense-fields/slice-2-load-expense-integration.md`. All changes localized to the Load-Expense page (form shape, template markup, subscription logic, request body shape); `CreatePaymentPlan` type extended with two optional fields; `financing-service.ts` requires no change (same endpoint, same shape pass-through). Creditor selection auto-populates accounts and auto-selects the first account id (UX convenience, no server-side dependency). No deviations from the spec, no new D-numbers needed (no drift from PRD/DESIGN docs). Zero scope creep — creditor/account metadata is optional, read-only-on-views, no ledger posting or balance tracking yet. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

@@ -108,6 +108,19 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   `POST /v1/parties/{id}/settlements`.
 - **Notes:** cross-debts net automatically server-side; the client shows the resulting net only.
 
+### 3.8 Creditors setup (new — not part of the original 7-view scope)
+- **Shows:** a form to register a creditor (name) with optional free-text destination accounts
+  (label + CBU/CVU/alias identifier — the label is required per account row, the identifier is
+  optional). A list of registered creditors with their accounts.
+- **Source:** `POST /v1/creditors`, `GET /v1/creditors`.
+- **Notes:** distinct from **Parties** (§3.7) — a Party tracks shared-expense *debt*; a Creditor is
+  just *who gets paid*, with no debt or balance of its own. This is Slice 1 of
+  `docs/creditor-expense-fields/slice-1-creditors-crud.md` — CRUD only. **Slice 2** (Load-Expense
+  integration, `docs/creditor-expense-fields/slice-2-load-expense-integration.md`) is now built:
+  §3.3's Load-Expense form extends with an optional "Different creditor" toggle that reveals a
+  creditor picker and account-to-pay selector; both fields are required when toggled on, submitted
+  as optional metadata in the payment-plan request, and excluded when toggled off.
+
 ## 4. Cross-cutting client requirements
 
 - **Consistent error surfacing.** Every failed call yields the same typed error (from the API's

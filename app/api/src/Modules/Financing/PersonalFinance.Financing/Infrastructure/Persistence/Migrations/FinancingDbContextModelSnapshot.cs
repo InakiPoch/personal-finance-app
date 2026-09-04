@@ -47,6 +47,42 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.ToTable("financing_credit_cards", (string)null);
                 });
 
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.Creditor", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("financing_creditors", (string)null);
+                });
+
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.CreditorAccount", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CreditorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Identifier")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Label")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreditorId");
+
+                    b.ToTable("financing_creditor_accounts", (string)null);
+                });
+
             modelBuilder.Entity("PersonalFinance.Financing.Domain.Installment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -123,6 +159,12 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("CardId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreditorAccountId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreditorId")
                         .HasColumnType("TEXT");
 
                     b.Property<int>("InstallmentCount")
@@ -223,6 +265,15 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.ToTable("financing_outbox_messages", (string)null);
                 });
 
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.CreditorAccount", b =>
+                {
+                    b.HasOne("PersonalFinance.Financing.Domain.Creditor", null)
+                        .WithMany("Accounts")
+                        .HasForeignKey("CreditorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PersonalFinance.Financing.Domain.Installment", b =>
                 {
                     b.HasOne("PersonalFinance.Financing.Domain.PaymentPlan", null)
@@ -244,6 +295,11 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PaymentPlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.Creditor", b =>
+                {
+                    b.Navigation("Accounts");
                 });
 
             modelBuilder.Entity("PersonalFinance.Financing.Domain.PaymentPlan", b =>

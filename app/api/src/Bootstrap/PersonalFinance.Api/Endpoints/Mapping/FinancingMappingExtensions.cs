@@ -15,7 +15,9 @@ internal static class FinancingMappingExtensions {
             dto.CardId,
             dto.InstallmentCount,
             DateOnly.Parse(dto.PurchaseDate, CultureInfo.InvariantCulture),
-            split
+            split,
+            dto.CreditorId,
+            dto.CreditorAccountId
         );
     }
 

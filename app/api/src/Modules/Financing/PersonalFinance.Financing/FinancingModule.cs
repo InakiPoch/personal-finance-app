@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Abstractions.Modularity;
 using PersonalFinance.Financing.Application.Commands.CreateCreditCard;
+using PersonalFinance.Financing.Application.Commands.CreateCreditor;
 using PersonalFinance.Financing.Application.Commands.CreatePaymentPlan;
 using PersonalFinance.Financing.Application.Commands.LinkPaymentPlanSplit;
 using PersonalFinance.Financing.Application.Commands.MarkInstallmentReversed;
@@ -12,6 +13,7 @@ using PersonalFinance.Financing.Application.Queries.GetCardStatements;
 using PersonalFinance.Financing.Application.Queries.GetInstallmentStatus;
 using PersonalFinance.Financing.Application.Queries.GetMonthlyStatement;
 using PersonalFinance.Financing.Application.Queries.ListCreditCards;
+using PersonalFinance.Financing.Application.Queries.ListCreditors;
 using PersonalFinance.Financing.Application.Scheduling;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Financing.Contracts.Commands;
@@ -44,6 +46,8 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<IQueryHandler<GetCardStatementsQuery, CardStatementsResponse>, GetCardStatementsHandler>();
         services.AddScoped<IQueryHandler<GetMonthlyStatementQuery, MonthlyStatementDetailResponse>, GetMonthlyStatementHandler>();
         services.AddScoped<IQueryHandler<ListCreditCardsQuery, ListCreditCardsResponse>, ListCreditCardsHandler>();
+        services.AddScoped<ICommandHandler<CreateCreditorCommand, Guid>, CreateCreditorHandler>();
+        services.AddScoped<IQueryHandler<ListCreditorsQuery, ListCreditorsResponse>, ListCreditorsHandler>();
         services.AddHostedService<AccrueInstallments>();
     }
 }

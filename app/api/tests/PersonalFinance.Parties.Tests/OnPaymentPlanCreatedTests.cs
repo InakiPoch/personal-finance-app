@@ -131,6 +131,10 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         public Task<TransactionFeedResponse> GetTransactionsAsync(GetTransactionsQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
+
+        public Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
     }
 
     private sealed class FakeFinancingApi : IFinancingApi {

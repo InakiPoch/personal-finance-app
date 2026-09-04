@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
-import { ActivatedRoute, convertToParamMap } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
@@ -30,6 +30,7 @@ describe('StatementPage', () => {
   let view: StatementView;
   let getStatement: jasmine.Spy<(id: string) => Observable<MonthlyStatement>>;
   let payStatement: jasmine.Spy<(id: string, body: PayStatement) => Observable<PayStatementResult>>;
+  let navigate: jasmine.Spy<(commands: unknown[]) => Promise<boolean>>;
 
   const money = (value: number): Money => value as Money;
 
@@ -51,13 +52,14 @@ describe('StatementPage', () => {
       cycleYear: 2026,
       cycleMonth: 9,
       amountMinorUnits: money(150000),
-      isReversed: false
+      isReversed: false,
+      reversalTransactionId: 'tx-acc-1'
     }]
   };
   const paidStatement: MonthlyStatement = {
     ...unpaidStatement,
     isPaid: true,
-    paidOnUtc: '2026-09-20T12:00:00Z',
+    paidOnUtc: '2026-09-20T12:00:00Z'
   };
 
   function setup(): void {
@@ -79,12 +81,14 @@ describe('StatementPage', () => {
     payStatement = jasmine
       .createSpy('payStatement')
       .and.returnValue(of<PayStatementResult>({ statementId: 'st-1' }));
+    navigate = jasmine.createSpy('navigate').and.resolveTo(true);
     TestBed.configureTestingModule({
       imports: [StatementPage],
       providers: [
         provideZonelessChangeDetection(),
         { provide: FinancingService, useValue: { getStatement, payStatement } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
+        { provide: Router, useValue: { navigate } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'st-1' })) } }
       ]
     });
@@ -110,6 +114,14 @@ describe('StatementPage', () => {
     setup();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('netted');
+  });
+  it('navigates to the id-driven reverse route when an installment Reverse button is clicked', () => {
+    setup();
+    fixture.detectChanges();
+    const button: HTMLButtonElement =
+      fixture.nativeElement.querySelector('app-installments-table tbody tr button');
+    button.click();
+    expect(navigate).toHaveBeenCalledWith(['ledger', 'transactions', 'tx-acc-1', 'reverse']);
   });
   it('keeps the pay form invalid until an account and date are chosen', () => {
     setup();

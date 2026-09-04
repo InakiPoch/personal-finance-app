@@ -295,7 +295,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 5 | GET | `/v1/ledger/accounts/{id}/balance` | `LedgerService.getAccountBalance` | (detail widgets) |
 | 6 | GET | `/v1/ledger/transactions` | `LedgerService.listTransactions` | Transactions feed (account + date filter → row → Reverse movement) |
 | 7 | POST | `/v1/financing/payment-plans` | `FinancingService.createPaymentPlan` | Load expense |
-| 8 | GET | `/v1/financing/statements/{id}` | `FinancingService.getStatement` | Statement detail |
+| 8 | GET | `/v1/financing/statements/{id}` | `FinancingService.getStatement` | Statement detail (installment row → Reverse movement) |
 | 9 | POST | `/v1/financing/statements/{id}/pay` | `FinancingService.payStatement` | Statement detail |
 | 10 | GET | `/v1/financing/cards/{id}/future-schedule` | `FinancingService.getFutureSchedule` | Statement detail |
 | 11 | GET | `/v1/financing/cards/{id}/statements` | `FinancingService.listStatements` | Statements list (card picker → row → Statement detail) |
@@ -309,7 +309,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 19 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
 | 20 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
 | 21 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
-| 22 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail |
+| 22 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail (timeline row → Reverse movement) |
 | 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
 | 24 | GET | `/health` | `HealthService.check` | (status indicator) |
 
@@ -347,4 +347,8 @@ return a `{ rows: [...] }` envelope; their service methods unwrap to the array v
    **Resolved (Phase 12, D23):** the endpoint ships; the `Reverse` nav item now opens a real
    `TransactionsPage` (account + date-range filter → movement rows → per-row Reverse, disabled on a
    row that is itself a reversal or already reversed), replacing the id-paste `ReverseIndex` stopgap.
+   **D20 closed too (Phase 12, D24):** the API now threads the reversible ledger transaction id onto
+   the statement-installment rows (`reversalTransactionId`) and the party-timeline rows
+   (`transactionId`), so `InstallmentsTable` and `TimelineTable` carry their own per-row Reverse
+   button — the container navigates to `transactions/:id/reverse`.
 4. App-level auth surface — deferred; no backing endpoint today.

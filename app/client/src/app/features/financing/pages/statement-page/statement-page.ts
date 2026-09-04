@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, ParamMap } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
@@ -55,6 +55,7 @@ export class StatementPage implements OnInit, OnDestroy {
   };
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly router: Router = inject(Router);
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly financing: FinancingService = inject(FinancingService);
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
@@ -79,7 +80,7 @@ export class StatementPage implements OnInit, OnDestroy {
     const raw: { bankAccountId: string; paidOnUtc: string } = this.form.getRawValue();
     const body: PayStatement = {
       bankAccountId: raw.bankAccountId,
-      paidOnUtc: new Date(raw.paidOnUtc).toISOString() as IsoInstant,
+      paidOnUtc: new Date(raw.paidOnUtc).toISOString() as IsoInstant
     };
     this.payError.set(null);
     this.payStatus.set('paying');
@@ -94,13 +95,17 @@ export class StatementPage implements OnInit, OnDestroy {
         error: (error: AppError) => {
           this.payError.set(error);
           this.payStatus.set('error');
-        },
+        }
       }
     );
   }
 
   protected payErrorText(error: AppError): string {
     return this.payErrorMessages[error.code] ?? 'The payment could not be recorded.';
+  }
+
+  protected openReverse(transactionId: string): void {
+    this.router.navigate(['ledger', 'transactions', transactionId, 'reverse']);
   }
 
   private loadInstruments(): void {

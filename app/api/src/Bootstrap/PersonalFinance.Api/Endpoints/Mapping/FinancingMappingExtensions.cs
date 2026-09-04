@@ -72,7 +72,8 @@ internal static class FinancingMappingExtensions {
                 row.CycleYear,
                 row.CycleMonth,
                 row.AmountMinorUnits,
-                row.IsReversed)
+                row.IsReversed,
+                row.ReversalTransactionId)
             )
             .ToList();
         return new MonthlyStatementDetailDto(

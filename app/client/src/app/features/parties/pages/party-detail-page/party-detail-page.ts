@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, ParamMap, RouterLink } from '@angular/router';
+import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
@@ -63,6 +63,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   };
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
+  private readonly router: Router = inject(Router);
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly partiesService: PartiesService = inject(PartiesService);
   private readonly reports: ReportsService = inject(ReportsService);
@@ -116,6 +117,10 @@ export class PartyDetailPage implements OnInit, OnDestroy {
 
   protected settleErrorText(error: AppError): string {
     return this.settleErrorMessages[error.code] ?? 'The settlement could not be recorded.';
+  }
+
+  protected openReverse(transactionId: string): void {
+    this.router.navigate(['ledger', 'transactions', transactionId, 'reverse']);
   }
 
   private loadInstruments(): void {

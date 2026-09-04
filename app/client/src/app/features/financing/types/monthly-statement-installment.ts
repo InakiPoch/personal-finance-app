@@ -11,4 +11,5 @@ export type MonthlyStatementInstallment = {
   cycleMonth: number;
   amountMinorUnits: Money;
   isReversed: boolean;
+  reversalTransactionId: string | null;
 };

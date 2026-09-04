@@ -29,6 +29,7 @@ internal static class ReportingMappingExtensions {
     public static PartyTimelineDto ToPartyTimelineDto(this PartyTimelineResponse response) {
         var rows = response.Rows
             .Select(row => new PartyTimelineRowDto(
+                row.TransactionId,
                 row.MovementOnUtc,
                 row.Description,
                 row.DeltaMinorUnits,

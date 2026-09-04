@@ -457,7 +457,9 @@ and confirm the message keys off `code`.
 **4.2 + 4.3 + 4.4 closed (Phase 12).** `GET /v1/instruments` (step 1),
 `GET /v1/financing/cards/{id}/statements` (step 3) and `GET /v1/ledger/transactions` (step 5) shipped
 on the API; the matching client steps retired the `localStorage` registry, the id-paste
-`StatementIndex`, and the id-paste `ReverseIndex` — see the completion notes below. **4.5 stays
+`StatementIndex`, and the id-paste `ReverseIndex`, and **D20 is closed** (step 7 threaded the
+reversible ledger transaction id onto the statement + timeline rows; step 8 added the per-row
+Reverse buttons, D24) — see the completion notes below. **4.5 stays
 open**: the auth surface has no design. **The phase DoD box stays unticked until 4.5 closes.**
 
 **4.2 — `GET /v1/instruments` (Phase 12, D21).** `InstrumentsService` gains
@@ -588,6 +590,13 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
   (`GET /v1/ledger/transactions`), or by the statement / timeline DTOs growing a reversible
   transaction id — whichever ships first. Until then the only reverse entry point stays the
   id-lookup page (`/ledger/transactions`, reachable from the nav shell).
+  **Closed (Phase 12, steps 7–8, D24).** API step 7 threaded a reversible ledger transaction id
+  onto both surfaces: `MonthlyStatementInstallmentRowDto.reversalTransactionId` (the accrual tx,
+  or `null`) and `CurrentAccountTimelineRowDto` / `PartyTimelineRowDto` `.transactionId`. Client
+  step 8 gave `InstallmentsTable` and `TimelineTable` a per-row `reverseClick = output<string>()`
+  and a Reverse button — disabled for an installment with no live accrual (`reversalTransactionId`
+  null or `isReversed`) and for a timeline row that is itself a `'Reversal'`. `StatementPage` and
+  `PartyDetailPage` inject `Router` and navigate `['ledger', 'transactions', $event, 'reverse']`.
 
 - **D21** — **`InstrumentRegistryService` retired for `GET /v1/instruments`.** The Phase-0 D3
   `localStorage` instrument registry (and `core/types/registered-instrument.ts`, `core/registry/`)
@@ -621,6 +630,17 @@ matches the API job; split into a separate workflow if Actions-minutes cost ever
   `TransactionRow` type drops the `direction` field the old sketch carried (the API row is a signed
   debit-side total). D20 is **not** closed here — the per-row Reverse buttons on `InstallmentsTable`
   / `TimelineTable` still need a reversible-transaction id threaded through those DTOs (steps 7–8).
+
+- **D24** — **D20 closed: per-row Reverse on `InstallmentsTable` + `TimelineTable`.** Both tables
+  stay presentational — a `reverseClick = output<string>()` emits the ledger transaction id; the
+  container (`StatementPage` / `PartyDetailPage`, both now inject `Router`) navigates to
+  `transactions/:id/reverse` (the same confirm route the feed's rows use). Types grew a field to
+  match API step 7: `monthly-statement-installment.ts` `+ reversalTransactionId: string | null`,
+  `party-timeline-row.ts` + `current-account-timeline-row.ts` `+ transactionId: string`. The
+  installments button is disabled when `reversalTransactionId` is null or `isReversed`; the timeline
+  button is disabled on a row whose `description === 'Reversal'`. `pnpm ng test` → 155 pass
+  (149 + 6); build 261.91 kB initial (unchanged — the deltas are inside the lazy feature chunks);
+  lint clean. Docs: `docs/DESIGN.md` §9/§11.3, `docs/PRD.md` §3.4/§3.5.
 
 ---
 

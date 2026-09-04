@@ -32,7 +32,7 @@
       </div>
     </dl>
     <h2>Installments</h2>
-    <app-installments-table [installments]="detail.installments" />
+    <app-installments-table [installments]="detail.installments" (reverseClick)="openReverse($event)" />
     <p class="statement__note">
       Reversing a paid installment does not refund cash. The API posts a credit that is netted
       against your next statement for this card.

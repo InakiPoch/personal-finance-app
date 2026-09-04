@@ -23,7 +23,7 @@ describe('ReportsService', () => {
   const money = (value: number): Money => value as Money;
 
   const monthlyRows: MonthlyExpenseRow[] = [
-    { month: '2026-09', category: 'Groceries', amountMinorUnits: money(150000), currencyCode: 'ARS' },
+    { month: '2026-09', category: 'Groceries', amountMinorUnits: money(150000), currencyCode: 'ARS' }
   ];
   const cardDueRows: CardDueRow[] = [{
     bucket: 'Accrued',
@@ -40,8 +40,8 @@ describe('ReportsService', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideHttpClient(withInterceptors([baseUrlInterceptor, problemDetailsInterceptor])),
-        provideHttpClientTesting(),
-      ],
+        provideHttpClientTesting()
+      ]
     });
     service = TestBed.inject(ReportsService);
     httpMock = TestBed.inject(HttpTestingController);
@@ -86,11 +86,12 @@ describe('ReportsService', () => {
   it('GETs parties/{id}/timeline and unwraps { rows }', () => {
     const rows: PartyTimelineRow[] = [
       {
+        transactionId: 'tx-1',
         movementOnUtc: '2026-09-01T20:00:00.000Z',
         description: 'Dinner split',
         deltaMinorUnits: money(300000),
         runningBalanceMinorUnits: money(300000),
-        currencyCode: 'ARS',
+        currencyCode: 'ARS'
       },
     ];
     let result: PartyTimelineRow[] | undefined;
@@ -105,14 +106,14 @@ describe('ReportsService', () => {
     service.monthlyExpenses().subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
     httpMock.expectOne(monthlyUrl).flush(
       { type: 'about:blank', title: 'Unprocessable', status: 422, detail: 'bad month', code: 'Reports.InvalidMonth' },
-      { status: 422, statusText: 'Unprocessable Content' },
+      { status: 422, statusText: 'Unprocessable Content' }
     );
     expect(error).toEqual({
       code: 'Reports.InvalidMonth',
       title: 'Unprocessable',
       detail: 'bad month',
       status: 422,
-      metadata: {},
+      metadata: {}
     });
   });
 });

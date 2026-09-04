@@ -14,6 +14,12 @@
   color: #b00020;
 }
 
+.timeline__note {
+  color: #555;
+  font-size: 0.75rem;
+  margin-left: 0.5rem;
+}
+
 .timeline__empty {
   color: #555;
   font-size: 0.875rem;

@@ -2,7 +2,6 @@ import { provideHttpClient, withInterceptors } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { provideZonelessChangeDetection } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
-
 import { baseUrlInterceptor } from '../../core/http/base-url.interceptor';
 import { problemDetailsInterceptor } from '../../core/http/problem-details.interceptor';
 import { AppError } from '../../core/types/app-error';
@@ -54,7 +53,6 @@ describe('FinancingService', () => {
     req.flush({ paymentPlanId: 'plan-1' });
     expect(result).toBe('plan-1');
   });
-
   it('POSTs a payment plan carrying the split array when provided', () => {
     const body: CreatePaymentPlan = {
       amountMinorUnits: money(900000),
@@ -71,7 +69,6 @@ describe('FinancingService', () => {
     expect(req.request.body).toEqual(body);
     req.flush({ paymentPlanId: 'plan-2' });
   });
-
   it('GETs a statement and returns the object with installments intact', () => {
     const statement: MonthlyStatement = {
       statementId: 'st-1',
@@ -91,7 +88,8 @@ describe('FinancingService', () => {
         cycleYear: 2026,
         cycleMonth: 9,
         amountMinorUnits: money(400000),
-        isReversed: false
+        isReversed: false,
+        reversalTransactionId: 'tx-acc-1'
       }]
     };
     let result: MonthlyStatement | undefined;
@@ -101,7 +99,6 @@ describe('FinancingService', () => {
     req.flush(statement);
     expect(result).toEqual(statement);
   });
-
   it('POSTs a statement payment and returns the statement id', () => {
     const body: PayStatement = { bankAccountId: 'bank-1', paidOnUtc: '2026-09-20T12:00:00Z' };
     let result: string | undefined;
@@ -112,7 +109,6 @@ describe('FinancingService', () => {
     req.flush({ statementId: 'st-1' });
     expect(result).toBe('st-1');
   });
-
   it('maps a 409 AlreadyPaid on pay to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service.payStatement('st-1', { bankAccountId: 'bank-1', paidOnUtc: '2026-09-20T12:00:00Z' })
@@ -148,7 +144,6 @@ describe('FinancingService', () => {
     req.flush(schedule);
     expect(result).toEqual(schedule);
   });
-
   it('GETs a card statement list and unwraps the { rows } envelope', () => {
     const rows: MonthlyStatementSummary[] = [{
       statementId: 'st-1',
@@ -167,7 +162,6 @@ describe('FinancingService', () => {
     req.flush({ cardId: 'card-1', rows });
     expect(result).toEqual(rows);
   });
-
   it('maps a 404 on getStatement to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service.getStatement('missing').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });

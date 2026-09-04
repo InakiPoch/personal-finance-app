@@ -59,6 +59,13 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
+    public async Task PartyTimeline_rows_carry_the_ledger_transaction_behind_each_movement() {
+        var response = await AskAsync(new GetPartyTimelineQuery(fixture.AliceId));
+        Assert.NotEmpty(response.Rows);
+        Assert.All(response.Rows, row => Assert.NotEqual(Guid.Empty, row.TransactionId));
+    }
+
+    [Fact]
     public async Task DebtByParty_nets_each_parties_movements_into_a_single_row() {
         var response = await AskAsync(new GetDebtByPartyQuery());
         Assert.Equal(2, response.Rows.Count);

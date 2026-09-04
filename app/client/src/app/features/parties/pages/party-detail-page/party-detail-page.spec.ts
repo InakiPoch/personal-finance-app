@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
-import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
+import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
@@ -39,8 +39,9 @@ const balance: CurrentAccountBalance = {
 };
 
 const timelineRows: PartyTimelineRow[] = [{
+    transactionId: 'tx-1',
     movementOnUtc: '2026-09-01T20:00:00.000Z',
-    description: 'Dinner split',
+    description: 'Shared expense',
     deltaMinorUnits: money(250000),
     runningBalanceMinorUnits: money(250000),
     currencyCode: 'ARS'
@@ -101,7 +102,15 @@ describe('PartyDetailPage', () => {
     expect(view.balanceStatus()).toBe('ready');
     expect(view.timelineStatus()).toBe('ready');
     expect(view.balance()?.name).toBe('Alice');
-    expect(text()).toContain('Dinner split');
+    expect(text()).toContain('Shared expense');
+  });
+  it('navigates to the id-driven reverse route when a timeline Reverse button is clicked', () => {
+    setup();
+    const navigate: jasmine.Spy = spyOn(TestBed.inject(Router), 'navigate');
+    const button: HTMLButtonElement =
+      fixture.nativeElement.querySelector('app-timeline-table tbody tr button');
+    button.click();
+    expect(navigate).toHaveBeenCalledWith(['ledger', 'transactions', 'tx-1', 'reverse']);
   });
   it('keeps the settlement form invalid until amount, account and date are chosen', () => {
     setup();

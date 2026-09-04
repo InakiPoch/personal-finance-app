@@ -8,6 +8,7 @@
         <th scope="col">Purchase date</th>
         <th scope="col">Amount</th>
         <th scope="col">Status</th>
+        <th scope="col">Reverse</th>
       </tr>
     </thead>
     <tbody>
@@ -22,6 +23,11 @@
             } @else {
               <span>Active</span>
             }
+          </td>
+          <td>
+            <button type="button" [disabled]="!canReverse(installment)" (click)="onReverse(installment)">
+              Reverse
+            </button>
           </td>
         </tr>
       }

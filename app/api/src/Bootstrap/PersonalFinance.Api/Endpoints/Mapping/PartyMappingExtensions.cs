@@ -34,6 +34,7 @@ internal static class PartyMappingExtensions {
     public static CurrentAccountTimelineDto ToCurrentAccountTimelineDto(this CurrentAccountTimelineResponse response) {
         var rows = response.Rows
             .Select(row => new CurrentAccountTimelineRowDto(
+                row.TransactionId,
                 row.MovementOnUtc,
                 row.Description,
                 row.DeltaMinorUnits,

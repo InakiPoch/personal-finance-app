@@ -64,24 +64,29 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 
 ### 3.4 Statement detail & pay — US-4
 - **Shows:** a statement's cycle, total due, paid/unpaid status, and the **itemized installments**
-  that compose the total (sequence "1 of 3", purchase date, amount, reversed flag). A "Pay" action
+  that compose the total (sequence "1 of 3", purchase date, amount, reversed flag, and a per-row **Reverse**
+  action for the installment's accrual). A "Pay" action
   requiring the funding bank account and pay date. Optionally, the card's **future schedule** (not
   yet accrued installments) for the full-debt picture.
 - **Source:** `GET /v1/financing/statements/{id}`, `POST /v1/financing/statements/{id}/pay`,
   `GET /v1/financing/cards/{id}/future-schedule`.
 - **Reversal-credit UX (API D12):** when a paid installment was reversed, a compensating card credit
   is netted against the **next** statement, not refunded as cash. The view must state this plainly.
-- **Gap:** there is **no endpoint that lists a card's statements**, so the view cannot discover a
-  `statementId` on its own. Reachable today only via a known id. Flagged in §7.
+- ~~**Gap:** no endpoint lists a card's statements.~~ **Resolved (Phase 12):** `GET
+  /v1/financing/cards/{id}/statements` ships; the `Statements` view lists them per card.
 
 ### 3.5 Reverse movement — US-6
 - **Shows:** confirmation and result of reversing a posted transaction (storno; and, for an
   already-paid installment, a compensating card credit). Reversal never deletes — it appends.
 - **Source (write):** `POST /v1/ledger/transactions/{id}/reversal`.
 - **Audit visibility:** the client surfaces reversal state where the API exposes it — the
-  `isReversed` flag on statement installments (§3.4) and the party timeline (§3.7).
-- **Gap:** no general transaction/history feed exists, so there is no list from which to pick a
-  transaction to reverse. The reverse action is driven by ids surfaced in other views. Flagged in §7.
+  `isReversed` flag on statement installments (§3.4) and the party timeline (§3.7), and a per-row
+  **Reverse** action on both, driven by the ledger transaction id the API threads onto those rows
+  (`reversalTransactionId` / `transactionId`). The action is disabled where no live accrual backs
+  the row (already reversed, or a row that is itself a reversal).
+- ~~**Gap:** no general transaction/history feed exists.~~ **Resolved (Phase 12):** `GET
+  /v1/ledger/transactions` ships a filterable feed; the reverse action is also reachable per-row
+  from the statement-installment and party-timeline tables.
 
 ### 3.6 Subscriptions — US-5
 - **Shows:** list of active subscriptions (name, amount, category, frequency, anchor day, next due

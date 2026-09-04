@@ -8,6 +8,7 @@
         <th scope="col">Description</th>
         <th scope="col">Change</th>
         <th scope="col">Running balance</th>
+        <th scope="col">Reverse</th>
       </tr>
     </thead>
     <tbody>
@@ -17,6 +18,14 @@
           <td>{{ row.description }}</td>
           <td [class.timeline__debit]="row.deltaMinorUnits < 0">{{ signed(row.deltaMinorUnits) }}</td>
           <td>{{ formatArs(row.runningBalanceMinorUnits) }}</td>
+          <td>
+            <button type="button" [disabled]="isReversalRow(row)" (click)="onReverse(row)">
+              Reverse
+            </button>
+            @if(isReversalRow(row)) {
+              <span class="timeline__note">Reversal entry</span>
+            }
+          </td>
         </tr>
       }
     </tbody>

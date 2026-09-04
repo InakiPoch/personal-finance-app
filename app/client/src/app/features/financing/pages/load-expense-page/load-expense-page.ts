@@ -27,7 +27,7 @@ import { FinancingService } from '../../financing-service';
 import { CreatePaymentPlan } from '../../types/create-payment-plan';
 import { CreatePaymentPlanResult } from '../../types/create-payment-plan-result';
 import { SplitParticipant } from '../../types/split-participant';
-import { atMostTwoDecimals, isoDate, positiveAmount, positiveInteger } from '../../validation-helpers';
+import { atMostTwoDecimals, isoDate, noBlank, noNewline, positiveAmount, positiveInteger } from '../../validation-helpers';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SubmitStatus = 'idle' | 'submitting' | 'confirmed' | 'error';
@@ -50,6 +50,7 @@ type LoadExpenseForm = FormGroup<{
   cardId: FormControl<string>;
   installmentCount: FormControl<number | null>;
   purchaseDate: FormControl<string>;
+  description: FormControl<string>;
   split: FormArray<SplitRow>;
   differentCreditor: FormControl<boolean>;
   creditorId: FormControl<string>;
@@ -71,6 +72,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   protected readonly submitStatus: WritableSignal<SubmitStatus> = signal<SubmitStatus>('idle');
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly confirmedPlanId: WritableSignal<string | null> = signal<string | null>(null);
+  protected readonly confirmedDescription: WritableSignal<string | null> = signal<string | null>(null);
   protected readonly reconciliations: WritableSignal<ReconciliationRow[]> = signal<ReconciliationRow[]>([]);
   protected readonly creditCards: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'credit')
@@ -82,7 +84,10 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     atMostTwoDecimals: 'Use at most two decimal places.',
     positiveInteger: 'Enter a whole number of at least 1.',
     isoDate: 'Use the YYYY-MM-DD format.',
-    required: 'This field is required.'
+    required: 'This field is required.',
+    noBlank: 'Enter a description.',
+    noNewline: 'Use a single line.',
+    maxlength: 'Keep it under 120 characters.'
   };
 
   private readonly fb: FormBuilder = inject(FormBuilder);
@@ -123,6 +128,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       cardId: string;
       installmentCount: number | null;
       purchaseDate: string;
+      description: string;
       split: Array<{ partyId: string; weight: number | null }>;
       differentCreditor: boolean;
       creditorId: string;
@@ -137,11 +143,13 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       cardId: raw.cardId,
       installmentCount: raw.installmentCount as number,
       purchaseDate: raw.purchaseDate,
+      description: raw.description.trim(),
       ...(participants.length > 0 ? { split: participants } : {}),
       ...(raw.differentCreditor ? { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId } : {})
     };
     this.submitError.set(null);
     this.confirmedPlanId.set(null);
+    this.confirmedDescription.set(null);
     this.reconciliations.set([]);
     this.submitStatus.set('submitting');
     this.financingService
@@ -150,6 +158,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       .subscribe({
         next: (result: CreatePaymentPlanResult) => {
           this.confirmedPlanId.set(result.paymentPlanId);
+          this.confirmedDescription.set(body.description);
           this.submitStatus.set('confirmed');
           if(participants.length > 0) {
             this.reconcile(participants);
@@ -279,6 +288,9 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       cardId: this.fb.nonNullable.control('', { validators: Validators.required }),
       installmentCount: this.fb.control<number | null>(1, { validators: positiveInteger }),
       purchaseDate: this.fb.nonNullable.control('', { validators: isoDate }),
+      description: this.fb.nonNullable.control('', {
+        validators: [Validators.required, Validators.maxLength(120), noBlank, noNewline],
+      }),
       split: this.fb.array<SplitRow>([]),
       differentCreditor: this.fb.nonNullable.control(false),
       creditorId: this.fb.nonNullable.control(''),

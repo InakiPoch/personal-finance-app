@@ -40,6 +40,31 @@
         }
       </div>
       <div class="mt-6 flex flex-col gap-1.5">
+        <label for="description" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+          Description
+        </label>
+        <input
+          type="text"
+          id="description"
+          maxlength="120"
+          placeholder="What did you buy?"
+          formControlName="description"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        />
+        @if(form.controls.description.touched && form.controls.description.hasError('required')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+        }
+        @if(form.controls.description.touched && form.controls.description.hasError('noBlank')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['noBlank'] }}</p>
+        }
+        @if(form.controls.description.touched && form.controls.description.hasError('maxlength')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['maxlength'] }}</p>
+        }
+        @if(form.controls.description.touched && form.controls.description.hasError('noNewline')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['noNewline'] }}</p>
+        }
+      </div>
+      <div class="mt-6 flex flex-col gap-1.5">
         <label for="cardId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
           Card
         </label>
@@ -270,10 +295,13 @@
       <h2 id="confirmed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
         Confirmed
       </h2>
-      <p class="mt-4 text-sm text-ink-soft">
-        Payment plan
-        <code class="text-ink [font-variant-numeric:tabular-nums_lining-nums]">{{ planId }}</code>
-        created.
+      @if(confirmedDescription(); as description) {
+        <p class="mt-4 font-serif text-lg text-ink">
+          "{{ description }}" — payment plan created.
+        </p>
+      }
+      <p class="mt-1 text-xs text-ink-faint">
+        Plan <code class="text-ink [font-variant-numeric:tabular-nums_lining-nums]">{{ planId }}</code>
       </p>
       @if(reconciliations().length > 0) {
         <h3 class="mt-6 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">

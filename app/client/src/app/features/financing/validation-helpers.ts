@@ -31,3 +31,15 @@ export const isoDate: ValidatorFn = (control: AbstractControl): ValidationErrors
   const value: unknown = control.value;
   return typeof value === 'string' && ISO_DATE.test(value) ? null : { isoDate: true };
 };
+
+export const noBlank: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const value: unknown = control.value;
+  const valid: boolean = typeof value === 'string' && value.trim().length > 0;
+  return valid ? null : { noBlank: true };
+};
+
+export const noNewline: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const value: unknown = control.value;
+  const valid: boolean = typeof value !== 'string' || (!value.includes('\n') && !value.includes('\r'));
+  return valid ? null : { noNewline: true };
+};

@@ -18,10 +18,11 @@ public sealed record PaymentPlanSplitPayload(IReadOnlyList<SplitParticipant> Par
 /// billing cycle the purchase date closes into; the rest follow month by month.
 /// </summary>
 public sealed record CreatePaymentPlanCommand(
-    long AmountMinorUnits, 
-    Guid CardId, 
-    int InstallmentCount, 
+    long AmountMinorUnits,
+    Guid CardId,
+    int InstallmentCount,
     DateOnly PurchaseDate,
+    string Description,
     PaymentPlanSplitPayload? Split = null,
     Guid? CreditorId = null, 
     Guid? CreditorAccountId = null

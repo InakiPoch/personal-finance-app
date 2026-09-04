@@ -8,6 +8,7 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
     public Money Total { get; }
     public DateOnly PurchaseDate { get; }
     public int InstallmentCount { get; }
+    public string Description { get; private set; } = string.Empty;
     public Guid? SplitReferenceId { get; private set; }
     public Guid? CreditorId { get; private set; }
     public Guid? CreditorAccountId { get; private set; }
@@ -29,6 +30,7 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         Money total,
         int installmentCount,
         DateOnly purchaseDate,
+        string description,
         int cutoffDay,
         PhantomPennyAllocator allocator,
         IReadOnlyList<(Guid PartyId, long Weight)>? splitParticipants = null,
@@ -41,6 +43,7 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
             return FinancingErrors.InvalidInstallmentCount;
         }
         var plan = new PaymentPlan(Guid.CreateVersion7(), cardId, total, purchaseDate, installmentCount) {
+            Description = description.Trim(),
             CreditorId = creditorId,
             CreditorAccountId = creditorAccountId
         };

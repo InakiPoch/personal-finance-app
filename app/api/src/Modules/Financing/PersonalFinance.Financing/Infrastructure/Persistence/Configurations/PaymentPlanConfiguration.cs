@@ -14,6 +14,7 @@ internal sealed class PaymentPlanConfiguration : IEntityTypeConfiguration<Paymen
         builder.Property(plan => plan.CardId).IsRequired();
         builder.Property(plan => plan.PurchaseDate).IsRequired();
         builder.Property(plan => plan.InstallmentCount).IsRequired();
+        builder.Property(plan => plan.Description).IsRequired();
         builder.Property(plan => plan.SplitReferenceId);
         builder.Property(plan => plan.CreditorId);
         builder.Property(plan => plan.CreditorAccountId);

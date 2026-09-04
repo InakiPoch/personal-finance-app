@@ -2,6 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { CardFutureSchedule } from './types/card-future-schedule';
+import { CardPurchaseRow } from './types/card-purchase-row';
 import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { MonthlyStatement } from './types/monthly-statement';
@@ -35,5 +36,11 @@ export class FinancingService {
     return this.http
       .get<RowsEnvelope<MonthlyStatementSummary>>(`financing/cards/${cardId}/statements`)
     .pipe(map((envelope: RowsEnvelope<MonthlyStatementSummary>) => envelope.rows));
+  }
+
+  cardPurchases(cardId: string): Observable<CardPurchaseRow[]> {
+    return this.http
+      .get<RowsEnvelope<CardPurchaseRow>>(`financing/cards/${cardId}/purchases`)
+    .pipe(map((envelope: RowsEnvelope<CardPurchaseRow>) => envelope.rows));
   }
 }

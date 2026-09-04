@@ -8,4 +8,6 @@ export type CreatePaymentPlan = {
   installmentCount: number;
   purchaseDate: IsoDate;
   split?: SplitParticipant[];
+  creditorId?: string;
+  creditorAccountId?: string;
 };

@@ -9,6 +9,8 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
     public DateOnly PurchaseDate { get; }
     public int InstallmentCount { get; }
     public Guid? SplitReferenceId { get; private set; }
+    public Guid? CreditorId { get; private set; }
+    public Guid? CreditorAccountId { get; private set; }
     public IReadOnlyList<Installment> Installments => installments;
     public IReadOnlyList<PaymentPlanSplitParticipant> SplitParticipants => splitParticipants;
 
@@ -29,25 +31,28 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         DateOnly purchaseDate,
         int cutoffDay,
         PhantomPennyAllocator allocator,
-        IReadOnlyList<(Guid PartyId, long Weight)>? splitParticipants = null) {
+        IReadOnlyList<(Guid PartyId, long Weight)>? splitParticipants = null,
+        Guid? creditorId = null,
+        Guid? creditorAccountId = null) {
         if(total.MinorUnits <= 0) {
             return FinancingErrors.NonPositivePlanAmount;
         }
         if(installmentCount < 1) {
             return FinancingErrors.InvalidInstallmentCount;
         }
-        var plan = new PaymentPlan(Guid.CreateVersion7(), cardId, total, purchaseDate, installmentCount);
+        var plan = new PaymentPlan(Guid.CreateVersion7(), cardId, total, purchaseDate, installmentCount) {
+            CreditorId = creditorId,
+            CreditorAccountId = creditorAccountId
+        };
         var weights = Enumerable.Repeat(1L, installmentCount).ToArray();
         var shares = allocator.Allocate(total, weights);
         var firstCycle = BillingCycleCalculator.ResolveCycle(purchaseDate, cutoffDay);
         for(var i = 0; i < installmentCount; i++) {
             plan.installments.Add(Installment.Schedule(plan.Id, i + 1, shares[i], firstCycle.AddMonths(i)));
         }
-        if(splitParticipants is not null) {
-            foreach(var participant in splitParticipants) {
-                plan.splitParticipants.Add(
-                    PaymentPlanSplitParticipant.For(plan.Id, participant.PartyId, participant.Weight));
-            }
+        if (splitParticipants is null) return plan;
+        foreach(var participant in splitParticipants) {
+            plan.splitParticipants.Add(PaymentPlanSplitParticipant.For(plan.Id, participant.PartyId, participant.Weight));
         }
         return plan;
     }

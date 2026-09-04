@@ -17,4 +17,12 @@ public sealed record PaymentPlanSplitPayload(IReadOnlyList<SplitParticipant> Par
 /// Creates an installment plan for a card purchase. The first installment is assigned to the
 /// billing cycle the purchase date closes into; the rest follow month by month.
 /// </summary>
-public sealed record CreatePaymentPlanCommand(long AmountMinorUnits, Guid CardId, int InstallmentCount, DateOnly PurchaseDate, PaymentPlanSplitPayload? Split = null) : ICommand<Guid>;
+public sealed record CreatePaymentPlanCommand(
+    long AmountMinorUnits, 
+    Guid CardId, 
+    int InstallmentCount, 
+    DateOnly PurchaseDate,
+    PaymentPlanSplitPayload? Split = null,
+    Guid? CreditorId = null, 
+    Guid? CreditorAccountId = null
+) : ICommand<Guid>;

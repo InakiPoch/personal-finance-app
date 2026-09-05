@@ -36,6 +36,12 @@ internal static class EndpointExtensions {
                 .WithSummary("Get an account's current balance.")
                 .WithDescription("Returns the live balance of the given Ledger account.")
                 .Produces<AccountBalanceDto>(StatusCodes.Status200OK);
+            group.MapPost(ApiRoutes.Ledger.Expenses, RecordDebitExpense.Handle)
+                .WithSummary("Record a debit or cash expense.")
+                .WithDescription("Posts one balanced Ledger transaction for money already spent from a debit or cash account, against an expense category resolved get-or-create by name. When parties are split in, each share posts to their receivable instead — the holder's share stays on the category — mirroring the credit-card split.")
+                .Produces<RecordDebitExpenseResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             var environment = endpoints.ServiceProvider.GetRequiredService<IHostEnvironment>();
             if(environment.IsDevelopment()) {
                 group.MapPost(ApiRoutes.Ledger.DevAccounts, PostDevAccount.Handle)

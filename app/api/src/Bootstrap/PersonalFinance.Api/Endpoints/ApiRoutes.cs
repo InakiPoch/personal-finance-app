@@ -8,6 +8,7 @@ public sealed record ApiRoutes {
         public const string Transactions = "/transactions";
         public const string Reversal = "/transactions/{id:guid}/reversal";
         public const string AccountBalance = "/accounts/{id:guid}/balance";
+        public const string Expenses = "/expenses";
         public const string DevAccounts = "/accounts";
     }
 

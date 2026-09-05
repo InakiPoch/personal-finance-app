@@ -50,4 +50,24 @@ internal static class LedgerErrors {
         "Ledger.NonPositiveEntryAmount",
         "Every entry amount must be a positive number of minor units."
     );
+
+    public static readonly Error InvalidExpenseCategory = new(
+        "Ledger.InvalidExpenseCategory",
+        "A debit or cash expense requires a category name."
+    );
+
+    public static readonly Error InvalidExpenseDescription = new(
+        "Ledger.InvalidExpenseDescription",
+        "A debit or cash expense requires a description."
+    );
+
+    public static readonly Error InvalidExpenseSplit = new(
+        "Ledger.InvalidExpenseSplit",
+        "An expense split needs at least one participant, each a distinct party with a positive weight."
+    );
+
+    public static readonly Error SourceAccountNotSpendable = new(
+        "Ledger.SourceAccountNotSpendable",
+        "The source of a debit or cash expense must be a debit or cash account."
+    );
 }

@@ -1,5 +1,6 @@
 using PersonalFinance.Api.Endpoints.Creditors;
 using PersonalFinance.Api.Endpoints.DTOs;
+using PersonalFinance.Api.Endpoints.ExpenseCategories;
 using PersonalFinance.Api.Endpoints.Financing;
 using PersonalFinance.Api.Endpoints.Ledger;
 using PersonalFinance.Api.Endpoints.Parties;
@@ -121,6 +122,17 @@ internal static class EndpointExtensions {
                 .WithSummary("List registered creditors.")
                 .WithDescription("Returns every creditor with its accounts, ordered by name.")
                 .Produces<CreditorListDto>(StatusCodes.Status200OK);
+            return endpoints;
+        }
+
+        public IEndpointRouteBuilder MapExpenseCategoriesEndpoints() {
+            var group = endpoints.MapGroup(ApiRoutes.ExpenseCategories.Base)
+                .WithTags("Expense categories")
+                .ProducesProblem(StatusCodes.Status500InternalServerError);
+            group.MapGet(ApiRoutes.ExpenseCategories.List, GetExpenseCategories.Handle)
+                .WithSummary("List debit/cash expense categories.")
+                .WithDescription("Returns the distinct expense-category names available for a debit or cash expense — Ledger accounts of Expense type and Expense kind — ordered by name. New categories are minted on first use when the expense is recorded.")
+                .Produces<ExpenseCategoriesDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

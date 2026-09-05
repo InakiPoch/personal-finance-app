@@ -23,6 +23,7 @@ internal static class ModuleRegistration {
         endpoints.MapFinancingEndpoints();
         endpoints.MapInstrumentsEndpoints();
         endpoints.MapCreditorEndpoints();
+        endpoints.MapExpenseCategoriesEndpoints();
         endpoints.MapSubscriptionsEndpoints();
         endpoints.MapPartiesEndpoints();
         endpoints.MapReportingEndpoints();

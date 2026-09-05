@@ -23,6 +23,14 @@ internal sealed class FakeLedgerApi : ILedgerApi {
         return Task.FromResult<Result<Guid>>(NextAccountId);
     }
 
+    public Task<Result<Guid>> GetOrCreateExpenseCategoryAsync(GetOrCreateExpenseCategoryCommand command, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
+    public Task<ExpenseCategoriesResponse> ListExpenseCategoriesAsync(ListExpenseCategoriesQuery query, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
     public Task<Result<Guid>> PostTransactionAsync(PostTransactionCommand command, CancellationToken ct = default) {
         PostedTransactions.Add(command);
         return Task.FromResult(PostTransactionResultOverride ?? Guid.CreateVersion7());

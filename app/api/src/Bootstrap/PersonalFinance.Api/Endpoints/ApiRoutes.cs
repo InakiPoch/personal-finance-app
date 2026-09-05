@@ -35,6 +35,11 @@ public sealed record ApiRoutes {
         public const string List = "/";
     }
 
+    public sealed record ExpenseCategories {
+        public const string Base = V1 + "/expense-categories";
+        public const string List = "/";
+    }
+
     public sealed record Subscriptions {
         public const string Base = V1 + "/subscriptions";
         public const string Create = "/";

@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subject, map, switchMap, takeUntil } from 'rxjs';
+import { Observable, Subject, map, switchMap, takeUntil } from 'rxjs';
 import { pollUntil } from '../../../../core/http/poll-until';
 import { formatArs, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
@@ -19,12 +19,13 @@ import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { CreditorsService } from '../../../creditors/creditors-service';
 import { Creditor, CreditorAccount } from '../../../creditors/types/creditor';
+import { LedgerService } from '../../../ledger/ledger-service';
+import { RecordDebitExpenseResult } from '../../../ledger/types/record-debit-expense-result';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
 import { PartiesService } from '../../../parties/parties-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
 import { ReportsService } from '../../../reports/reports-service';
 import { FinancingService } from '../../financing-service';
-import { CreatePaymentPlan } from '../../types/create-payment-plan';
 import { CreatePaymentPlanResult } from '../../types/create-payment-plan-result';
 import { SplitParticipant } from '../../types/split-participant';
 import { atMostTwoDecimals, isoDate, noBlank, noNewline, positiveAmount, positiveInteger } from '../../validation-helpers';
@@ -32,7 +33,8 @@ import { atMostTwoDecimals, isoDate, noBlank, noNewline, positiveAmount, positiv
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SubmitStatus = 'idle' | 'submitting' | 'confirmed' | 'error';
 type ReconciliationStatus = 'reconciling' | 'reconciled' | 'stalled';
-type LoadExpenseMode = 'card' | 'creditor';
+type LoadExpenseMode = 'card' | 'creditor' | 'debit';
+type ConfirmedKind = 'plan' | 'expense';
 
 type ModeOption = { value: LoadExpenseMode; label: string };
 
@@ -58,6 +60,8 @@ type LoadExpenseForm = FormGroup<{
   mode: FormControl<LoadExpenseMode>;
   creditorId: FormControl<string>;
   creditorAccountId: FormControl<string>;
+  sourceInstrumentId: FormControl<string>;
+  categoryName: FormControl<string>;
 }>;
 
 @Component({
@@ -76,14 +80,22 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly confirmedPlanId: WritableSignal<string | null> = signal<string | null>(null);
   protected readonly confirmedDescription: WritableSignal<string | null> = signal<string | null>(null);
+  protected readonly confirmedKind: WritableSignal<ConfirmedKind> = signal<ConfirmedKind>('plan');
   protected readonly reconciliations: WritableSignal<ReconciliationRow[]> = signal<ReconciliationRow[]>([]);
   protected readonly creditCards: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'credit')
   );
+  protected readonly bankAndCashInstruments: Signal<Instrument[]> = computed(() =>
+    this.instruments().filter(
+      (instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash'
+    )
+  );
+  protected readonly expenseCategories: WritableSignal<string[]> = signal<string[]>([]);
   protected readonly creditors: WritableSignal<Creditor[]> = signal<Creditor[]>([]);
   protected readonly creditorAccounts: WritableSignal<CreditorAccount[]> = signal<CreditorAccount[]>([]);
   protected readonly modeOptions: readonly ModeOption[] = [
     { value: 'card', label: 'My credit card' },
+    { value: 'debit', label: 'My debit-cash' },
     { value: 'creditor', label: 'Financed by a creditor' },
   ];
   protected readonly errorMessages: Record<string, string> = {
@@ -99,6 +111,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
 
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly financingService: FinancingService = inject(FinancingService);
+  private readonly ledgerService: LedgerService = inject(LedgerService);
   private readonly creditorsService: CreditorsService = inject(CreditorsService);
   private readonly partiesService: PartiesService = inject(PartiesService);
   private readonly reportsService: ReportsService = inject(ReportsService);
@@ -106,6 +119,9 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
     'Financing.CardNotFound': 'That card is not registered with the API yet.',
+    'Ledger.AccountNotFound': 'That account is not registered with the API.',
+    'Ledger.SourceAccountNotSpendable': 'Pick a debit or cash account to pay from.',
+    'Ledger.InvalidExpenseCategory': 'Enter a category for the expense.',
     'Http.BadRequest': 'The expense could not be loaded — check the values and try again.',
     'Http.UnprocessableEntity': 'The API rejected the expense — check the amount and dates.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
@@ -130,54 +146,58 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       this.form.markAllAsTouched();
       return;
     }
-    const raw: {
-      amount: number | null;
-      cardId: string;
-      installmentCount: number | null;
-      purchaseDate: string;
-      description: string;
-      split: Array<{ partyId: string; weight: number | null }>;
-      mode: LoadExpenseMode;
-      creditorId: string;
-      creditorAccountId: string;
-    } = this.form.getRawValue();
+    const raw = this.form.getRawValue();
     const participants: SplitParticipant[] = raw.split.map((row) => ({
       partyId: row.partyId,
       weight: row.weight as number,
     }));
-    const body: CreatePaymentPlan = {
-      amountMinorUnits: toMinorUnits(raw.amount as number),
-      installmentCount: raw.installmentCount as number,
-      purchaseDate: raw.purchaseDate,
-      description: raw.description.trim(),
-      ...(raw.mode === 'card'
-        ? { cardId: raw.cardId }
-        : { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId }),
-      ...(participants.length > 0 ? { split: participants } : {})
-    };
+    const amountMinorUnits: Money = toMinorUnits(raw.amount as number);
+    const description: string = raw.description.trim();
+    const split: { split?: SplitParticipant[] } = participants.length > 0 ? { split: participants } : {};
+    const request$: Observable<string> =
+      raw.mode === 'debit'
+        ? this.ledgerService
+            .recordDebitExpense({
+              amountMinorUnits,
+              sourceInstrumentId: raw.sourceInstrumentId,
+              categoryName: raw.categoryName.trim(),
+              purchaseDate: raw.purchaseDate,
+              description,
+              ...split,
+            })
+            .pipe(map((result: RecordDebitExpenseResult) => result.id))
+        : this.financingService
+            .createPaymentPlan({
+              amountMinorUnits,
+              installmentCount: raw.installmentCount as number,
+              purchaseDate: raw.purchaseDate,
+              description,
+              ...(raw.mode === 'card'
+                ? { cardId: raw.cardId }
+                : { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId }),
+              ...split,
+            })
+            .pipe(map((result: CreatePaymentPlanResult) => result.paymentPlanId));
     this.submitError.set(null);
     this.confirmedPlanId.set(null);
     this.confirmedDescription.set(null);
+    this.confirmedKind.set(raw.mode === 'debit' ? 'expense' : 'plan');
     this.reconciliations.set([]);
     this.submitStatus.set('submitting');
-    this.financingService
-      .createPaymentPlan(body)
-      .pipe(takeUntil(this.destroy$))
-      .subscribe({
-        next: (result: CreatePaymentPlanResult) => {
-          this.confirmedPlanId.set(result.paymentPlanId);
-          this.confirmedDescription.set(body.description);
-          this.submitStatus.set('confirmed');
-          if(participants.length > 0) {
-            this.reconcile(participants);
-          }
-        },
-        error: (error: AppError) => {
-          this.submitError.set(error);
-          this.submitStatus.set('error');
+    request$.pipe(takeUntil(this.destroy$)).subscribe({
+      next: (id: string) => {
+        this.confirmedPlanId.set(id);
+        this.confirmedDescription.set(description);
+        this.submitStatus.set('confirmed');
+        if(participants.length > 0) {
+          this.reconcile(participants);
         }
-      }
-    );
+      },
+      error: (error: AppError) => {
+        this.submitError.set(error);
+        this.submitStatus.set('error');
+      },
+    });
   }
 
   private reconcile(participants: SplitParticipant[]): void {
@@ -253,27 +273,47 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       .subscribe((rows: Creditor[]) => this.creditors.set(rows));
   }
 
+  private loadExpenseCategories(): void {
+    this.ledgerService
+      .listExpenseCategories()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe((names: string[]) => this.expenseCategories.set(names));
+  }
+
   private watchModeChange(): void {
     this.form.controls.mode.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((mode: LoadExpenseMode) => {
       const cardIdControl = this.form.controls.cardId;
       const creditorIdControl = this.form.controls.creditorId;
       const creditorAccountIdControl = this.form.controls.creditorAccountId;
-      if(mode === 'creditor') {
-        cardIdControl.clearValidators();
+      const sourceInstrumentIdControl = this.form.controls.sourceInstrumentId;
+      const categoryNameControl = this.form.controls.categoryName;
+      const installmentCountControl = this.form.controls.installmentCount;
+      cardIdControl.setValidators(mode === 'card' ? Validators.required : null);
+      creditorIdControl.setValidators(mode === 'creditor' ? Validators.required : null);
+      creditorAccountIdControl.setValidators(mode === 'creditor' ? Validators.required : null);
+      sourceInstrumentIdControl.setValidators(mode === 'debit' ? Validators.required : null);
+      categoryNameControl.setValidators(mode === 'debit' ? [Validators.required, noBlank] : null);
+      installmentCountControl.setValidators(mode === 'debit' ? null : positiveInteger);
+      if(mode !== 'card') {
         cardIdControl.setValue('');
-        creditorIdControl.setValidators(Validators.required);
-        creditorAccountIdControl.setValidators(Validators.required);
-      } else {
-        cardIdControl.setValidators(Validators.required);
-        creditorIdControl.clearValidators();
-        creditorAccountIdControl.clearValidators();
+      }
+      if(mode !== 'creditor') {
         creditorIdControl.setValue('');
         creditorAccountIdControl.setValue('');
         this.creditorAccounts.set([]);
       }
+      if(mode === 'debit') {
+        installmentCountControl.setValue(1);
+      } else {
+        sourceInstrumentIdControl.setValue('');
+        categoryNameControl.setValue('');
+      }
       cardIdControl.updateValueAndValidity();
       creditorIdControl.updateValueAndValidity();
       creditorAccountIdControl.updateValueAndValidity();
+      sourceInstrumentIdControl.updateValueAndValidity();
+      categoryNameControl.updateValueAndValidity();
+      installmentCountControl.updateValueAndValidity();
     });
   }
 
@@ -307,7 +347,9 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       split: this.fb.array<SplitRow>([]),
       mode: this.fb.nonNullable.control<LoadExpenseMode>('card'),
       creditorId: this.fb.nonNullable.control(''),
-      creditorAccountId: this.fb.nonNullable.control('')
+      creditorAccountId: this.fb.nonNullable.control(''),
+      sourceInstrumentId: this.fb.nonNullable.control(''),
+      categoryName: this.fb.nonNullable.control('')
     });
   }
 
@@ -316,6 +358,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     this.loadInstruments();
     this.loadParties();
     this.loadCreditors();
+    this.loadExpenseCategories();
     this.watchModeChange();
     this.watchCreditorSelection();
   }

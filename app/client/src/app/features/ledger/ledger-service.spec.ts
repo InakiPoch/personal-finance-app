@@ -10,6 +10,8 @@ import { environment } from '../../environments/environment';
 import { AccountBalance } from './types/account-balance';
 import { PostTransaction } from './types/post-transaction';
 import { PostTransactionResult } from './types/post-transaction-result';
+import { RecordDebitExpense } from './types/record-debit-expense';
+import { RecordDebitExpenseResult } from './types/record-debit-expense-result';
 import { ReverseTransactionResult } from './types/reverse-transaction-result';
 import { TransactionRow } from './types/transaction-row';
 import { LedgerService } from './ledger-service';
@@ -120,6 +122,47 @@ describe('LedgerService', () => {
     req.flush(balance);
     expect(result).toEqual(balance);
   });
+  it('POSTs a debit expense and returns the recorded id', () => {
+    const body: RecordDebitExpense = {
+      amountMinorUnits: money(25000),
+      sourceInstrumentId: 'acct-debit',
+      categoryName: 'Groceries',
+      purchaseDate: '2026-03-10',
+      description: 'Weekly shop'
+    };
+    let result: string | undefined;
+    service.recordDebitExpense(body).subscribe((r: RecordDebitExpenseResult) => (result = r.id));
+    const req = httpMock.expectOne(`${base}/ledger/expenses`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ id: 'expense-1' });
+    expect(result).toBe('expense-1');
+  });
+
+  it('POSTs a debit expense carrying a split payload', () => {
+    const body: RecordDebitExpense = {
+      amountMinorUnits: money(30000),
+      sourceInstrumentId: 'acct-debit',
+      categoryName: 'Dining',
+      purchaseDate: '2026-03-10',
+      description: 'Dinner',
+      split: [{ partyId: 'p1', weight: 1 }]
+    };
+    service.recordDebitExpense(body).subscribe();
+    const req = httpMock.expectOne(`${base}/ledger/expenses`);
+    expect(req.request.body).toEqual(body);
+    req.flush({ id: 'expense-2' });
+  });
+
+  it('GETs the expense categories and unwraps the { rows } envelope to names', () => {
+    let result: string[] | undefined;
+    service.listExpenseCategories().subscribe((r: string[]) => (result = r));
+    const req = httpMock.expectOne(`${base}/expense-categories`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows: [{ name: 'Groceries' }, { name: 'Transport' }] });
+    expect(result).toEqual(['Groceries', 'Transport']);
+  });
+
   it('maps a 409 CannotReverseAReversal to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service.reverse('tx-2').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });

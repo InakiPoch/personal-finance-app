@@ -110,7 +110,7 @@
             <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
           }
         </div>
-      } @else {
+      } @else if(form.controls.mode.value === 'creditor') {
         <div class="mt-6 grid gap-6 sm:grid-cols-2">
           <div class="flex flex-col gap-1.5">
             <label for="creditorId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
@@ -164,25 +164,83 @@
             }
           </div>
         </div>
-      }
-      <div class="mt-6 grid gap-6 sm:grid-cols-2">
-        <div class="flex flex-col gap-1.5">
-          <label for="installmentCount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
-            Installments
+      } @else {
+        <div class="mt-6 flex flex-col gap-1.5">
+          <label for="sourceInstrumentId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+            Paid from
           </label>
-          <input
-            type="number"
-            id="installmentCount"
-            min="1"
-            step="1"
-            inputmode="numeric"
-            formControlName="installmentCount"
-            class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
-          />
-          @if(form.controls.installmentCount.touched && form.controls.installmentCount.hasError('positiveInteger')) {
-            <p class="text-xs text-negative" role="alert">{{ errorMessages['positiveInteger'] }}</p>
+          <div class="relative">
+            <select
+              id="sourceInstrumentId"
+              formControlName="sourceInstrumentId"
+              class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+            >
+              <option value="">Choose an account</option>
+              @for(account of bankAndCashInstruments(); track account.id) {
+                <option [value]="account.id">{{ account.name }}</option>
+              }
+            </select>
+            <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+              &#9662;
+            </span>
+          </div>
+          @if(bankAndCashInstruments().length === 0) {
+            <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+              No debit or cash accounts registered yet — add one on the Instruments page.
+            </p>
+          }
+          @if(form.controls.sourceInstrumentId.touched && form.controls.sourceInstrumentId.hasError('required')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
           }
         </div>
+        <div class="mt-6 flex flex-col gap-1.5">
+          <label for="categoryName" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+            Category
+          </label>
+          <input
+            type="text"
+            id="categoryName"
+            list="expense-category-options"
+            placeholder="Groceries, Transport, …"
+            formControlName="categoryName"
+            class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+          />
+          <datalist id="expense-category-options">
+            @for(category of expenseCategories(); track category) {
+              <option [value]="category"></option>
+            }
+          </datalist>
+          <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+            Pick an existing category or type a new one.
+          </p>
+          @if(form.controls.categoryName.touched && form.controls.categoryName.hasError('required')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+          }
+          @if(form.controls.categoryName.touched && form.controls.categoryName.hasError('noBlank')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['noBlank'] }}</p>
+          }
+        </div>
+      }
+      <div class="mt-6 grid gap-6 sm:grid-cols-2">
+        @if(form.controls.mode.value !== 'debit') {
+          <div class="flex flex-col gap-1.5">
+            <label for="installmentCount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Installments
+            </label>
+            <input
+              type="number"
+              id="installmentCount"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              formControlName="installmentCount"
+              class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+            />
+            @if(form.controls.installmentCount.touched && form.controls.installmentCount.hasError('positiveInteger')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['positiveInteger'] }}</p>
+            }
+          </div>
+        }
         <div class="flex flex-col gap-1.5">
           <label for="purchaseDate" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
             Purchase date
@@ -282,7 +340,6 @@
       }
     </div>
   </form>
-
   @if(submitStatus() === 'confirmed' && confirmedPlanId(); as planId) {
     <section
       class="conf-panel mt-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
@@ -293,11 +350,12 @@
       </h2>
       @if(confirmedDescription(); as description) {
         <p class="mt-4 font-serif text-lg text-ink">
-          "{{ description }}" — payment plan created.
+          "{{ description }}" — {{ confirmedKind() === 'expense' ? 'expense recorded' : 'payment plan created' }}.
         </p>
       }
       <p class="mt-1 text-xs text-ink-faint">
-        Plan <code class="text-ink [font-variant-numeric:tabular-nums_lining-nums]">{{ planId }}</code>
+        {{ confirmedKind() === 'expense' ? 'Expense' : 'Plan' }}
+        <code class="text-ink [font-variant-numeric:tabular-nums_lining-nums]">{{ planId }}</code>
       </p>
       @if(reconciliations().length > 0) {
         <h3 class="mt-6 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">

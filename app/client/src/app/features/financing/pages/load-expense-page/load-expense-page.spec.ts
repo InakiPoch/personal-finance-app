@@ -9,6 +9,9 @@ import { CreditorsService } from '../../../creditors/creditors-service';
 import { Creditor, CreditorAccount } from '../../../creditors/types/creditor';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
+import { LedgerService } from '../../../ledger/ledger-service';
+import { RecordDebitExpense } from '../../../ledger/types/record-debit-expense';
+import { RecordDebitExpenseResult } from '../../../ledger/types/record-debit-expense-result';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
 import { PartiesService } from '../../../parties/parties-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
@@ -28,9 +31,11 @@ type LoadExpenseView = {
     purchaseDate: FormControl<string>;
     description: FormControl<string>;
     split: FormArray<SplitRow>;
-    mode: FormControl<'card' | 'creditor'>;
+    mode: FormControl<'card' | 'creditor' | 'debit'>;
     creditorId: FormControl<string>;
     creditorAccountId: FormControl<string>;
+    sourceInstrumentId: FormControl<string>;
+    categoryName: FormControl<string>;
   }>;
   creditorAccounts: () => CreditorAccount[];
   parties: () => PartyDebtRow[];
@@ -38,6 +43,7 @@ type LoadExpenseView = {
   submitStatus: () => 'idle' | 'submitting' | 'confirmed' | 'error';
   submitError: () => AppError | null;
   confirmedPlanId: () => string | null;
+  confirmedKind: () => 'plan' | 'expense';
   confirmedDescription: () => string | null;
   reconciliations: () => Array<{
     partyId: string;
@@ -53,6 +59,7 @@ describe('LoadExpensePage', () => {
   let fixture: ComponentFixture<LoadExpensePage>;
   let view: LoadExpenseView;
   let createPaymentPlan: jasmine.Spy<(body: CreatePaymentPlan) => Observable<CreatePaymentPlanResult>>;
+  let recordDebitExpense: jasmine.Spy<(body: RecordDebitExpense) => Observable<RecordDebitExpenseResult>>;
   let getBalance: jasmine.Spy<(partyId: string) => Observable<CurrentAccountBalance>>;
   let debtSummary: jasmine.Spy<() => Observable<PartyDebtRow[]>>;
 
@@ -75,6 +82,17 @@ describe('LoadExpensePage', () => {
     });
   }
 
+  function fillValidDebitForm(): void {
+    view.form.patchValue({
+      mode: 'debit',
+      amount: 1234.5,
+      purchaseDate: '2026-09-01',
+      description: 'Weekly shop',
+      sourceInstrumentId: 'acct-debit',
+      categoryName: 'Groceries'
+    });
+  }
+
   function addParticipant(partyId: string, weight: number): void {
     view.addSplitRow();
     view.form.controls.split.at(0).patchValue({ partyId, weight });
@@ -82,7 +100,8 @@ describe('LoadExpensePage', () => {
 
   const instruments: Instrument[] = [
     { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 },
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null }
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
+    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null }
   ];
   const creditors: Creditor[] = [
     {
@@ -99,6 +118,9 @@ describe('LoadExpensePage', () => {
     createPaymentPlan = jasmine
       .createSpy('createPaymentPlan')
       .and.returnValue(of<CreatePaymentPlanResult>({ paymentPlanId: 'plan-1' }));
+    recordDebitExpense = jasmine
+      .createSpy('recordDebitExpense')
+      .and.returnValue(of<RecordDebitExpenseResult>({ id: 'expense-1' }));
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance(100000)));
     debtSummary = jasmine.createSpy('debtSummary').and.returnValue(of(partyRows));
     TestBed.configureTestingModule({
@@ -106,6 +128,10 @@ describe('LoadExpensePage', () => {
       providers: [
         provideZonelessChangeDetection(),
         { provide: FinancingService, useValue: { createPaymentPlan } },
+        {
+          provide: LedgerService,
+          useValue: { recordDebitExpense, listExpenseCategories: () => of<string[]>(['Groceries']) }
+        },
         { provide: PartiesService, useValue: { getBalance } },
         { provide: ReportsService, useValue: { debtSummary } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
@@ -300,5 +326,78 @@ describe('LoadExpensePage', () => {
     expect(body.split).toEqual([{ partyId: 'p1', weight: 2 }]);
     expect(body.creditorId).toBe('creditor-1');
     expect('cardId' in body).toBe(false);
+  });
+  it('requires the source instrument and category and drops cardId in "debit" mode', () => {
+    view.form.controls.mode.setValue('debit');
+    expect(view.form.controls.cardId.hasError('required')).toBe(false);
+    expect(view.form.controls.cardId.value).toBe('');
+    expect(view.form.controls.sourceInstrumentId.hasError('required')).toBe(true);
+    expect(view.form.controls.categoryName.hasError('required')).toBe(true);
+  });
+  it('offers both debit and cash instruments as the expense source', () => {
+    const view2 = fixture.componentInstance as unknown as { bankAndCashInstruments: () => Array<{ id: string }> };
+    expect(view2.bankAndCashInstruments().map((instrument) => instrument.id)).toEqual(['acct-debit', 'acct-cash']);
+  });
+  it('rejects a whitespace-only category in "debit" mode', () => {
+    fillValidDebitForm();
+    view.form.controls.categoryName.setValue('   ');
+    expect(view.form.controls.categoryName.hasError('noBlank')).toBe(true);
+    expect(view.form.valid).toBe(false);
+  });
+  it('submits the debit-expense payload to the ledger, not a payment plan', () => {
+    fillValidDebitForm();
+    view.onSubmit();
+    expect(recordDebitExpense).toHaveBeenCalledTimes(1);
+    expect(createPaymentPlan).not.toHaveBeenCalled();
+    const body: RecordDebitExpense = recordDebitExpense.calls.mostRecent().args[0];
+    expect(body.amountMinorUnits).toBe(money(123450));
+    expect(body.sourceInstrumentId).toBe('acct-debit');
+    expect(body.categoryName).toBe('Groceries');
+    expect(body.purchaseDate).toBe('2026-09-01');
+    expect(body.description).toBe('Weekly shop');
+    expect('split' in body).toBe(false);
+    expect(view.submitStatus()).toBe('confirmed');
+    expect(view.confirmedPlanId()).toBe('expense-1');
+    expect(view.confirmedKind()).toBe('expense');
+  });
+  it('trims the typed category before submitting', () => {
+    fillValidDebitForm();
+    view.form.controls.categoryName.setValue('  Groceries  ');
+    view.onSubmit();
+    const body: RecordDebitExpense = recordDebitExpense.calls.mostRecent().args[0];
+    expect(body.categoryName).toBe('Groceries');
+  });
+  it('includes the split array in the debit payload when participants were added', () => {
+    fillValidDebitForm();
+    addParticipant('p1', 3);
+    view.onSubmit();
+    const body: RecordDebitExpense = recordDebitExpense.calls.mostRecent().args[0];
+    expect(body.split).toEqual([{ partyId: 'p1', weight: 3 }]);
+  });
+  it('restores cardId validation and clears the debit fields when switched back to "card"', () => {
+    fillValidDebitForm();
+    view.form.controls.mode.setValue('card');
+    expect(view.form.controls.cardId.hasError('required')).toBe(true);
+    expect(view.form.controls.sourceInstrumentId.hasError('required')).toBe(false);
+    expect(view.form.controls.sourceInstrumentId.value).toBe('');
+    expect(view.form.controls.categoryName.value).toBe('');
+  });
+  it('shows the source select and category input and hides installments in "debit" mode', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    view.form.controls.mode.setValue('debit');
+    fixture.detectChanges();
+    expect(host.querySelector('#sourceInstrumentId')).not.toBeNull();
+    expect(host.querySelector('#categoryName')).not.toBeNull();
+    expect(host.querySelector('#cardId')).toBeNull();
+    expect(host.querySelector('#creditorId')).toBeNull();
+    expect(host.querySelector('#installmentCount')).toBeNull();
+    expect(host.querySelector('[formArrayName="split"]')).not.toBeNull();
+  });
+  it('headlines the confirmation panel as a recorded expense in "debit" mode', () => {
+    fillValidDebitForm();
+    view.onSubmit();
+    fixture.detectChanges();
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('expense recorded');
   });
 });

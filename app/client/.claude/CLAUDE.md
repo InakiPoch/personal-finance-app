@@ -81,6 +81,20 @@ as pure optional metadata). `app.routes.ts` lazy-wires all seven via `loadChildr
 `docs/SYSTEM.md`** — the markup was rewritten; component logic and its specs were largely left in
 place (specs test logic, not the DOM).
 
+**`docs/expense-description/` (new, spans `financing` + `reports`).** Slice 1 (`slice-1-description-field.md`,
+built before this feature's own CLAUDE.md entry) added a required `description: string` to
+`CreatePaymentPlan` — `load-expense-page` gained a required description field (`Validators.required`,
+`maxLength(120)`, `noBlank`, `noNewline` in `validation-helpers.ts`) and its confirmation panel now
+headlines the description (`confirmedDescription` signal) instead of a bare plan id. **Slice 2 —
+Card-debt drill-down (`slice-2-card-debt-drilldown.md`) — now built:** the Dashboard's "Card Debt by
+Cycle" rows are expandable — `financing-service.ts` gained `cardPurchases(cardId)` (mirrors
+`listStatements`'s `{ rows }` envelope), new type `features/financing/types/card-purchase-row.ts`;
+`dashboard-page.ts` threads `cardId` through `CardCycle` (was dropped by the label-based grouping
+pipeline) and holds `expandedCardId`/`purchasesStatus`/`expandedPurchases` signals + a per-card
+purchase cache; each card row with a `cardId` becomes an `aria-expanded` disclosure button, rows
+without one stay non-expandable. Slice 3 (`slice-3-recent-purchases-view.md`, a standalone "recent
+purchases" page) is documented but **not implemented**.
+
 ## Conventions — the non-negotiables
 
 **Class layout** — every class artifact (component, service, pipe) follows the member order in

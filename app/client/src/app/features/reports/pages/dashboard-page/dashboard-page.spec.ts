@@ -4,6 +4,8 @@ import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { FinancingService } from '../../../financing/financing-service';
+import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
@@ -17,6 +19,10 @@ type DashboardView = {
   accruedByCard: () => Array<{ label: string; totalMinorUnits: number }>;
   futureByCard: () => Array<{ label: string; totalMinorUnits: number }>;
   onMonthChange: (month: string) => void;
+  expandedCardId: () => string | null;
+  purchasesStatus: () => 'loading' | 'ready' | 'error';
+  expandedPurchases: () => CardPurchaseRow[];
+  toggleCardPurchases: (cardId: string | null) => void;
 };
 
 describe('DashboardPage', () => {
@@ -24,6 +30,7 @@ describe('DashboardPage', () => {
   let view: DashboardView;
   let monthlyExpenses: jasmine.Spy<(month?: string) => Observable<MonthlyExpenseRow[]>>;
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
+  let cardPurchases: jasmine.Spy<(cardId: string) => Observable<CardPurchaseRow[]>>;
 
   const money = (value: number): Money => value as Money;
 
@@ -37,6 +44,9 @@ describe('DashboardPage', () => {
     { bucket: 'Future', card: 'Visa', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
     { bucket: 'Future', card: 'Amex', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(250000), currencyCode: 'ARS', cardId: 'c2' }
   ];
+  const purchaseRows: CardPurchaseRow[] = [
+    { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01', isCreditorPayment: false }
+  ];
 
   function setup(): void {
     fixture = TestBed.createComponent(DashboardPage);
@@ -46,13 +56,15 @@ describe('DashboardPage', () => {
   beforeEach(() => {
     monthlyExpenses = jasmine.createSpy('monthlyExpenses').and.returnValue(of(monthlyRows));
     cardDueByMonth = jasmine.createSpy('cardDueByMonth').and.returnValue(of(cardDueRows));
+    cardPurchases = jasmine.createSpy('cardPurchases').and.returnValue(of(purchaseRows));
 
     TestBed.configureTestingModule({
       imports: [DashboardPage],
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: ReportsService, useValue: { monthlyExpenses, cardDueByMonth } }
+        { provide: ReportsService, useValue: { monthlyExpenses, cardDueByMonth } },
+        { provide: FinancingService, useValue: { cardPurchases } }
       ],
     });
   });
@@ -103,5 +115,46 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     expect(view.monthlyStatus()).toBe('error');
     expect(view.cardDueStatus()).toBe('ready');
+  });
+  it('expands a card, calling the service and rendering its purchases', () => {
+    setup();
+    fixture.detectChanges();
+    view.toggleCardPurchases('c1');
+    fixture.detectChanges();
+    expect(cardPurchases).toHaveBeenCalledOnceWith('c1');
+    expect(view.expandedCardId()).toBe('c1');
+    expect(view.expandedPurchases()).toEqual(purchaseRows);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('New laptop');
+  });
+  it('collapses on a second toggle without calling the service again', () => {
+    setup();
+    fixture.detectChanges();
+    view.toggleCardPurchases('c1');
+    fixture.detectChanges();
+    view.toggleCardPurchases('c1');
+    fixture.detectChanges();
+    expect(view.expandedCardId()).toBeNull();
+    expect(view.expandedPurchases()).toEqual([]);
+    expect(cardPurchases).toHaveBeenCalledTimes(1);
+  });
+  it('ignores a toggle for a card row with no cardId', () => {
+    setup();
+    fixture.detectChanges();
+    view.toggleCardPurchases(null);
+    fixture.detectChanges();
+    expect(view.expandedCardId()).toBeNull();
+    expect(cardPurchases).not.toHaveBeenCalled();
+  });
+  it('does not render an expand button for a card row without a cardId', () => {
+    cardDueByMonth.and.returnValue(of([
+      ...cardDueRows,
+      { bucket: 'Future', card: 'MercadoPago', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(10000), currencyCode: 'ARS', cardId: null }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const buttons: HTMLButtonElement[] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-expanded]'));
+    expect(buttons.some((button) => (button.textContent ?? '').includes('MercadoPago'))).toBeFalse();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('MercadoPago');
   });
 });

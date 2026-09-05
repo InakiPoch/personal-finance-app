@@ -657,3 +657,59 @@ Built one green-lit step at a time per `docs/creditor-expense-fields/slice-1-cre
 ### Completion notes (2026-09-04)
 
 Built per `docs/creditor-expense-fields/slice-2-load-expense-integration.md`. Design is intentionally lenient — no validation that `CreditorId` exists as a `Creditor`, no validation that `CreditorAccountId` belongs to that creditor; cross-cutting validation is out of scope (deferred to a future phase if needed). No ledger posting/balances/settlement for creditors, no surfacing of creditor/account on read views (statements, timelines), no editing/deleting creditors. Slice 3 (integrating the creditor selector into the client's Load-expense form) is out of scope — this phase is API metadata integration only. Not committed by this session for most of the work — the user commits their own.
+
+---
+
+## Phase 15 — Expense description field (Slice 1)
+
+**Goal:** Add a required, human-readable `Description` to the `PaymentPlan` expense aggregate and thread it through the whole create-expense write path, closing the loop by echoing it back on the client confirmation panel instead of a bare GUID.
+
+**Traces to:** `docs/expense-description/slice-1-description-field.md` (a standalone planning doc, not `docs/PRD.md`/`docs/DESIGN.md`).
+
+**Depends on:** Phase 3 (`CreatePaymentPlan` vertical exists).
+
+### Tasks
+- [x] `Domain/PaymentPlan.cs` — add `public string Description { get; private set; }`, set (trimmed) inside `Create(...)`; new required `string description` param placed with the required params, not trailing-optional.
+- [x] `Financing.Contracts/Commands/CreatePaymentPlanCommand.cs` — add required `string Description`, positioned after `PurchaseDate` and before the optional trailing params (`Split`, `CreditorId`, `CreditorAccountId`).
+- [x] `CreatePaymentPlanValidator.cs` — trim, reject blank/whitespace-only, reject `> 120` chars, reject any `\n`/`\r`; three new `FinancingErrors` codes: `BlankDescription`, `DescriptionTooLong`, `DescriptionMustBeSingleLine`.
+- [x] `CreatePaymentPlanHandler.cs` — pass `command.Description` into `PaymentPlan.Create(...)`.
+- [x] `PaymentPlanConfiguration.cs` — `builder.Property(plan => plan.Description).IsRequired();`.
+- [x] Full multi-project data-only wipe (SQLite can't add `NOT NULL` without a default over existing rows), then migration `AddPaymentPlanDescription` (`AddColumn<string>("Description", "financing_payment_plans", nullable: false)`, no default).
+- [x] Host: `CreatePaymentPlanDTO` + `FinancingMappingExtensions.ToCreatePaymentPlanCommand` carry `Description` through; `POST /v1/financing/payment-plans` and its route need no change (already delegates to the mapping extension).
+- [x] Tests: `CreatePaymentPlanValidatorTests.cs` (blank/whitespace-only, `>120` chars, a string with `\n`, valid 1–120 single-line — each asserting the specific `FinancingErrors` code) + `CreatePaymentPlanHandlerTests.cs` extended (a plan created with a description persists the trimmed value).
+
+### Definition of done
+- [x] `financing_payment_plans` has a `Description TEXT NOT NULL` column, migration applied against the shared SQLite file, data wiped first.
+- [x] `POST /v1/financing/payment-plans` rejects a missing/blank/`>120`/multiline description with `422` + a Financing description error code, and persists the trimmed value on a valid one.
+- [x] `dotnet test --solution` green with a higher count; `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new module edge.
+
+### Completion notes
+
+Slice 1 was already complete when this documentation pass ran — built and verified in a prior session on `feat/expense-description`. No Ledger involvement by design: the description lives only on Financing's `PaymentPlan`, never threaded into `AccrueInstallments` or `PostTransactionCommand`. Client-side counterpart (required form field + confirmation-panel echo) is documented in `app/client/.claude/TASK.md`. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 16 — Card-debt drill-down (Slice 2)
+
+**Goal:** Make the Dashboard's "Card Debt by Cycle" block expandable per card into the individual outstanding purchases behind its total, each carrying its Phase-15 `Description`.
+
+**Traces to:** `docs/expense-description/slice-2-card-debt-drilldown.md` (continued planning doc).
+
+**Depends on:** Phase 15 (`PaymentPlan.Description` must exist and be populated) + Phase 3 (Financing installment/statement/billing-cycle model).
+
+### Tasks
+- [x] `Financing.Contracts/Queries/GetCardPurchasesQuery.cs` — `GetCardPurchasesQuery(Guid CardId) : IQuery<CardPurchasesResponse>`, `CardPurchasesResponse(Guid CardId, IReadOnlyList<CardPurchaseRow> Rows)`, `CardPurchaseRow(Guid PlanId, string Description, long TotalMinorUnits, int InstallmentCount, int OutstandingCount, DateOnly PurchaseDate, bool IsCreditorPayment)` — mirrors `GetCardStatementsQuery` exactly.
+- [x] `Application/Queries/GetCardPurchases/GetCardPurchasesHandler.cs` — joins `Installment` (`context.Set<Installment>()`, no root `DbSet`) to `PaymentPlan` filtered by `CardId`, excludes `IsReversed`; outstanding = not-yet-accrued OR accrued-with-unpaid-statement; groups by `PlanId`; orders current-cycle first (resolved via `BillingCycleCalculator.ResolveCycle(today, card.CutoffDay)`, compared by `(CycleYear, CycleMonth)` equality — **not** `IsClosedAsOf`, which is also true of every future cycle) then `PurchaseDate` descending; unknown card → empty rows, no exception. Registered in `FinancingModule.Register`.
+- [x] Host: `Endpoints/Financing/GetCardPurchases.cs` (`IQueryBus.AskAsync` + `FinancingMappingExtensions.ToCardPurchasesDto`), `Endpoints/DTOs/CardPurchasesDTO.cs` (`CardPurchasesDto`/`CardPurchaseRowDto`), `ApiRoutes.Financing.CardPurchases = "/cards/{id:guid}/purchases"`, wired in `EndpointExtensions.MapFinancingEndpoints` with `.Produces<CardPurchasesDto>(200)` under tag `"Financing"`. Unknown card → `200` empty (sibling consistency with `/cards/{id}/future-schedule` and `/cards/{id}/statements`, never `404`).
+- [x] Tests: `tests/PersonalFinance.Financing.Tests/GetCardPurchasesHandlerTests.cs` (7 facts, in-memory SQLite: paid-excluded, unaccrued-included, accrued-unpaid-included, grouping/`OutstandingCount`, creditor flag, current-cycle-first ordering, unknown-card-empty) + `tests/PersonalFinance.Api.Tests/CardPurchasesTests.cs` (2 facts: unknown-card `200` empty, OpenAPI presence under `Financing` with `200`).
+
+### Definition of done
+- [x] `GET /v1/financing/cards/{id}/purchases` returns one row per outstanding purchase with `description`, unknown card → `200` empty.
+- [x] Paid-off purchases excluded; creditor purchases flagged; current-cycle purchases sort first.
+- [x] No new EF migration, no `IFinancingApi` change; `PersonalFinance.Architecture.Tests` green.
+- [x] `dotnet test --solution` → **170 passed** (153 baseline at Phase 14 + Phase 15's own additions + these 9 new facts).
+- [ ] Manual live E2E walk (run the API, let a card accrue real installments, expand it on a running Dashboard, confirm purchases + descriptions against the DB) — **not yet performed**, offered to the user and left pending.
+
+### Completion notes (2026-09-04)
+
+Built one green-lit step at a time (contract → handler → host wiring → API tests → client type → client service → dashboard state → dashboard template → client tests → full verification). **Bug caught and fixed during this session's own review, before it shipped**: the first draft of the ordering logic tested `!installment.Cycle.IsClosedAsOf(today, cutoffDay)` to mean "current cycle" — that predicate is also true of every *future* cycle (`AccrueInstallments` uses it only to mean "not due to accrue yet"), so nearly every outstanding plan would have been wrongly flagged current-cycle. Fixed to resolve the actual current cycle via `BillingCycleCalculator.ResolveCycle` and compare by `(CycleYear, CycleMonth)` equality; the regression test for this (`GetCardPurchasesHandlerTests`'s ordering fact) derives "current" the same way rather than hardcoding a cycle, so it stays valid regardless of what day it runs. Client-side counterpart (dashboard accordion) is documented in `app/client/.claude/TASK.md`. Full verification: `dotnet test --solution` 170/170, `pnpm ng test` 176/176, `pnpm ng lint` clean, `pnpm ng build --configuration production` clean. Not committed by this session — the user commits their own.

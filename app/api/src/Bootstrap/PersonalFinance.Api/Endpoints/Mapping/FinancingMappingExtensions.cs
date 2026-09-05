@@ -15,6 +15,7 @@ internal static class FinancingMappingExtensions {
             dto.CardId,
             dto.InstallmentCount,
             DateOnly.Parse(dto.PurchaseDate, CultureInfo.InvariantCulture),
+            dto.Description,
             split,
             dto.CreditorId,
             dto.CreditorAccountId
@@ -61,6 +62,36 @@ internal static class FinancingMappingExtensions {
             )
             .ToList();
         return new CardStatementsDto(cardId, rows);
+    }
+
+    public static CardPurchasesDto ToCardPurchasesDto(this CardPurchasesResponse response) {
+        var rows = response.Rows
+            .Select(row => new CardPurchaseRowDto(
+                row.PlanId,
+                row.Description,
+                row.TotalMinorUnits,
+                row.InstallmentCount,
+                row.OutstandingCount,
+                row.PurchaseDate,
+                row.IsCreditorPayment)
+            )
+            .ToList();
+        return new CardPurchasesDto(response.CardId, rows);
+    }
+
+    public static RecentPurchasesDto ToRecentPurchasesDto(this RecentPurchasesResponse response) {
+        var rows = response.Rows
+            .Select(row => new RecentPurchaseRowDto(
+                row.PlanId,
+                row.Description,
+                row.CardName,
+                row.PurchaseDate,
+                row.TotalMinorUnits,
+                row.InstallmentCount,
+                row.IsCreditorPayment)
+            )
+            .ToList();
+        return new RecentPurchasesDto(rows);
     }
 
     public static MonthlyStatementDetailDto ToMonthlyStatementDetailDto(this MonthlyStatementDetailResponse response) {

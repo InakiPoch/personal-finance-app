@@ -14,6 +14,7 @@ import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayStatement } from './types/pay-statement';
 import { PayStatementResult } from './types/pay-statement-result';
+import { RecentPurchaseRow } from './types/recent-purchase-row';
 import { FinancingService } from './financing-service';
 
 describe('FinancingService', () => {
@@ -42,7 +43,8 @@ describe('FinancingService', () => {
       amountMinorUnits: money(1200000),
       cardId: 'card-1',
       installmentCount: 3,
-      purchaseDate: '2026-09-01'
+      purchaseDate: '2026-09-01',
+      description: 'New laptop'
     };
     let result: string | undefined;
     service.createPaymentPlan(body).subscribe((r: CreatePaymentPlanResult) => (result = r.paymentPlanId));
@@ -59,6 +61,7 @@ describe('FinancingService', () => {
       cardId: 'card-1',
       installmentCount: 1,
       purchaseDate: '2026-09-01',
+      description: 'Concert tickets',
       split: [
         { partyId: 'p1', weight: 1 },
         { partyId: 'p2', weight: 2 }
@@ -160,6 +163,23 @@ describe('FinancingService', () => {
     const req = httpMock.expectOne(`${base}/financing/cards/card-1/statements`);
     expect(req.request.method).toBe('GET');
     req.flush({ cardId: 'card-1', rows });
+    expect(result).toEqual(rows);
+  });
+  it('GETs the recent purchases list and unwraps the { rows } envelope', () => {
+    const rows: RecentPurchaseRow[] = [{
+      planId: 'plan-1',
+      description: 'New laptop',
+      cardName: 'Visa',
+      purchaseDate: '2026-09-01',
+      totalMinorUnits: money(1200000),
+      installmentCount: 3,
+      isCreditorPayment: false
+    }];
+    let result: RecentPurchaseRow[] | undefined;
+    service.recentPurchases().subscribe((r: RecentPurchaseRow[]) => (result = r));
+    const req = httpMock.expectOne(`${base}/financing/purchases/recent`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows });
     expect(result).toEqual(rows);
   });
   it('maps a 404 on getStatement to an AppError keyed off code', () => {

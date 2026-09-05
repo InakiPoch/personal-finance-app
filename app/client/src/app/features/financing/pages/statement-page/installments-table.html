@@ -1,31 +1,64 @@
 @if(installments().length === 0) {
-  <p class="installments__empty">This statement has no itemized installments.</p>
+  <p class="installments__empty text-sm text-ink-soft">This statement has no itemized installments.</p>
 } @else {
-  <table class="installments">
+  <table class="w-full text-left">
     <thead>
-      <tr>
-        <th scope="col">Installment</th>
-        <th scope="col">Purchase date</th>
-        <th scope="col">Amount</th>
-        <th scope="col">Status</th>
-        <th scope="col">Reverse</th>
+      <tr class="border-b border-rule">
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Installment
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Purchase date
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Amount
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Status
+        </th>
+        <th scope="col" class="pb-2 text-right">
+          <span class="sr-only">Reverse</span>
+        </th>
       </tr>
     </thead>
     <tbody>
-      @for(installment of installments(); track installment.installmentId) {
-        <tr>
-          <td>{{ installment.sequence }} of {{ installment.installmentCount }}</td>
-          <td>{{ installment.purchaseDate }}</td>
-          <td>{{ formatArs(installment.amountMinorUnits) }}</td>
-          <td>
+      @for(installment of installments(); track installment.installmentId; let i = $index) {
+        <tr class="inst-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ installment.sequence }} of {{ installment.installmentCount }}
+          </td>
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ installment.purchaseDate }}
+          </td>
+          <td class="py-2.5 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ formatArs(installment.amountMinorUnits) }}
+          </td>
+          <td class="py-2.5 text-right">
             @if(installment.isReversed) {
               <span class="installments__badge">Reversed</span>
             } @else {
-              <span>Active</span>
+              <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">Active</span>
             }
           </td>
-          <td>
-            <button type="button" [disabled]="!canReverse(installment)" (click)="onReverse(installment)">
+          <td class="py-2.5 text-right">
+            <button
+              type="button"
+              [disabled]="!canReverse(installment)"
+              (click)="onReverse(installment)"
+              class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+            >
               Reverse
             </button>
           </td>

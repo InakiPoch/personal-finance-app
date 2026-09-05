@@ -20,11 +20,6 @@ using Xunit;
 
 namespace PersonalFinance.Reporting.Tests;
 
-/// <summary>
-/// Boots the whole modular monolith against a throwaway SQLite file: every module's
-/// <c>Register</c> plus <c>AddSharedInfrastructure</c>, migrates each module's
-/// <c>DbContext</c>, then seeds data through the module <c>.Contracts</c>.
-/// </summary>
 public sealed class ReportingIntegrationFixture : IAsyncLifetime {
     public IServiceProvider Services => host!.Services;
     public Guid AliceId { get; private set; }
@@ -112,15 +107,12 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         var rent = await CreateAccountAsync("Rent", AccountType.Expense, AccountKind.Expense);
         var snacks = await CreateAccountAsync("Snacks", AccountType.Expense, AccountKind.Expense);
         var sharedDining = await CreateAccountAsync("Shared Dining", AccountType.Expense, AccountKind.Expense);
-        // Create the real card first so its id can key both the RF-1 CardPurchases bucket
-        // and the manual Accrued-liability account (RF-2 shared per-card key).
         ReportingCardId = await CreateCreditCardAsync("Visa Reporting", 15);
         var cardPurchases = await CreateAccountAsync("Card Purchases", AccountType.Expense, AccountKind.CardPurchases, ReportingCardId);
         var cardLiability = await CreateAccountAsync("Manual Card Liability", AccountType.Liability, AccountKind.CardLiability, ReportingCardId);
         await PostAsync("Groceries", At(5, 10), groceries, bank, 5_000);
         await PostAsync("Rent", At(5, 1), rent, bank, 30_000);
         await PostAsync("Snacks", At(5, 12), snacks, cash, 2_000);
-        // RF-1: a card-purchase-style expense that must NOT leak into the debit+cash monthly summary.
         await PostAsync("Card accrual", At(5, 20), cardPurchases, cardLiability, 12_000);
         await CreatePaymentPlanAsync(300_000, ReportingCardId, 3, new DateOnly(2026, 6, 1));
         AliceId = await CreatePartyAsync("Alice Reporting");
@@ -173,7 +165,7 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await using var scope = host!.Services.CreateAsyncScope();
         var financing = scope.ServiceProvider.GetRequiredService<IFinancingApi>();
         var result = await financing.CreatePaymentPlanAsync(
-            new CreatePaymentPlanCommand(amountMinorUnits, cardId, installmentCount, purchaseDate),
+            new CreatePaymentPlanCommand(amountMinorUnits, cardId, installmentCount, purchaseDate, "Reporting fixture purchase"),
             CancellationToken.None);
         Assert.True(result.IsSuccess, $"CreatePaymentPlan failed: {result.Error}");
     }
@@ -195,7 +187,8 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
             expenseAccountId,
             fundingAccountId,
             incurredOnUtc,
-            [new SharedExpenseParticipant(participantPartyId, 1)]);
+            [new SharedExpenseParticipant(participantPartyId, 1)]
+        );
         var result = await parties.RegisterSharedExpenseAsync(command, CancellationToken.None);
         Assert.True(result.IsSuccess, $"RegisterSharedExpense '{description}' failed: {result.Error}");
     }

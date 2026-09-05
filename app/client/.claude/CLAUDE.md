@@ -81,6 +81,29 @@ as pure optional metadata). `app.routes.ts` lazy-wires all seven via `loadChildr
 `docs/SYSTEM.md`** — the markup was rewritten; component logic and its specs were largely left in
 place (specs test logic, not the DOM).
 
+**`docs/expense-description/` (new, spans `financing` + `reports`).** Slice 1 (`slice-1-description-field.md`,
+built before this feature's own CLAUDE.md entry) added a required `description: string` to
+`CreatePaymentPlan` — `load-expense-page` gained a required description field (`Validators.required`,
+`maxLength(120)`, `noBlank`, `noNewline` in `validation-helpers.ts`) and its confirmation panel now
+headlines the description (`confirmedDescription` signal) instead of a bare plan id. **Slice 2 —
+Card-debt drill-down (`slice-2-card-debt-drilldown.md`) — now built:** the Dashboard's "Card Debt by
+Cycle" rows are expandable — `financing-service.ts` gained `cardPurchases(cardId)` (mirrors
+`listStatements`'s `{ rows }` envelope), new type `features/financing/types/card-purchase-row.ts`;
+`dashboard-page.ts` threads `cardId` through `CardCycle` (was dropped by the label-based grouping
+pipeline) and holds `expandedCardId`/`purchasesStatus`/`expandedPurchases` signals + a per-card
+purchase cache; each card row with a `cardId` becomes an `aria-expanded` disclosure button, rows
+without one stay non-expandable. **Slice 3 — Recent purchases view (`slice-3-recent-purchases-view.md`)
+— now built, the final slice:** a standalone `recent-purchases-page` (new type
+`features/financing/types/recent-purchase-row.ts`; `financing-service.ts` gained
+`recentPurchases()`, mirroring `cardPurchases`'s `{ rows }` envelope) listing every loaded expense
+across every card, newest-first, with no card picker (unlike `statements-page`, this view
+deliberately spans every card). Container/table split mirrors `statements-page`/`statements-table`:
+the page owns the `loadStatus` state machine and fetches once on `ngOnInit`; the presentational
+`recent-purchases-table` renders each row's description, a `•` + `sr-only` creditor marker,
+installment count, card name, purchase date, and `formatArs` total, staggered row-in animation
+matching `statements-table`. Routed at `financing/recent-purchases`, linked from both the global
+nav (`app.ts`) and a second Dashboard quick-action alongside "Record an expense".
+
 ## Conventions — the non-negotiables
 
 **Class layout** — every class artifact (component, service, pipe) follows the member order in

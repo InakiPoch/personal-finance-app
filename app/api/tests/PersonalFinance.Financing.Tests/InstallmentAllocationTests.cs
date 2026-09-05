@@ -16,7 +16,7 @@ public class InstallmentAllocationTests {
             var cutoffDay = rng.Next(1, 32);
             var purchaseDate = new DateOnly(2026, 1, 1).AddDays(rng.Next(0, 365));
             var money = Money.FromMinorUnits(total, Currency.Reference);
-            var result = PaymentPlan.Create(Guid.CreateVersion7(), money, count, purchaseDate, cutoffDay, allocator);
+            var result = PaymentPlan.Create(Guid.CreateVersion7(), money, count, purchaseDate, "Test purchase", cutoffDay, allocator);
             Assert.True(result.IsSuccess);
             var plan = result.Value;
             Assert.Equal(count, plan.Installments.Count);
@@ -40,8 +40,9 @@ public class InstallmentAllocationTests {
             Money.FromMinorUnits(minorUnits, Currency.Reference),
             installmentCount: 3,
             purchaseDate: new DateOnly(2026, 3, 10),
+            description: "Test purchase",
             cutoffDay: 15,
-            new PhantomPennyAllocator()
+            allocator: new PhantomPennyAllocator()
         );
         Assert.True(result.IsFailure);
         Assert.Equal("Financing.NonPositivePlanAmount", result.Error.Code);
@@ -54,8 +55,9 @@ public class InstallmentAllocationTests {
             Money.FromMinorUnits(10_000, Currency.Reference),
             installmentCount: 0,
             purchaseDate: new DateOnly(2026, 3, 10),
+            description: "Test purchase",
             cutoffDay: 15,
-            new PhantomPennyAllocator()
+            allocator: new PhantomPennyAllocator()
         );
         Assert.True(result.IsFailure);
         Assert.Equal("Financing.InvalidInstallmentCount", result.Error.Code);

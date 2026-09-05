@@ -734,6 +734,88 @@ Slice 2 built and verified live per `docs/creditor-expense-fields/slice-2-load-e
 
 ---
 
+## Phase 7 — Expense description field (Slice 1)
+
+**Goal:** Add a required description to the Load-Expense form and echo it back on the confirmation panel, closing the loop the API's Slice 1 opened (the create-payment-plan response used to be proven only by a bare GUID).
+
+**Traces to:** `docs/expense-description/slice-1-description-field.md`.
+
+**Depends on:** Phase 1 (`load-expense-page` exists) + the API's own Phase 15.
+
+### Tasks
+- [x] `features/financing/types/create-payment-plan.ts` — add `description: string;`.
+- [x] `features/financing/validation-helpers.ts` — add `noBlank` (rejects whitespace-only) and `noNewline` (rejects `\n`/`\r`) `ValidatorFn`s alongside the existing `positiveAmount`/`atMostTwoDecimals`/`positiveInteger`/`isoDate`.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` — add `description: FormControl<string>` to `LoadExpenseForm` and `initLoadExpenseForm()` with `[Validators.required, Validators.maxLength(120), noBlank, noNewline]`; add `confirmedDescription: WritableSignal<string | null>`, set alongside `confirmedPlanId` on a confirmed submit; submit body includes `description: this.form.controls.description.value.trim()`.
+- [x] `load-expense-page.html` — add a description input near the top of the form; confirmation panel headlines the description (id kept small/secondary).
+- [x] `load-expense-page.spec.ts` — extend `fillValidForm()`; new facts: form invalid until `description` filled, rejects whitespace-only, rejects `>120` chars, submits the trimmed value, confirmation panel renders the description.
+
+### Definition of done
+- [x] The Load-Expense form requires a description and won't submit without one.
+- [x] After saving, the confirmation panel shows the description, not just a plan id.
+- [x] `pnpm ng build` + `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` green.
+
+### Completion notes
+
+Slice 1 was already complete when this documentation pass ran — built and verified in a prior session on `feat/expense-description`, alongside the API's Phase 15. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 8 — Card-debt drill-down (Slice 2)
+
+**Goal:** Make the Dashboard's "Card Debt by Cycle" rows expandable into the individual outstanding purchases behind each card's total, each showing its Phase-7 description.
+
+**Traces to:** `docs/expense-description/slice-2-card-debt-drilldown.md`.
+
+**Depends on:** Phase 7 (description exists and is populated) + Phase 1 (`DashboardPage` exists) + the API's Phase 16 (`GET /v1/financing/cards/{id}/purchases`).
+
+### Tasks
+- [x] `features/financing/types/card-purchase-row.ts` (new) — mirrors the API contract: `planId`, `description`, `totalMinorUnits: Money`, `installmentCount`, `outstandingCount`, `purchaseDate: IsoDate`, `isCreditorPayment`.
+- [x] `features/financing/financing-service.ts` — add `cardPurchases(cardId: string): Observable<CardPurchaseRow[]>` → `GET financing/cards/{cardId}/purchases`, `{ rows }` unwrapped via `map` (mirrors `listStatements`).
+- [x] `features/reports/pages/dashboard-page/dashboard-page.ts` — `CardCycle` type gains `cardId: string | null` (threaded through from `CardDueRow.cardId` via a label→id lookup built inside the `cycleByCard` computed, since the existing label-based `Grouping` pipeline had dropped it). New state: `expandedCardId: WritableSignal<string | null>`, `purchasesStatus: WritableSignal<LoadStatus>`, `expandedPurchases: WritableSignal<CardPurchaseRow[]>`, plus a `purchasesByCardId` in-memory cache `Map` so re-expanding a card doesn't refetch. New `toggleCardPurchases(cardId: string | null)`: no-ops on `null`, collapses on re-click of the same card, serves from cache when available, otherwise calls `financing.cardPurchases(cardId)`.
+- [x] `dashboard-page.html` — each "Card Debt by Cycle" row with a `cardId` becomes a `<button>` disclosure (`aria-expanded`, `aria-controls`, a ▾/▸ text-indicator swap, no new motion/animation); rows without a `cardId` stay a plain non-interactive row. Expanded panel: loading/error/empty states, then each purchase's description, a subtle `•` + `sr-only` "Creditor payment" marker when `isCreditorPayment`, "N of M installments outstanding" context, and the formatted total. No new hardcoded hex — existing `docs/SYSTEM.md` tokens only.
+- [x] `dashboard-page.spec.ts` — 4 new facts: expanding a card calls the service and renders a purchase's description; a second toggle collapses without refetching (proven via the cache — `cardPurchases` call count stays 1); a `null`-cardId toggle is a no-op that never calls the service; a card row with no `cardId` renders no expand button.
+
+### Definition of done
+- [x] Clicking a card row with a `cardId` calls the service and renders the returned rows; a second click collapses.
+- [x] Each rendered purchase shows its description; a card row with `cardId == null` is not expandable.
+- [x] `pnpm ng build --configuration production` + `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **176 passed** (168 baseline at Phase 6 + Phase 7's own additions + these 4 new facts).
+- [ ] Manual live E2E walk (run the API, let a card accrue real installments, expand it on a running Dashboard, confirm against the DB) — **not yet performed**, offered to the user and left pending.
+
+### Completion notes (2026-09-04)
+
+Built one green-lit step at a time, in lockstep with the API's Phase 16 (contract → handler → host wiring → API tests → client type → client service → dashboard state → dashboard template → client tests → full verification). No new D-numbers needed — no drift from `docs/PRD.md`/`docs/DESIGN.md`, this is additive scope like the Creditors phases. The API side caught and fixed a genuine ordering bug during this session's own review (see the API's Phase 16 completion notes) before the client work started, so the client's ordering-dependent behavior (current-cycle rows render first, per the API's response order) was never built against the buggy version. Full verification: `pnpm ng build --configuration production` clean, `pnpm ng test` 176/176, `pnpm ng lint` clean; API side `dotnet test --solution` 170/170. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 9 — Recent purchases view (Slice 3)
+
+**Goal:** Add a standalone "Recent purchases" page — a newest-first chronological list of every loaded expense, independent of card grouping or debt state — reachable from the global nav and the Dashboard hub.
+
+**Traces to:** `docs/expense-description/slice-3-recent-purchases-view.md` (final slice).
+
+**Depends on:** Phase 7 (description exists and is populated) + the API's Phase 17 (`GET /v1/financing/purchases/recent`).
+
+### Tasks
+- [x] `features/financing/types/recent-purchase-row.ts` (new) — mirrors the API row: `planId`, `description`, `cardName`, `purchaseDate: IsoDate`, `totalMinorUnits: Money`, `installmentCount`, `isCreditorPayment`.
+- [x] `features/financing/financing-service.ts` — add `recentPurchases(): Observable<RecentPurchaseRow[]>` → `GET financing/purchases/recent`, `{ rows }` unwrapped via `map`; `financing-service.spec.ts` gains its `HttpTestingController` spec.
+- [x] `features/financing/pages/recent-purchases-page/` (new) — container `recent-purchases-page.ts/.html/.css` (loads on `ngOnInit`, `loadStatus` state machine, no card picker — this view spans every card) + presentational `recent-purchases-table.ts/.html/.css` (description headline, `•` + `sr-only` creditor marker, installment count, card name, date, `formatArs` amount; staggered row-in animation matching `statements-table`).
+- [x] `features/financing/financing.routes.ts` — `{ path: 'recent-purchases', component: RecentPurchasesPage }`.
+- [x] `app.ts` — "Recent purchases" nav entry between Statements and Reverse.
+- [x] `features/reports/pages/dashboard-page/dashboard-page.html` — second quick-action link alongside "Record an expense".
+- [x] `recent-purchases-page.spec.ts` (3 facts: fetches and renders on init, empty state, error surfaced without throwing) + `recent-purchases-table.spec.ts` (3 facts: renders description/card/amount, flags only the creditor row, empty note when no rows).
+
+### Definition of done
+- [x] The page loads every purchase on init and renders it newest-first (per the API's response order), each showing its description.
+- [x] The page is reachable from the global nav and the Dashboard hub.
+- [x] `pnpm ng build --configuration production` + `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **183 passed** (176 baseline at Phase 8 + these 7 new facts).
+- [x] Manual live E2E walk — **performed this session** (API-side `curl` walk against a running host; documented in the API's Phase 17 completion notes — no browser session available in this environment).
+
+### Completion notes (2026-09-05)
+
+Built one green-lit step at a time, in lockstep with the API's Phase 17. No new D-numbers needed — no drift from `docs/PRD.md`/`docs/DESIGN.md`, this is additive scope like the Creditors phases (added to `docs/PRD.md` §3.9 as "not part of the original 7-view scope", same pattern as Creditors' §3.8). Container/presentational split mirrors `statements-page`/`statements-table` rather than introducing a new shape — deliberately no card-picker form, since this view spans every card by design. Full verification: `pnpm ng build --configuration production` clean, `pnpm ng test` 183/183, `pnpm ng lint` clean; API side `dotnet test --solution` 175/175. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

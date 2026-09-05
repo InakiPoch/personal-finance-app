@@ -42,6 +42,10 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 - **Notes:** monthly expenses deliberately **exclude** card purchases and third-party receivables
   (API D9) — this view answers "what actually left my pocket", not "what I owe". Month selector
   defaults to the current month.
+- **Drill-down (`docs/expense-description/slice-2-card-debt-drilldown.md`, now built):** each
+  "Card Debt by Cycle" row for a card expands into the individual outstanding purchases behind its
+  total, each with its description (§3.3), current-cycle purchases sorted first. **Source:**
+  `GET /v1/financing/cards/{id}/purchases`.
 - **States:** loading, empty (no movements yet), error.
 
 ### 3.2 Instruments setup — prerequisite
@@ -54,8 +58,11 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 
 ### 3.3 Load expense — US-3
 - **Shows:** a form to load a credit-card expense: amount, card, installment count, purchase date
-  (`YYYY-MM-DD`), and an optional split across parties by integer weight. The client never computes
-  the billing cycle or the split cents — it submits raw inputs and the API allocates.
+  (`YYYY-MM-DD`), a required free-text **description** (1–120 chars, single line —
+  `docs/expense-description/slice-1-description-field.md`, now built), and an optional split across
+  parties by integer weight. The client never computes the billing cycle or the split cents — it
+  submits raw inputs and the API allocates. On confirmation, the description headlines the panel
+  instead of a bare plan id.
 - **Source (write):** `POST /v1/financing/payment-plans`.
 - **After submit:** if a split was included, registration of the receivable is **eventually
   consistent** (API D8) — the plan id returns before the third-party receivable is posted. The view
@@ -120,6 +127,17 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   §3.3's Load-Expense form extends with an optional "Different creditor" toggle that reveals a
   creditor picker and account-to-pay selector; both fields are required when toggled on, submitted
   as optional metadata in the payment-plan request, and excluded when toggled off.
+
+### 3.9 Recent purchases (new — not part of the original 7-view scope, now built)
+- **Shows:** a standalone, newest-first chronological list of every loaded expense across every
+  card — each row's description (§3.3), card name, purchase date, total, installment count, and a
+  creditor-payment marker. It is a plain browseable history, not a debt view: purchases appear
+  whether or not they're paid off, and there is no card picker (unlike §3.4's Statements view).
+- **Source:** `GET /v1/financing/purchases/recent`.
+- **Notes:** this is Slice 3 of `docs/expense-description/slice-3-recent-purchases-view.md`, the
+  final slice of that initiative (Slice 1 is §3.3's description field; Slice 2 is §3.1's card-debt
+  drill-down). Reachable from the global nav and a second Dashboard quick-action link — the
+  client's known discoverability weak spot does not apply here.
 
 ## 4. Cross-cutting client requirements
 

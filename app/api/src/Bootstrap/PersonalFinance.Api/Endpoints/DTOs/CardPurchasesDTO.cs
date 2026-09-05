@@ -1,0 +1,5 @@
+namespace PersonalFinance.Api.Endpoints.DTOs;
+
+public sealed record CardPurchaseRowDto(Guid PlanId, string Description, long TotalMinorUnits, int InstallmentCount, int OutstandingCount, DateOnly PurchaseDate, bool IsCreditorPayment);
+
+public sealed record CardPurchasesDto(Guid CardId, IReadOnlyList<CardPurchaseRowDto> Rows);

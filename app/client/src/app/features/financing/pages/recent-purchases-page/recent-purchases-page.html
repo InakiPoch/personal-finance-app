@@ -1,0 +1,35 @@
+<div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
+  <header class="mb-10">
+    <p class="font-serif text-sm italic text-stamp">Personal ledger</p>
+    <h1 class="mt-1 font-serif text-2xl font-medium tracking-tight text-heading">
+      Recent purchases
+    </h1>
+    <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+      Every purchase you've loaded, newest first — a plain browseable history, independent
+      of card grouping or debt state.
+    </p>
+  </header>
+  @if(loadStatus() === 'loading') {
+    <p class="text-sm text-ink-faint">Loading purchases…</p>
+  } @else if(loadStatus() === 'error') {
+    <p class="text-sm text-negative" role="alert">
+      Could not load recent purchases — try again in a moment.
+    </p>
+  } @else if(loadStatus() === 'ready') {
+    <section aria-labelledby="purchases-label">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <h2 id="purchases-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+          Purchases
+        </h2>
+        @if(purchases().length > 0) {
+          <span class="text-xs text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ purchases().length }} shown
+          </span>
+        }
+      </div>
+      <div class="mt-6">
+        <app-recent-purchases-table [purchases]="purchases()" />
+      </div>
+    </section>
+  }
+</div>

@@ -29,6 +29,7 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             Money.FromMinorUnits(command.AmountMinorUnits, Currency.Reference),
             command.InstallmentCount,
             command.PurchaseDate,
+            command.Description,
             card.CutoffDay,
             new PhantomPennyAllocator(),
             command.Split?.Participants.Select(participant => (participant.PartyId, participant.Weight)).ToList(),

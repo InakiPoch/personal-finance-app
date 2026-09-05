@@ -13,13 +13,15 @@ import { RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatArs, fromMinorUnits } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
+import { FinancingService } from '../../../financing/financing-service';
+import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type Grouping = { label: string; totalMinorUnits: Money };
-type CardCycle = { card: string; accrued: Money; future: Money; total: Money };
+type CardCycle = { card: string; cardId: string | null; accrued: Money; future: Money; total: Money };
 
 function currentMonthKey(): string {
   const now: Date = new Date();
@@ -73,8 +75,14 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   protected readonly cycleByCard: Signal<CardCycle[]> = computed(() => {
     const order: string[] = [];
+    const cardIdByLabel: Map<string, string | null> = new Map<string, string | null>();
     const accrued: Map<string, number> = new Map<string, number>();
     const future: Map<string, number> = new Map<string, number>();
+    for(const row of this.cardDueRows()) {
+      if(!cardIdByLabel.has(row.card)) {
+        cardIdByLabel.set(row.card, row.cardId);
+      }
+    }
     for(const row of this.accruedByCard()) {
       accrued.set(row.label, row.totalMinorUnits);
       order.push(row.label);
@@ -90,6 +98,7 @@ export class DashboardPage implements OnInit, OnDestroy {
       const futureMinor: number = future.get(card) ?? 0;
       return {
         card,
+        cardId: cardIdByLabel.get(card) ?? null,
         accrued: fromMinorUnits(accruedMinor),
         future: fromMinorUnits(futureMinor),
         total: fromMinorUnits(accruedMinor + futureMinor)
@@ -97,9 +106,15 @@ export class DashboardPage implements OnInit, OnDestroy {
     });
   });
 
+  protected readonly expandedCardId: WritableSignal<string | null> = signal<string | null>(null);
+  protected readonly purchasesStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('ready');
+  protected readonly expandedPurchases: WritableSignal<CardPurchaseRow[]> = signal<CardPurchaseRow[]>([]);
+
   private readonly reports: ReportsService = inject(ReportsService);
+  private readonly financing: FinancingService = inject(FinancingService);
   private readonly monthlyRows: WritableSignal<MonthlyExpenseRow[]> = signal<MonthlyExpenseRow[]>([]);
   private readonly cardDueRows: WritableSignal<CardDueRow[]> = signal<CardDueRow[]>([]);
+  private readonly purchasesByCardId: Map<string, CardPurchaseRow[]> = new Map<string, CardPurchaseRow[]>();
   private readonly destroy$: Subject<void> = new Subject<void>();
 
   protected onMonthChange(month: string): void {
@@ -118,6 +133,37 @@ export class DashboardPage implements OnInit, OnDestroy {
     return total === 0 ? 0 : (part / total) * 100;
   }
 
+  protected toggleCardPurchases(cardId: string | null): void {
+    if(cardId === null) {
+      return;
+    }
+    if(this.expandedCardId() === cardId) {
+      this.expandedCardId.set(null);
+      this.expandedPurchases.set([]);
+      return;
+    }
+    this.expandedCardId.set(cardId);
+    const cached: CardPurchaseRow[] | undefined = this.purchasesByCardId.get(cardId);
+    if(cached) {
+      this.expandedPurchases.set(cached);
+      this.purchasesStatus.set('ready');
+      return;
+    }
+    this.purchasesStatus.set('loading');
+    this.financing
+      .cardPurchases(cardId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: CardPurchaseRow[]) => {
+          this.purchasesByCardId.set(cardId, rows);
+          this.expandedPurchases.set(rows);
+          this.purchasesStatus.set('ready');
+        },
+        error: () => this.purchasesStatus.set('error')
+      }
+    );
+  }
+
   private loadMonthlyExpenses(): void {
     this.monthlyStatus.set('loading');
     this.reports
@@ -128,7 +174,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.monthlyRows.set(rows);
           this.monthlyStatus.set('ready');
         },
-        error: () => this.monthlyStatus.set('error'),
+        error: () => this.monthlyStatus.set('error')
       }
     );
   }
@@ -143,7 +189,7 @@ export class DashboardPage implements OnInit, OnDestroy {
           this.cardDueRows.set(rows);
           this.cardDueStatus.set('ready');
         },
-        error: () => this.cardDueStatus.set('error'),
+        error: () => this.cardDueStatus.set('error')
       }
     );
   }

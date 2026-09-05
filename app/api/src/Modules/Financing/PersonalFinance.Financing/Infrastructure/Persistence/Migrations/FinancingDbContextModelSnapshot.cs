@@ -167,6 +167,10 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreditorId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("InstallmentCount")
                         .HasColumnType("INTEGER");
 

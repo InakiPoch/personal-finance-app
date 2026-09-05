@@ -16,6 +16,7 @@ export class App {
     { label: 'Instruments', path: '/instruments' },
     { label: 'Load expense', path: '/financing/load-expense' },
     { label: 'Statements', path: '/financing/statements' },
+    { label: 'Recent purchases', path: '/financing/recent-purchases' },
     { label: 'Reverse', path: '/ledger/transactions' },
     { label: 'Subscriptions', path: '/subscriptions' },
     { label: 'Parties', path: '/parties' },

@@ -9,11 +9,13 @@ using PersonalFinance.Financing.Application.Commands.LinkPaymentPlanSplit;
 using PersonalFinance.Financing.Application.Commands.MarkInstallmentReversed;
 using PersonalFinance.Financing.Application.Commands.PayStatement;
 using PersonalFinance.Financing.Application.Queries.GetCardFutureSchedule;
+using PersonalFinance.Financing.Application.Queries.GetCardPurchases;
 using PersonalFinance.Financing.Application.Queries.GetCardStatements;
 using PersonalFinance.Financing.Application.Queries.GetInstallmentStatus;
 using PersonalFinance.Financing.Application.Queries.GetMonthlyStatement;
 using PersonalFinance.Financing.Application.Queries.ListCreditCards;
 using PersonalFinance.Financing.Application.Queries.ListCreditors;
+using PersonalFinance.Financing.Application.Queries.ListRecentPurchases;
 using PersonalFinance.Financing.Application.Scheduling;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Financing.Contracts.Commands;
@@ -44,10 +46,12 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<IQueryHandler<GetInstallmentStatusQuery, InstallmentStatusResponse>, GetInstallmentStatusHandler>();
         services.AddScoped<IQueryHandler<GetCardFutureScheduleQuery, CardFutureScheduleResponse>, GetCardFutureScheduleHandler>();
         services.AddScoped<IQueryHandler<GetCardStatementsQuery, CardStatementsResponse>, GetCardStatementsHandler>();
+        services.AddScoped<IQueryHandler<GetCardPurchasesQuery, CardPurchasesResponse>, GetCardPurchasesHandler>();
         services.AddScoped<IQueryHandler<GetMonthlyStatementQuery, MonthlyStatementDetailResponse>, GetMonthlyStatementHandler>();
         services.AddScoped<IQueryHandler<ListCreditCardsQuery, ListCreditCardsResponse>, ListCreditCardsHandler>();
         services.AddScoped<ICommandHandler<CreateCreditorCommand, Guid>, CreateCreditorHandler>();
         services.AddScoped<IQueryHandler<ListCreditorsQuery, ListCreditorsResponse>, ListCreditorsHandler>();
+        services.AddScoped<IQueryHandler<ListRecentPurchasesQuery, RecentPurchasesResponse>, ListRecentPurchasesHandler>();
         services.AddHostedService<AccrueInstallments>();
     }
 }

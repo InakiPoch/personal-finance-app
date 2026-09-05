@@ -82,4 +82,19 @@ internal static class FinancingErrors {
         "Financing.InvalidCreditorName",
         "A creditor name must not be blank."
     );
+
+    public static readonly Error BlankDescription = new(
+        "Financing.BlankDescription",
+        "A payment plan description must not be blank."
+    );
+
+    public static readonly Error DescriptionTooLong = new(
+        "Financing.DescriptionTooLong",
+        "A payment plan description must be at most 120 characters."
+    );
+
+    public static readonly Error DescriptionMustBeSingleLine = new(
+        "Financing.DescriptionMustBeSingleLine",
+        "A payment plan description must not contain line breaks."
+    );
 }

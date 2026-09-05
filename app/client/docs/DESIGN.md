@@ -119,6 +119,12 @@ no `I-` prefix.
   compensatingEntryPosted: boolean }`
 - `AccountBalance = { accountId: string; balanceMinorUnits: Money; currencyCode: CurrencyCode;
   formatted: string }`
+- `DebitExpenseParticipant = { partyId: string; weight: number }`
+- `RecordDebitExpense = { amountMinorUnits: Money; sourceInstrumentId: string; categoryName: string;
+  purchaseDate: IsoDate; description: string; split?: DebitExpenseParticipant[] }`
+- `RecordDebitExpenseResult = { id: string }`
+- `listExpenseCategories` returns a bare `string[]` — the service `map`-unwraps the
+  `{ rows: [{ name }] }` envelope to category names
 
 **Financing** (`CreatePaymentPlanDto`, `MonthlyStatementDetailDto`, `PayStatementDto`,
 `CardFutureScheduleDto`)
@@ -186,7 +192,9 @@ One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(Http
 - **LedgerService** — `postTransaction(body: PostTransaction): Observable<PostTransactionResult>`;
   `listTransactions(filter?: { accountId?; from?; to? }): Observable<TransactionRow[]>` (unwraps the `{ rows }` envelope);
   `reverse(transactionId: string): Observable<ReverseTransactionResult>`;
-  `getAccountBalance(accountId: string): Observable<AccountBalance>`
+  `getAccountBalance(accountId: string): Observable<AccountBalance>`;
+  `recordDebitExpense(body: RecordDebitExpense): Observable<RecordDebitExpenseResult>`;
+  `listExpenseCategories(): Observable<string[]>` (unwraps the `{ rows }` envelope to names)
 - **FinancingService** — `createPaymentPlan(body: CreatePaymentPlan): Observable<CreatePaymentPlanResult>`;
   `getStatement(id: string): Observable<MonthlyStatement>`;
   `payStatement(id: string, body: PayStatement): Observable<PayStatementResult>`;
@@ -313,6 +321,8 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
 | 24 | GET | `/v1/financing/creditor-payables` | `FinancingService.creditorPayables` | Owed to creditors list |
 | 25 | GET | `/health` | `HealthService.check` | (status indicator) |
+| 26 | GET | `/v1/expense-categories` | `LedgerService.listExpenseCategories` | Load expense (debit-cash category `<datalist>`) |
+| 27 | POST | `/v1/ledger/expenses` | `LedgerService.recordDebitExpense` | Load expense (debit-cash mode) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

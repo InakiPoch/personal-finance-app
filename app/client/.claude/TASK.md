@@ -872,6 +872,34 @@ Built one green-lit step at a time in lockstep with the API's Phase 19. No new D
 
 ---
 
+## Phase 21 — Debit/cash expenses with categories (Slice 3)
+
+**Goal:** Light up the third *My debit-cash* mode of §3.3's Load-Expense form — a debit/cash instrument dropdown, a required free-type category (existing list + type-new), installments hidden, submit to the Ledger endpoint instead of the payment-plan endpoint.
+
+**Traces to:** `docs/expense-payment-modes/slice-3-debit-cash-categories.md` (final slice of the payment-modes initiative); API side is the API's Phase 20 (`GET /v1/expense-categories`, `POST /v1/ledger/expenses`).
+
+**Depends on:** Phase 10 (the two-way payment-mode selector on `load-expense-page`).
+
+### Tasks
+- [x] `features/ledger/types/record-debit-expense.ts` — `RecordDebitExpense = { amountMinorUnits: Money; sourceInstrumentId: string; categoryName: string; purchaseDate: IsoDate; description: string; split?: DebitExpenseParticipant[] }`. `record-debit-expense-result.ts` — `RecordDebitExpenseResult = { id: string }`. `debit-expense-participant.ts` — `DebitExpenseParticipant = { partyId: string; weight: number }`.
+- [x] `features/ledger/ledger-service.ts` — `recordDebitExpense(body): Observable<RecordDebitExpenseResult>` (`POST ledger/expenses`) + `listExpenseCategories(): Observable<string[]>` (`GET expense-categories`, `map`-unwrapping the `{ rows: [{ name }] }` envelope to names); `ledger-service.spec.ts` +3 facts (POST → `id`, POST with a split payload, GET envelope → names).
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` — `mode` widened to `'card' | 'creditor' | 'debit'`; `modeOptions` gains *My debit-cash* in slot 2; form gains `sourceInstrumentId` + `categoryName` `nonNullable` controls; new signals `bankAndCashInstruments` (`computed` — `instruments()` filtered `type === 'debit' || 'cash'`), `expenseCategories: WritableSignal<string[]>` (populated in `ngOnInit` via a one-shot `loadExpenseCategories()`), `confirmedKind: WritableSignal<'plan' | 'expense'>`; `LedgerService` injected. `watchModeChange` is 3-way — `'debit'` makes `sourceInstrumentId` required + `categoryName` `[Validators.required, noBlank]`, drops the `installmentCount` validator and pins it to `1`, clears + blanks all card- and creditor-mode fields (the `'card'`/`'creditor'` branches unchanged — D11). `onSubmit` branches: `'debit'` builds a `RecordDebitExpense` (category `.trim()`ed, split `FormArray` carried — D9) → `ledgerService.recordDebitExpense(...)` mapped to `.id`; else the existing `createPaymentPlan(...)` mapped to `.paymentPlanId`; shared `subscribe` sets `confirmedPlanId`/`confirmedDescription`/`submitStatus`, still reconciles participants on a split, and sets `confirmedKind`. `submitErrorMessages` gains `Ledger.AccountNotFound`, `Ledger.SourceAccountNotSpendable`, `Ledger.InvalidExpenseCategory`.
+- [x] `load-expense-page.html` — the purchase-section `<select>` is now `@if(card) … @else if(creditor) … @else { <debit block> }`. Debit block: "Paid from" `<select id="sourceInstrumentId">` fed by `bankAndCashInstruments()` (empty-state "No debit or cash accounts registered yet — add one on the Instruments page."), and a free-type Category `<input type="text" list="expense-category-options">` + `<datalist>` of `expenseCategories()` + hint line — a `<datalist>`, not a bare native `<select>`, per `docs/SYSTEM.md`. The installments `<div>` is wrapped in `@if(mode !== 'debit')`. Confirmation panel reads "expense recorded" / `Expense <code>{id}</code>` for debit, "payment plan created" / `Plan …` otherwise.
+- [x] `load-expense-page.spec.ts` +9 facts (debit validators swap; both debit + cash instruments offered; blank category rejected; submit routes to `recordDebitExpense` not `createPaymentPlan` with the right payload + `confirmedKind() === 'expense'`; category trimmed; split included in the debit payload; `debit → card` switch restores card mode; DOM shows source/category + hides installments/cardId/creditorId; headline "expense recorded").
+- [x] `docs/PRD.md` §3.3 updated for the third mode + new §3.11 "Debit/cash expenses with categories"; `docs/DESIGN.md` §3 Ledger types + §4 `LedgerService` methods + §9 traceability rows 26–27.
+
+### Definition of done
+- [x] Debit mode shows the instrument + category fields, hides installments; category is required (blank rejected); submit calls `POST /v1/ledger/expenses`, not the payment-plan path.
+- [x] Card and creditor modes are byte-for-byte unchanged; switching away from debit restores their fields.
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean (`financing-routes` chunk 50 → 56.40 kB, under the 500 kB budget); `pnpm ng test --watch=false --browsers=ChromeHeadless` → **206 passed** (194 baseline at Phase 20 + 12 new facts).
+- [ ] Manual live E2E walk (run the API + client, register a `debit` instrument, record a "Groceries" expense, confirm the balanced transaction + the "Groceries" row in the monthly view, re-use "Groceries" and confirm no second account) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Built one green-lit step at a time in lockstep with the API's Phase 20 (step 3 of the slice). No new D-numbers — additive scope reusing the Phase-10 payment-mode selector. The category field is an `<input>` + `<datalist>` (pick-existing-or-type-new), not a `<select>`, staying within `docs/SYSTEM.md`'s caution against shipping an unstyled native `<select>` as the design. The split `FormArray` carries into debit mode unchanged (D9). Full verification: `pnpm ng lint` clean, `pnpm ng build --configuration production` clean, `pnpm ng test` 206/206; API side `dotnet test --solution` 222/222, 0 warnings, `dotnet restore --locked-mode` clean. Manual sanity walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

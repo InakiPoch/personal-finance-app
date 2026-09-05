@@ -57,17 +57,27 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   to offer cards/accounts as choices. Flagged in §7.
 
 ### 3.3 Load expense — US-3
-- **Shows:** a form to load an installment expense. A **payment-mode** selector chooses how it was
-  financed — *My credit card* (pick a card) or *Financed by a creditor* (pick a creditor + one of
-  its accounts, no card) — with room for a third debit-cash mode later
-  (`docs/expense-payment-modes/slice-1-creditor-financed.md`, Slice 1 built). Then: amount,
-  installment count, purchase date (`YYYY-MM-DD`), a required free-text **description** (1–120
+- **Shows:** a form to load an expense. A **payment-mode** selector chooses how it was
+  financed — *My credit card* (pick a card), *My debit-cash* (pick a debit/cash account + a
+  required category, no installments), or *Financed by a creditor* (pick a creditor + one of
+  its accounts, no card) — the three slices of `docs/expense-payment-modes/` (Slice 1 creditor,
+  Slice 3 debit-cash), all built. Then: amount,
+  installment count (hidden in debit-cash — a single payment), purchase date (`YYYY-MM-DD`), a
+  required free-text **description** (1–120
   chars, single line — `docs/expense-description/slice-1-description-field.md`, now built), and an
-  optional split across parties by integer weight — the split is available in **both** modes. The
+  optional split across parties by integer weight — the split is available in **all** modes. The
   client never computes the billing cycle or the split cents — it submits raw inputs and the API
-  allocates. On confirmation, the description headlines the panel instead of a bare plan id.
-- **Source (write):** `POST /v1/financing/payment-plans` (`cardId` omitted in creditor mode; the
-  API then records a card-less plan — no billing cycle, no monthly statement).
+  allocates. On confirmation, the description headlines the panel — "payment plan created" for the
+  card/creditor modes, "expense recorded" for debit-cash.
+- **Category (debit-cash only):** a free-type field backed by the existing list from
+  `GET /v1/expense-categories` — pick an existing category or type a new one; it is required, and
+  a new name get-or-creates its `Expense` Ledger account server-side (trim + case-insensitive
+  match, so "Groceries"/"groceries" never fragment the monthly breakdown). Credit and creditor
+  modes have **no** category (D7).
+- **Source (write):** `POST /v1/financing/payment-plans` for the card and creditor modes (`cardId`
+  omitted in creditor mode — the API records a card-less plan, no billing cycle, no monthly
+  statement); `POST /v1/ledger/expenses` for debit-cash — one balanced Ledger transaction
+  (`Dr` category / `Cr` source), or receivables + category debit when split.
 - **After submit:** if a split was included, registration of the receivable is **eventually
   consistent** (API D8) — the plan id returns before the third-party receivable is posted. The view
   confirms the plan immediately and reconciles the party balance shortly after (see `DESIGN.md` §7).
@@ -155,6 +165,23 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   An empty-state note when no creditor has an outstanding balance.
 - **Source:** `GET /v1/financing/creditor-payables`.
 - **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md`; Financing-only, read-only, no Ledger (D7). **Accepted limitation:** there is no per-installment payment/settlement tracking, so "outstanding" is the entire creditor-financed plan (every non-reversed installment); `NextDueDate` is the earliest *scheduled* month and does not advance as months pass — a future session will refine this when a settlement concept lands. Reachable from the global nav right after "Recent purchases".
+
+### 3.11 Debit/cash expenses with categories (new — extends §3.3, now built)
+- **Shows:** the third *My debit-cash* mode of §3.3's Load-Expense form. When selected, the form
+  offers a **debit/cash instrument** dropdown (the account the money left — `instruments()` filtered
+  to `type === 'debit' || 'cash'`), a **required category** field (existing list from
+  `GET /v1/expense-categories` + free-type new), and hides the installment count (a single
+  payment). Amount, purchase date, description, and the optional party split all carry over. On
+  confirmation the panel headline reads "expense recorded".
+- **Source:** `GET /v1/expense-categories` (category options); `POST /v1/ledger/expenses` (write).
+- **Notes:** traces to `docs/expense-payment-modes/slice-3-debit-cash-categories.md`, the final
+  slice of that initiative. A debit/cash purchase is money already gone — the API posts **one
+  balanced Ledger transaction** (`Dr` category `Expense` account / `Cr` the source `Bank`/`Cash`
+  account), not an installment plan (D3/D4). A split debit expense still posts per-party
+  receivables, exactly as the card path does (D9). The category **is** the `Expense` account name —
+  get-or-created by name (trim + case-insensitive) so the monthly breakdown groups cleanly; credit
+  and creditor modes keep no category (D7). Subscription expense accounts also carry `Kind=Expense`
+  and so appear in the category list — an accepted tradeoff.
 
 ## 4. Cross-cutting client requirements
 

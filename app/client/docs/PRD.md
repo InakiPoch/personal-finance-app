@@ -57,13 +57,17 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   to offer cards/accounts as choices. Flagged in §7.
 
 ### 3.3 Load expense — US-3
-- **Shows:** a form to load a credit-card expense: amount, card, installment count, purchase date
-  (`YYYY-MM-DD`), a required free-text **description** (1–120 chars, single line —
-  `docs/expense-description/slice-1-description-field.md`, now built), and an optional split across
-  parties by integer weight. The client never computes the billing cycle or the split cents — it
-  submits raw inputs and the API allocates. On confirmation, the description headlines the panel
-  instead of a bare plan id.
-- **Source (write):** `POST /v1/financing/payment-plans`.
+- **Shows:** a form to load an installment expense. A **payment-mode** selector chooses how it was
+  financed — *My credit card* (pick a card) or *Financed by a creditor* (pick a creditor + one of
+  its accounts, no card) — with room for a third debit-cash mode later
+  (`docs/expense-payment-modes/slice-1-creditor-financed.md`, Slice 1 built). Then: amount,
+  installment count, purchase date (`YYYY-MM-DD`), a required free-text **description** (1–120
+  chars, single line — `docs/expense-description/slice-1-description-field.md`, now built), and an
+  optional split across parties by integer weight — the split is available in **both** modes. The
+  client never computes the billing cycle or the split cents — it submits raw inputs and the API
+  allocates. On confirmation, the description headlines the panel instead of a bare plan id.
+- **Source (write):** `POST /v1/financing/payment-plans` (`cardId` omitted in creditor mode; the
+  API then records a card-less plan — no billing cycle, no monthly statement).
 - **After submit:** if a split was included, registration of the receivable is **eventually
   consistent** (API D8) — the plan id returns before the third-party receivable is posted. The view
   confirms the plan immediately and reconciles the party balance shortly after (see `DESIGN.md` §7).
@@ -127,6 +131,10 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   §3.3's Load-Expense form extends with an optional "Different creditor" toggle that reveals a
   creditor picker and account-to-pay selector; both fields are required when toggled on, submitted
   as optional metadata in the payment-plan request, and excluded when toggled off.
+  **Superseded by `docs/expense-payment-modes/` Slice 1:** that toggle is now the *Financed by a
+  creditor* option of §3.3's payment-mode selector — picking it omits `cardId` entirely and makes
+  the creditor + account required (a card-less plan), rather than attaching them as metadata to a
+  card plan.
 
 ### 3.9 Recent purchases (new — not part of the original 7-view scope, now built)
 - **Shows:** a standalone, newest-first chronological list of every loaded expense across every

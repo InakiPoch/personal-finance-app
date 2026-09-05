@@ -816,6 +816,33 @@ Built one green-lit step at a time, in lockstep with the API's Phase 17. No new 
 
 ---
 
+## Phase 10 — Creditor-financed expenses (Slice 1)
+
+**Goal:** Turn the Load-Expense "Different creditor" checkbox into a two-way payment-mode selector (My credit card / Financed by a creditor) so a creditor-financed purchase submits with no `cardId` and required creditor + account fields; leave room for a third debit-cash mode.
+
+**Traces to:** `docs/expense-payment-modes/slice-1-creditor-financed.md`; API side is the API's Phase 18 (`cardId` optional on `POST /v1/financing/payment-plans`).
+
+**Depends on:** Phase 6 (the "Different creditor" toggle + creditor/account pickers on `load-expense-page`).
+
+### Tasks
+- [x] `features/financing/types/create-payment-plan.ts` — `cardId: string` → `cardId?: string`.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` — drop `differentCreditor: FormControl<boolean>`, add `mode: FormControl<'card' | 'creditor'>` (init `'card'`); new `modeOptions`; `watchDifferentCreditorToggle` → `watchModeChange` (creditor: clear + blank `cardId`, require `creditorId`/`creditorAccountId`; card: the reverse + `creditorAccounts.set([])`); `onSubmit` body spreads `mode === 'card' ? { cardId } : { creditorId, creditorAccountId }` then the split spread; `ngOnInit` swaps the watcher.
+- [x] `load-expense-page.html` — segmented control (`<fieldset>` + `peer`/`peer-checked` radio, copied from `instruments-page.html`) at the top of "The purchase"; card `<select>` under `@if(mode.value === 'card')`, creditor + account `<select>`s under `@else`; the standalone "Creditor" `<section>` + checkbox deleted; split section unchanged, visible in both modes.
+- [x] `isCreditorPayment` retirement (API-driven) — remove from `features/financing/types/card-purchase-row.ts` and the `dashboard-page.html` card-purchases drill-down marker; trim the `dashboard-page.spec.ts` fixture. `recent-purchase-row.ts` + `recent-purchases-*` keep their own field (Phase 9).
+- [x] `load-expense-page.spec.ts` — rework the three `differentCreditor` specs to drive `form.controls.mode`; add: card-mode body has `cardId` and no creditor fields; creditor-mode body omits `cardId`, has `creditorId` + `creditorAccountId`, form valid; DOM shows the right `<select>`s per mode; split stays rendered in both modes; a split added in creditor mode is in the body.
+
+### Definition of done
+- [x] Card mode submits `{ cardId, ... }`; creditor mode submits `{ creditorId, creditorAccountId, ... }` with no `cardId`; validators follow the mode.
+- [x] The split section is visible and submittable in both modes.
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **187 passed** (183 baseline at Phase 9 + net 4 from the `load-expense-page.spec.ts` rework — 21 facts there).
+- [ ] Manual live E2E walk (card mode unchanged; creditor mode with and without a split; confirm the payload shape and the confirmation panel) — **handed to the user**, not run this session.
+
+### Completion notes (2026-09-05)
+
+Built one green-lit step at a time in lockstep with the API's Phase 18. No new D-numbers — additive scope; `docs/PRD.md` §3.3 + §3.8 updated (the "Different creditor" toggle of §3.8 is superseded by the §3.3 mode selector). Segmented control reuses the `instruments-page` `<fieldset>` + `peer-checked` pattern verbatim rather than a new component. Full verification: `pnpm ng lint` clean, `pnpm ng build --configuration production` clean, `pnpm ng test` 187/187; API side `dotnet test --solution` 192/192, 0 warnings. Manual E2E walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

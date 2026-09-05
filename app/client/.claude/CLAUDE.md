@@ -76,7 +76,8 @@ of `docs/creditor-expense-fields/slice-1-creditors-crud.md`: register a creditor
 free-text destination accounts, label + identifier (CBU/CVU/alias, nullable); CRUD-only, styled to
 `docs/SYSTEM.md` from the start; **Slice 2 — Load-expense integration — now built**: creditor picker
 + account-to-pay selector revealed by a "Different creditor" toggle, wired into `load-expense-page`
-as pure optional metadata). `app.routes.ts` lazy-wires all seven via `loadChildren`, redirects `''`
+as pure optional metadata — the toggle was **superseded by the two-way payment-mode selector** in
+`docs/expense-payment-modes/` Slice 1, below). `app.routes.ts` lazy-wires all seven via `loadChildren`, redirects `''`
 → `reports`, and falls back `**` → `reports`. **Every other page has been redesigned against
 `docs/SYSTEM.md`** — the markup was rewritten; component logic and its specs were largely left in
 place (specs test logic, not the DOM).
@@ -103,6 +104,24 @@ the page owns the `loadStatus` state machine and fetches once on `ngOnInit`; the
 installment count, card name, purchase date, and `formatArs` total, staggered row-in animation
 matching `statements-table`. Routed at `financing/recent-purchases`, linked from both the global
 nav (`app.ts`) and a second Dashboard quick-action alongside "Record an expense".
+
+**`docs/expense-payment-modes/` (new, `financing`).** **Slice 1 — Creditor-financed expenses**
+(`slice-1-creditor-financed.md`) — now built. `CreatePaymentPlan.cardId` is optional
+(`cardId?: string`), and `load-expense-page`'s "Different creditor" checkbox becomes a two-way
+**payment-mode selector** — `mode: FormControl<'card' | 'creditor'>` on the form, a segmented
+control (`<fieldset>` + `peer`/`peer-checked` radios, the `instruments-page` pattern) at the top of
+"The purchase" — with room left for a third *My debit-cash* mode (Slice 3). `watchModeChange` swaps
+validators: `'creditor'` clears + blanks `cardId` and makes `creditorId`/`creditorAccountId`
+required; `'card'` reverses it and empties `creditorAccounts()`. `onSubmit` spreads
+`mode === 'card' ? { cardId } : { creditorId, creditorAccountId }`; the card `<select>` renders
+under `@if(mode === 'card')` and the creditor + account `<select>`s under `@else`, both inside the
+purchase section — the standalone "Creditor" `<section>` and its checkbox are deleted. The split
+FormArray stays visible and submittable in **both** modes. The API-retired per-row
+`isCreditorPayment` flag is dropped from `features/financing/types/card-purchase-row.ts` and the
+Dashboard card-purchases drill-down marker; `recent-purchase-row.ts` + `recent-purchases-*` keep
+their own `isCreditorPayment` (Phase 17's field, untouched). `load-expense-page.spec.ts` reworked
+for the selector (21 facts). Slices 2 ("Owed to creditors" list) and 3 (debit-cash mode) are not
+built.
 
 ## Conventions — the non-negotiables
 

@@ -28,7 +28,7 @@ type LoadExpenseView = {
     purchaseDate: FormControl<string>;
     description: FormControl<string>;
     split: FormArray<SplitRow>;
-    differentCreditor: FormControl<boolean>;
+    mode: FormControl<'card' | 'creditor'>;
     creditorId: FormControl<string>;
     creditorAccountId: FormControl<string>;
   }>;
@@ -143,10 +143,13 @@ describe('LoadExpensePage', () => {
     expect(createPaymentPlan).toHaveBeenCalledTimes(1);
     const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
     expect(body.amountMinorUnits).toBe(money(123450));
+    expect(body.cardId).toBe('card-credit');
     expect(body.installmentCount).toBe(3);
     expect(body.purchaseDate).toBe('2026-09-01');
     expect(body.description).toBe('New laptop');
     expect('split' in body).toBe(false);
+    expect('creditorId' in body).toBe(false);
+    expect('creditorAccountId' in body).toBe(false);
     expect(view.submitStatus()).toBe('confirmed');
     expect(view.confirmedPlanId()).toBe('plan-1');
   });
@@ -226,32 +229,76 @@ describe('LoadExpensePage', () => {
     });
     expect(view.reconciliations()[0].status).toBe('stalled');
   });
-  it('makes the creditor fields required once "Different creditor" is toggled on', () => {
+  it('swaps cardId validation for the creditor fields when the mode is "creditor"', () => {
+    expect(view.form.controls.cardId.hasError('required')).toBe(true);
     expect(view.form.controls.creditorId.hasError('required')).toBe(false);
-    view.form.controls.differentCreditor.setValue(true);
+    view.form.controls.mode.setValue('creditor');
+    expect(view.form.controls.cardId.hasError('required')).toBe(false);
+    expect(view.form.controls.cardId.value).toBe('');
     expect(view.form.controls.creditorId.hasError('required')).toBe(true);
     expect(view.form.controls.creditorAccountId.hasError('required')).toBe(true);
   });
+  it('restores cardId validation and clears the creditor fields when switched back to "card"', () => {
+    view.form.controls.mode.setValue('creditor');
+    view.form.controls.creditorId.setValue('creditor-1');
+    view.form.controls.mode.setValue('card');
+    expect(view.form.controls.cardId.hasError('required')).toBe(true);
+    expect(view.form.controls.creditorId.hasError('required')).toBe(false);
+    expect(view.form.controls.creditorId.value).toBe('');
+    expect(view.form.controls.creditorAccountId.value).toBe('');
+    expect(view.creditorAccounts()).toEqual([]);
+  });
   it('populates the account options and auto-selects the first when a creditor is chosen', () => {
-    view.form.controls.differentCreditor.setValue(true);
+    view.form.controls.mode.setValue('creditor');
     view.form.controls.creditorId.setValue('creditor-1');
     expect(view.creditorAccounts().map((account) => account.id)).toEqual(['acct-1', 'acct-2']);
     expect(view.form.controls.creditorAccountId.value).toBe('acct-1');
   });
-  it('includes creditorId and creditorAccountId in the submit body when the toggle is on', () => {
+  it('shows the card select in "card" mode and the creditor selects in "creditor" mode', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('#cardId')).not.toBeNull();
+    expect(host.querySelector('#creditorId')).toBeNull();
+    view.form.controls.mode.setValue('creditor');
+    fixture.detectChanges();
+    expect(host.querySelector('#cardId')).toBeNull();
+    expect(host.querySelector('#creditorId')).not.toBeNull();
+    expect(host.querySelector('#creditorAccountId')).not.toBeNull();
+  });
+  it('keeps the split section rendered in both modes', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    expect(host.querySelector('[formArrayName="split"]')).not.toBeNull();
+    view.form.controls.mode.setValue('creditor');
+    fixture.detectChanges();
+    expect(host.querySelector('[formArrayName="split"]')).not.toBeNull();
+  });
+  it('submits cardId and no creditor fields in "card" mode', () => {
     fillValidForm();
-    view.form.controls.differentCreditor.setValue(true);
-    view.form.controls.creditorId.setValue('creditor-1');
     view.onSubmit();
     const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect(body.cardId).toBe('card-credit');
+    expect('creditorId' in body).toBe(false);
+    expect('creditorAccountId' in body).toBe(false);
+  });
+  it('submits creditorId and creditorAccountId and omits cardId in "creditor" mode', () => {
+    fillValidForm();
+    view.form.controls.mode.setValue('creditor');
+    view.form.controls.creditorId.setValue('creditor-1');
+    view.onSubmit();
+    expect(view.form.valid).toBe(true);
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect('cardId' in body).toBe(false);
     expect(body.creditorId).toBe('creditor-1');
     expect(body.creditorAccountId).toBe('acct-1');
   });
-  it('omits creditorId and creditorAccountId from the submit body when the toggle is off', () => {
+  it('includes a split added in "creditor" mode in the submit body', () => {
     fillValidForm();
+    view.form.controls.mode.setValue('creditor');
+    view.form.controls.creditorId.setValue('creditor-1');
+    addParticipant('p1', 2);
     view.onSubmit();
     const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
-    expect('creditorId' in body).toBe(false);
-    expect('creditorAccountId' in body).toBe(false);
+    expect(body.split).toEqual([{ partyId: 'p1', weight: 2 }]);
+    expect(body.creditorId).toBe('creditor-1');
+    expect('cardId' in body).toBe(false);
   });
 });

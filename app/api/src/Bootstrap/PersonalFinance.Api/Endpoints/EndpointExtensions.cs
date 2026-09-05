@@ -80,6 +80,10 @@ internal static class EndpointExtensions {
                 .WithSummary("List a card's outstanding purchases.")
                 .WithDescription("Returns every outstanding purchase (payment plan) on the given credit card, current-cycle purchases first. An unknown card yields an empty list.")
                 .Produces<CardPurchasesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.RecentPurchases, GetRecentPurchases.Handle)
+                .WithSummary("List recent purchases across every card.")
+                .WithDescription("Returns every payment plan, newest-first, independent of card grouping or debt state, capped at a default limit.")
+                .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

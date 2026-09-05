@@ -4,7 +4,7 @@ import { SplitParticipant } from './split-participant';
 
 export type CreatePaymentPlan = {
   amountMinorUnits: Money;
-  cardId: string;
+  cardId?: string;
   installmentCount: number;
   purchaseDate: IsoDate;
   description: string;

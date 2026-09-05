@@ -32,6 +32,9 @@ import { atMostTwoDecimals, isoDate, noBlank, noNewline, positiveAmount, positiv
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SubmitStatus = 'idle' | 'submitting' | 'confirmed' | 'error';
 type ReconciliationStatus = 'reconciling' | 'reconciled' | 'stalled';
+type LoadExpenseMode = 'card' | 'creditor';
+
+type ModeOption = { value: LoadExpenseMode; label: string };
 
 type ReconciliationRow = {
   partyId: string;
@@ -52,7 +55,7 @@ type LoadExpenseForm = FormGroup<{
   purchaseDate: FormControl<string>;
   description: FormControl<string>;
   split: FormArray<SplitRow>;
-  differentCreditor: FormControl<boolean>;
+  mode: FormControl<LoadExpenseMode>;
   creditorId: FormControl<string>;
   creditorAccountId: FormControl<string>;
 }>;
@@ -79,6 +82,10 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   );
   protected readonly creditors: WritableSignal<Creditor[]> = signal<Creditor[]>([]);
   protected readonly creditorAccounts: WritableSignal<CreditorAccount[]> = signal<CreditorAccount[]>([]);
+  protected readonly modeOptions: readonly ModeOption[] = [
+    { value: 'card', label: 'My credit card' },
+    { value: 'creditor', label: 'Financed by a creditor' },
+  ];
   protected readonly errorMessages: Record<string, string> = {
     positiveAmount: 'Enter an amount greater than zero.',
     atMostTwoDecimals: 'Use at most two decimal places.',
@@ -130,7 +137,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       purchaseDate: string;
       description: string;
       split: Array<{ partyId: string; weight: number | null }>;
-      differentCreditor: boolean;
+      mode: LoadExpenseMode;
       creditorId: string;
       creditorAccountId: string;
     } = this.form.getRawValue();
@@ -140,12 +147,13 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     }));
     const body: CreatePaymentPlan = {
       amountMinorUnits: toMinorUnits(raw.amount as number),
-      cardId: raw.cardId,
       installmentCount: raw.installmentCount as number,
       purchaseDate: raw.purchaseDate,
       description: raw.description.trim(),
-      ...(participants.length > 0 ? { split: participants } : {}),
-      ...(raw.differentCreditor ? { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId } : {})
+      ...(raw.mode === 'card'
+        ? { cardId: raw.cardId }
+        : { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId }),
+      ...(participants.length > 0 ? { split: participants } : {})
     };
     this.submitError.set(null);
     this.confirmedPlanId.set(null);
@@ -245,20 +253,25 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       .subscribe((rows: Creditor[]) => this.creditors.set(rows));
   }
 
-  private watchDifferentCreditorToggle(): void {
-    this.form.controls.differentCreditor.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((enabled: boolean) => {
+  private watchModeChange(): void {
+    this.form.controls.mode.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((mode: LoadExpenseMode) => {
+      const cardIdControl = this.form.controls.cardId;
       const creditorIdControl = this.form.controls.creditorId;
       const creditorAccountIdControl = this.form.controls.creditorAccountId;
-      if(enabled) {
+      if(mode === 'creditor') {
+        cardIdControl.clearValidators();
+        cardIdControl.setValue('');
         creditorIdControl.setValidators(Validators.required);
         creditorAccountIdControl.setValidators(Validators.required);
       } else {
+        cardIdControl.setValidators(Validators.required);
         creditorIdControl.clearValidators();
         creditorAccountIdControl.clearValidators();
         creditorIdControl.setValue('');
         creditorAccountIdControl.setValue('');
         this.creditorAccounts.set([]);
       }
+      cardIdControl.updateValueAndValidity();
       creditorIdControl.updateValueAndValidity();
       creditorAccountIdControl.updateValueAndValidity();
     });
@@ -292,7 +305,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         validators: [Validators.required, Validators.maxLength(120), noBlank, noNewline],
       }),
       split: this.fb.array<SplitRow>([]),
-      differentCreditor: this.fb.nonNullable.control(false),
+      mode: this.fb.nonNullable.control<LoadExpenseMode>('card'),
       creditorId: this.fb.nonNullable.control(''),
       creditorAccountId: this.fb.nonNullable.control('')
     });
@@ -303,7 +316,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     this.loadInstruments();
     this.loadParties();
     this.loadCreditors();
-    this.watchDifferentCreditorToggle();
+    this.watchModeChange();
     this.watchCreditorSelection();
   }
 

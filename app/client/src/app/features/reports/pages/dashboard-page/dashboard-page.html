@@ -132,10 +132,6 @@
                         <li class="flex items-baseline justify-between gap-4">
                           <span class="text-xs text-ink-soft">
                             {{ purchase.description }}
-                            @if(purchase.isCreditorPayment) {
-                              <span aria-hidden="true" class="text-stamp">•</span>
-                              <span class="sr-only">Creditor payment</span>
-                            }
                             <span class="text-ink-faint">
                               — {{ purchase.outstandingCount }} of {{ purchase.installmentCount }} installments outstanding
                             </span>

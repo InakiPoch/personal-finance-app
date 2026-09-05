@@ -93,6 +93,26 @@ internal static class FinancingMappingExtensions {
         return new RecentPurchasesDto(rows);
     }
 
+    public static CreditorPayablesDto ToCreditorPayablesDto(this CreditorPayablesResponse response) {
+        var rows = response.Rows
+            .Select(row => new CreditorPayableRowDto(
+                row.CreditorId,
+                row.CreditorName,
+                row.OutstandingMinorUnits,
+                row.NextDueDate,
+                row.Accounts
+                    .Select(account => new CreditorPayableAccountDto(
+                        account.AccountId,
+                        account.Label,
+                        account.OutstandingMinorUnits)
+                    )
+                    .ToList()
+                )
+            )
+            .ToList();
+        return new CreditorPayablesDto(rows);
+    }
+
     public static MonthlyStatementDetailDto ToMonthlyStatementDetailDto(this MonthlyStatementDetailResponse response) {
         var installments = response.Installments
             .Select(row => new MonthlyStatementInstallmentRowDto(

@@ -84,6 +84,10 @@ internal static class EndpointExtensions {
                 .WithSummary("List recent purchases across every card.")
                 .WithDescription("Returns every payment plan, newest-first, independent of card grouping or debt state, capped at a default limit.")
                 .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.CreditorPayables, GetCreditorPayables.Handle)
+                .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
+                .WithDescription("Read-only roll-up over creditor-financed payment plans. There is no per-installment paid/settled flag yet, so \"outstanding\" is the whole plan: every non-reversed installment of a creditor-financed plan counts as still owed. Card-backed plans never appear.")
+                .Produces<CreditorPayablesDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

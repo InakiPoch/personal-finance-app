@@ -20,6 +20,7 @@ public sealed record ApiRoutes {
         public const string CardStatements = "/cards/{id:guid}/statements";
         public const string CardPurchases = "/cards/{id:guid}/purchases";
         public const string RecentPurchases = "/purchases/recent";
+        public const string CreditorPayables = "/creditor-payables";
     }
 
     public sealed record Instruments {

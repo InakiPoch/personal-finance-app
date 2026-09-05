@@ -101,27 +101,6 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
     }
 
     [Fact]
-    public async Task Handle_flags_a_plan_as_a_creditor_payment_only_when_a_creditor_is_set() {
-        var cancellationToken = TestContext.Current.CancellationToken;
-        var cardId = await SeedCardAsync(15, cancellationToken);
-        var creditorId = Guid.CreateVersion7();
-        Guid creditorPlanId;
-        Guid plainPlanId;
-        await using(var context = NewContext()) {
-            var creditorPlan = CreatePlan(cardId, 15, new DateOnly(2026, 1, 10), 1, creditorId: creditorId);
-            var plainPlan = CreatePlan(cardId, 15, new DateOnly(2026, 1, 11), 1);
-            creditorPlanId = creditorPlan.Id;
-            plainPlanId = plainPlan.Id;
-            context.PaymentPlans.AddRange(creditorPlan, plainPlan);
-            await context.SaveChangesAsync(cancellationToken);
-        }
-        await using var readContext = NewContext();
-        var response = await new GetCardPurchasesHandler(readContext).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
-        Assert.True(response.Rows.Single(row => row.PlanId == creditorPlanId).IsCreditorPayment);
-        Assert.False(response.Rows.Single(row => row.PlanId == plainPlanId).IsCreditorPayment);
-    }
-
-    [Fact]
     public async Task Handle_orders_the_current_cycle_plan_before_a_plan_from_another_cycle() {
         var cancellationToken = TestContext.Current.CancellationToken;
         const int cutoffDay = 15;
@@ -153,11 +132,10 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
         Assert.Empty(response.Rows);
     }
 
-    private static PaymentPlan CreatePlan(Guid cardId, int cutoffDay, DateOnly purchaseDate, int installmentCount, Guid? creditorId = null) {
+    private static PaymentPlan CreatePlan(Guid cardId, int cutoffDay, DateOnly purchaseDate, int installmentCount) {
         var total = Money.FromMinorUnits(10_000 * installmentCount, Currency.Reference);
         return PaymentPlan.Create(
-            cardId, total, installmentCount, purchaseDate, "Test purchase", cutoffDay, new PhantomPennyAllocator(),
-            creditorId: creditorId
+            cardId, total, installmentCount, purchaseDate, "Test purchase", cutoffDay, new PhantomPennyAllocator()
         ).Value;
     }
 

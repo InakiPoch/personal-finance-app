@@ -37,7 +37,8 @@ internal sealed class AccrueInstallments(IServiceScopeFactory scopeFactory, ILog
             where installment.AccruedOnUtc == null
             where installment.IsReversed == false
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
-            join card in context.CreditCards on plan.CardId equals card.Id
+            where plan.CardId != null
+            from card in context.CreditCards.Where(candidate => candidate.Id == plan.CardId)
             select new { installment, card, plan }
         ).ToListAsync(cancellationToken);
         foreach(var row in pending) {
@@ -71,7 +72,8 @@ internal sealed class AccrueInstallments(IServiceScopeFactory scopeFactory, ILog
                 : (new List<PostTransactionLine> {
                     new(card.ExpenseAccountId, DebitOrCredit.Debit, installment.Amount),
                     new(card.LiabilityAccountId, DebitOrCredit.Credit, installment.Amount)
-                }, 0L);
+                }, 0L
+            );
             var posting = await ledger.PostTransactionAsync(
                 new PostTransactionCommand(
                     lines,

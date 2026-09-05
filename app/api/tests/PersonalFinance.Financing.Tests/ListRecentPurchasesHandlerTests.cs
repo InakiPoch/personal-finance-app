@@ -73,11 +73,10 @@ public sealed class ListRecentPurchasesHandlerTests : IDisposable {
     public async Task Handle_flags_a_plan_as_a_creditor_payment_only_when_a_creditor_is_set() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var cardId = await SeedCardAsync("Visa", 15, cancellationToken);
-        var creditorId = Guid.CreateVersion7();
         Guid creditorPlanId;
         Guid plainPlanId;
         await using(var context = NewContext()) {
-            var creditorPlan = CreatePlan(cardId, 15, new DateOnly(2026, 1, 10), "Rent", creditorId: creditorId);
+            var creditorPlan = CreateCreditorPlan(new DateOnly(2026, 1, 10), "Rent");
             var plainPlan = CreatePlan(cardId, 15, new DateOnly(2026, 1, 11), "Groceries");
             creditorPlanId = creditorPlan.Id;
             plainPlanId = plainPlan.Id;
@@ -107,11 +106,18 @@ public sealed class ListRecentPurchasesHandlerTests : IDisposable {
         Assert.Equal(2, response.Rows.Count);
     }
 
-    private static PaymentPlan CreatePlan(Guid cardId, int cutoffDay, DateOnly purchaseDate, string description, Guid? creditorId = null) {
+    private static PaymentPlan CreatePlan(Guid cardId, int cutoffDay, DateOnly purchaseDate, string description) {
         var total = Money.FromMinorUnits(10_000, Currency.Reference);
         return PaymentPlan.Create(
-            cardId, total, 1, purchaseDate, description, cutoffDay, new PhantomPennyAllocator(),
-            creditorId: creditorId
+            cardId, total, 1, purchaseDate, description, cutoffDay, new PhantomPennyAllocator()
+        ).Value;
+    }
+
+    private static PaymentPlan CreateCreditorPlan(DateOnly purchaseDate, string description) {
+        var total = Money.FromMinorUnits(10_000, Currency.Reference);
+        return PaymentPlan.Create(
+            null, total, 1, purchaseDate, description, null, new PhantomPennyAllocator(),
+            creditorId: Guid.CreateVersion7(), creditorAccountId: Guid.CreateVersion7()
         ).Value;
     }
 

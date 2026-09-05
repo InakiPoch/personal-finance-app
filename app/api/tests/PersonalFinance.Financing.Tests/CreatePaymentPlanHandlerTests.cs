@@ -29,13 +29,11 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
     }
 
     [Fact]
-    public async Task Handle_persists_the_creditor_and_account_when_supplied() {
+    public async Task Handle_persists_a_card_less_creditor_financed_plan() {
         var cancellationToken = TestContext.Current.CancellationToken;
-        var cardId = await SeedCardAsync(cancellationToken);
-        var creditorId = Guid.CreateVersion7();
-        var creditorAccountId = Guid.CreateVersion7();
+        var (creditorId, creditorAccountId) = await SeedCreditorAsync(cancellationToken);
         var command = new CreatePaymentPlanCommand(
-            10000, cardId, 3, new DateOnly(2026, 1, 10),
+            10000, CardId: null, 3, new DateOnly(2026, 1, 10),
             Description: "New laptop", CreditorId: creditorId, CreditorAccountId: creditorAccountId);
         Guid planId;
         await using(var context = NewContext()) {
@@ -45,6 +43,7 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         }
         await using var verifyContext = NewContext();
         var plan = await verifyContext.PaymentPlans.SingleAsync(p => p.Id == planId, cancellationToken);
+        Assert.Null(plan.CardId);
         Assert.Equal(creditorId, plan.CreditorId);
         Assert.Equal(creditorAccountId, plan.CreditorAccountId);
     }
@@ -89,6 +88,15 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         context.CreditCards.Add(card);
         await context.SaveChangesAsync(cancellationToken);
         return cardId;
+    }
+
+    private async Task<(Guid CreditorId, Guid AccountId)> SeedCreditorAsync(CancellationToken cancellationToken) {
+        var creditorId = Guid.CreateVersion7();
+        await using var context = NewContext();
+        var creditor = Creditor.Create(creditorId, "MercadoPago", [("Main", "alias.pay")]).Value;
+        context.Creditors.Add(creditor);
+        await context.SaveChangesAsync(cancellationToken);
+        return (creditorId, creditor.Accounts[0].Id);
     }
 
     private FinancingDbContext NewContext() {

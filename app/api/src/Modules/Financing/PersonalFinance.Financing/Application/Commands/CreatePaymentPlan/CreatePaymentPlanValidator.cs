@@ -13,6 +13,15 @@ internal static class CreatePaymentPlanValidator {
         if(command.InstallmentCount < 1) {
             return Result.Failure(FinancingErrors.InvalidInstallmentCount);
         }
+        if(command.CardId is null && command.CreditorId is null) {
+            return Result.Failure(FinancingErrors.PlanNeedsCardOrCreditor);
+        }
+        if(command.CardId is not null && command.CreditorId is not null) {
+            return Result.Failure(FinancingErrors.PlanCannotMixCardAndCreditor);
+        }
+        if(command.CardId is null && command.CreditorAccountId is null) {
+            return Result.Failure(FinancingErrors.CreditorAccountRequired);
+        }
         var trimmedDescription = command.Description.Trim();
         switch(trimmedDescription.Length) {
             case < 1:

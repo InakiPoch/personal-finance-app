@@ -72,8 +72,7 @@ internal static class FinancingMappingExtensions {
                 row.TotalMinorUnits,
                 row.InstallmentCount,
                 row.OutstandingCount,
-                row.PurchaseDate,
-                row.IsCreditorPayment)
+                row.PurchaseDate)
             )
             .ToList();
         return new CardPurchasesDto(response.CardId, rows);

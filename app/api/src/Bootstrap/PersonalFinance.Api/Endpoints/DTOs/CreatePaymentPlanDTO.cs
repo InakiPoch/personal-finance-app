@@ -4,7 +4,7 @@ public sealed record SplitParticipantDto(Guid PartyId, long Weight);
 
 public sealed record CreatePaymentPlanDto(
     long AmountMinorUnits,
-    Guid CardId,
+    Guid? CardId,
     int InstallmentCount,
     string PurchaseDate,
     string Description,

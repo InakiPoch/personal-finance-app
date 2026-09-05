@@ -120,8 +120,7 @@ FormArray stays visible and submittable in **both** modes. The API-retired per-r
 `isCreditorPayment` flag is dropped from `features/financing/types/card-purchase-row.ts` and the
 Dashboard card-purchases drill-down marker; `recent-purchase-row.ts` + `recent-purchases-*` keep
 their own `isCreditorPayment` (Phase 17's field, untouched). `load-expense-page.spec.ts` reworked
-for the selector (21 facts). Slices 2 ("Owed to creditors" list) and 3 (debit-cash mode) are not
-built.
+for the selector (21 facts). **Slice 2 — Owed to creditors list (`slice-2-owed-to-creditors-list.md`) — now built:** a standalone `creditor-payables-page` (new type `features/financing/types/creditor-payable-row.ts` + `creditor-payable-account.ts`; `financing-service.ts` gained `creditorPayables()` unwrapping the `{ rows }` envelope) listing every creditor with an outstanding balance across card-less plans, ordered by creditor name, each row showing creditor name (+ muted account-labels sub-line), the next-due date (`—` when null), and the `formatArs` outstanding total; staggered row-in animation matching sibling tables; empty state "You don't owe any creditors." Routed at `financing/creditor-payables`, linked from the global nav right after "Recent purchases". Styled to `docs/SYSTEM.md` from the start. Specs: `financing-service.spec.ts` +1 envelope fact; new `creditor-payables-page.spec.ts` (3 facts) + `creditor-payables-table.spec.ts` (3 facts). Verification: `pnpm ng lint` clean, `pnpm ng test` **194/194**, `pnpm ng build --configuration production` clean (no budget warnings). Slice 3 (debit-cash mode) is not built.
 
 ## Conventions — the non-negotiables
 

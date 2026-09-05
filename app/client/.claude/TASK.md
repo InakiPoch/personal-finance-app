@@ -843,6 +843,35 @@ Built one green-lit step at a time in lockstep with the API's Phase 18. No new D
 
 ---
 
+## Phase 20 — Owed to creditors list (Slice 2)
+
+**Goal:** Add a standalone, next-due-first list of every creditor with outstanding balance across all creditor-financed purchases.
+
+**Traces to:** `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md`; API side is the API's Phase 19 (`GET /v1/financing/creditor-payables`).
+
+**Depends on:** Phase 10 (card-less payment plans exist).
+
+### Tasks
+- [x] `features/financing/types/creditor-payable-row.ts` — `CreditorPayableRow = { creditorId: string; creditorName: string; outstandingMinorUnits: Money; nextDueDate: IsoDate | null; accounts: CreditorPayableAccountBreakdown[] }`.
+- [x] `features/financing/types/creditor-payable-account.ts` — `CreditorPayableAccountBreakdown = { accountId: string; label: string; outstandingMinorUnits: Money }`.
+- [x] `features/financing/financing-service.ts` — add `creditorPayables(): Observable<CreditorPayableRow[]>` → `GET /v1/financing/creditor-payables`, `{ rows }` unwrapped via `map`; `financing-service.spec.ts` gains its `HttpTestingController` spec (envelope unwrap + `AppError` on error).
+- [x] `features/financing/pages/creditor-payables-page/` (new) — container `creditor-payables-page.ts/.html/.css` (loads on `ngOnInit`, `loadStatus` state machine) + presentational `creditor-payables-table.ts/.html/.css` (creditor name + muted account-labels sub-line, next-due date or `—` when null, `formatArs` outstanding; staggered row-in animation matching `statements-table`; empty state "You don't owe any creditors.").
+- [x] `features/financing/financing.routes.ts` — `{ path: 'creditor-payables', component: CreditorPayablesPage }`.
+- [x] `app.ts` — "Owed to creditors" nav entry after "Recent purchases".
+- [x] `creditor-payables-page.spec.ts` (3 facts: fetches and renders on init, empty state, error surfaced without throwing) + `creditor-payables-table.spec.ts` (3 facts: renders creditor name with account sub-line, next-due date or dash, amount; empty note).
+
+### Definition of done
+- [x] The page loads every creditor on init and renders it in API response order, showing creditor name, account breakdown, next-due date, and outstanding total.
+- [x] The page is reachable from the global nav after "Recent purchases".
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **194 passed** (187 baseline at Phase 10 + these 7 new facts).
+- [ ] Manual live E2E walk (run the API, load creditor-financed plans with/without splits, confirm the list grouping + sums + next-due + account breakdown) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Built one green-lit step at a time in lockstep with the API's Phase 19. No new D-numbers — additive scope; `docs/PRD.md` §3.10 added as "not part of the original 7-view scope" (same pattern as §3.8–§3.9). Container/presentational split mirrors `statements-page`/`statements-table`. The limitation (no per-installment settlement tracking) is accepted and documented in both client PRD and API OpenAPI description — a future session with a payment concept will refine it. Full verification: `pnpm ng lint` clean, `pnpm ng build --configuration production` clean, `pnpm ng test` 194/194; API side `dotnet test --solution` 198/198, 0 warnings. Manual E2E walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

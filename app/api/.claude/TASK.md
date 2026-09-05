@@ -777,3 +777,29 @@ Built one green-lit step at a time (contract → handler → host wiring → API
 ### Completion notes (2026-09-05)
 
 Built one green-lit step at a time (nullable `CardId` + validation + migrations → `CreditorPayable` account + calculator + scheduler → API tests → client mode selector → client tests → E2E). **Two deviations folded into step 1:** `PaymentPlanConfiguration`'s `.IsRequired()` removal was needed for the in-memory-SQLite tests (`EnsureCreated` reads the live model), and `GetCardPurchases.IsCreditorPayment` was retired outright (user decision) since the new card-XOR-creditor guard makes it permanently false — three Phase-14 tests that asserted the old mixed state were rewritten or deleted. **The migration is two migrations**, not one: EF defers the SQLite table rebuild from `AlterColumn(CardId nullable)` past any trailing `Sql()` operation, so `vw_card_future_schedule` (which depends on `financing_payment_plans`) has to be dropped in the first migration and recreated in a follow-up — this is now the repo's pattern for `AlterColumn` under a dependent view. No new D-numbers — this implements D1–D11 of the parent plan. `AccrueCreditorSplitInstallmentsTests` drives the `SchedulerBase` tick via reflection (`TickAsync` is `protected` on a `sealed` class). Client-side counterpart (two-way payment-mode selector replacing the "Different creditor" checkbox) is `app/client/.claude/TASK.md` Phase 10. Full verification: `dotnet test --solution` 192/192, 0 warnings; `PersonalFinance.Architecture.Tests` green; client `pnpm ng lint` + `pnpm ng build --configuration production` clean, `pnpm ng test` 187/187. Manual E2E walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 19 — Owed to creditors list (Slice 2)
+
+**Goal:** Add a read-only list of every creditor and their outstanding balance across all card-less plans, grouped by creditor with per-account breakdown.
+
+**Traces to:** `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (continued planning doc).
+
+**Depends on:** Phase 18 (card-less `PaymentPlan` + `CreditorPayableAccountId` + `Installment.IsReversed`). No cross-module dependency outside `Financing.Contracts`.
+
+### Tasks
+- [x] `Financing.Contracts/Queries/GetCreditorPayablesQuery.cs` — `GetCreditorPayablesQuery() : IQuery<CreditorPayablesResponse>`, `CreditorPayablesResponse(IReadOnlyList<CreditorPayableRow> Rows)`, `CreditorPayableRow(Guid CreditorId, string CreditorName, long OutstandingMinorUnits, DateOnly? NextDueDate, IReadOnlyList<CreditorPayableAccountBreakdown> Accounts)`, `CreditorPayableAccountBreakdown(Guid AccountId, string Label, long OutstandingMinorUnits)` — mirrors `GetCardPurchasesQuery` and `ListRecentPurchasesQuery` pattern.
+- [x] `Application/Queries/GetCreditorPayables/GetCreditorPayablesHandler.cs` — joins `Installment` (`context.Set<Installment>()`, no root `DbSet`) to `PaymentPlan` filtered by `plan.CreditorId != null && !installment.IsReversed`, `ToListAsync`, then in memory: loads `Creditors.Include(c => c.Accounts)`, groups by creditor → outstanding sum + earliest `(CycleYear, CycleMonth)` as `NextDueDate` (month boundaries, purchase day clamped to month length), per-account breakdown ordered by label, rows ordered by creditor name. **Limitation:** no per-installment paid/settled flag exists, so "outstanding" means every non-reversed installment of the plan; `NextDueDate` is earliest *scheduled* month, does not advance as time passes. Registered in `FinancingModule.Register`.
+- [x] Host: `Endpoints/Financing/GetCreditorPayables.cs` (`IQueryBus.AskAsync` + `FinancingMappingExtensions.ToCreditorPayablesDto`), `Endpoints/DTOs/CreditorPayablesDTO.cs` (`CreditorPayablesDto`/`CreditorPayableRowDto`/`CreditorPayableAccountDto`), `ApiRoutes.Financing.CreditorPayables = "/creditor-payables"`, wired in `EndpointExtensions.MapFinancingEndpoints` with `.Produces<CreditorPayablesDto>(200)` under tag `"Financing"` and `.WithDescription` documenting the limitation.
+- [x] Tests: `tests/PersonalFinance.Financing.Tests/GetCreditorPayablesHandlerTests.cs` (5 facts, in-memory SQLite: two-creditor grouping + sums; no-creditor plans excluded; card-backed plans never appear; `NextDueDate` = earliest scheduled date; per-account breakdown ordered) + `tests/PersonalFinance.Api.Tests/CreditorPayablesTests.cs` (1 fact: OpenAPI presence under `Financing` with `200`).
+
+### Definition of done
+- [x] `GET /v1/financing/creditor-payables` returns grouped creditors with outstanding totals + next-due dates + account breakdowns; no card-backed or non-creditor plans; list ordered by creditor name.
+- [x] No new EF migration, no `IFinancingApi` change; `PersonalFinance.Architecture.Tests` green.
+- [x] `dotnet test --solution` → **198 passed** (from 192 at Phase 18), 0 warnings; RNF-9 green.
+- [ ] Manual live E2E walk (run the API, load creditor-financed plans with and without splits, hit the endpoint, confirm grouping + sums + next-due + account breakdown against the DB) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Pure additive CQRS read-only query on the `GetCardPurchases` / `GetCardStatements` precedent. No schema change, no EF migration, no `IFinancingApi` edge. Built one green-lit step at a time (contract → handler → host wiring → API tests → verification). Client-side counterpart (new standalone page + route + nav entry) is `app/client/.claude/TASK.md` Phase 20. The limitation (no per-installment settlement tracking) is accepted and documented in the OpenAPI description — a future session with a payment concept will refine it. Full verification: `dotnet test --solution` 198/198, 0 warnings; `PersonalFinance.Architecture.Tests` green. Manual E2E walk handed to the user. Not committed by this session — the user commits their own.

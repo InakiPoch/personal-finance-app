@@ -311,7 +311,8 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 21 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
 | 22 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail (timeline row → Reverse movement) |
 | 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
-| 24 | GET | `/health` | `HealthService.check` | (status indicator) |
+| 24 | GET | `/v1/financing/creditor-payables` | `FinancingService.creditorPayables` | Owed to creditors list |
+| 25 | GET | `/health` | `HealthService.check` | (status indicator) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

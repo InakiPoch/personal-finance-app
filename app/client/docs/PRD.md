@@ -147,6 +147,15 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   drill-down). Reachable from the global nav and a second Dashboard quick-action link — the
   client's known discoverability weak spot does not apply here.
 
+### 3.10 Owed to creditors (new — not part of the original 7-view scope, now built)
+- **Shows:** a standalone list of every creditor with an outstanding balance across all
+  creditor-financed purchases, ordered by creditor name — each row's creditor name (+ a muted
+  sub-line listing their account labels), next due date (`—` when no schedule has started), and
+  the outstanding total.
+  An empty-state note when no creditor has an outstanding balance.
+- **Source:** `GET /v1/financing/creditor-payables`.
+- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md`; Financing-only, read-only, no Ledger (D7). **Accepted limitation:** there is no per-installment payment/settlement tracking, so "outstanding" is the entire creditor-financed plan (every non-reversed installment); `NextDueDate` is the earliest *scheduled* month and does not advance as months pass — a future session will refine this when a settlement concept lands. Reachable from the global nav right after "Recent purchases".
+
 ## 4. Cross-cutting client requirements
 
 - **Consistent error surfacing.** Every failed call yields the same typed error (from the API's

@@ -10,6 +10,7 @@ public enum AccountKind {
     CardLiability,
     CardCredit,
     CardPurchases,
+    CreditorPayable,
     Expense,
     Income,
     Equity

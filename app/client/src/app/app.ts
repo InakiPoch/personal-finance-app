@@ -17,6 +17,7 @@ export class App {
     { label: 'Load expense', path: '/financing/load-expense' },
     { label: 'Statements', path: '/financing/statements' },
     { label: 'Recent purchases', path: '/financing/recent-purchases' },
+    { label: 'Owed to creditors', path: '/financing/creditor-payables' },
     { label: 'Reverse', path: '/ledger/transactions' },
     { label: 'Subscriptions', path: '/subscriptions' },
     { label: 'Parties', path: '/parties' },

@@ -49,6 +49,55 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_rejects_an_unknown_creditor() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var command = new CreatePaymentPlanCommand(
+            10000, CardId: null, 3, new DateOnly(2026, 1, 10),
+            Description: "New laptop", CreditorId: Guid.CreateVersion7(), CreditorAccountId: Guid.CreateVersion7());
+        await using var context = NewContext();
+        var result = await new CreatePaymentPlanHandler(context, new FinancingOutboxWriter(context)).HandleAsync(command, cancellationToken);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Financing.CreditorNotFound", result.Error.Code);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_an_account_that_does_not_belong_to_the_creditor() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (creditorId, _) = await SeedCreditorAsync(cancellationToken);
+        var command = new CreatePaymentPlanCommand(
+            10000, CardId: null, 3, new DateOnly(2026, 1, 10),
+            Description: "New laptop", CreditorId: creditorId, CreditorAccountId: Guid.CreateVersion7());
+        await using var context = NewContext();
+        var result = await new CreatePaymentPlanHandler(context, new FinancingOutboxWriter(context)).HandleAsync(command, cancellationToken);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Financing.CreditorAccountMismatch", result.Error.Code);
+    }
+
+    [Fact]
+    public async Task Handle_schedules_creditor_installments_monthly_from_the_month_after_purchase() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (creditorId, creditorAccountId) = await SeedCreditorAsync(cancellationToken);
+        var command = new CreatePaymentPlanCommand(
+            9000, CardId: null, 3, new DateOnly(2026, 1, 10),
+            Description: "New laptop", CreditorId: creditorId, CreditorAccountId: creditorAccountId);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var result = await new CreatePaymentPlanHandler(context, new FinancingOutboxWriter(context)).HandleAsync(command, cancellationToken);
+            Assert.True(result.IsSuccess);
+            planId = result.Value;
+        }
+        await using var verifyContext = NewContext();
+        var plan = await verifyContext.PaymentPlans
+            .Include(candidate => candidate.Installments)
+            .SingleAsync(candidate => candidate.Id == planId, cancellationToken);
+        var cycles = plan.Installments
+            .OrderBy(installment => installment.Sequence)
+            .Select(installment => (installment.CycleYear, installment.CycleMonth))
+            .ToArray();
+        Assert.Equal([(2026, 2), (2026, 3), (2026, 4)], cycles);
+    }
+
+    [Fact]
     public async Task Handle_leaves_creditor_fields_null_when_absent() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var cardId = await SeedCardAsync(cancellationToken);

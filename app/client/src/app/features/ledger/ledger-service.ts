@@ -5,6 +5,8 @@ import { IsoDate } from '../../core/types/iso-date';
 import { AccountBalance } from './types/account-balance';
 import { PostTransaction } from './types/post-transaction';
 import { PostTransactionResult } from './types/post-transaction-result';
+import { RecordDebitExpense } from './types/record-debit-expense';
+import { RecordDebitExpenseResult } from './types/record-debit-expense-result';
 import { ReverseTransactionResult } from './types/reverse-transaction-result';
 import { TransactionRow } from './types/transaction-row';
 
@@ -16,6 +18,16 @@ export class LedgerService {
 
   postTransaction(body: PostTransaction): Observable<PostTransactionResult> {
     return this.http.post<PostTransactionResult>('ledger/transactions', body);
+  }
+
+  recordDebitExpense(body: RecordDebitExpense): Observable<RecordDebitExpenseResult> {
+    return this.http.post<RecordDebitExpenseResult>('ledger/expenses', body);
+  }
+
+  listExpenseCategories(): Observable<string[]> {
+    return this.http
+      .get<RowsEnvelope<{ name: string }>>('expense-categories')
+    .pipe(map((envelope: RowsEnvelope<{ name: string }>) => envelope.rows.map((row) => row.name)));
   }
 
   listTransactions(

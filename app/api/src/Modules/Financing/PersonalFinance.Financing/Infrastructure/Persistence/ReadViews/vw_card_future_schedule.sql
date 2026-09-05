@@ -11,4 +11,5 @@ SELECT
 FROM financing_installments i
 JOIN financing_payment_plans p ON p.Id = i.PaymentPlanId
 WHERE i.AccruedOnUtc IS NULL
-  AND i.IsReversed = 0;
+  AND i.IsReversed = 0
+  AND p.CardId IS NOT NULL;

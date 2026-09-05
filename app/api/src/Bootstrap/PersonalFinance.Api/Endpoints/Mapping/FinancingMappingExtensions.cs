@@ -72,8 +72,7 @@ internal static class FinancingMappingExtensions {
                 row.TotalMinorUnits,
                 row.InstallmentCount,
                 row.OutstandingCount,
-                row.PurchaseDate,
-                row.IsCreditorPayment)
+                row.PurchaseDate)
             )
             .ToList();
         return new CardPurchasesDto(response.CardId, rows);
@@ -92,6 +91,26 @@ internal static class FinancingMappingExtensions {
             )
             .ToList();
         return new RecentPurchasesDto(rows);
+    }
+
+    public static CreditorPayablesDto ToCreditorPayablesDto(this CreditorPayablesResponse response) {
+        var rows = response.Rows
+            .Select(row => new CreditorPayableRowDto(
+                row.CreditorId,
+                row.CreditorName,
+                row.OutstandingMinorUnits,
+                row.NextDueDate,
+                row.Accounts
+                    .Select(account => new CreditorPayableAccountDto(
+                        account.AccountId,
+                        account.Label,
+                        account.OutstandingMinorUnits)
+                    )
+                    .ToList()
+                )
+            )
+            .ToList();
+        return new CreditorPayablesDto(rows);
     }
 
     public static MonthlyStatementDetailDto ToMonthlyStatementDetailDto(this MonthlyStatementDetailResponse response) {

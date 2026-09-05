@@ -1,5 +1,6 @@
 using PersonalFinance.Api.Endpoints.Creditors;
 using PersonalFinance.Api.Endpoints.DTOs;
+using PersonalFinance.Api.Endpoints.ExpenseCategories;
 using PersonalFinance.Api.Endpoints.Financing;
 using PersonalFinance.Api.Endpoints.Ledger;
 using PersonalFinance.Api.Endpoints.Parties;
@@ -35,6 +36,12 @@ internal static class EndpointExtensions {
                 .WithSummary("Get an account's current balance.")
                 .WithDescription("Returns the live balance of the given Ledger account.")
                 .Produces<AccountBalanceDto>(StatusCodes.Status200OK);
+            group.MapPost(ApiRoutes.Ledger.Expenses, RecordDebitExpense.Handle)
+                .WithSummary("Record a debit or cash expense.")
+                .WithDescription("Posts one balanced Ledger transaction for money already spent from a debit or cash account, against an expense category resolved get-or-create by name. When parties are split in, each share posts to their receivable instead — the holder's share stays on the category — mirroring the credit-card split.")
+                .Produces<RecordDebitExpenseResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             var environment = endpoints.ServiceProvider.GetRequiredService<IHostEnvironment>();
             if(environment.IsDevelopment()) {
                 group.MapPost(ApiRoutes.Ledger.DevAccounts, PostDevAccount.Handle)
@@ -84,6 +91,10 @@ internal static class EndpointExtensions {
                 .WithSummary("List recent purchases across every card.")
                 .WithDescription("Returns every payment plan, newest-first, independent of card grouping or debt state, capped at a default limit.")
                 .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.CreditorPayables, GetCreditorPayables.Handle)
+                .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
+                .WithDescription("Read-only roll-up over creditor-financed payment plans. There is no per-installment paid/settled flag yet, so \"outstanding\" is the whole plan: every non-reversed installment of a creditor-financed plan counts as still owed. Card-backed plans never appear.")
+                .Produces<CreditorPayablesDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 
@@ -117,6 +128,17 @@ internal static class EndpointExtensions {
                 .WithSummary("List registered creditors.")
                 .WithDescription("Returns every creditor with its accounts, ordered by name.")
                 .Produces<CreditorListDto>(StatusCodes.Status200OK);
+            return endpoints;
+        }
+
+        public IEndpointRouteBuilder MapExpenseCategoriesEndpoints() {
+            var group = endpoints.MapGroup(ApiRoutes.ExpenseCategories.Base)
+                .WithTags("Expense categories")
+                .ProducesProblem(StatusCodes.Status500InternalServerError);
+            group.MapGet(ApiRoutes.ExpenseCategories.List, GetExpenseCategories.Handle)
+                .WithSummary("List debit/cash expense categories.")
+                .WithDescription("Returns the distinct expense-category names available for a debit or cash expense — Ledger accounts of Expense type and Expense kind — ordered by name. New categories are minted on first use when the expense is recorded.")
+                .Produces<ExpenseCategoriesDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

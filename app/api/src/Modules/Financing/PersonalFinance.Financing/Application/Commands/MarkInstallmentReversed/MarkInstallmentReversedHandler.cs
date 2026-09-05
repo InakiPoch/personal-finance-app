@@ -17,7 +17,7 @@ internal sealed class MarkInstallmentReversedHandler(FinancingDbContext context)
             from installment in context.Set<Installment>()
             where installment.Id == command.InstallmentId
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
-            join card in context.CreditCards on plan.CardId equals card.Id
+            from card in context.CreditCards.Where(candidate => candidate.Id == plan.CardId).DefaultIfEmpty()
             select new { Installment = installment, Card = card }
         ).FirstOrDefaultAsync(cancellationToken);
         if(row is null) {
@@ -27,7 +27,7 @@ internal sealed class MarkInstallmentReversedHandler(FinancingDbContext context)
         if(marked.IsFailure) {
             return marked;
         }
-        if(command.CompensatingCreditPosted) {
+        if(command.CompensatingCreditPosted && row.Card is not null) {
             var credit = row.Card.ApplyCredit(Money.FromMinorUnits(command.CreditAmountMinorUnits, Currency.Reference));
             if(credit.IsFailure) {
                 return credit;

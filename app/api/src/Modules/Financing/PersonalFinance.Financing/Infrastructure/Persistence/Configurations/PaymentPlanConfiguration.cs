@@ -11,13 +11,15 @@ internal sealed class PaymentPlanConfiguration : IEntityTypeConfiguration<Paymen
         builder.ToTable("financing_payment_plans");
         builder.HasKey(plan => plan.Id);
         builder.Property(plan => plan.Id).ValueGeneratedNever();
-        builder.Property(plan => plan.CardId).IsRequired();
+        // Nullable: a creditor-financed plan has no card (D2).
+        builder.Property(plan => plan.CardId);
         builder.Property(plan => plan.PurchaseDate).IsRequired();
         builder.Property(plan => plan.InstallmentCount).IsRequired();
         builder.Property(plan => plan.Description).IsRequired();
         builder.Property(plan => plan.SplitReferenceId);
         builder.Property(plan => plan.CreditorId);
         builder.Property(plan => plan.CreditorAccountId);
+        builder.Property(plan => plan.CreditorPayableAccountId);
         builder.Property(plan => plan.Total)
             .HasConversion(
                 amount => amount.MinorUnits,

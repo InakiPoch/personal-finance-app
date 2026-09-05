@@ -12,7 +12,7 @@ internal sealed class GetInstallmentStatusHandler(FinancingDbContext context) : 
             from installment in context.Set<Installment>()
             where installment.Id == query.InstallmentId
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
-            join card in context.CreditCards on plan.CardId equals card.Id
+            from card in context.CreditCards.Where(candidate => candidate.Id == plan.CardId).DefaultIfEmpty()
             select new { Installment = installment, Card = card }
         ).FirstOrDefaultAsync(cancellationToken);
         if(row is null) {
@@ -29,9 +29,9 @@ internal sealed class GetInstallmentStatusHandler(FinancingDbContext context) : 
             row.Installment.StatementId,
             row.Installment.Amount.MinorUnits,
             row.Installment.IsReversed,
-            row.Card.Id,
-            row.Card.CreditAccountId,
-            row.Card.LiabilityAccountId
+            row.Card?.Id ?? Guid.Empty,
+            row.Card?.CreditAccountId ?? Guid.Empty,
+            row.Card?.LiabilityAccountId ?? Guid.Empty
         );
     }
 }

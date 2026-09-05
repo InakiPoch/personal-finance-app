@@ -83,6 +83,31 @@ internal static class FinancingErrors {
         "A creditor name must not be blank."
     );
 
+    public static readonly Error PlanNeedsCardOrCreditor = new(
+        "Financing.PlanNeedsCardOrCreditor",
+        "A payment plan must reference either a credit card or a creditor."
+    );
+
+    public static readonly Error PlanCannotMixCardAndCreditor = new(
+        "Financing.PlanCannotMixCardAndCreditor",
+        "A payment plan cannot reference both a credit card and a creditor."
+    );
+
+    public static readonly Error CreditorAccountRequired = new(
+        "Financing.CreditorAccountRequired",
+        "A creditor-financed payment plan requires a creditor account to pay."
+    );
+
+    public static readonly Error CreditorNotFound = new(
+        "Financing.CreditorNotFound",
+        "The referenced creditor was not found."
+    );
+
+    public static readonly Error CreditorAccountMismatch = new(
+        "Financing.CreditorAccountMismatch",
+        "The referenced account does not belong to the creditor."
+    );
+
     public static readonly Error BlankDescription = new(
         "Financing.BlankDescription",
         "A payment plan description must not be blank."

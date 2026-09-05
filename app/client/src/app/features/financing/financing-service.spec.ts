@@ -10,6 +10,7 @@ import { environment } from '../../environments/environment';
 import { CardFutureSchedule } from './types/card-future-schedule';
 import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
+import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayStatement } from './types/pay-statement';
@@ -178,6 +179,23 @@ describe('FinancingService', () => {
     let result: RecentPurchaseRow[] | undefined;
     service.recentPurchases().subscribe((r: RecentPurchaseRow[]) => (result = r));
     const req = httpMock.expectOne(`${base}/financing/purchases/recent`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows });
+    expect(result).toEqual(rows);
+  });
+  it('GETs the creditor payables list and unwraps the { rows } envelope', () => {
+    const rows: CreditorPayableRow[] = [{
+      creditorId: 'cr-1',
+      creditorName: 'Juan',
+      outstandingMinorUnits: money(45000),
+      nextDueDate: '2026-03-10',
+      accounts: [
+        { accountId: 'acc-1', label: 'Galicia', outstandingMinorUnits: money(45000) }
+      ]
+    }];
+    let result: CreditorPayableRow[] | undefined;
+    service.creditorPayables().subscribe((r: CreditorPayableRow[]) => (result = r));
+    const req = httpMock.expectOne(`${base}/financing/creditor-payables`);
     expect(req.request.method).toBe('GET');
     req.flush({ rows });
     expect(result).toEqual(rows);

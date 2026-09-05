@@ -14,12 +14,14 @@ public sealed record SplitParticipant(Guid PartyId, long Weight);
 public sealed record PaymentPlanSplitPayload(IReadOnlyList<SplitParticipant> Participants);
 
 /// <summary>
-/// Creates an installment plan for a card purchase. The first installment is assigned to the
-/// billing cycle the purchase date closes into; the rest follow month by month.
+/// Creates an installment plan. For a card purchase (<see cref="CardId"/> set) the first installment
+/// is assigned to the billing cycle the purchase date closes into and the rest follow month by month.
+/// For a creditor-financed purchase (<see cref="CreditorId"/> set, no card) the schedule is a plain
+/// monthly one counted from the purchase date, with no billing cycle.
 /// </summary>
 public sealed record CreatePaymentPlanCommand(
     long AmountMinorUnits,
-    Guid CardId,
+    Guid? CardId,
     int InstallmentCount,
     DateOnly PurchaseDate,
     string Description,

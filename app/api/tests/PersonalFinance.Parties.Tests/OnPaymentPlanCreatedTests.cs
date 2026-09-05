@@ -104,6 +104,14 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
             return Task.FromResult<Result<Guid>>(Guid.CreateVersion7());
         }
 
+        public Task<Result<Guid>> GetOrCreateExpenseCategoryAsync(GetOrCreateExpenseCategoryCommand command, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
+
+        public Task<ExpenseCategoriesResponse> ListExpenseCategoriesAsync(ListExpenseCategoriesQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
+
         public Task<Result<Guid>> PostTransactionAsync(PostTransactionCommand command, CancellationToken ct = default) {
             throw new NotSupportedException();
         }

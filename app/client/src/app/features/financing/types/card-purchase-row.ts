@@ -8,5 +8,4 @@ export type CardPurchaseRow = {
   installmentCount: number;
   outstandingCount: number;
   purchaseDate: IsoDate;
-  isCreditorPayment: boolean;
 };

@@ -28,7 +28,6 @@ internal sealed class GetCardPurchasesHandler(FinancingDbContext context) : IQue
                 plan.Total,
                 plan.InstallmentCount,
                 plan.PurchaseDate,
-                plan.CreditorId,
                 installment.AccruedOnUtc,
                 installment.StatementId,
                 installment.CycleYear,
@@ -58,8 +57,7 @@ internal sealed class GetCardPurchasesHandler(FinancingDbContext context) : IQue
                 entry.First.Total.MinorUnits,
                 entry.First.InstallmentCount,
                 entry.OutstandingCount,
-                entry.First.PurchaseDate,
-                entry.First.CreditorId is not null))
+                entry.First.PurchaseDate))
             .ToList();
         return new CardPurchasesResponse(query.CardId, rows);
     }

@@ -27,7 +27,7 @@ internal sealed class ListRecentPurchasesHandler(FinancingDbContext context) : I
             .Select(plan => new RecentPurchaseRow(
                 plan.Id,
                 plan.Description,
-                cardNames.GetValueOrDefault(plan.CardId, ""),
+                plan.CardId is { } cardId ? cardNames.GetValueOrDefault(cardId, "") : "",
                 plan.PurchaseDate,
                 plan.Total.MinorUnits,
                 plan.InstallmentCount,

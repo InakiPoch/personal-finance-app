@@ -816,6 +816,90 @@ Built one green-lit step at a time, in lockstep with the API's Phase 17. No new 
 
 ---
 
+## Phase 10 — Creditor-financed expenses (Slice 1)
+
+**Goal:** Turn the Load-Expense "Different creditor" checkbox into a two-way payment-mode selector (My credit card / Financed by a creditor) so a creditor-financed purchase submits with no `cardId` and required creditor + account fields; leave room for a third debit-cash mode.
+
+**Traces to:** `docs/expense-payment-modes/slice-1-creditor-financed.md`; API side is the API's Phase 18 (`cardId` optional on `POST /v1/financing/payment-plans`).
+
+**Depends on:** Phase 6 (the "Different creditor" toggle + creditor/account pickers on `load-expense-page`).
+
+### Tasks
+- [x] `features/financing/types/create-payment-plan.ts` — `cardId: string` → `cardId?: string`.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` — drop `differentCreditor: FormControl<boolean>`, add `mode: FormControl<'card' | 'creditor'>` (init `'card'`); new `modeOptions`; `watchDifferentCreditorToggle` → `watchModeChange` (creditor: clear + blank `cardId`, require `creditorId`/`creditorAccountId`; card: the reverse + `creditorAccounts.set([])`); `onSubmit` body spreads `mode === 'card' ? { cardId } : { creditorId, creditorAccountId }` then the split spread; `ngOnInit` swaps the watcher.
+- [x] `load-expense-page.html` — segmented control (`<fieldset>` + `peer`/`peer-checked` radio, copied from `instruments-page.html`) at the top of "The purchase"; card `<select>` under `@if(mode.value === 'card')`, creditor + account `<select>`s under `@else`; the standalone "Creditor" `<section>` + checkbox deleted; split section unchanged, visible in both modes.
+- [x] `isCreditorPayment` retirement (API-driven) — remove from `features/financing/types/card-purchase-row.ts` and the `dashboard-page.html` card-purchases drill-down marker; trim the `dashboard-page.spec.ts` fixture. `recent-purchase-row.ts` + `recent-purchases-*` keep their own field (Phase 9).
+- [x] `load-expense-page.spec.ts` — rework the three `differentCreditor` specs to drive `form.controls.mode`; add: card-mode body has `cardId` and no creditor fields; creditor-mode body omits `cardId`, has `creditorId` + `creditorAccountId`, form valid; DOM shows the right `<select>`s per mode; split stays rendered in both modes; a split added in creditor mode is in the body.
+
+### Definition of done
+- [x] Card mode submits `{ cardId, ... }`; creditor mode submits `{ creditorId, creditorAccountId, ... }` with no `cardId`; validators follow the mode.
+- [x] The split section is visible and submittable in both modes.
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **187 passed** (183 baseline at Phase 9 + net 4 from the `load-expense-page.spec.ts` rework — 21 facts there).
+- [ ] Manual live E2E walk (card mode unchanged; creditor mode with and without a split; confirm the payload shape and the confirmation panel) — **handed to the user**, not run this session.
+
+### Completion notes (2026-09-05)
+
+Built one green-lit step at a time in lockstep with the API's Phase 18. No new D-numbers — additive scope; `docs/PRD.md` §3.3 + §3.8 updated (the "Different creditor" toggle of §3.8 is superseded by the §3.3 mode selector). Segmented control reuses the `instruments-page` `<fieldset>` + `peer-checked` pattern verbatim rather than a new component. Full verification: `pnpm ng lint` clean, `pnpm ng build --configuration production` clean, `pnpm ng test` 187/187; API side `dotnet test --solution` 192/192, 0 warnings. Manual E2E walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 20 — Owed to creditors list (Slice 2)
+
+**Goal:** Add a standalone, next-due-first list of every creditor with outstanding balance across all creditor-financed purchases.
+
+**Traces to:** `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md`; API side is the API's Phase 19 (`GET /v1/financing/creditor-payables`).
+
+**Depends on:** Phase 10 (card-less payment plans exist).
+
+### Tasks
+- [x] `features/financing/types/creditor-payable-row.ts` — `CreditorPayableRow = { creditorId: string; creditorName: string; outstandingMinorUnits: Money; nextDueDate: IsoDate | null; accounts: CreditorPayableAccountBreakdown[] }`.
+- [x] `features/financing/types/creditor-payable-account.ts` — `CreditorPayableAccountBreakdown = { accountId: string; label: string; outstandingMinorUnits: Money }`.
+- [x] `features/financing/financing-service.ts` — add `creditorPayables(): Observable<CreditorPayableRow[]>` → `GET /v1/financing/creditor-payables`, `{ rows }` unwrapped via `map`; `financing-service.spec.ts` gains its `HttpTestingController` spec (envelope unwrap + `AppError` on error).
+- [x] `features/financing/pages/creditor-payables-page/` (new) — container `creditor-payables-page.ts/.html/.css` (loads on `ngOnInit`, `loadStatus` state machine) + presentational `creditor-payables-table.ts/.html/.css` (creditor name + muted account-labels sub-line, next-due date or `—` when null, `formatArs` outstanding; staggered row-in animation matching `statements-table`; empty state "You don't owe any creditors.").
+- [x] `features/financing/financing.routes.ts` — `{ path: 'creditor-payables', component: CreditorPayablesPage }`.
+- [x] `app.ts` — "Owed to creditors" nav entry after "Recent purchases".
+- [x] `creditor-payables-page.spec.ts` (3 facts: fetches and renders on init, empty state, error surfaced without throwing) + `creditor-payables-table.spec.ts` (3 facts: renders creditor name with account sub-line, next-due date or dash, amount; empty note).
+
+### Definition of done
+- [x] The page loads every creditor on init and renders it in API response order, showing creditor name, account breakdown, next-due date, and outstanding total.
+- [x] The page is reachable from the global nav after "Recent purchases".
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **194 passed** (187 baseline at Phase 10 + these 7 new facts).
+- [ ] Manual live E2E walk (run the API, load creditor-financed plans with/without splits, confirm the list grouping + sums + next-due + account breakdown) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Built one green-lit step at a time in lockstep with the API's Phase 19. No new D-numbers — additive scope; `docs/PRD.md` §3.10 added as "not part of the original 7-view scope" (same pattern as §3.8–§3.9). Container/presentational split mirrors `statements-page`/`statements-table`. The limitation (no per-installment settlement tracking) is accepted and documented in both client PRD and API OpenAPI description — a future session with a payment concept will refine it. Full verification: `pnpm ng lint` clean, `pnpm ng build --configuration production` clean, `pnpm ng test` 194/194; API side `dotnet test --solution` 198/198, 0 warnings. Manual E2E walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 21 — Debit/cash expenses with categories (Slice 3)
+
+**Goal:** Light up the third *My debit-cash* mode of §3.3's Load-Expense form — a debit/cash instrument dropdown, a required free-type category (existing list + type-new), installments hidden, submit to the Ledger endpoint instead of the payment-plan endpoint.
+
+**Traces to:** `docs/expense-payment-modes/slice-3-debit-cash-categories.md` (final slice of the payment-modes initiative); API side is the API's Phase 20 (`GET /v1/expense-categories`, `POST /v1/ledger/expenses`).
+
+**Depends on:** Phase 10 (the two-way payment-mode selector on `load-expense-page`).
+
+### Tasks
+- [x] `features/ledger/types/record-debit-expense.ts` — `RecordDebitExpense = { amountMinorUnits: Money; sourceInstrumentId: string; categoryName: string; purchaseDate: IsoDate; description: string; split?: DebitExpenseParticipant[] }`. `record-debit-expense-result.ts` — `RecordDebitExpenseResult = { id: string }`. `debit-expense-participant.ts` — `DebitExpenseParticipant = { partyId: string; weight: number }`.
+- [x] `features/ledger/ledger-service.ts` — `recordDebitExpense(body): Observable<RecordDebitExpenseResult>` (`POST ledger/expenses`) + `listExpenseCategories(): Observable<string[]>` (`GET expense-categories`, `map`-unwrapping the `{ rows: [{ name }] }` envelope to names); `ledger-service.spec.ts` +3 facts (POST → `id`, POST with a split payload, GET envelope → names).
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` — `mode` widened to `'card' | 'creditor' | 'debit'`; `modeOptions` gains *My debit-cash* in slot 2; form gains `sourceInstrumentId` + `categoryName` `nonNullable` controls; new signals `bankAndCashInstruments` (`computed` — `instruments()` filtered `type === 'debit' || 'cash'`), `expenseCategories: WritableSignal<string[]>` (populated in `ngOnInit` via a one-shot `loadExpenseCategories()`), `confirmedKind: WritableSignal<'plan' | 'expense'>`; `LedgerService` injected. `watchModeChange` is 3-way — `'debit'` makes `sourceInstrumentId` required + `categoryName` `[Validators.required, noBlank]`, drops the `installmentCount` validator and pins it to `1`, clears + blanks all card- and creditor-mode fields (the `'card'`/`'creditor'` branches unchanged — D11). `onSubmit` branches: `'debit'` builds a `RecordDebitExpense` (category `.trim()`ed, split `FormArray` carried — D9) → `ledgerService.recordDebitExpense(...)` mapped to `.id`; else the existing `createPaymentPlan(...)` mapped to `.paymentPlanId`; shared `subscribe` sets `confirmedPlanId`/`confirmedDescription`/`submitStatus`, still reconciles participants on a split, and sets `confirmedKind`. `submitErrorMessages` gains `Ledger.AccountNotFound`, `Ledger.SourceAccountNotSpendable`, `Ledger.InvalidExpenseCategory`.
+- [x] `load-expense-page.html` — the purchase-section `<select>` is now `@if(card) … @else if(creditor) … @else { <debit block> }`. Debit block: "Paid from" `<select id="sourceInstrumentId">` fed by `bankAndCashInstruments()` (empty-state "No debit or cash accounts registered yet — add one on the Instruments page."), and a free-type Category `<input type="text" list="expense-category-options">` + `<datalist>` of `expenseCategories()` + hint line — a `<datalist>`, not a bare native `<select>`, per `docs/SYSTEM.md`. The installments `<div>` is wrapped in `@if(mode !== 'debit')`. Confirmation panel reads "expense recorded" / `Expense <code>{id}</code>` for debit, "payment plan created" / `Plan …` otherwise.
+- [x] `load-expense-page.spec.ts` +9 facts (debit validators swap; both debit + cash instruments offered; blank category rejected; submit routes to `recordDebitExpense` not `createPaymentPlan` with the right payload + `confirmedKind() === 'expense'`; category trimmed; split included in the debit payload; `debit → card` switch restores card mode; DOM shows source/category + hides installments/cardId/creditorId; headline "expense recorded").
+- [x] `docs/PRD.md` §3.3 updated for the third mode + new §3.11 "Debit/cash expenses with categories"; `docs/DESIGN.md` §3 Ledger types + §4 `LedgerService` methods + §9 traceability rows 26–27.
+
+### Definition of done
+- [x] Debit mode shows the instrument + category fields, hides installments; category is required (blank rejected); submit calls `POST /v1/ledger/expenses`, not the payment-plan path.
+- [x] Card and creditor modes are byte-for-byte unchanged; switching away from debit restores their fields.
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean (`financing-routes` chunk 50 → 56.40 kB, under the 500 kB budget); `pnpm ng test --watch=false --browsers=ChromeHeadless` → **206 passed** (194 baseline at Phase 20 + 12 new facts).
+- [ ] Manual live E2E walk (run the API + client, register a `debit` instrument, record a "Groceries" expense, confirm the balanced transaction + the "Groceries" row in the monthly view, re-use "Groceries" and confirm no second account) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Built one green-lit step at a time in lockstep with the API's Phase 20 (step 3 of the slice). No new D-numbers — additive scope reusing the Phase-10 payment-mode selector. The category field is an `<input>` + `<datalist>` (pick-existing-or-type-new), not a `<select>`, staying within `docs/SYSTEM.md`'s caution against shipping an unstyled native `<select>` as the design. The split `FormArray` carries into debit mode unchanged (D9). Full verification: `pnpm ng lint` clean, `pnpm ng build --configuration production` clean, `pnpm ng test` 206/206; API side `dotnet test --solution` 222/222, 0 warnings, `dotnet restore --locked-mode` clean. Manual sanity walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

@@ -19,10 +19,24 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
         if(validation.IsFailure) {
             return validation.Error;
         }
-        var card = await context.CreditCards
-            .FirstOrDefaultAsync(candidate => candidate.Id == command.CardId, cancellationToken);
-        if(card is null) {
-            return FinancingErrors.CardNotFound;
+        int? cutoffDay;
+        if(command.CardId is { } cardId) {
+            var card = await context.CreditCards.FirstOrDefaultAsync(candidate => candidate.Id == cardId, cancellationToken);
+            if(card is null) {
+                return FinancingErrors.CardNotFound;
+            }
+            cutoffDay = card.CutoffDay;
+        } else {
+            var creditor = await context.Creditors
+                .Include(candidate => candidate.Accounts)
+                .FirstOrDefaultAsync(candidate => candidate.Id == command.CreditorId, cancellationToken);
+            if(creditor is null) {
+                return FinancingErrors.CreditorNotFound;
+            }
+            if(creditor.Accounts.All(account => account.Id != command.CreditorAccountId)) {
+                return FinancingErrors.CreditorAccountMismatch;
+            }
+            cutoffDay = null;
         }
         var plan = PaymentPlan.Create(
             command.CardId,
@@ -30,7 +44,7 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             command.InstallmentCount,
             command.PurchaseDate,
             command.Description,
-            card.CutoffDay,
+            cutoffDay,
             new PhantomPennyAllocator(),
             command.Split?.Participants.Select(participant => (participant.PartyId, participant.Weight)).ToList(),
             command.CreditorId,
@@ -45,7 +59,7 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
                 Guid.CreateVersion7(),
                 DateTimeOffset.UtcNow,
                 plan.Value.Id,
-                card.Id,
+                command.CardId,
                 plan.Value.Total.MinorUnits,
                 plan.Value.PurchaseDate,
                 command.Split.Participants)

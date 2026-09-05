@@ -45,7 +45,7 @@ describe('DashboardPage', () => {
     { bucket: 'Future', card: 'Amex', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(250000), currencyCode: 'ARS', cardId: 'c2' }
   ];
   const purchaseRows: CardPurchaseRow[] = [
-    { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01', isCreditorPayment: false }
+    { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01' }
   ];
 
   function setup(): void {

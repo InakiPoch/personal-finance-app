@@ -10,7 +10,7 @@ public sealed record PaymentPlanCreatedIntegrationEvent(
     Guid MessageId,
     DateTimeOffset OccurredOnUtc,
     Guid PaymentPlanId,
-    Guid CardId,
+    Guid? CardId,
     long TotalMinorUnits,
     DateOnly PurchaseDate,
     IReadOnlyList<SplitParticipant> Participants

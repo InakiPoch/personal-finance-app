@@ -8,6 +8,7 @@ public sealed record ApiRoutes {
         public const string Transactions = "/transactions";
         public const string Reversal = "/transactions/{id:guid}/reversal";
         public const string AccountBalance = "/accounts/{id:guid}/balance";
+        public const string Expenses = "/expenses";
         public const string DevAccounts = "/accounts";
     }
 
@@ -20,6 +21,7 @@ public sealed record ApiRoutes {
         public const string CardStatements = "/cards/{id:guid}/statements";
         public const string CardPurchases = "/cards/{id:guid}/purchases";
         public const string RecentPurchases = "/purchases/recent";
+        public const string CreditorPayables = "/creditor-payables";
     }
 
     public sealed record Instruments {
@@ -31,6 +33,11 @@ public sealed record ApiRoutes {
     public sealed record Creditors {
         public const string Base = V1 + "/creditors";
         public const string Create = "/";
+        public const string List = "/";
+    }
+
+    public sealed record ExpenseCategories {
+        public const string Base = V1 + "/expense-categories";
         public const string List = "/";
     }
 

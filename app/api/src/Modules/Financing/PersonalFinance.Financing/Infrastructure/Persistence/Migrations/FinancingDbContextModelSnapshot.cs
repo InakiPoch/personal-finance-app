@@ -158,13 +158,16 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid>("CardId")
+                    b.Property<Guid?>("CardId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("CreditorAccountId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid?>("CreditorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("CreditorPayableAccountId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")

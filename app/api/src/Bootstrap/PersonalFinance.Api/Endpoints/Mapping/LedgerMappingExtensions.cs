@@ -34,8 +34,27 @@ internal static class LedgerMappingExtensions {
             Enum.Parse<AccountKind>(dto.Kind, ignoreCase: true)
         );
     }
+
+    public static RecordDebitExpenseCommand ToRecordDebitExpenseCommand(this RecordDebitExpenseDto dto) {
+        var split = dto.Split?
+            .Select(participant => new RecordDebitExpenseParticipant(participant.PartyId, participant.Weight))
+            .ToList();
+        return new RecordDebitExpenseCommand(
+            dto.AmountMinorUnits,
+            dto.SourceInstrumentId,
+            dto.CategoryName,
+            DateOnly.Parse(dto.PurchaseDate, CultureInfo.InvariantCulture),
+            dto.Description,
+            split
+        );
+    }
+
     public static PostTransactionResultDto ToPostTransactionResultDto(this Guid transactionId) {
         return new PostTransactionResultDto(transactionId);
+    }
+
+    public static RecordDebitExpenseResultDto ToRecordDebitExpenseResultDto(this Guid id) {
+        return new RecordDebitExpenseResultDto(id);
     }
     
     public static ReverseTransactionResultDto ToReverseTransactionResultDto(this ReverseTransactionResult result, Guid originalTransactionId) {

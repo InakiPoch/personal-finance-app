@@ -9,6 +9,7 @@ import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayStatement } from './types/pay-statement';
 import { PayStatementResult } from './types/pay-statement-result';
+import { RecentPurchaseRow } from './types/recent-purchase-row';
 
 type RowsEnvelope<T> = { rows: T[] };
 
@@ -42,5 +43,11 @@ export class FinancingService {
     return this.http
       .get<RowsEnvelope<CardPurchaseRow>>(`financing/cards/${cardId}/purchases`)
     .pipe(map((envelope: RowsEnvelope<CardPurchaseRow>) => envelope.rows));
+  }
+
+  recentPurchases(): Observable<RecentPurchaseRow[]> {
+    return this.http
+      .get<RowsEnvelope<RecentPurchaseRow>>('financing/purchases/recent')
+    .pipe(map((envelope: RowsEnvelope<RecentPurchaseRow>) => envelope.rows));
   }
 }

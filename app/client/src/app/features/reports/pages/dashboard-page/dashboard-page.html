@@ -155,10 +155,14 @@
       </ul>
     }
   </section>
-  <nav aria-label="Quick actions" class="mt-8">
+  <nav aria-label="Quick actions" class="mt-8 flex flex-wrap gap-x-6 gap-y-2">
     <a [routerLink]="'/financing/load-expense'" class="group inline-flex items-center gap-1.5 text-sm text-ink-soft transition-colors hover:text-ink">
       <span aria-hidden="true" class="text-stamp">+</span>
       Record an expense
+      <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+    </a>
+    <a [routerLink]="'/financing/recent-purchases'" class="group inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink">
+      Recent purchases
       <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
     </a>
   </nav>

@@ -713,3 +713,29 @@ Slice 1 was already complete when this documentation pass ran — built and veri
 ### Completion notes (2026-09-04)
 
 Built one green-lit step at a time (contract → handler → host wiring → API tests → client type → client service → dashboard state → dashboard template → client tests → full verification). **Bug caught and fixed during this session's own review, before it shipped**: the first draft of the ordering logic tested `!installment.Cycle.IsClosedAsOf(today, cutoffDay)` to mean "current cycle" — that predicate is also true of every *future* cycle (`AccrueInstallments` uses it only to mean "not due to accrue yet"), so nearly every outstanding plan would have been wrongly flagged current-cycle. Fixed to resolve the actual current cycle via `BillingCycleCalculator.ResolveCycle` and compare by `(CycleYear, CycleMonth)` equality; the regression test for this (`GetCardPurchasesHandlerTests`'s ordering fact) derives "current" the same way rather than hardcoding a cycle, so it stays valid regardless of what day it runs. Client-side counterpart (dashboard accordion) is documented in `app/client/.claude/TASK.md`. Full verification: `dotnet test --solution` 170/170, `pnpm ng test` 176/176, `pnpm ng lint` clean, `pnpm ng build --configuration production` clean. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 17 — Recent purchases view (Slice 3)
+
+**Goal:** Add the final expense-description slice — a standalone, newest-first chronological list of every payment plan across every card, independent of card grouping or debt state.
+
+**Traces to:** `docs/expense-description/slice-3-recent-purchases-view.md` (continued planning doc, final slice).
+
+**Depends on:** Phase 15 (`PaymentPlan.Description` must exist and be populated) + Phase 3 (Financing `PaymentPlan`/`CreditCard` model). Independent of Phase 16's endpoint, though it reuses the same patterns.
+
+### Tasks
+- [x] `Financing.Contracts/Queries/ListRecentPurchasesQuery.cs` — `RecentPurchaseRow(Guid PlanId, string Description, string CardName, DateOnly PurchaseDate, long TotalMinorUnits, int InstallmentCount, bool IsCreditorPayment)`, `RecentPurchasesResponse(IReadOnlyList<RecentPurchaseRow> Rows)`, `ListRecentPurchasesQuery(int Limit = 100) : IQuery<RecentPurchasesResponse>` — mirrors `GetCardStatementsQuery` exactly.
+- [x] `Application/Queries/ListRecentPurchases/ListRecentPurchasesHandler.cs` — builds a `CreditCard.Id → Name` dictionary, projects every `PaymentPlan` (no card filter), orders in memory by `PurchaseDate` descending, `Take(Limit)`. Registered in `FinancingModule.Register`.
+- [x] Host: `Endpoints/Financing/GetRecentPurchases.cs` (`IQueryBus.AskAsync` + `FinancingMappingExtensions.ToRecentPurchasesDto`), `Endpoints/DTOs/RecentPurchasesDTO.cs` (`RecentPurchasesDto`/`RecentPurchaseRowDto`), `ApiRoutes.Financing.RecentPurchases = "/purchases/recent"`, wired in `EndpointExtensions.MapFinancingEndpoints` with `.Produces<RecentPurchasesDto>(200)` under tag `"Financing"`.
+- [x] Tests: `tests/PersonalFinance.Financing.Tests/ListRecentPurchasesHandlerTests.cs` (4 facts: newest-first, description/cardName, creditor flag, `Limit` cap) + `tests/PersonalFinance.Api.Tests/RecentPurchasesTests.cs` (1 fact: OpenAPI presence under `Financing` with `200`).
+
+### Definition of done
+- [x] `GET /v1/financing/purchases/recent` returns every purchase newest-first with `description` + `cardName`, capped by `Limit`.
+- [x] No new EF migration, no `IFinancingApi` change; `PersonalFinance.Architecture.Tests` green.
+- [x] `dotnet test --solution` → **175 passed** (170 baseline at Phase 16 + these 5 new facts).
+- [x] Manual live E2E walk (run the API, load a couple of expenses with distinct descriptions, hit the endpoint, confirm newest-first with the right text) — **performed this session** via `curl` against a running host.
+
+### Completion notes (2026-09-05)
+
+Built one green-lit step at a time (contract → handler → host wiring → API tests → client type → client service → client page → client route/nav → client tests → full verification), each step confirmed before the next started. **Ordering choice, worth flagging:** the planning doc offered ordering by `Id` descending (`Guid.CreateVersion7()` is time-ordered) as a safe proxy to avoid the SQLite `DateTimeOffset`-ordering trap; this handler orders by `PurchaseDate` descending in memory instead, since `PurchaseDate` is a `DateOnly` — not the affected type — so ordering by it directly is both simpler and semantically exact. Route: added `ApiRoutes.Financing.RecentPurchases = "/purchases/recent"` as a new top-level segment rather than overloading `PaymentPlans` (`POST`-only, differently-shaped response). Client-side counterpart (new standalone page + route + nav entry) is documented in `app/client/.claude/TASK.md`. Full verification: `dotnet test --solution` 175/175, `pnpm ng test` 183/183, `pnpm ng lint` clean, `pnpm ng build --configuration production` clean. Manual E2E walk performed live against a running API instance (no browser available in this environment — substituted a `curl` walk). Not committed by this session — the user commits their own.

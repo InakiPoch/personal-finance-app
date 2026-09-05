@@ -92,8 +92,17 @@ Cycle" rows are expandable — `financing-service.ts` gained `cardPurchases(card
 `dashboard-page.ts` threads `cardId` through `CardCycle` (was dropped by the label-based grouping
 pipeline) and holds `expandedCardId`/`purchasesStatus`/`expandedPurchases` signals + a per-card
 purchase cache; each card row with a `cardId` becomes an `aria-expanded` disclosure button, rows
-without one stay non-expandable. Slice 3 (`slice-3-recent-purchases-view.md`, a standalone "recent
-purchases" page) is documented but **not implemented**.
+without one stay non-expandable. **Slice 3 — Recent purchases view (`slice-3-recent-purchases-view.md`)
+— now built, the final slice:** a standalone `recent-purchases-page` (new type
+`features/financing/types/recent-purchase-row.ts`; `financing-service.ts` gained
+`recentPurchases()`, mirroring `cardPurchases`'s `{ rows }` envelope) listing every loaded expense
+across every card, newest-first, with no card picker (unlike `statements-page`, this view
+deliberately spans every card). Container/table split mirrors `statements-page`/`statements-table`:
+the page owns the `loadStatus` state machine and fetches once on `ngOnInit`; the presentational
+`recent-purchases-table` renders each row's description, a `•` + `sr-only` creditor marker,
+installment count, card name, purchase date, and `formatArs` total, staggered row-in animation
+matching `statements-table`. Routed at `financing/recent-purchases`, linked from both the global
+nav (`app.ts`) and a second Dashboard quick-action alongside "Record an expense".
 
 ## Conventions — the non-negotiables
 

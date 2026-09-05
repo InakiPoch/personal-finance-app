@@ -787,6 +787,35 @@ Built one green-lit step at a time, in lockstep with the API's Phase 16 (contrac
 
 ---
 
+## Phase 9 — Recent purchases view (Slice 3)
+
+**Goal:** Add a standalone "Recent purchases" page — a newest-first chronological list of every loaded expense, independent of card grouping or debt state — reachable from the global nav and the Dashboard hub.
+
+**Traces to:** `docs/expense-description/slice-3-recent-purchases-view.md` (final slice).
+
+**Depends on:** Phase 7 (description exists and is populated) + the API's Phase 17 (`GET /v1/financing/purchases/recent`).
+
+### Tasks
+- [x] `features/financing/types/recent-purchase-row.ts` (new) — mirrors the API row: `planId`, `description`, `cardName`, `purchaseDate: IsoDate`, `totalMinorUnits: Money`, `installmentCount`, `isCreditorPayment`.
+- [x] `features/financing/financing-service.ts` — add `recentPurchases(): Observable<RecentPurchaseRow[]>` → `GET financing/purchases/recent`, `{ rows }` unwrapped via `map`; `financing-service.spec.ts` gains its `HttpTestingController` spec.
+- [x] `features/financing/pages/recent-purchases-page/` (new) — container `recent-purchases-page.ts/.html/.css` (loads on `ngOnInit`, `loadStatus` state machine, no card picker — this view spans every card) + presentational `recent-purchases-table.ts/.html/.css` (description headline, `•` + `sr-only` creditor marker, installment count, card name, date, `formatArs` amount; staggered row-in animation matching `statements-table`).
+- [x] `features/financing/financing.routes.ts` — `{ path: 'recent-purchases', component: RecentPurchasesPage }`.
+- [x] `app.ts` — "Recent purchases" nav entry between Statements and Reverse.
+- [x] `features/reports/pages/dashboard-page/dashboard-page.html` — second quick-action link alongside "Record an expense".
+- [x] `recent-purchases-page.spec.ts` (3 facts: fetches and renders on init, empty state, error surfaced without throwing) + `recent-purchases-table.spec.ts` (3 facts: renders description/card/amount, flags only the creditor row, empty note when no rows).
+
+### Definition of done
+- [x] The page loads every purchase on init and renders it newest-first (per the API's response order), each showing its description.
+- [x] The page is reachable from the global nav and the Dashboard hub.
+- [x] `pnpm ng build --configuration production` + `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **183 passed** (176 baseline at Phase 8 + these 7 new facts).
+- [x] Manual live E2E walk — **performed this session** (API-side `curl` walk against a running host; documented in the API's Phase 17 completion notes — no browser session available in this environment).
+
+### Completion notes (2026-09-05)
+
+Built one green-lit step at a time, in lockstep with the API's Phase 17. No new D-numbers needed — no drift from `docs/PRD.md`/`docs/DESIGN.md`, this is additive scope like the Creditors phases (added to `docs/PRD.md` §3.9 as "not part of the original 7-view scope", same pattern as Creditors' §3.8). Container/presentational split mirrors `statements-page`/`statements-table` rather than introducing a new shape — deliberately no card-picker form, since this view spans every card by design. Full verification: `pnpm ng build --configuration production` clean, `pnpm ng test` 183/183, `pnpm ng lint` clean; API side `dotnet test --solution` 175/175. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

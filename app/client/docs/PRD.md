@@ -128,6 +128,17 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   creditor picker and account-to-pay selector; both fields are required when toggled on, submitted
   as optional metadata in the payment-plan request, and excluded when toggled off.
 
+### 3.9 Recent purchases (new — not part of the original 7-view scope, now built)
+- **Shows:** a standalone, newest-first chronological list of every loaded expense across every
+  card — each row's description (§3.3), card name, purchase date, total, installment count, and a
+  creditor-payment marker. It is a plain browseable history, not a debt view: purchases appear
+  whether or not they're paid off, and there is no card picker (unlike §3.4's Statements view).
+- **Source:** `GET /v1/financing/purchases/recent`.
+- **Notes:** this is Slice 3 of `docs/expense-description/slice-3-recent-purchases-view.md`, the
+  final slice of that initiative (Slice 1 is §3.3's description field; Slice 2 is §3.1's card-debt
+  drill-down). Reachable from the global nav and a second Dashboard quick-action link — the
+  client's known discoverability weak spot does not apply here.
+
 ## 4. Cross-cutting client requirements
 
 - **Consistent error surfacing.** Every failed call yields the same typed error (from the API's

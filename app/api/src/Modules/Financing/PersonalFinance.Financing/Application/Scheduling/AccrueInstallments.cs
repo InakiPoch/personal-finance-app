@@ -65,6 +65,7 @@ internal sealed class AccrueInstallments(IServiceScopeFactory scopeFactory, ILog
                 ? []
                 : await context.Set<PaymentPlanSplitParticipant>()
                     .Where(participant => participant.PaymentPlanId == plan.Id)
+                    .OrderBy(participant => participant.PartyId)
                     .ToListAsync(cancellationToken);
             var useSplit = plan.SplitReferenceId is not null && splitParticipants.Count > 0;
             var (lines, partyPortionMinorUnits) = useSplit

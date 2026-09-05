@@ -62,7 +62,10 @@ public sealed class AccrueCreditorSplitInstallmentsTests : IDisposable {
             Assert.NotNull(posted.InstallmentReferenceId);
             Assert.Equal("Creditor-financed split accrual", posted.Description);
             var debits = posted.Lines.Where(line => line.Direction == DebitOrCredit.Debit).ToList();
-            Assert.Equal(new[] { receivableA, receivableB }, debits.Select(line => line.AccountId));
+            Assert.Equal(
+                new[] { receivableA, receivableB }.OrderBy(id => id),
+                debits.Select(line => line.AccountId).OrderBy(id => id)
+            );
             Assert.All(debits, line => Assert.Equal(1000, line.Amount.MinorUnits));
             var credit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Credit);
             Assert.Equal(payableAccountId, credit.AccountId);

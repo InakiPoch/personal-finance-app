@@ -52,6 +52,7 @@ internal sealed class AccrueCreditorSplitInstallments(IServiceScopeFactory scope
             }
             var participants = await context.Set<PaymentPlanSplitParticipant>()
                 .Where(participant => participant.PaymentPlanId == plan.Id)
+                .OrderBy(participant => participant.PartyId)
                 .ToListAsync(cancellationToken);
             var (lines, partyPortionMinorUnits) = CreditorSplitAccrualCalculator.BuildLines(
                 installment.Amount, participants, plan.CreditorPayableAccountId!.Value

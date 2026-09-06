@@ -207,9 +207,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         balanceMinorUnits: null
       }))
     );
-    if(mode === 'card') {
-      // Card-split receivables accrue on each billing cycle (starting next month), so there is
-      // no synchronous balance change to wait for. Mark scheduled and skip the poll.
+    if(mode === 'card' || mode === 'creditor') {
       participants.forEach((participant: SplitParticipant) =>
         this.updateReconciliation(participant.partyId, 'scheduled', null)
       );

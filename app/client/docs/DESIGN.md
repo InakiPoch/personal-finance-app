@@ -272,7 +272,12 @@ nested. Exact wire shape:
   before the Parties receivable is posted (async Outbox). The Load-expense page confirms the plan
   immediately, then reconciles by polling `PartiesService.getBalance` with a short bounded retry
   before showing the party's updated balance. A shared `pollUntil` helper (RxJS
-  `timer`+`switchMap`+`take`/`retry`) lives in `core/http`.
+  `timer`+`switchMap`+`take`/`retry`) lives in `core/http`. **Card and creditor-financed splits skip
+  the poll** — their co-borrower receivable accrues at the installment's due month (a scheduler, not a
+  synchronous post), so `reconcile(participants, mode)` seeds the table and marks each participant
+  *scheduled* before the loop when `mode === 'card' || mode === 'creditor'`
+  (`docs/parties-card-split/slice-1-reconcile-loop-fix.md` +
+  `docs/cycle-due-month/slice-2-creditor-split-parity.md`). Only debit/cash still polls.
 - **Reversal credit (API D12):** the Statement page states that a reversed paid installment yields a
   card credit netted on the **next** statement (not cash back).
 - **Scheduler-driven accrual/renewal (API D6):** the client cannot trigger these; it reflects the

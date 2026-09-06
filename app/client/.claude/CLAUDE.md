@@ -176,8 +176,9 @@ experience on the Parties side. **Slice 1 — Stop the reconcile loop for card s
 **before** the `pollUntil` loop — a card split posts no synchronous receivable (it accrues per billing
 cycle, next month), so the 5×800 ms balance poll could only ever stall. `ReconciliationStatus` gains
 `'scheduled'`; participants are marked `updateReconciliation(partyId, 'scheduled', null)`;
-`load-expense-page.html` adds a `@case('scheduled')` reading "scheduled — accrues monthly". Debit/cash and
-creditor-financed splits keep polling (their up-front postings make it succeed). Shipped as `959a3a2`.
+`load-expense-page.html` adds a `@case('scheduled')` reading "scheduled — accrues monthly". Debit/cash
+splits keep polling (their up-front posting makes it succeed); the creditor path **joined the `'scheduled'`
+short-circuit in `docs/cycle-due-month` Slice 2** (its up-front post was removed — see below). Shipped as `959a3a2`.
 **Slice 2b — Party's future monthly shares (`slice-2b-party-future-shares.md`) — done, spans the API:** the
 party-detail page gains a **"Scheduled"** section between the posted timeline and the settlement form,
 listing what the party will owe per upcoming billing cycle on its card-split plans. New type
@@ -199,6 +200,34 @@ verbatim — `MONTH_LABELS[cycleMonth - 1]` is array indexing, unchanged — and
 the raw close cycle. API `docs/PRD.md` §9 decision 8 is settled. `party-detail-page.spec.ts` +2 facts
 (renders the scheduled rows; shows the empty note); Slice 1's client step re-characterises the Scheduled
 fixture as the due cycle. Committed by the user as `e281437` (page + service) + `09357cb` (tests).
+
+**`docs/cycle-due-month/` (new, spans the API + `financing` + `parties`).** "Billing cycle 'due month'
+reframe + creditor-split parity" — payment-facing card surfaces show the **payment month** (statement-close
++ 1), not the close month. **Slice 1 — Card due-month (`slice-1-card-due-month.md`) — done, client had no
+production change:** the API now returns the due cycle on every payment-facing surface (`app/api` Phase 25);
+the client renders `cycleMonth` verbatim (`MONTH_LABELS[cycleMonth - 1]` is array indexing, unchanged) and
+the dashboard "Card debt by cycle" block shows no month, only per-card bars. Only doc + spec-fixture wording
+changed (`party-detail-page.spec.ts` scheduled fixture re-characterised as the due cycle; the two
+"billing-cycle anchor" notes here + in `TASK.md` rewritten as resolved). Committed with the API steps as
+`83d7809` + `22f88b1`. **Slice 2 — Creditor-split parity (`slice-2-creditor-split-parity.md`) — done:** a
+creditor-financed split now behaves exactly like a card split — $0 owed now, accrues at the due month,
+visible in the party "Scheduled" block dated the payment month (`app/api` Phase 26 removed the up-front
+co-borrower receivable post and moved accrual into the shared `AccrueInstallments` scheduler; `GET
+/v1/parties/{id}/future-shares` now returns creditor rows too, labelled `"{CreditorName} — {description}"`).
+Client: **`load-expense-page.ts` `reconcile()` — the `mode === 'card'` `'scheduled'` short-circuit widened
+to `mode === 'card' || mode === 'creditor'`.** The slice doc called the client "mostly free" — it wasn't:
+with the API's synchronous up-front post gone, a creditor split's co-borrower balance no longer moves at
+submit, so the `pollUntil` loop could only ever stall. Debit/cash still polls (its posting stays
+synchronous). `party-detail-page.html` "Scheduled" intro copy widened — "on card-split **and
+creditor-financed** plans … when its **due month** arrives" (also drops the now-wrong "once its billing
+cycle closes"; no spec asserts this text). `load-expense-page.spec.ts` — `does not poll for a
+creditor-financed split and marks the participant scheduled` added (mirrors the card test), two stale
+"Debit/creditor splits still poll" comments corrected. `pnpm ng lint` clean, `pnpm ng test` **215/215**
+(from 214), `pnpm ng build --configuration production` clean (`financing-routes` 56.55 kB). Not committed by
+this session — the user commits their own (`app/api` steps landed as `d4dd08f` + `bf4477b`). **Slice 3 —
+Schedule-aware summary (`slice-3-schedule-aware-summary.md`) — not started:** makes the Parties **list**
+page stop reading "Settled up" for a $0-now party that has scheduled installments (the detail view is
+already correct after Slice 2).
 
 ## Conventions — the non-negotiables
 

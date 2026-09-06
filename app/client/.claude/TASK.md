@@ -977,6 +977,32 @@ Slice 1 is a four-line guard in one method plus one template case — it removes
 
 ---
 
+## Phase 25 — Billing cycle "due month" reframe + creditor-split parity (Slices 1 + 2)
+
+**Goal:** Payment-facing card surfaces show the **payment month** (statement-close cycle + 1), not the close month; a creditor-financed split behaves exactly like a card split ($0 now, accrues at the due month, visible in the party "Scheduled" block).
+
+**Traces to:** `docs/cycle-due-month/slice-1-card-due-month.md` + `slice-2-creditor-split-parity.md` (+ `00-overview.md`). API halves are `app/api` Phase 25 (Slice 1) + Phase 26 (Slice 2). API `docs/PRD.md` §9 decision 8 resolved, decisions 9–10 added.
+
+**Depends on:** Phase 10 (`load-expense-page` payment-mode selector — `LoadExpenseMode`, `reconcile()`), Phase 24 (`party-detail-page` "Scheduled" block, `reconcile()` `mode === 'card'` short-circuit).
+
+### Tasks
+- [x] **Slice 1** — no client production change. The client renders whatever cycle the API sends (`party-detail-page.ts` `MONTH_LABELS[cycleMonth - 1]` is array indexing; the dashboard "Card debt by cycle" block shows no month). `party-detail-page.spec.ts` scheduled fixture re-characterised as the due cycle; the "billing-cycle anchor" notes in `.claude/CLAUDE.md` + this file rewritten as resolved. `load-expense-page.spec.ts` two pre-existing stale `mode === 'card'` reconcile assertions re-pointed to `fillValidDebitForm()`. (Committed with the API steps as `83d7809` + `22f88b1`.)
+- [x] **Slice 2** — `load-expense-page.ts` `reconcile()`: the `mode === 'card'` `'scheduled'` short-circuit widened to `mode === 'card' || mode === 'creditor'`. The slice doc undersold this — the API removed the synchronous up-front creditor receivable post (Phase 26), so a creditor split's co-borrower balance no longer moves at submit and the `pollUntil` loop could only stall; debit/cash still polls.
+- [x] **Slice 2** — `party-detail-page.html` "Scheduled" intro copy: "on card-split **and creditor-financed** plans. Each becomes a posted movement above **when its due month arrives**." (was "on card-split plans … once its billing cycle closes"). No spec asserts this text.
+- [x] **Slice 2** — `load-expense-page.spec.ts`: `does not poll for a creditor-financed split and marks the participant scheduled` added (mirrors the card test — `fillValidForm()` + `mode = 'creditor'` + `creditorId = 'creditor-1'`, account auto-selects, `onSubmit` → `getBalance` not called, status `'scheduled'`); two stale "Debit/creditor splits still poll" comments corrected.
+
+### Definition of done
+- [x] Payment-facing surfaces render the payment month (from the API); a creditor split confirms and marks each participant `'scheduled'` with no `getBalance` poll; debit/cash still polls and reconciles.
+- [x] The party-detail "Scheduled" block renders creditor installments identically to card ones (source label = creditor name).
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **215/215** (214 at Phase 24 + 1); `pnpm ng build --configuration production` clean (`financing-routes` 56.55 kB).
+- [ ] Live browser walk (no browser in this environment) — handed to the user: load a creditor-financed Sept split, 3 installments → $0 now, "Scheduled" reads Oct/Nov/Dec, no "Settled up" in the party **detail** view.
+
+### Completion notes
+
+Slice 1's client footprint is doc + spec-fixture wording only — the API does all the cycle arithmetic. Slice 2's is one method (`reconcile()` — one `||` clause) plus one microcopy line: the creditor path now takes the same no-poll `'scheduled'` route a card split already took, because both accrue at the due month rather than at submit. The Parties **list** page still reads "Settled up" for a $0-now scheduled party — that is **Slice 3** (`slice-3-schedule-aware-summary.md`), not started; the detail view is correct after Slice 2. Not committed by this session — the user commits their own (API steps landed as `d4dd08f` + `bf4477b`).
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

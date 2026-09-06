@@ -230,8 +230,6 @@ describe('LoadExpensePage', () => {
       call += 1;
       return of(balance(call === 1 ? 100000 : 150000));
     });
-    // Debit/creditor splits still poll for a synchronous balance change; the card path
-    // is now the no-poll 'scheduled' case covered below.
     fillValidDebitForm();
     addParticipant('p1', 1);
     scheduler.run(() => {
@@ -246,7 +244,7 @@ describe('LoadExpensePage', () => {
       expect(actual).toEqual(expected),
     );
     getBalance.and.returnValue(of(balance(100000)));
-    // Debit/creditor splits still poll; the card path is the no-poll 'scheduled' case below.
+    // A debit/cash split still polls; card and creditor are the no-poll 'scheduled' cases below.
     fillValidDebitForm();
     addParticipant('p1', 1);
     scheduler.run(() => {
@@ -256,6 +254,15 @@ describe('LoadExpensePage', () => {
   });
   it('does not poll for a card split and marks the participant scheduled', () => {
     fillValidForm();
+    addParticipant('p1', 1);
+    view.onSubmit();
+    expect(getBalance).not.toHaveBeenCalled();
+    expect(view.reconciliations()[0].status).toBe('scheduled');
+  });
+  it('does not poll for a creditor-financed split and marks the participant scheduled', () => {
+    fillValidForm();
+    view.form.controls.mode.setValue('creditor');
+    view.form.controls.creditorId.setValue('creditor-1');
     addParticipant('p1', 1);
     view.onSubmit();
     expect(getBalance).not.toHaveBeenCalled();

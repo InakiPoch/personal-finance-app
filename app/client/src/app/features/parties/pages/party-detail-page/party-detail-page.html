@@ -14,12 +14,10 @@
       Back to parties
     </a>
   </header>
-
   <section class="mb-12" aria-labelledby="balance-label">
     <h2 id="balance-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Current-account balance
     </h2>
-
     @if(balanceStatus() === 'loading') {
       <p class="mt-6 text-sm text-ink-faint">Reading the balance…</p>
     } @else if(balanceStatus() === 'error') {
@@ -48,7 +46,6 @@
         }
       </p>
     }
-
     @if(partyId(); as id) {
       <a
         [routerLink]="['/parties', 'shared-expense']"
@@ -61,7 +58,6 @@
       </a>
     }
   </section>
-
   <section class="mb-12" aria-labelledby="timeline-label">
     <h2 id="timeline-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Timeline
@@ -82,7 +78,44 @@
       Balances and movements are reported by the API — a reversal is its own negative row.
     </p>
   </section>
-
+  <section class="mb-12" aria-labelledby="scheduled-label">
+    <h2 id="scheduled-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Scheduled
+    </h2>
+    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+      Upcoming installment shares this party will owe on card-split plans. Each becomes a posted
+      movement above once its billing cycle closes.
+    </p>
+    @if(futureSharesStatus() === 'loading') {
+      <p class="mt-6 text-sm text-ink-faint">Reading upcoming shares…</p>
+    } @else if(futureSharesStatus() === 'error') {
+      <p role="alert" class="mt-6 text-sm text-negative">
+        Could not load upcoming shares — try again in a moment.
+      </p>
+    } @else if(futureShares().length === 0) {
+      <p class="mt-6 text-sm text-ink-faint">
+        Nothing scheduled — no upcoming installment shares for this party.
+      </p>
+    } @else {
+      <ul class="mt-6 flex flex-col gap-3">
+        @for(share of futureShares(); track share.cycleYear + '-' + share.cycleMonth + '-' + share.sourceLabel) {
+          <li class="flex items-baseline justify-between gap-4 border-l-2 border-dashed border-rule pl-3">
+            <span class="flex flex-col gap-0.5">
+              <span class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+                {{ cycleLabel(share) }}
+              </span>
+              <span class="text-[0.8125rem] text-ink-soft text-pretty">{{ share.sourceLabel }}</span>
+            </span>
+            <span
+              class="shrink-0 font-serif text-base text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
+            >
+              {{ formatArs(share.shareMinorUnits) }}
+            </span>
+          </li>
+        }
+      </ul>
+    }
+  </section>
   <form
     class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
     [formGroup]="form"
@@ -119,7 +152,6 @@
         <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
       }
     </div>
-
     <div class="mt-6 flex flex-col gap-1.5">
       <label
         for="bankAccountId"
@@ -172,7 +204,6 @@
         <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
       }
     </div>
-
     <div class="mt-6 flex flex-col gap-2">
       <button
         type="submit"

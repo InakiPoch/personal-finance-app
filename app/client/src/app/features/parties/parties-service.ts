@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
+import { FuturePartyShare } from './types/future-party-share';
 import { Party } from './types/party';
 import { PartyResult } from './types/party-result';
 import { RegisterSharedExpense } from './types/register-shared-expense';
@@ -31,6 +32,12 @@ export class PartiesService {
     return this.http
       .get<RowsEnvelope<CurrentAccountTimelineRow>>(`parties/${partyId}/timeline`)
     .pipe(map((envelope: RowsEnvelope<CurrentAccountTimelineRow>) => envelope.rows));
+  }
+
+  futureShares(partyId: string): Observable<FuturePartyShare[]> {
+    return this.http
+      .get<RowsEnvelope<FuturePartyShare>>(`parties/${partyId}/future-shares`)
+    .pipe(map((envelope: RowsEnvelope<FuturePartyShare>) => envelope.rows));
   }
 
   create(body: CreateParty): Observable<PartyResult> {

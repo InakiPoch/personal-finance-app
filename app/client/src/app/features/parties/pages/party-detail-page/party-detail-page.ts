@@ -21,6 +21,7 @@ import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
+import { FuturePartyShare } from '../../types/future-party-share';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
 import { atMostTwoDecimals, positiveAmount } from '../../validation-helpers';
@@ -28,6 +29,10 @@ import { TimelineTable } from './timeline-table';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SettleStatus = 'idle' | 'settling' | 'settled' | 'error';
+
+const MONTH_LABELS: readonly string[] = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
 
 type SettlementForm = FormGroup<{
   amount: FormControl<number | null>;
@@ -48,8 +53,10 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly balance: WritableSignal<CurrentAccountBalance | null> =
     signal<CurrentAccountBalance | null>(null);
   protected readonly timeline: WritableSignal<PartyTimelineRow[]> = signal<PartyTimelineRow[]>([]);
+  protected readonly futureShares: WritableSignal<FuturePartyShare[]> = signal<FuturePartyShare[]>([]);
   protected readonly balanceStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly timelineStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly futureSharesStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly settleStatus: WritableSignal<SettleStatus> = signal<SettleStatus>('idle');
   protected readonly settleError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly partyId: WritableSignal<string | null> = signal<string | null>(null);
@@ -123,6 +130,10 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     this.router.navigate(['ledger', 'transactions', transactionId, 'reverse']);
   }
 
+  protected cycleLabel(share: FuturePartyShare): string {
+    return `${MONTH_LABELS[share.cycleMonth - 1]} ${share.cycleYear}`;
+  }
+
   private loadInstruments(): void {
     this.instrumentsService
       .list()
@@ -160,6 +171,21 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     );
   }
 
+  private loadFutureShares(id: string): void {
+    this.futureSharesStatus.set('loading');
+    this.partiesService
+      .futureShares(id)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: FuturePartyShare[]) => {
+          this.futureShares.set(rows);
+          this.futureSharesStatus.set('ready');
+        },
+        error: () => this.futureSharesStatus.set('error')
+      }
+    );
+  }
+
   private initSettlementForm(): void {
     this.form = this.fb.group({
       amount: this.fb.control<number | null>(null, {
@@ -180,6 +206,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
         if(id !== null) {
           this.loadBalance(id);
           this.loadTimeline(id);
+          this.loadFutureShares(id);
         }
       }
     });

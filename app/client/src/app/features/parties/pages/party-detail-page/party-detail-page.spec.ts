@@ -10,6 +10,7 @@ import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
+import { FuturePartyShare } from '../../types/future-party-share';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { SettlementResult } from '../../types/settlement-result';
 import { PartiesService } from '../../parties-service';
@@ -52,6 +53,7 @@ describe('PartyDetailPage', () => {
   let view: PartyDetailView;
   let getBalance: jasmine.Spy<(id: string) => Observable<CurrentAccountBalance>>;
   let partyTimeline: jasmine.Spy<(id: string) => Observable<PartyTimelineRow[]>>;
+  let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
 
   function setup(): void {
@@ -79,6 +81,7 @@ describe('PartyDetailPage', () => {
   beforeEach(() => {
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance));
     partyTimeline = jasmine.createSpy('partyTimeline').and.returnValue(of(timelineRows));
+    futureShares = jasmine.createSpy('futureShares').and.returnValue(of<FuturePartyShare[]>([]));
     settle = jasmine
       .createSpy('settle')
       .and.returnValue(of<SettlementResult>({ ledgerTransactionId: 'tx-1' }));
@@ -87,7 +90,7 @@ describe('PartyDetailPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { getBalance, settle } },
+        { provide: PartiesService, useValue: { getBalance, futureShares, settle } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }

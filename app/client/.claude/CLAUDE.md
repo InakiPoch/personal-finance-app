@@ -191,12 +191,14 @@ helper renders "Oct 2026". `party-detail-page.html` renders loading / error / em
 no upcoming installment shares for this party.") / a `<ul>` of dashed-left-border rows (`cycleLabel`,
 `sourceLabel`, `formatArs(shareMinorUnits)`). API half is `app/api` Phase 24 (`GET
 /v1/parties/{id}/future-shares`, a Financing CQRS query reusing `PhantomPennyAllocator` so the projection
-is byte-exact with accrual). **Known limitation — billing-cycle anchor:** the rows show each installment's
-**statement-close** cycle (for a purchase on/before the card cutoff, its own month — a Sept purchase reads
-Sept/Oct/Nov), matching every other card view and the server's accrual; the initiative docs' "Oct/Nov/Dec"
-examples assume the *payment* month (close + 1), which is an open product decision (API `docs/PRD.md` §9
-decision 8), not yet applied. `party-detail-page.spec.ts` +2 facts (renders the scheduled rows; shows the
-empty note). Committed by the user as `e281437` (page + service) + `09357cb` (tests).
+is byte-exact with accrual). **Billing-cycle anchor — resolved by `docs/cycle-due-month` Slice 1
+(`app/api` steps 1–6):** the API now returns the **due** cycle (statement-close month + 1 — "when the
+money moves") on `GET /v1/parties/{id}/future-shares` and every other payment-facing card surface, so a
+Sept purchase's shares read Oct/Nov/Dec as the initiative docs intend. The page still renders `cycleMonth`
+verbatim — `MONTH_LABELS[cycleMonth - 1]` is array indexing, unchanged — and statement-facing views keep
+the raw close cycle. API `docs/PRD.md` §9 decision 8 is settled. `party-detail-page.spec.ts` +2 facts
+(renders the scheduled rows; shows the empty note); Slice 1's client step re-characterises the Scheduled
+fixture as the due cycle. Committed by the user as `e281437` (page + service) + `09357cb` (tests).
 
 ## Conventions — the non-negotiables
 

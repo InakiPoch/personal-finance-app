@@ -44,8 +44,6 @@ public sealed class GetCardStatementsHandlerTests : IDisposable {
                 cutoffDay: 15,
                 allocator: new PhantomPennyAllocator()
             ).Value;
-            // The Sept-6 purchase closes into the September statement; its payment-facing
-            // schedule now reads October, but the statement's identity stays September.
             var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle);
             plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
             statement.Accrue(plan.Installments[0]);

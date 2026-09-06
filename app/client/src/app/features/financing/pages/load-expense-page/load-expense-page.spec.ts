@@ -230,7 +230,9 @@ describe('LoadExpensePage', () => {
       call += 1;
       return of(balance(call === 1 ? 100000 : 150000));
     });
-    fillValidForm();
+    // Debit/creditor splits still poll for a synchronous balance change; the card path
+    // is now the no-poll 'scheduled' case covered below.
+    fillValidDebitForm();
     addParticipant('p1', 1);
     scheduler.run(() => {
       view.onSubmit();
@@ -244,7 +246,8 @@ describe('LoadExpensePage', () => {
       expect(actual).toEqual(expected),
     );
     getBalance.and.returnValue(of(balance(100000)));
-    fillValidForm();
+    // Debit/creditor splits still poll; the card path is the no-poll 'scheduled' case below.
+    fillValidDebitForm();
     addParticipant('p1', 1);
     scheduler.run(() => {
       view.onSubmit();

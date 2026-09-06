@@ -50,6 +50,9 @@ const timelineRows: PartyTimelineRow[] = [{
     currencyCode: 'ARS'
   }];
 
+// The API's future-shares rows carry the DUE cycle (statement-close month + 1 — "when the
+// money moves"), per docs/cycle-due-month Slice 1: a purchase whose statements close in
+// Sep/Oct surfaces here as Oct/Nov. The page renders cycleMonth verbatim.
 const futureShareRows: FuturePartyShare[] = [
   {
     cycleYear: 2026,
@@ -156,13 +159,14 @@ describe('PartyDetailPage', () => {
     expect(getBalance).toHaveBeenCalledTimes(1);
     expect(partyTimeline).toHaveBeenCalledTimes(1);
   });
-  it('renders the future monthly shares in the Scheduled block', () => {
+  it('renders each scheduled share under its due month, verbatim from the API', () => {
     futureShares.and.returnValue(of<FuturePartyShare[]>(futureShareRows));
     setup();
     expect(futureShares).toHaveBeenCalledWith('p1');
     expect(view.futureSharesStatus()).toBe('ready');
     expect(view.futureShares().length).toBe(2);
     expect(text()).toContain('Scheduled');
+    // cycleMonth 10 / 11 are the due cycle already — no client-side shift
     expect(text()).toContain('Oct 2026');
     expect(text()).toContain('Nov 2026');
     expect(text()).toContain('Visa — Shared laptop');

@@ -24,8 +24,10 @@ type PartyDetailView = {
   }>;
   balance: () => CurrentAccountBalance | null;
   timeline: () => PartyTimelineRow[];
+  futureShares: () => FuturePartyShare[];
   balanceStatus: () => 'loading' | 'ready' | 'error';
   timelineStatus: () => 'loading' | 'ready' | 'error';
+  futureSharesStatus: () => 'loading' | 'ready' | 'error';
   settleStatus: () => 'idle' | 'settling' | 'settled' | 'error';
   settleError: () => AppError | null;
   onSubmit: () => void;
@@ -47,6 +49,23 @@ const timelineRows: PartyTimelineRow[] = [{
     runningBalanceMinorUnits: money(250000),
     currencyCode: 'ARS'
   }];
+
+const futureShareRows: FuturePartyShare[] = [
+  {
+    cycleYear: 2026,
+    cycleMonth: 10,
+    shareMinorUnits: money(33333),
+    currencyCode: 'ARS',
+    sourceLabel: 'Visa — Shared laptop'
+  },
+  {
+    cycleYear: 2026,
+    cycleMonth: 11,
+    shareMinorUnits: money(33333),
+    currencyCode: 'ARS',
+    sourceLabel: 'Visa — Shared laptop'
+  }
+];
 
 describe('PartyDetailPage', () => {
   let fixture: ComponentFixture<PartyDetailPage>;
@@ -136,6 +155,22 @@ describe('PartyDetailPage', () => {
     expect(view.settleStatus()).toBe('settled');
     expect(getBalance).toHaveBeenCalledTimes(1);
     expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('renders the future monthly shares in the Scheduled block', () => {
+    futureShares.and.returnValue(of<FuturePartyShare[]>(futureShareRows));
+    setup();
+    expect(futureShares).toHaveBeenCalledWith('p1');
+    expect(view.futureSharesStatus()).toBe('ready');
+    expect(view.futureShares().length).toBe(2);
+    expect(text()).toContain('Scheduled');
+    expect(text()).toContain('Oct 2026');
+    expect(text()).toContain('Nov 2026');
+    expect(text()).toContain('Visa — Shared laptop');
+  });
+  it('shows the empty note when the party has no scheduled shares', () => {
+    setup();
+    expect(view.futureShares().length).toBe(0);
+    expect(text()).toContain('Nothing scheduled');
   });
   it('renders settleErrorText keyed off the AppError code on a 409', () => {
     const appError: AppError = {

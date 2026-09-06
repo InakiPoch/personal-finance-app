@@ -14,7 +14,7 @@ internal sealed class GetFuturePartySharesHandler(FinancingDbContext context) : 
     public async Task<GetFuturePartySharesResponse> HandleAsync(GetFuturePartySharesQuery query, CancellationToken cancellationToken) {
         var pending = await (
             from installment in context.Set<Installment>()
-            where installment.AccruedOnUtc == null
+            where installment.SplitAccruedOnUtc == null
             where installment.IsReversed == false
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
             where plan.CardId != null
@@ -45,9 +45,10 @@ internal sealed class GetFuturePartySharesHandler(FinancingDbContext context) : 
             if(share.MinorUnits <= 0) {
                 continue;
             }
+            var dueCycle = row.installment.DueCycle;
             rows.Add(new FuturePartyShareRow(
-                row.installment.CycleYear,
-                row.installment.CycleMonth,
+                dueCycle.Year,
+                dueCycle.Month,
                 share.MinorUnits,
                 share.Currency.Code,
                 $"{row.CardName} — {row.plan.Description}"

@@ -25,13 +25,16 @@ internal sealed class GetCardFutureScheduleHandler(FinancingDbContext context) :
             }
         ).ToListAsync(cancellationToken);
         var rows = pending
-            .Select(row => new CardFutureScheduleRow(
-                row.PlanId,
-                row.Id,
-                row.Sequence,
-                row.CycleYear,
-                row.CycleMonth,
-                row.Amount.MinorUnits))
+            .Select(row => {
+                var dueCycle = new BillingCycle(row.CycleYear, row.CycleMonth).DueCycle;
+                return new CardFutureScheduleRow(
+                    row.PlanId,
+                    row.Id,
+                    row.Sequence,
+                    dueCycle.Year,
+                    dueCycle.Month,
+                    row.Amount.MinorUnits);
+            })
             .ToList();
         return new CardFutureScheduleResponse(rows);
     }

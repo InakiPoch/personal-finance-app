@@ -38,9 +38,7 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
             CardSplitPlan(cardId, 15, new DateOnly(2026, 1, 10), 3, 9_000, (partyId, 1L)),
             cancellationToken
         );
-
         var response = await HandleAsync(partyId, cancellationToken);
-
         var expected = await ExpectedSharesAsync(partyId, [1L, 1L], cancellationToken);
         Assert.Equal(3, response.Rows.Count);
         Assert.Equal(
@@ -60,9 +58,7 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
             CardSplitPlan(cardId, 15, new DateOnly(2026, 1, 10), 3, 10_001, (partyId, 1L)),
             cancellationToken
         );
-
         var response = await HandleAsync(partyId, cancellationToken);
-
         var expected = await ExpectedSharesAsync(partyId, [1L, 1L], cancellationToken);
         Assert.Equal(
             expected,
@@ -71,25 +67,28 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
     }
 
     [Fact]
-    public async Task Handle_excludes_accrued_and_reversed_installments() {
+    public async Task Handle_excludes_split_accrued_and_reversed_but_keeps_accrued_not_yet_due_installments() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var partyId = Guid.CreateVersion7();
         var cardId = await SeedCardAsync(15, cancellationToken);
         var plan = CardSplitPlan(cardId, 15, new DateOnly(2026, 1, 10), 3, 9_000, (partyId, 1L));
         var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle);
+        // Card legs accrued at close AND the split receivable already reclassified at the due month.
         plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
+        plan.Installments[0].MarkSplitAccrued(DateTimeOffset.UtcNow);
+        // Reversed.
         plan.Installments[1].MarkReversed();
+        // Card legs accrued at close, but the due month has not arrived — still a future share.
+        plan.Installments[2].MarkAccrued(DateTimeOffset.UtcNow, statement);
         await using(var context = NewContext()) {
             context.PaymentPlans.Add(plan);
             context.MonthlyStatements.Add(statement);
             await context.SaveChangesAsync(cancellationToken);
         }
-
         var response = await HandleAsync(partyId, cancellationToken);
-
         var row = Assert.Single(response.Rows);
-        Assert.Equal(plan.Installments[2].CycleYear, row.CycleYear);
-        Assert.Equal(plan.Installments[2].CycleMonth, row.CycleMonth);
+        Assert.Equal(plan.Installments[2].DueCycle.Year, row.CycleYear);
+        Assert.Equal(plan.Installments[2].DueCycle.Month, row.CycleMonth);
     }
 
     [Fact]
@@ -109,9 +108,7 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
             creditorAccountId: Guid.CreateVersion7()
         ).Value;
         await PersistAsync(plan, cancellationToken);
-
         var response = await HandleAsync(partyId, cancellationToken);
-
         Assert.Empty(response.Rows);
     }
 
@@ -130,9 +127,7 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
             allocator: new PhantomPennyAllocator()
         ).Value;
         await PersistAsync(plan, cancellationToken);
-
         var response = await HandleAsync(partyId, cancellationToken);
-
         Assert.Empty(response.Rows);
     }
 
@@ -149,9 +144,7 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
         var orderedWeights = new[] { partyA, partyB }.OrderBy(id => id).ToList();
         long[] weights = [1L, .. orderedWeights.Select(id => id == partyA ? 1L : 3L)];
         var indexA = orderedWeights.IndexOf(partyA);
-
         var response = await HandleAsync(partyA, cancellationToken);
-
         var installmentAmount = await SingleInstallmentAmountAsync(cancellationToken);
         var expectedA = new PhantomPennyAllocator().Allocate(installmentAmount, weights)[indexA + 1].MinorUnits;
         var expectedB = new PhantomPennyAllocator().Allocate(installmentAmount, weights)[orderedWeights.IndexOf(partyB) + 1].MinorUnits;
@@ -185,11 +178,11 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
             .OrderBy(installment => installment.CycleYear)
             .ThenBy(installment => installment.CycleMonth)
             .Select(installment => (
-                installment.CycleYear,
-                installment.CycleMonth,
+                installment.DueCycle.Year,
+                installment.DueCycle.Month,
                 new PhantomPennyAllocator().Allocate(installment.Amount, weights)[1].MinorUnits
             ))
-            .ToList();
+        .ToList();
     }
 
     private async Task<Money> SingleInstallmentAmountAsync(CancellationToken cancellationToken) {

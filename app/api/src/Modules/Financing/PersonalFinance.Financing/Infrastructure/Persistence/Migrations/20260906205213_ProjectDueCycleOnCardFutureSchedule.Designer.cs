@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using PersonalFinance.Financing.Infrastructure.Persistence;
 namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(FinancingDbContext))]
-    partial class FinancingDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260906205213_ProjectDueCycleOnCardFutureSchedule")]
+    partial class ProjectDueCycleOnCardFutureSchedule
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
@@ -111,9 +114,6 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
 
                     b.Property<int>("Sequence")
                         .HasColumnType("INTEGER");
-
-                    b.Property<DateTimeOffset?>("SplitAccruedOnUtc")
-                        .HasColumnType("TEXT");
 
                     b.Property<Guid?>("StatementId")
                         .HasColumnType("TEXT");

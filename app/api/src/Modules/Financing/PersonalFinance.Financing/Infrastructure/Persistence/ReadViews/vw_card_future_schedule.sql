@@ -4,8 +4,8 @@ SELECT
     p.Id               AS PlanId,
     i.Id               AS InstallmentId,
     i.Sequence         AS Sequence,
-    i.CycleYear        AS CycleYear,
-    i.CycleMonth       AS CycleMonth,
+    CASE WHEN i.CycleMonth = 12 THEN i.CycleYear + 1 ELSE i.CycleYear END AS CycleYear,
+    CASE WHEN i.CycleMonth = 12 THEN 1 ELSE i.CycleMonth + 1 END          AS CycleMonth,
     i.AmountMinorUnits AS AmountMinorUnits,
     c.Name             AS CardName,
     'ARS'              AS CurrencyCode

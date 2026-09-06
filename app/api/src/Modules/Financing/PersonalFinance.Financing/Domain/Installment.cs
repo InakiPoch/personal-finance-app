@@ -9,10 +9,13 @@ internal sealed class Installment : Entity<Guid> {
     public int CycleYear { get; }
     public int CycleMonth { get; }
     public DateTimeOffset? AccruedOnUtc { get; private set; }
+    public DateTimeOffset? SplitAccruedOnUtc { get; private set; }
     public Guid? StatementId { get; private set; }
     public bool IsReversed { get; private set; }
     public bool IsAccrued => AccruedOnUtc is not null;
+    public bool IsSplitAccrued => SplitAccruedOnUtc is not null;
     public BillingCycle Cycle => new(CycleYear, CycleMonth);
+    public BillingCycle DueCycle => Cycle.DueCycle;
 
     private Installment(Guid id, Guid paymentPlanId, int sequence, Money amount, int cycleYear, int cycleMonth) : base(id) {
         PaymentPlanId = paymentPlanId;
@@ -32,6 +35,14 @@ internal sealed class Installment : Entity<Guid> {
         }
         AccruedOnUtc = accruedOnUtc;
         StatementId = statement.Id;
+        return Result.Success();
+    }
+
+    public Result MarkSplitAccrued(DateTimeOffset splitAccruedOnUtc) {
+        if(SplitAccruedOnUtc is not null) {
+            return Result.Failure(FinancingErrors.InstallmentSplitAlreadyAccrued);
+        }
+        SplitAccruedOnUtc = splitAccruedOnUtc;
         return Result.Success();
     }
 

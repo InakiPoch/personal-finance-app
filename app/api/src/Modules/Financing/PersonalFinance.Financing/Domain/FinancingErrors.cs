@@ -58,6 +58,11 @@ internal static class FinancingErrors {
         "The installment has already been reversed."
     );
 
+    public static readonly Error InstallmentSplitAlreadyAccrued = new(
+        "Financing.InstallmentSplitAlreadyAccrued",
+        "The installment's split receivable has already been accrued to the ledger."
+    );
+
     public static readonly Error NonPositiveCreditAmount = new(
         "Financing.NonPositiveCreditAmount",
         "A card credit amount must be a positive number of minor units."

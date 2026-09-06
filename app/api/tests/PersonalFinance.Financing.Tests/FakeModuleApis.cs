@@ -1,6 +1,11 @@
+using PersonalFinance.Abstractions.Messaging;
+using PersonalFinance.Infrastructure.Messaging;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.Ledger.Contracts.Queries;
+using PersonalFinance.Parties.Contracts;
+using PersonalFinance.Parties.Contracts.Commands;
+using PersonalFinance.Parties.Contracts.Queries;
 using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Financing.Tests;
@@ -59,5 +64,52 @@ internal sealed class FakeLedgerApi : ILedgerApi {
 
     public Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default) {
         throw new NotSupportedException();
+    }
+}
+
+/// <summary>
+/// Captures the split-accrual metadata calls the due-month gate makes; every other member is unused here.
+/// </summary>
+internal sealed class FakePartiesApi : IPartiesApi {
+    public List<RecordSplitAccrualCommand> RecordedAccruals { get; } = [];
+    public Result? RecordSplitAccrualResultOverride { get; set; }
+
+    public Task<Result> RecordSplitAccrualAsync(RecordSplitAccrualCommand command, CancellationToken ct = default) {
+        RecordedAccruals.Add(command);
+        return Task.FromResult(RecordSplitAccrualResultOverride ?? Result.Success());
+    }
+
+    public Task<Result<Guid>> CreatePartyAsync(CreatePartyCommand command, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
+    public Task<Result<Guid>> RegisterSharedExpenseAsync(RegisterSharedExpenseCommand command, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
+    public Task<Result<Guid>> SettleCurrentAccountAsync(SettleCurrentAccountCommand command, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
+    public Task<Result> CorrectExpenseSplitAsync(CorrectExpenseSplitCommand command, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
+    public Task<CurrentAccountBalanceResponse> GetCurrentAccountBalanceAsync(GetCurrentAccountBalanceQuery query, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
+    public Task<CurrentAccountTimelineResponse> GetCurrentAccountTimelineAsync(GetCurrentAccountTimelineQuery query, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+
+    public Task<ListPartiesResponse> ListPartiesAsync(ListPartiesQuery query, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+}
+
+internal sealed class NoOpIntegrationEventDispatcher : IIntegrationEventDispatcher {
+    public Task DispatchAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default) {
+        return Task.CompletedTask;
     }
 }

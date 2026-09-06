@@ -67,18 +67,47 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_dates_the_scheduled_shares_by_the_due_month_for_a_purchase_before_the_cutoff() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var partyId = Guid.CreateVersion7();
+        var cardId = await SeedCardAsync(15, cancellationToken);
+        await PersistAsync(
+            CardSplitPlan(cardId, 15, new DateOnly(2026, 9, 6), 3, 9_000, (partyId, 1L)),
+            cancellationToken
+        );
+        var response = await HandleAsync(partyId, cancellationToken);
+        Assert.Equal(
+            new[] { (2026, 10), (2026, 11), (2026, 12) },
+            response.Rows.Select(row => (row.CycleYear, row.CycleMonth)).ToList()
+        );
+    }
+
+    [Fact]
+    public async Task Handle_dates_the_scheduled_shares_two_billing_months_out_for_a_purchase_after_the_cutoff() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var partyId = Guid.CreateVersion7();
+        var cardId = await SeedCardAsync(15, cancellationToken);
+        await PersistAsync(
+            CardSplitPlan(cardId, 15, new DateOnly(2026, 9, 20), 3, 9_000, (partyId, 1L)),
+            cancellationToken
+        );
+        var response = await HandleAsync(partyId, cancellationToken);
+        Assert.Equal(
+            new[] { (2026, 11), (2026, 12), (2027, 1) },
+            response.Rows.Select(row => (row.CycleYear, row.CycleMonth)).ToList()
+        );
+    }
+
+    [Fact]
     public async Task Handle_excludes_split_accrued_and_reversed_but_keeps_accrued_not_yet_due_installments() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var partyId = Guid.CreateVersion7();
         var cardId = await SeedCardAsync(15, cancellationToken);
         var plan = CardSplitPlan(cardId, 15, new DateOnly(2026, 1, 10), 3, 9_000, (partyId, 1L));
         var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle);
-        // Card legs accrued at close AND the split receivable already reclassified at the due month.
         plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
         plan.Installments[0].MarkSplitAccrued(DateTimeOffset.UtcNow);
-        // Reversed.
         plan.Installments[1].MarkReversed();
-        // Card legs accrued at close, but the due month has not arrived — still a future share.
         plan.Installments[2].MarkAccrued(DateTimeOffset.UtcNow, statement);
         await using(var context = NewContext()) {
             context.PaymentPlans.Add(plan);

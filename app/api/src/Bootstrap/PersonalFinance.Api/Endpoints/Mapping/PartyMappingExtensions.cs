@@ -63,6 +63,17 @@ internal static class PartyMappingExtensions {
         return new FuturePartySharesDto(rows);
     }
 
+    public static PendingSharesByPartyDto ToPendingSharesByPartyDto(this GetPendingSharesByPartyResponse response) {
+        var rows = response.Rows
+            .Select(row => new PendingSharesByPartyRowDto(
+                row.PartyId,
+                row.ScheduledCount,
+                row.ScheduledTotalMinorUnits,
+                row.CurrencyCode))
+            .ToList();
+        return new PendingSharesByPartyDto(rows);
+    }
+
     extension(Guid id) {
         public PartyResultDto ToPartyResultDto() {
             return new PartyResultDto(id);

@@ -18,6 +18,7 @@ type DashboardView = {
   expensesByCategory: () => Array<{ label: string; totalMinorUnits: number }>;
   accruedByCard: () => Array<{ label: string; totalMinorUnits: number }>;
   futureByCard: () => Array<{ label: string; totalMinorUnits: number }>;
+  cycleByCard: () => Array<{ card: string; cardId: string | null; accrued: number; future: number; total: number }>;
   onMonthChange: (month: string) => void;
   expandedCardId: () => string | null;
   purchasesStatus: () => 'loading' | 'ready' | 'error';
@@ -127,6 +128,34 @@ describe('DashboardPage', () => {
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('New laptop');
     expect(text).toContain('3 of 6 installments paid');
+  });
+  it('collapses one card into a single row when Accrued and Future carry different labels', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Accrued', card: 'Visa', cycleYear: null, cycleMonth: null, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
+      { bucket: 'Future', card: '9F3A0B7C-GUID', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const cards = view.cycleByCard().filter((card) => card.cardId === 'c1');
+    expect(cards.length).toBe(1);
+    expect(cards[0].card).toBe('Visa');
+    expect(cards[0].accrued).toBe(500000);
+    expect(cards[0].future).toBe(500000);
+    view.toggleCardPurchases('c1');
+    fixture.detectChanges();
+    expect(cardPurchases).toHaveBeenCalledOnceWith('c1');
+    const details = (fixture.nativeElement as HTMLElement).querySelectorAll('[id^="card-purchases-"]');
+    expect(details.length).toBe(1);
+  });
+  it('labels a future-only card with its name, not a GUID', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Future', card: 'Naranja', cycleYear: 2026, cycleMonth: 11, amountMinorUnits: money(90000), currencyCode: 'ARS', cardId: 'c9' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const card = view.cycleByCard().find((row) => row.cardId === 'c9');
+    expect(card?.card).toBe('Naranja');
+    expect(card?.future).toBe(90000);
   });
   it('collapses on a second toggle without calling the service again', () => {
     setup();

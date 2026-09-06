@@ -10,12 +10,12 @@ FROM vw_card_liability_accrued
 UNION ALL
 SELECT
     'Future'                   AS Bucket,
-    CardId                     AS Card,
+    CardName                   AS Card,
     CycleYear                  AS CycleYear,
     CycleMonth                 AS CycleMonth,
     SUM(AmountMinorUnits)      AS AmountMinorUnits,
     CurrencyCode               AS CurrencyCode,
     lower(CardId)              AS CardId
 FROM vw_card_future_schedule
-GROUP BY CardId, CycleYear, CycleMonth, CurrencyCode, lower(CardId)
+GROUP BY CardName, CardId, CycleYear, CycleMonth, CurrencyCode, lower(CardId)
 ORDER BY CardId, Bucket, CycleYear, CycleMonth;

@@ -7,9 +7,11 @@ SELECT
     i.CycleYear        AS CycleYear,
     i.CycleMonth       AS CycleMonth,
     i.AmountMinorUnits AS AmountMinorUnits,
+    c.Name             AS CardName,
     'ARS'              AS CurrencyCode
 FROM financing_installments i
 JOIN financing_payment_plans p ON p.Id = i.PaymentPlanId
+JOIN financing_credit_cards  c ON c.Id = p.CardId
 WHERE i.AccruedOnUtc IS NULL
   AND i.IsReversed = 0
   AND p.CardId IS NOT NULL;

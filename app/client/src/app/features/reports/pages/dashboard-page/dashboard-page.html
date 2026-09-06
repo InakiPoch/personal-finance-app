@@ -83,7 +83,7 @@
         </span>
       </div>
       <ul class="mt-5 flex flex-col gap-5">
-        @for(card of cycleByCard(); track card.card) {
+        @for(card of cycleByCard(); track card.cardId ?? card.card) {
           <li>
             @if(card.cardId; as cardId) {
               <button

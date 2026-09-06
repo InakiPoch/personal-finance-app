@@ -169,6 +169,35 @@ row; `docs/PRD.md` §3.7 note updated (`debt-summary` is no longer the only way 
 Verification: `pnpm ng lint` clean, `pnpm ng test` **210/210** (from 208), `pnpm ng build` clean. Live
 browser E2E not run — handed to the user. Not committed by this session — the user commits their own.
 
+**`docs/parties-card-split/` (new, spans `financing` + `parties`).** Two slices fixing the credit-card-split
+experience on the Parties side. **Slice 1 — Stop the reconcile loop for card splits
+(`slice-1-reconcile-loop-fix.md`) — done, client-only:** `load-expense-page.ts` `reconcile()` takes a
+`mode?: LoadExpenseMode` argument and, for `mode === 'card'`, seeds the reconciliation table then returns
+**before** the `pollUntil` loop — a card split posts no synchronous receivable (it accrues per billing
+cycle, next month), so the 5×800 ms balance poll could only ever stall. `ReconciliationStatus` gains
+`'scheduled'`; participants are marked `updateReconciliation(partyId, 'scheduled', null)`;
+`load-expense-page.html` adds a `@case('scheduled')` reading "scheduled — accrues monthly". Debit/cash and
+creditor-financed splits keep polling (their up-front postings make it succeed). Shipped as `959a3a2`.
+**Slice 2b — Party's future monthly shares (`slice-2b-party-future-shares.md`) — done, spans the API:** the
+party-detail page gains a **"Scheduled"** section between the posted timeline and the settlement form,
+listing what the party will owe per upcoming billing cycle on its card-split plans. New type
+`features/parties/types/future-party-share.ts` (`FuturePartyShare = { cycleYear; cycleMonth;
+shareMinorUnits: Money; currencyCode; sourceLabel }`); `parties-service.ts` gains
+`futureShares(partyId): Observable<FuturePartyShare[]>` (`GET parties/{id}/future-shares`, `{ rows }`
+envelope unwrap). `party-detail-page.ts`: `futureShares` + `futureSharesStatus` signals loaded by a
+`loadFutureShares(id)` beside `loadTimeline(id)` (same `takeUntil(this.destroy$)` shape), called from
+`ngOnInit` only (not re-run after a settlement); a module-level `MONTH_LABELS` array + `cycleLabel(share)`
+helper renders "Oct 2026". `party-detail-page.html` renders loading / error / empty ("Nothing scheduled —
+no upcoming installment shares for this party.") / a `<ul>` of dashed-left-border rows (`cycleLabel`,
+`sourceLabel`, `formatArs(shareMinorUnits)`). API half is `app/api` Phase 24 (`GET
+/v1/parties/{id}/future-shares`, a Financing CQRS query reusing `PhantomPennyAllocator` so the projection
+is byte-exact with accrual). **Known limitation — billing-cycle anchor:** the rows show each installment's
+**statement-close** cycle (for a purchase on/before the card cutoff, its own month — a Sept purchase reads
+Sept/Oct/Nov), matching every other card view and the server's accrual; the initiative docs' "Oct/Nov/Dec"
+examples assume the *payment* month (close + 1), which is an open product decision (API `docs/PRD.md` §9
+decision 8), not yet applied. `party-detail-page.spec.ts` +2 facts (renders the scheduled rows; shows the
+empty note). Committed by the user as `e281437` (page + service) + `09357cb` (tests).
+
 ## Conventions — the non-negotiables
 
 **Class layout** — every class artifact (component, service, pipe) follows the member order in

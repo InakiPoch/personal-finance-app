@@ -951,6 +951,32 @@ Client half of the slice, built one green-lit step at a time in lockstep with th
 
 ---
 
+## Phase 24 — Parties card-split: reconcile-loop fix + party future shares (Slices 1 + 2b)
+
+**Goal:** Fix the credit-card-split experience on the Parties side — (1) stop the never-succeeding balance-reconciliation poll a card split kicks off on Load Expense, and (2) show, on the party-detail page, what a co-borrower will owe per upcoming billing cycle before accrual runs.
+
+**Traces to:** `docs/parties-card-split/slice-1-reconcile-loop-fix.md` (client-only) and `slice-2b-party-future-shares.md` (spans `app/api` Phase 24 — `GET /v1/parties/{id}/future-shares`). `README.md` for shared context. `docs/PRD.md` §3.3 + §3.7 notes updated; the API's `docs/PRD.md` §9 gains decision 8.
+
+**Depends on:** Phase 3 (Parties — `PartyDetailPage`, `parties-service.ts`, `TimelineTable`), Phase 10 (`load-expense-page` payment-mode selector — `LoadExpenseMode`, `reconcile()`).
+
+### Tasks
+- [x] **Slice 1** — `load-expense-page.ts`: `type ReconciliationStatus` gains `'scheduled'`; `reconcile(participants, mode?: LoadExpenseMode)` — after seeding the reconciliations table and **before** the `pollUntil` loop, `if(mode === 'card') { participants.forEach(p => this.updateReconciliation(p.partyId, 'scheduled', null)); return; }`; the call site passes `raw.mode`. `load-expense-page.html`: a `@case('scheduled')` next to `'stalled'` reading "scheduled — accrues monthly". Debit/cash + creditor paths unchanged. (Shipped as `959a3a2`.)
+- [x] **Slice 2b** — `features/parties/types/future-party-share.ts` (new) — `FuturePartyShare = { cycleYear: number; cycleMonth: number; shareMinorUnits: Money; currencyCode: string; sourceLabel: string }`. `parties-service.ts` — `futureShares(partyId): Observable<FuturePartyShare[]>` (`GET parties/{id}/future-shares`, `{ rows }` envelope unwrap).
+- [x] **Slice 2b** — `party-detail-page.ts`: `futureShares` + `futureSharesStatus` signals; `loadFutureShares(id)` beside `loadTimeline(id)` (same `takeUntil(this.destroy$)` shape), called from `ngOnInit` only; module-level `MONTH_LABELS` + `cycleLabel(share)` → "Oct 2026". `party-detail-page.html`: a `<section aria-labelledby="scheduled-label">` between the timeline `</section>` and the settlement `<form>` — loading / error / empty ("Nothing scheduled — no upcoming installment shares for this party.") / a `<ul>` of dashed-left-border `<li>` rows (`cycleLabel`, `sourceLabel`, `formatArs(shareMinorUnits)`).
+- [x] **Slice 2b** — `party-detail-page.spec.ts`: `futureShares` spy added to the `PartiesService` mock (returns `of([])`); `PartyDetailView` gains `futureShares` / `futureSharesStatus`; +2 facts (renders the scheduled rows with "Oct 2026" / "Nov 2026" / source label; shows the empty note when there are none). Existing 5 facts untouched.
+
+### Definition of done
+- [x] A credit-card split confirms and marks participants "scheduled — accrues monthly" with **no** `getBalance` poll; debit/cash + creditor splits still poll and reconcile.
+- [x] The party-detail page renders a "Scheduled" block: one row per upcoming installment share (`cycleLabel`, source label, amount), an empty note when there are none, loading/error states.
+- [x] `pnpm ng lint` clean; `party-detail-page.spec.ts` green (7 facts).
+- [ ] `pnpm ng test --watch=false --browsers=ChromeHeadless` → **212** expected (210 at Phase 23 + 2), `pnpm ng build` clean — the full-suite re-run and the manual live walk (Sept card split → party-detail scheduled rows → a cycle closes → the row moves to the posted timeline) are the slice's outstanding Verify step.
+
+### Completion notes
+
+Slice 1 is a four-line guard in one method plus one template case — it removes a guaranteed-stall poll, nothing more. Slice 2b's client half is a straight copy of the `loadTimeline` pattern against the new `futureShares` service method; all the arithmetic (the phantom-penny split, the byte-exact match with accrual) is the API's (`app/api` Phase 24). **Known limitation — billing-cycle anchor:** the "Scheduled" rows show each installment's statement-close cycle exactly as the API returns it (for a purchase on/before the card cutoff, its own month), consistent with every other card view; the initiative docs' "Oct/Nov/Dec for a Sept purchase" examples assume the payment month (close + 1), which is an unresolved product decision recorded in the API's `docs/PRD.md` §9 decision 8 — no client change was made for it. Committed by the user as `959a3a2` (Slice 1), `e281437` (Slice 2b page + service), `09357cb` (Slice 2b tests).
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

@@ -81,6 +81,10 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 - **After submit:** if a split was included, registration of the receivable is **eventually
   consistent** (API D8) — the plan id returns before the third-party receivable is posted. The view
   confirms the plan immediately and reconciles the party balance shortly after (see `DESIGN.md` §7).
+  For a **card** split the co-borrower's receivable accrues per billing cycle, not synchronously — the
+  view marks each participant *scheduled* rather than polling for a balance change that will not come
+  in this session (`docs/parties-card-split/slice-1-reconcile-loop-fix.md`, now built). Debit/cash and
+  creditor splits post up front and still reconcile live.
 - **Depends on:** card choices and party choices (see gaps §7).
 
 ### 3.4 Statement detail & pay — US-4
@@ -130,6 +134,16 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   equivalent `GET /v1/reports/parties/{id}/timeline`), `POST /v1/parties/shared-expenses`,
   `POST /v1/parties/{id}/settlements`.
 - **Notes:** cross-debts net automatically server-side; the client shows the resulting net only.
+- **Scheduled shares (`docs/parties-card-split/slice-2b-party-future-shares.md`, now built):** the detail
+  view also shows a **"Scheduled"** block — what the party will owe per upcoming month on its card-backed
+  split plans, before each billing cycle accrues (the timeline shows only posted movements, so a freshly
+  card-split party would otherwise read settled / $0). **Source:** `GET /v1/parties/{id}/future-shares` —
+  one row per not-yet-accrued installment share, byte-exact with what the server will post (the API
+  reuses its allocator; the client renders month, source label, amount, and computes nothing).
+  *Known limitation:* the month shown is the installment's statement-close cycle — for a purchase on or
+  before the card's cutoff day, the purchase month itself — consistent with every other card view;
+  whether it should instead show the payment month (cycle + 1) is an open decision (API `docs/PRD.md`
+  §9 decision 8).
 
 ### 3.8 Creditors setup (new — not part of the original 7-view scope)
 - **Shows:** a form to register a creditor (name) with optional free-text destination accounts

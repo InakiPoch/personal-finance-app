@@ -51,6 +51,7 @@ public sealed record ApiRoutes {
     public sealed record Parties {
         public const string Base = V1 + "/parties";
         public const string Create = "/";
+        public const string List = "/";
         public const string SharedExpenses = "/shared-expenses";
         public const string Settle = "/{id:guid}/settlements";
         public const string Balance = "/{id:guid}/balance";

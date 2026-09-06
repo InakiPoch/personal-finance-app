@@ -185,6 +185,10 @@ internal static class EndpointExtensions {
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Parties.List, GetParties.Handle)
+                .WithSummary("List registered parties.")
+                .WithDescription("Returns every registered party, ordered by name.")
+                .Produces<PartiesListDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Parties.Balance, GetBalance.Handle)
                 .WithSummary("Get a party's current account balance.")
                 .WithDescription("Returns the live balance of the party's Ledger receivable account.")

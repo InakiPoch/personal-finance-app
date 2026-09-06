@@ -225,9 +225,29 @@ creditor-financed split and marks the participant scheduled` added (mirrors the 
 "Debit/creditor splits still poll" comments corrected. `pnpm ng lint` clean, `pnpm ng test` **215/215**
 (from 214), `pnpm ng build --configuration production` clean (`financing-routes` 56.55 kB). Not committed by
 this session — the user commits their own (`app/api` steps landed as `d4dd08f` + `bf4477b`). **Slice 3 —
-Schedule-aware summary (`slice-3-schedule-aware-summary.md`) — not started:** makes the Parties **list**
-page stop reading "Settled up" for a $0-now party that has scheduled installments (the detail view is
-already correct after Slice 2).
+Schedule-aware summary (`slice-3-schedule-aware-summary.md`) — now built (final slice, closes the
+initiative):** the Parties **list** page stops reading "Settled up" for a $0-now party that has
+not-yet-accrued split installments (card or creditor) scheduled ahead. New type
+`features/parties/types/pending-shares-by-party-row.ts` (`PendingSharesByPartyRow = { partyId;
+scheduledCount; scheduledTotalMinorUnits: Money; currencyCode }`); `parties-service.ts` gains
+`pendingShares(): Observable<PendingSharesByPartyRow[]>` (`GET parties/pending-shares`, `{ rows }`
+envelope unwrap) — API half is `app/api` Phase 27 (a Financing bulk query reusing the same allocator as
+`GET /v1/parties/{id}/future-shares`, aggregated per party; the slice doc's "extend `debt_by_party.sql`"
+was architecturally blocked — Reporting can't reach Financing's `DbContext` and phantom-penny has no SQL
+form). `parties-page.ts` `loadParties()` `forkJoin` gains a third source (`pending`), builds a
+`scheduledCountByPartyId` map, and threads `scheduledCount` onto its local `PartyListRow` VM;
+`balanceHint()` gets a branch **before** the "Settled up" return — `netBalanceMinorUnits === 0 &&
+scheduledCount > 0` → `"Nothing owed yet · N scheduled"` (chosen over the doc's literal "$0 now · N
+scheduled" — the amount cell already shows the zero, and "$0" assumes a currency glyph `formatArs` may
+not use). `parties-page.html` widens the amount's `[class.text-ledger]` guard to `=== 0 &&
+party.scheduledCount === 0` so a $0-now scheduled party is not painted settled-green; the roster from
+`GET /v1/parties` already lists every party, so no extra merge is needed. `parties-page.spec.ts` — new
+`pendingShares` spy (default `of([])`), the settled-at-zero test renamed to "no balance and no schedule",
++2 facts ($0 + schedule → the new hint; real balance + schedule → hint unchanged); `parties-service.spec.ts`
++1 envelope-unwrap fact. `docs/DESIGN.md` §9 gains a `GET /v1/parties/pending-shares` row; `docs/PRD.md`
+§3.7 "List shows" updated. Verification: `pnpm ng lint` clean, `pnpm ng test` **218/218** (from 215),
+`pnpm ng build --configuration production` clean (`parties-routes` 42.95 kB). Live browser E2E not run —
+handed to the user. Not committed by this session — the user commits their own.
 
 ## Conventions — the non-negotiables
 

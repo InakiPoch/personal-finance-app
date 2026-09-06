@@ -125,9 +125,11 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 
 ### 3.7 Parties — list & detail — US-7
 - **List shows:** every registered party with net balance (positive = they owe you); a party with no
-  movements yet shows as settled / $0. **Source:** `GET /v1/parties` for the roster, merged by id with
-  `GET /v1/reports/parties/debt-summary` for the balances (the debt summary alone omits parties with
-  zero ledger movements).
+  movements yet shows as settled / $0 — unless it has not-yet-accrued split installments scheduled ahead,
+  in which case it reads "Nothing owed yet · N scheduled" instead of "Settled up". **Source:**
+  `GET /v1/parties` for the roster, merged by id with `GET /v1/reports/parties/debt-summary` for the
+  balances (the debt summary alone omits parties with zero ledger movements) and
+  `GET /v1/parties/pending-shares` for the pending-schedule count.
 - **Detail shows:** a party's current balance and the movement timeline (chronological, with running
   balance) that explains how the number was reached. Actions to register a shared expense and to
   register a settlement when someone pays.

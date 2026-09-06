@@ -7,14 +7,12 @@
       shows a single balance.
     </p>
   </header>
-
   <section class="mb-12" aria-labelledby="balances-label">
     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
       <h2 id="balances-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
         Owed to you
       </h2>
     </div>
-
     @if(listStatus() === 'loading') {
       <p class="mt-6 text-sm text-ink-faint">Reading the balances…</p>
     } @else if(listStatus() === 'error') {
@@ -34,7 +32,6 @@
           <span class="text-ink-soft">You owe {{ formatArs(totalPayable()) }} back.</span>
         }
       </p>
-
       @if(parties().length === 0) {
         <p class="mt-8 text-sm text-ink-soft">No parties yet.</p>
       } @else {
@@ -62,7 +59,7 @@
                 </a>
                 <span
                   class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]"
-                  [class.text-ledger]="party.netBalanceMinorUnits === 0"
+                  [class.text-ledger]="party.netBalanceMinorUnits === 0 && party.scheduledCount === 0"
                 >
                   {{ formatArs(party.netBalanceMinorUnits) }}
                 </span>
@@ -79,7 +76,6 @@
       }
     }
   </section>
-
   <form
     class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
     [formGroup]="form"
@@ -89,7 +85,6 @@
     <h2 id="add-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Add a party
     </h2>
-
     <div class="mt-6 flex flex-col gap-1.5">
       <label
         for="name"
@@ -107,7 +102,6 @@
         <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
       }
     </div>
-
     <div class="mt-6 flex flex-col gap-2">
       <button
         type="submit"

@@ -999,7 +999,34 @@ Slice 1 is a four-line guard in one method plus one template case — it removes
 
 ### Completion notes
 
-Slice 1's client footprint is doc + spec-fixture wording only — the API does all the cycle arithmetic. Slice 2's is one method (`reconcile()` — one `||` clause) plus one microcopy line: the creditor path now takes the same no-poll `'scheduled'` route a card split already took, because both accrue at the due month rather than at submit. The Parties **list** page still reads "Settled up" for a $0-now scheduled party — that is **Slice 3** (`slice-3-schedule-aware-summary.md`), not started; the detail view is correct after Slice 2. Not committed by this session — the user commits their own (API steps landed as `d4dd08f` + `bf4477b`).
+Slice 1's client footprint is doc + spec-fixture wording only — the API does all the cycle arithmetic. Slice 2's is one method (`reconcile()` — one `||` clause) plus one microcopy line: the creditor path now takes the same no-poll `'scheduled'` route a card split already took, because both accrue at the due month rather than at submit. The Parties **list** page still reads "Settled up" for a $0-now scheduled party — that is **Slice 3** (`slice-3-schedule-aware-summary.md`), Phase 26 below; the detail view is correct after Slice 2. Not committed by this session — the user commits their own (API steps landed as `d4dd08f` + `bf4477b`).
+
+---
+
+## Phase 26 — Schedule-aware Parties summary (Slice 3)
+
+**Goal:** The Parties **list** page stops reading "Settled up" for a party that owes $0 now but has not-yet-accrued split installments (card or creditor) scheduled ahead — it reads "Nothing owed yet · N scheduled" instead. The detail view is already correct (Phase 25 / Slice 2).
+
+**Traces to:** `docs/cycle-due-month/slice-3-schedule-aware-summary.md` (+ `00-overview.md`; final slice of "Billing cycle 'due month' reframe + creditor-split parity"). API half is `app/api` Phase 27 (`GET /v1/parties/pending-shares` — a Financing bulk query aggregating per party, reusing the `GET /v1/parties/{id}/future-shares` allocator). `docs/DESIGN.md` §9 gains a `GET /v1/parties/pending-shares` row; `docs/PRD.md` §3.7 "List shows" updated. API `docs/PRD.md` §9 gains decision 11. **Closes the `docs/cycle-due-month/` initiative.**
+
+**Depends on:** Phase 23 (`parties-page.ts` `list()` + `debtSummary()` `forkJoin` merge, local `PartyListRow` VM), Phase 25 (the due-month reframe — the pending-shares figure is dated by the payment month server-side).
+
+### Tasks
+- [x] `features/parties/types/pending-shares-by-party-row.ts` — `PendingSharesByPartyRow = { partyId: string; scheduledCount: number; scheduledTotalMinorUnits: Money; currencyCode: string }` (mirrors `future-party-share.ts`).
+- [x] `parties-service.ts` — `pendingShares(): Observable<PendingSharesByPartyRow[]>` → `GET parties/pending-shares`, `{ rows }` envelope unwrap, placed next to `futureShares()`.
+- [x] `parties-page.ts` — local `PartyListRow` gains `scheduledCount: number`; `loadParties()` `forkJoin` gains a third source `pending: this.partiesService.pendingShares()`, builds a `scheduledCountByPartyId` map, sets `scheduledCount: map.get(party.id) ?? 0` on each row; `balanceHint()` gets a branch **before** the "Settled up" return — `netBalanceMinorUnits === 0 && scheduledCount > 0` → `` `Nothing owed yet · ${scheduledCount} scheduled` `` (over the doc's literal "$0 now · N scheduled" — avoids a currency-glyph assumption and reading redundant with the amount cell).
+- [x] `parties-page.html` — the amount `<span>` `[class.text-ledger]` guard widened `=== 0` → `=== 0 && party.scheduledCount === 0`, so a $0-now scheduled party is not painted settled-green. Hint `{{ balanceHint(party) }}` unchanged (`text-ink-faint` already correct).
+- [x] `parties-page.spec.ts` — new `pendingShares` jasmine spy (default `of([])`) in the `PartiesService` provider; merge test's `toEqual` gains `scheduledCount: 0`; settled-at-zero test renamed "no balance and no schedule"; +2 facts ($0 + pending 3 → `'Nothing owed yet · 3 scheduled'` + DOM `'3 scheduled'`; real posted balance + pending 2 → hint stays `'They owe you'`); re-fetch test resets + asserts `pendingShares` re-fires. `parties-service.spec.ts` +1 fact (`GET parties/pending-shares` → `{ rows }` unwrap).
+
+### Definition of done
+- [x] The list distinguishes truly-settled ($0 + nothing scheduled → "Settled up") from $0-now-with-a-schedule ("Nothing owed yet · N scheduled"), for card and creditor alike.
+- [x] "They owe you" / "You owe them" unchanged when there is a real posted balance, even with a schedule.
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **218/218** (215 at Phase 25 + 3); `pnpm ng build --configuration production` clean (`parties-routes` 42.95 kB).
+- [ ] Live browser walk (no browser here) — handed to the user: a $0-now card/creditor split party reads "Nothing owed yet · N scheduled" on the Parties list; a truly-settled party still reads "Settled up".
+
+### Completion notes
+
+Client footprint is one service method, one VM field, one `balanceHint` branch, and one template-guard clause — all the aggregation is the API's (`app/api` Phase 27, reusing `GetFuturePartySharesHandler`'s predicate + `PhantomPennyAllocator` rebuild). The slice doc's "extend the debt-summary read" was architecturally impossible (Reporting is a leaf module with no `DbContext` edge to Financing; phantom-penny has no SQL form), so the pending-schedule figure is a new Financing endpoint merged client-side as a third `forkJoin` source. Copy: **"Nothing owed yet · N scheduled"** over the doc's literal "$0 now · N scheduled" — the amount cell already shows the zero and "$0" presumes a glyph `formatArs` may not use. The roster from `GET /v1/parties` (Phase 23) already lists every party, so a schedule-only party needs no extra merge. Not committed by this session — the user commits their own. This is the last slice of `docs/cycle-due-month/`.
 
 ---
 

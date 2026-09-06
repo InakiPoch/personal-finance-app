@@ -329,6 +329,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 26 | GET | `/v1/expense-categories` | `LedgerService.listExpenseCategories` | Load expense (debit-cash category `<datalist>`) |
 | 27 | POST | `/v1/ledger/expenses` | `LedgerService.recordDebitExpense` | Load expense (debit-cash mode) |
 | 28 | GET | `/v1/parties` | `PartiesService.list` | Parties list (roster — merged with #23 for balances) + Load expense (split party picker) |
+| 29 | GET | `/v1/parties/pending-shares` | `PartiesService.pendingShares` | Parties list (pending-schedule count per party — merged with #23/#28 so a $0-now scheduled party reads "Nothing owed yet · N scheduled") |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

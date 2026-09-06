@@ -7,6 +7,7 @@ import { CurrentAccountTimelineRow } from './types/current-account-timeline-row'
 import { FuturePartyShare } from './types/future-party-share';
 import { Party } from './types/party';
 import { PartyResult } from './types/party-result';
+import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
 import { RegisterSharedExpense } from './types/register-shared-expense';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
@@ -38,6 +39,12 @@ export class PartiesService {
     return this.http
       .get<RowsEnvelope<FuturePartyShare>>(`parties/${partyId}/future-shares`)
     .pipe(map((envelope: RowsEnvelope<FuturePartyShare>) => envelope.rows));
+  }
+
+  pendingShares(): Observable<PendingSharesByPartyRow[]> {
+    return this.http
+      .get<RowsEnvelope<PendingSharesByPartyRow>>('parties/pending-shares')
+    .pipe(map((envelope: RowsEnvelope<PendingSharesByPartyRow>) => envelope.rows));
   }
 
   create(body: CreateParty): Observable<PartyResult> {

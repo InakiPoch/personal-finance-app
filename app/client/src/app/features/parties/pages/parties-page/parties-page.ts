@@ -20,6 +20,7 @@ import { PartyDebtRow } from '../../../reports/types/party-debt-row';
 import { CreateParty } from '../../types/create-party';
 import { Party } from '../../types/party';
 import { PartyResult } from '../../types/party-result';
+import { PendingSharesByPartyRow } from '../../types/pending-shares-by-party-row';
 import { PartiesService } from '../../parties-service';
 
 type ListStatus = 'loading' | 'ready' | 'error';
@@ -29,11 +30,16 @@ type PartyForm = FormGroup<{
   name: FormControl<string>;
 }>;
 
-/** Every registered party (roster from `list()`) merged with its balance from `debtSummary()` — zero when the party has no movements yet. */
+/**
+ * Every registered party (roster from `list()`) merged with its balance from `debtSummary()` — zero when
+ * the party has no movements yet — and its count of not-yet-accrued scheduled installment shares from
+ * `pendingShares()`, so a $0-now party with a schedule reads differently from a truly settled one.
+ */
 type PartyListRow = {
   partyId: string;
   partyName: string;
   netBalanceMinorUnits: Money;
+  scheduledCount: number;
 };
 
 @Component({
@@ -120,6 +126,9 @@ export class PartiesPage implements OnInit, OnDestroy {
     if(row.netBalanceMinorUnits < 0) {
       return 'You owe them';
     }
+    if(row.scheduledCount > 0) {
+      return `Nothing owed yet · ${row.scheduledCount} scheduled`;
+    }
     return 'Settled up';
   }
 
@@ -137,19 +146,24 @@ export class PartiesPage implements OnInit, OnDestroy {
     this.listStatus.set('loading');
     forkJoin({
       roster: this.partiesService.list(),
-      debts: this.reports.debtSummary()
+      debts: this.reports.debtSummary(),
+      pending: this.partiesService.pendingShares()
     })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: ({ roster, debts }: { roster: Party[]; debts: PartyDebtRow[] }) => {
+        next: ({ roster, debts, pending }: { roster: Party[]; debts: PartyDebtRow[]; pending: PendingSharesByPartyRow[] }) => {
           const balanceByPartyId: Map<string, Money> = new Map(
             debts.map((row: PartyDebtRow) => [row.partyId, row.netBalanceMinorUnits])
+          );
+          const scheduledCountByPartyId: Map<string, number> = new Map(
+            pending.map((row: PendingSharesByPartyRow) => [row.partyId, row.scheduledCount])
           );
           this.parties.set(
             roster.map((party: Party) => ({
               partyId: party.id,
               partyName: party.name,
-              netBalanceMinorUnits: balanceByPartyId.get(party.id) ?? fromMinorUnits(0)
+              netBalanceMinorUnits: balanceByPartyId.get(party.id) ?? fromMinorUnits(0),
+              scheduledCount: scheduledCountByPartyId.get(party.id) ?? 0
             }))
           );
           this.listStatus.set('ready');

@@ -83,7 +83,7 @@
         </span>
       </div>
       <ul class="mt-5 flex flex-col gap-5">
-        @for(card of cycleByCard(); track card.card) {
+        @for(card of cycleByCard(); track card.cardId ?? card.card) {
           <li>
             @if(card.cardId; as cardId) {
               <button
@@ -133,7 +133,7 @@
                           <span class="text-xs text-ink-soft">
                             {{ purchase.description }}
                             <span class="text-ink-faint">
-                              — {{ purchase.outstandingCount }} of {{ purchase.installmentCount }} installments outstanding
+                              — {{ purchase.installmentCount - purchase.outstandingCount }} of {{ purchase.installmentCount }} installments paid
                             </span>
                           </span>
                           <span class="text-xs text-ink [font-variant-numeric:tabular-nums_lining-nums]">

@@ -1,4 +1,5 @@
 using PersonalFinance.Api.Endpoints.DTOs;
+using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.Parties.Contracts.Queries;
 
@@ -41,6 +42,36 @@ internal static class PartyMappingExtensions {
                 row.RunningBalanceMinorUnits))
             .ToList();
         return new CurrentAccountTimelineDto(rows);
+    }
+
+    public static PartiesListDto ToPartiesListDto(this ListPartiesResponse response) {
+        var rows = response.Rows
+            .Select(row => new PartyRowDto(row.Id, row.Name))
+            .ToList();
+        return new PartiesListDto(rows);
+    }
+
+    public static FuturePartySharesDto ToFuturePartySharesDto(this GetFuturePartySharesResponse response) {
+        var rows = response.Rows
+            .Select(row => new FuturePartyShareDto(
+                row.CycleYear,
+                row.CycleMonth,
+                row.ShareMinorUnits,
+                row.CurrencyCode,
+                row.SourceLabel))
+            .ToList();
+        return new FuturePartySharesDto(rows);
+    }
+
+    public static PendingSharesByPartyDto ToPendingSharesByPartyDto(this GetPendingSharesByPartyResponse response) {
+        var rows = response.Rows
+            .Select(row => new PendingSharesByPartyRowDto(
+                row.PartyId,
+                row.ScheduledCount,
+                row.ScheduledTotalMinorUnits,
+                row.CurrencyCode))
+            .ToList();
+        return new PendingSharesByPartyDto(rows);
     }
 
     extension(Guid id) {

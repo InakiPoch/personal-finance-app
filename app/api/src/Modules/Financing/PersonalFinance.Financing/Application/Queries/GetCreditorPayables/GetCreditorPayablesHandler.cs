@@ -41,9 +41,11 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context) : I
                     .OrderBy(row => row.CycleYear)
                     .ThenBy(row => row.CycleMonth)
                     .FirstOrDefault();
-                var nextDueDate = earliest is null
-                    ? (DateOnly?)null
-                    : buildDueDate(earliest.PurchaseDate, earliest.CycleYear, earliest.CycleMonth);
+                DateOnly? nextDueDate = null;
+                if(earliest is not null) {
+                    var dueCycle = new BillingCycle(earliest.CycleYear, earliest.CycleMonth).DueCycle;
+                    nextDueDate = buildDueDate(earliest.PurchaseDate, dueCycle.Year, dueCycle.Month);
+                }
                 var accounts = group
                     .Where(row => row.CreditorAccountId != null)
                     .GroupBy(row => row.CreditorAccountId!.Value)

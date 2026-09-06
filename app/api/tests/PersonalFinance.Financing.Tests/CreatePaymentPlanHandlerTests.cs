@@ -74,7 +74,7 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
     }
 
     [Fact]
-    public async Task Handle_schedules_creditor_installments_monthly_from_the_month_after_purchase() {
+    public async Task Handle_stores_creditor_installments_from_the_purchase_month_so_the_due_cycle_is_the_following_month() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var (creditorId, creditorAccountId) = await SeedCreditorAsync(cancellationToken);
         var command = new CreatePaymentPlanCommand(
@@ -90,11 +90,15 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         var plan = await verifyContext.PaymentPlans
             .Include(candidate => candidate.Installments)
             .SingleAsync(candidate => candidate.Id == planId, cancellationToken);
-        var cycles = plan.Installments
-            .OrderBy(installment => installment.Sequence)
+        var installments = plan.Installments.OrderBy(installment => installment.Sequence).ToArray();
+        var storedCycles = installments
             .Select(installment => (installment.CycleYear, installment.CycleMonth))
             .ToArray();
-        Assert.Equal([(2026, 2), (2026, 3), (2026, 4)], cycles);
+        var dueCycles = installments
+            .Select(installment => (installment.DueCycle.Year, installment.DueCycle.Month))
+            .ToArray();
+        Assert.Equal([(2026, 1), (2026, 2), (2026, 3)], storedCycles);
+        Assert.Equal([(2026, 2), (2026, 3), (2026, 4)], dueCycles);
     }
 
     [Fact]

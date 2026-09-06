@@ -1,3 +1,5 @@
+using PersonalFinance.Abstractions.Messaging;
+using PersonalFinance.Infrastructure.Messaging;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.Ledger.Contracts.Queries;
@@ -9,7 +11,7 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Tests;
 
 /// <summary>
-/// Records the calls the creditor-split accrual path makes and lets a test steer the two it depends on
+/// Records the Ledger calls the creditor-split link path makes and lets a test steer the two it depends on
 /// (<see cref="CreateAccountAsync"/>, <see cref="PostTransactionAsync"/>); every other member is unused here.
 /// </summary>
 internal sealed class FakeLedgerApi : ILedgerApi {
@@ -66,7 +68,7 @@ internal sealed class FakeLedgerApi : ILedgerApi {
 }
 
 /// <summary>
-/// Records <see cref="RecordSplitAccrualAsync"/> calls and lets a test force it to fail; every other member is unused here.
+/// Captures the split-accrual metadata calls the due-month gate makes; every other member is unused here.
 /// </summary>
 internal sealed class FakePartiesApi : IPartiesApi {
     public List<RecordSplitAccrualCommand> RecordedAccruals { get; } = [];
@@ -99,5 +101,15 @@ internal sealed class FakePartiesApi : IPartiesApi {
 
     public Task<CurrentAccountTimelineResponse> GetCurrentAccountTimelineAsync(GetCurrentAccountTimelineQuery query, CancellationToken ct = default) {
         throw new NotSupportedException();
+    }
+
+    public Task<ListPartiesResponse> ListPartiesAsync(ListPartiesQuery query, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
+}
+
+internal sealed class NoOpIntegrationEventDispatcher : IIntegrationEventDispatcher {
+    public Task DispatchAsync(IIntegrationEvent integrationEvent, CancellationToken cancellationToken = default) {
+        return Task.CompletedTask;
     }
 }

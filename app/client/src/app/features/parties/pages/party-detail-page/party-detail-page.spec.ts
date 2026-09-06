@@ -10,6 +10,7 @@ import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
+import { FuturePartyShare } from '../../types/future-party-share';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { SettlementResult } from '../../types/settlement-result';
 import { PartiesService } from '../../parties-service';
@@ -23,8 +24,10 @@ type PartyDetailView = {
   }>;
   balance: () => CurrentAccountBalance | null;
   timeline: () => PartyTimelineRow[];
+  futureShares: () => FuturePartyShare[];
   balanceStatus: () => 'loading' | 'ready' | 'error';
   timelineStatus: () => 'loading' | 'ready' | 'error';
+  futureSharesStatus: () => 'loading' | 'ready' | 'error';
   settleStatus: () => 'idle' | 'settling' | 'settled' | 'error';
   settleError: () => AppError | null;
   onSubmit: () => void;
@@ -47,11 +50,32 @@ const timelineRows: PartyTimelineRow[] = [{
     currencyCode: 'ARS'
   }];
 
+// The API's future-shares rows carry the DUE cycle (statement-close month + 1 — "when the
+// money moves"), per docs/cycle-due-month Slice 1: a purchase whose statements close in
+// Sep/Oct surfaces here as Oct/Nov. The page renders cycleMonth verbatim.
+const futureShareRows: FuturePartyShare[] = [
+  {
+    cycleYear: 2026,
+    cycleMonth: 10,
+    shareMinorUnits: money(33333),
+    currencyCode: 'ARS',
+    sourceLabel: 'Visa — Shared laptop'
+  },
+  {
+    cycleYear: 2026,
+    cycleMonth: 11,
+    shareMinorUnits: money(33333),
+    currencyCode: 'ARS',
+    sourceLabel: 'Visa — Shared laptop'
+  }
+];
+
 describe('PartyDetailPage', () => {
   let fixture: ComponentFixture<PartyDetailPage>;
   let view: PartyDetailView;
   let getBalance: jasmine.Spy<(id: string) => Observable<CurrentAccountBalance>>;
   let partyTimeline: jasmine.Spy<(id: string) => Observable<PartyTimelineRow[]>>;
+  let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
 
   function setup(): void {
@@ -79,6 +103,7 @@ describe('PartyDetailPage', () => {
   beforeEach(() => {
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance));
     partyTimeline = jasmine.createSpy('partyTimeline').and.returnValue(of(timelineRows));
+    futureShares = jasmine.createSpy('futureShares').and.returnValue(of<FuturePartyShare[]>([]));
     settle = jasmine
       .createSpy('settle')
       .and.returnValue(of<SettlementResult>({ ledgerTransactionId: 'tx-1' }));
@@ -87,7 +112,7 @@ describe('PartyDetailPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { getBalance, settle } },
+        { provide: PartiesService, useValue: { getBalance, futureShares, settle } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
@@ -133,6 +158,23 @@ describe('PartyDetailPage', () => {
     expect(view.settleStatus()).toBe('settled');
     expect(getBalance).toHaveBeenCalledTimes(1);
     expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('renders each scheduled share under its due month, verbatim from the API', () => {
+    futureShares.and.returnValue(of<FuturePartyShare[]>(futureShareRows));
+    setup();
+    expect(futureShares).toHaveBeenCalledWith('p1');
+    expect(view.futureSharesStatus()).toBe('ready');
+    expect(view.futureShares().length).toBe(2);
+    expect(text()).toContain('Scheduled');
+    // cycleMonth 10 / 11 are the due cycle already — no client-side shift
+    expect(text()).toContain('Oct 2026');
+    expect(text()).toContain('Nov 2026');
+    expect(text()).toContain('Visa — Shared laptop');
+  });
+  it('shows the empty note when the party has no scheduled shares', () => {
+    setup();
+    expect(view.futureShares().length).toBe(0);
+    expect(text()).toContain('Nothing scheduled');
   });
   it('renders settleErrorText keyed off the AppError code on a 409', () => {
     const appError: AppError = {

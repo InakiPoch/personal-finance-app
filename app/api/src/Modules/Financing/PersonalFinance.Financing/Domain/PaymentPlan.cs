@@ -12,8 +12,6 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
     public Guid? SplitReferenceId { get; private set; }
     public Guid? CreditorId { get; private set; }
     public Guid? CreditorAccountId { get; private set; }
-    // Set when a card-less creditor-financed plan carries a split — the Ledger liability its co-borrower
-    // receivables post against. See AccrueCreditorSplitInstallments.
     public Guid? CreditorPayableAccountId { get; private set; }
     public IReadOnlyList<Installment> Installments => installments;
     public IReadOnlyList<PaymentPlanSplitParticipant> SplitParticipants => splitParticipants;
@@ -61,11 +59,9 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         };
         var weights = Enumerable.Repeat(1L, installmentCount).ToArray();
         var shares = allocator.Allocate(total, weights);
-        // Card mode: the first installment lands in the cycle the purchase closes into. Creditor mode:
-        // no billing cycle — a plain monthly schedule, installment k owed in the purchase month + k.
         var firstCycle = cardId is not null
             ? BillingCycleCalculator.ResolveCycle(purchaseDate, cutoffDay!.Value)
-            : new BillingCycle(purchaseDate.Year, purchaseDate.Month).AddMonths(1);
+            : new BillingCycle(purchaseDate.Year, purchaseDate.Month);
         for(var i = 0; i < installmentCount; i++) {
             plan.installments.Add(Installment.Schedule(plan.Id, i + 1, shares[i], firstCycle.AddMonths(i)));
         }

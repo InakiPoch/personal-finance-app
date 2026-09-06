@@ -22,9 +22,8 @@ import { Creditor, CreditorAccount } from '../../../creditors/types/creditor';
 import { LedgerService } from '../../../ledger/ledger-service';
 import { RecordDebitExpenseResult } from '../../../ledger/types/record-debit-expense-result';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
+import { Party } from '../../../parties/types/party';
 import { PartiesService } from '../../../parties/parties-service';
-import { PartyDebtRow } from '../../../reports/types/party-debt-row';
-import { ReportsService } from '../../../reports/reports-service';
 import { FinancingService } from '../../financing-service';
 import { CreatePaymentPlanResult } from '../../types/create-payment-plan-result';
 import { SplitParticipant } from '../../types/split-participant';
@@ -32,7 +31,7 @@ import { atMostTwoDecimals, isoDate, noBlank, noNewline, positiveAmount, positiv
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SubmitStatus = 'idle' | 'submitting' | 'confirmed' | 'error';
-type ReconciliationStatus = 'reconciling' | 'reconciled' | 'stalled';
+type ReconciliationStatus = 'reconciling' | 'reconciled' | 'stalled' | 'scheduled';
 type LoadExpenseMode = 'card' | 'creditor' | 'debit';
 type ConfirmedKind = 'plan' | 'expense';
 
@@ -74,7 +73,7 @@ type LoadExpenseForm = FormGroup<{
 export class LoadExpensePage implements OnInit, OnDestroy {
   protected form!: LoadExpenseForm;
   protected readonly formatArs: (value: Money) => string = formatArs;
-  protected readonly parties: WritableSignal<PartyDebtRow[]> = signal<PartyDebtRow[]>([]);
+  protected readonly parties: WritableSignal<Party[]> = signal<Party[]>([]);
   protected readonly partiesStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly submitStatus: WritableSignal<SubmitStatus> = signal<SubmitStatus>('idle');
   protected readonly submitError: WritableSignal<AppError | null> = signal<AppError | null>(null);
@@ -114,7 +113,6 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   private readonly ledgerService: LedgerService = inject(LedgerService);
   private readonly creditorsService: CreditorsService = inject(CreditorsService);
   private readonly partiesService: PartiesService = inject(PartiesService);
-  private readonly reportsService: ReportsService = inject(ReportsService);
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
@@ -190,7 +188,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         this.confirmedDescription.set(description);
         this.submitStatus.set('confirmed');
         if(participants.length > 0) {
-          this.reconcile(participants);
+          this.reconcile(participants, raw.mode);
         }
       },
       error: (error: AppError) => {
@@ -200,7 +198,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     });
   }
 
-  private reconcile(participants: SplitParticipant[]): void {
+  private reconcile(participants: SplitParticipant[], mode?: LoadExpenseMode): void {
     this.reconciliations.set(
       participants.map((participant: SplitParticipant) => ({
         partyId: participant.partyId,
@@ -209,6 +207,12 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         balanceMinorUnits: null
       }))
     );
+    if(mode === 'card' || mode === 'creditor') {
+      participants.forEach((participant: SplitParticipant) =>
+        this.updateReconciliation(participant.partyId, 'scheduled', null)
+      );
+      return;
+    }
     for(const participant of participants) {
       this.partiesService
         .getBalance(participant.partyId)
@@ -241,16 +245,16 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   }
 
   private partyName(partyId: string): string {
-    return this.parties().find((row: PartyDebtRow) => row.partyId === partyId)?.partyName ?? partyId;
+    return this.parties().find((row: Party) => row.id === partyId)?.name ?? partyId;
   }
 
   private loadParties(): void {
     this.partiesStatus.set('loading');
-    this.reportsService
-      .debtSummary()
+    this.partiesService
+      .list()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (rows: PartyDebtRow[]) => {
+        next: (rows: Party[]) => {
           this.parties.set(rows);
           this.partiesStatus.set('ready');
         },

@@ -49,6 +49,16 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
+    public async Task CardDueByMonth_labels_future_rows_with_the_card_name_not_its_id() {
+        var response = await AskAsync(new CardDueByMonthQuery());
+        var future = response.Rows.Where(row => row.Bucket == "Future").ToList();
+        Assert.NotEmpty(future);
+        Assert.All(future, row => Assert.Equal("Visa Reporting", row.Card));
+        Assert.All(future, row => Assert.NotEqual(fixture.ReportingCardId.ToString(), row.Card));
+        Assert.All(future, row => Assert.NotEqual(row.CardId, row.Card));
+    }
+
+    [Fact]
     public async Task PartyTimeline_reflects_the_seeded_shared_expense_and_settlement() {
         var response = await AskAsync(new GetPartyTimelineQuery(fixture.AliceId));
         Assert.Equal(2, response.Rows.Count);

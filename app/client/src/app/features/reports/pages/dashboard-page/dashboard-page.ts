@@ -75,30 +75,49 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   protected readonly cycleByCard: Signal<CardCycle[]> = computed(() => {
     const order: string[] = [];
-    const cardIdByLabel: Map<string, string | null> = new Map<string, string | null>();
+    const cardIdByKey: Map<string, string | null> = new Map<string, string | null>();
+    const labelByKey: Map<string, string> = new Map<string, string>();
     const accrued: Map<string, number> = new Map<string, number>();
     const future: Map<string, number> = new Map<string, number>();
+    const keyOf = (row: CardDueRow): string => row.cardId ?? `label:${row.card}`;
+
     for(const row of this.cardDueRows()) {
-      if(!cardIdByLabel.has(row.card)) {
-        cardIdByLabel.set(row.card, row.cardId);
+      const key: string = keyOf(row);
+      if(!cardIdByKey.has(key)) {
+        cardIdByKey.set(key, row.cardId);
+      }
+      if(row.bucket === 'Accrued' || !labelByKey.has(key)) {
+        labelByKey.set(key, row.card);
+      }
+      const totals: Map<string, number> = row.bucket === 'Accrued' ? accrued : future;
+      totals.set(key, (totals.get(key) ?? 0) + row.amountMinorUnits);
+    }
+
+    for(const row of this.cardDueRows()) {
+      if(row.bucket !== 'Accrued') {
+        continue;
+      }
+      const key: string = keyOf(row);
+      if(!order.includes(key)) {
+        order.push(key);
       }
     }
-    for(const row of this.accruedByCard()) {
-      accrued.set(row.label, row.totalMinorUnits);
-      order.push(row.label);
-    }
-    for(const row of this.futureByCard()) {
-      future.set(row.label, row.totalMinorUnits);
-      if(!order.includes(row.label)) {
-        order.push(row.label);
+    for(const row of this.cardDueRows()) {
+      if(row.bucket !== 'Future') {
+        continue;
+      }
+      const key: string = keyOf(row);
+      if(!order.includes(key)) {
+        order.push(key);
       }
     }
-    return order.map((card: string) => {
-      const accruedMinor: number = accrued.get(card) ?? 0;
-      const futureMinor: number = future.get(card) ?? 0;
+
+    return order.map((key: string) => {
+      const accruedMinor: number = accrued.get(key) ?? 0;
+      const futureMinor: number = future.get(key) ?? 0;
       return {
-        card,
-        cardId: cardIdByLabel.get(card) ?? null,
+        card: labelByKey.get(key) ?? key,
+        cardId: cardIdByKey.get(key) ?? null,
         accrued: fromMinorUnits(accruedMinor),
         future: fromMinorUnits(futureMinor),
         total: fromMinorUnits(accruedMinor + futureMinor)

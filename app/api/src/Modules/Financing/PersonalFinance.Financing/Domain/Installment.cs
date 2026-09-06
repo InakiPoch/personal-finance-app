@@ -9,10 +9,13 @@ internal sealed class Installment : Entity<Guid> {
     public int CycleYear { get; }
     public int CycleMonth { get; }
     public DateTimeOffset? AccruedOnUtc { get; private set; }
+    public DateTimeOffset? SplitAccruedOnUtc { get; private set; }
     public Guid? StatementId { get; private set; }
     public bool IsReversed { get; private set; }
     public bool IsAccrued => AccruedOnUtc is not null;
+    public bool IsSplitAccrued => SplitAccruedOnUtc is not null;
     public BillingCycle Cycle => new(CycleYear, CycleMonth);
+    public BillingCycle DueCycle => Cycle.DueCycle;
 
     private Installment(Guid id, Guid paymentPlanId, int sequence, Money amount, int cycleYear, int cycleMonth) : base(id) {
         PaymentPlanId = paymentPlanId;
@@ -35,13 +38,11 @@ internal sealed class Installment : Entity<Guid> {
         return Result.Success();
     }
 
-    // Creditor-financed plans have no MonthlyStatement — the installment is accrued straight to the
-    // Ledger split legs (or to nothing, when the holder carries the whole cuota), so StatementId stays null.
-    public Result MarkCreditorAccrued(DateTimeOffset accruedOnUtc) {
-        if(AccruedOnUtc is not null) {
-            return Result.Failure(FinancingErrors.InstallmentAlreadyAccrued);
+    public Result MarkSplitAccrued(DateTimeOffset splitAccruedOnUtc) {
+        if(SplitAccruedOnUtc is not null) {
+            return Result.Failure(FinancingErrors.InstallmentSplitAlreadyAccrued);
         }
-        AccruedOnUtc = accruedOnUtc;
+        SplitAccruedOnUtc = splitAccruedOnUtc;
         return Result.Success();
     }
 

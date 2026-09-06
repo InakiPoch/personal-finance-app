@@ -4,6 +4,8 @@ namespace PersonalFinance.Financing.Domain;
 /// The statement cycle a purchase closes into — identified by its cutoff month, not the calendar month of the purchase.
 /// </summary>
 internal sealed record BillingCycle(int Year, int Month) {
+    public BillingCycle DueCycle => AddMonths(1);
+
     public BillingCycle AddMonths(int months) {
         var zeroBased = (Year * 12) + (Month - 1) + months;
         var (year, monthIndex) = Math.DivRem(zeroBased, 12);

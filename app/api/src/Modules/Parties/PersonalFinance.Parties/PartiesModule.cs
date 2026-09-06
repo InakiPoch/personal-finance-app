@@ -13,6 +13,7 @@ using PersonalFinance.Parties.Application.Commands.SettleCurrentAccount;
 using PersonalFinance.Parties.Application.EventHandlers;
 using PersonalFinance.Parties.Application.Queries.GetCurrentAccountBalance;
 using PersonalFinance.Parties.Application.Queries.GetCurrentAccountTimeline;
+using PersonalFinance.Parties.Application.Queries.ListParties;
 using PersonalFinance.Parties.Contracts;
 using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.Parties.Contracts.Queries;
@@ -40,6 +41,7 @@ public sealed class PartiesModule : IModule {
         services.AddScoped<ICommandHandler<CorrectExpenseSplitCommand>, CorrectExpenseSplitHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountBalanceQuery, CurrentAccountBalanceResponse>, GetCurrentAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountTimelineQuery, CurrentAccountTimelineResponse>, GetCurrentAccountTimelineHandler>();
+        services.AddScoped<IQueryHandler<ListPartiesQuery, ListPartiesResponse>, ListPartiesHandler>();
         services.AddScoped<IIntegrationEventHandler<PaymentPlanCreatedIntegrationEvent>, OnPaymentPlanCreated>();
     }
 }

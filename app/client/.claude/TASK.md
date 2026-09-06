@@ -900,6 +900,136 @@ Built one green-lit step at a time in lockstep with the API's Phase 20 (step 3 o
 
 ---
 
+## Phase 22 — Dashboard fixes: installments-paid wording + card name on future rows (Slices 1–2)
+
+**Goal:** Fix three Dashboard "Card Debt by Cycle" defects across two slices — the drill-down installment line phrased as "outstanding" instead of "paid" (Slice 1), and future-installment cards showing a GUID for a name plus expanding one card opening every row of the same physical card (Slice 2).
+
+**Traces to:** `docs/dashboard-fixes/slice-1-installments-paid-of-total.md` and `slice-2-card-name-and-expand.md` (standalone planning docs — `docs/PRD.md` §3.1 already describes the drill-down and stays unmodified; `docs/DESIGN.md` unchanged on the client side). Slice 2's API half is `app/api` Phase 21 (`vw_card_future_schedule` + `card_due_by_month.sql` + migration `20260906031333`).
+
+**Depends on:** the `docs/expense-description/` Slice 2 card-debt drill-down phase (`dashboard-page.ts` `cycleByCard()` + `expandedCardId` + the `#card-purchases-*` disclosure).
+
+### Tasks
+- [x] Slice 1 — `features/reports/pages/dashboard-page/dashboard-page.html` (~line 136): the drill-down purchase line changed from `{{ outstandingCount }} of {{ installmentCount }} installments outstanding` to `{{ installmentCount - outstandingCount }} of {{ installmentCount }} installments paid`. No `.ts`/type change — both fields already on `CardPurchaseRow`.
+- [x] Slice 2 — `dashboard-page.ts` `cycleByCard()` regrouped by the stable `cardId` instead of the label string. Grouping key `row.cardId ?? ('label:' + row.card)`; display label per card prefers the Accrued-bucket label, falls back to the Future label, never a GUID; two-pass ordering (accrued cards first, then future-only) preserved. `accruedByCard()`/`futureByCard()` untouched. A null-`cardId` row stays a plain non-expandable row, as before.
+- [x] Slice 2 — `dashboard-page.html`: `@for(card of cycleByCard(); track card.card)` → `track card.cardId ?? card.card`. No structural change (the `@if(card.cardId; as cardId)` guards + `expandedCardId() === cardId` stay correct once each `cardId` is on exactly one row).
+- [x] Slice 2 — `dashboard-page.spec.ts` +2 facts (`DashboardView` gains `cycleByCard`): an Accrued + a Future row sharing one `cardId` but different `card` labels collapse into exactly one `cycleByCard()` row (Accrued label wins) and expanding it renders exactly one `#card-purchases-*` block; a lone Future row keeps its name as the label.
+
+### Definition of done
+- [x] The drill-down line reads "N of M installments paid".
+- [x] A card with future installments shows its name (from the API's Phase 21), and expanding it reveals only its own purchases — one `cardId` maps to one rendered row regardless of any Accrued/Future label mismatch.
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean (no budget change, `financing-routes` chunk unchanged); `pnpm ng test --watch=false --browsers=ChromeHeadless` → **208 passed** (206 baseline at Phase 21 + 2 new facts).
+- [ ] Manual live E2E walk (run the API + client, open a Dashboard with a card that has future installments, confirm the card name shows and expanding it opens only its own purchases) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Bug-fix initiative, not a feature — the drill-down itself was built in the `docs/expense-description/` Slice 2 phase. No new D-numbers, no client-side PRD/DESIGN change (the API's `docs/DESIGN.md` §D11 gains one clause for the Future-half label). Slice 1 was a one-line template change; Slice 2's client half is the `cardId` regroup, its API half is `app/api` Phase 21. Full verification: `pnpm ng lint` clean, `pnpm ng build` clean, `pnpm ng test` 208/208; API side `dotnet test --solution` 223/223. Manual browser walk handed to the user. Committed by the user as `3b7a098` (Slice 1) + `979eb54` (Slice 2).
+
+---
+
+## Phase 23 — Dashboard fixes: Parties list endpoint wiring (Slice 3)
+
+**Goal:** Make a created party visible on the Parties page and selectable in the load-expense split immediately — stop enumerating parties through `ReportsService.debtSummary()` (whose INNER JOIN hides movement-less parties) and consume the new `GET /v1/parties` roster endpoint instead.
+
+**Traces to:** `docs/dashboard-fixes/slice-3-parties-list-endpoint.md` (final slice of the dashboard-fixes initiative — fixes bug #2). API half is `app/api` Phase 22. `docs/DESIGN.md` §9 gains a `GET /v1/parties` row; `docs/PRD.md` §3.7 note updated (`debt-summary` no longer the only way to enumerate parties).
+
+**Depends on:** the `docs/creditor-expense-fields/` Slice 1 phase (`CreditorsService.list()` — the pattern mirrored).
+
+### Tasks
+- [x] `features/parties/types/party.ts` (new) — `Party = { id: string; name: string }`. `features/parties/parties-service.ts` — `list(): Observable<Party[]>` (`GET parties`, `{ rows }` envelope unwrap), mirroring `CreditorsService.list()`.
+- [x] `features/parties/pages/parties-page/parties-page.ts` + `.html` — `loadParties()` does `forkJoin({ roster: partiesService.list(), debts: reports.debtSummary() })`, merges by id into a local `PartyListRow` VM (`{ partyId, partyName, netBalanceMinorUnits }` — same field names as the used `PartyDebtRow` subset, so the template + `balanceHint`/`tickWidth`/totals need no rename); a party with no debt row → `netBalanceMinorUnits: fromMinorUnits(0)` → existing `balanceHint` renders "Settled up" / `$0.00`. Empty state "No parties with movements yet." → "No parties yet."; created-party note reworded.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` + `.html` — `loadParties()` source `reportsService.debtSummary()` → `partiesService.list()`; `parties` signal `PartyDebtRow[]` → `Party[]`; `partyName()` + the split `<select>` migrated `partyId`/`partyName` → `id`/`name`; `ReportsService` import + field removed. "Add participant" `[disabled]="parties().length === 0"` now reflects real party existence.
+- [x] `parties-page.spec.ts` rewritten (9 facts — merge of `list()` + `debtSummary()`, a party absent from the debt summary renders as "Settled up" at zero, "No parties yet." empty state, roster-load failure → error). `load-expense-page.spec.ts` reworked (`PartyDebtRow` → `Party`, `debtSummary` spy → `PartiesService.list`, `ReportsService` provider dropped).
+
+### Definition of done
+- [x] The Parties page lists every registered party; one with no movements shows "settled" / `$0`. The load-expense split offers a brand-new party immediately.
+- [x] `pnpm ng lint` clean; `pnpm ng build` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **210 passed** (208 baseline at Phase 22 + 2 net new facts).
+- [ ] Manual live E2E walk (create a fresh party with no shared expense, confirm it shows on the Parties page as "settled" and is selectable in the load-expense split) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Client half of the slice, built one green-lit step at a time in lockstep with the API's Phase 22. The Parties page keeps `debt-summary` as the balances source and merges it with the new roster endpoint; the load-expense split drops `debt-summary` entirely. The `PartyListRow` VM deliberately keeps `PartyDebtRow`'s field names so the Parties-page template and helpers needed no rename. Full verification: `pnpm ng lint` clean, `pnpm ng build` clean, `pnpm ng test` 210/210; API side `dotnet test --solution` 227/227. Manual browser walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
+## Phase 24 — Parties card-split: reconcile-loop fix + party future shares (Slices 1 + 2b)
+
+**Goal:** Fix the credit-card-split experience on the Parties side — (1) stop the never-succeeding balance-reconciliation poll a card split kicks off on Load Expense, and (2) show, on the party-detail page, what a co-borrower will owe per upcoming billing cycle before accrual runs.
+
+**Traces to:** `docs/parties-card-split/slice-1-reconcile-loop-fix.md` (client-only) and `slice-2b-party-future-shares.md` (spans `app/api` Phase 24 — `GET /v1/parties/{id}/future-shares`). `README.md` for shared context. `docs/PRD.md` §3.3 + §3.7 notes updated; the API's `docs/PRD.md` §9 gains decision 8.
+
+**Depends on:** Phase 3 (Parties — `PartyDetailPage`, `parties-service.ts`, `TimelineTable`), Phase 10 (`load-expense-page` payment-mode selector — `LoadExpenseMode`, `reconcile()`).
+
+### Tasks
+- [x] **Slice 1** — `load-expense-page.ts`: `type ReconciliationStatus` gains `'scheduled'`; `reconcile(participants, mode?: LoadExpenseMode)` — after seeding the reconciliations table and **before** the `pollUntil` loop, `if(mode === 'card') { participants.forEach(p => this.updateReconciliation(p.partyId, 'scheduled', null)); return; }`; the call site passes `raw.mode`. `load-expense-page.html`: a `@case('scheduled')` next to `'stalled'` reading "scheduled — accrues monthly". Debit/cash + creditor paths unchanged. (Shipped as `959a3a2`.)
+- [x] **Slice 2b** — `features/parties/types/future-party-share.ts` (new) — `FuturePartyShare = { cycleYear: number; cycleMonth: number; shareMinorUnits: Money; currencyCode: string; sourceLabel: string }`. `parties-service.ts` — `futureShares(partyId): Observable<FuturePartyShare[]>` (`GET parties/{id}/future-shares`, `{ rows }` envelope unwrap).
+- [x] **Slice 2b** — `party-detail-page.ts`: `futureShares` + `futureSharesStatus` signals; `loadFutureShares(id)` beside `loadTimeline(id)` (same `takeUntil(this.destroy$)` shape), called from `ngOnInit` only; module-level `MONTH_LABELS` + `cycleLabel(share)` → "Oct 2026". `party-detail-page.html`: a `<section aria-labelledby="scheduled-label">` between the timeline `</section>` and the settlement `<form>` — loading / error / empty ("Nothing scheduled — no upcoming installment shares for this party.") / a `<ul>` of dashed-left-border `<li>` rows (`cycleLabel`, `sourceLabel`, `formatArs(shareMinorUnits)`).
+- [x] **Slice 2b** — `party-detail-page.spec.ts`: `futureShares` spy added to the `PartiesService` mock (returns `of([])`); `PartyDetailView` gains `futureShares` / `futureSharesStatus`; +2 facts (renders the scheduled rows with "Oct 2026" / "Nov 2026" / source label; shows the empty note when there are none). Existing 5 facts untouched.
+
+### Definition of done
+- [x] A credit-card split confirms and marks participants "scheduled — accrues monthly" with **no** `getBalance` poll; debit/cash + creditor splits still poll and reconcile.
+- [x] The party-detail page renders a "Scheduled" block: one row per upcoming installment share (`cycleLabel`, source label, amount), an empty note when there are none, loading/error states.
+- [x] `pnpm ng lint` clean; `party-detail-page.spec.ts` green (7 facts).
+- [ ] `pnpm ng test --watch=false --browsers=ChromeHeadless` → **212** expected (210 at Phase 23 + 2), `pnpm ng build` clean — the full-suite re-run and the manual live walk (Sept card split → party-detail scheduled rows → a cycle closes → the row moves to the posted timeline) are the slice's outstanding Verify step.
+
+### Completion notes
+
+Slice 1 is a four-line guard in one method plus one template case — it removes a guaranteed-stall poll, nothing more. Slice 2b's client half is a straight copy of the `loadTimeline` pattern against the new `futureShares` service method; all the arithmetic (the phantom-penny split, the byte-exact match with accrual) is the API's (`app/api` Phase 24). **Billing-cycle anchor — resolved by `docs/cycle-due-month` Slice 1:** the API now returns the **due** cycle (close + 1) on payment-facing card surfaces, so the "Scheduled" rows read Oct/Nov/Dec for a Sept purchase as the initiative docs intend; the client still renders `cycleMonth` verbatim (no arithmetic change) and statement views keep the close cycle. API `docs/PRD.md` §9 decision 8 is settled. Committed by the user as `959a3a2` (Slice 1), `e281437` (Slice 2b page + service), `09357cb` (Slice 2b tests).
+
+---
+
+## Phase 25 — Billing cycle "due month" reframe + creditor-split parity (Slices 1 + 2)
+
+**Goal:** Payment-facing card surfaces show the **payment month** (statement-close cycle + 1), not the close month; a creditor-financed split behaves exactly like a card split ($0 now, accrues at the due month, visible in the party "Scheduled" block).
+
+**Traces to:** `docs/cycle-due-month/slice-1-card-due-month.md` + `slice-2-creditor-split-parity.md` (+ `00-overview.md`). API halves are `app/api` Phase 25 (Slice 1) + Phase 26 (Slice 2). API `docs/PRD.md` §9 decision 8 resolved, decisions 9–10 added.
+
+**Depends on:** Phase 10 (`load-expense-page` payment-mode selector — `LoadExpenseMode`, `reconcile()`), Phase 24 (`party-detail-page` "Scheduled" block, `reconcile()` `mode === 'card'` short-circuit).
+
+### Tasks
+- [x] **Slice 1** — no client production change. The client renders whatever cycle the API sends (`party-detail-page.ts` `MONTH_LABELS[cycleMonth - 1]` is array indexing; the dashboard "Card debt by cycle" block shows no month). `party-detail-page.spec.ts` scheduled fixture re-characterised as the due cycle; the "billing-cycle anchor" notes in `.claude/CLAUDE.md` + this file rewritten as resolved. `load-expense-page.spec.ts` two pre-existing stale `mode === 'card'` reconcile assertions re-pointed to `fillValidDebitForm()`. (Committed with the API steps as `83d7809` + `22f88b1`.)
+- [x] **Slice 2** — `load-expense-page.ts` `reconcile()`: the `mode === 'card'` `'scheduled'` short-circuit widened to `mode === 'card' || mode === 'creditor'`. The slice doc undersold this — the API removed the synchronous up-front creditor receivable post (Phase 26), so a creditor split's co-borrower balance no longer moves at submit and the `pollUntil` loop could only stall; debit/cash still polls.
+- [x] **Slice 2** — `party-detail-page.html` "Scheduled" intro copy: "on card-split **and creditor-financed** plans. Each becomes a posted movement above **when its due month arrives**." (was "on card-split plans … once its billing cycle closes"). No spec asserts this text.
+- [x] **Slice 2** — `load-expense-page.spec.ts`: `does not poll for a creditor-financed split and marks the participant scheduled` added (mirrors the card test — `fillValidForm()` + `mode = 'creditor'` + `creditorId = 'creditor-1'`, account auto-selects, `onSubmit` → `getBalance` not called, status `'scheduled'`); two stale "Debit/creditor splits still poll" comments corrected.
+
+### Definition of done
+- [x] Payment-facing surfaces render the payment month (from the API); a creditor split confirms and marks each participant `'scheduled'` with no `getBalance` poll; debit/cash still polls and reconciles.
+- [x] The party-detail "Scheduled" block renders creditor installments identically to card ones (source label = creditor name).
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **215/215** (214 at Phase 24 + 1); `pnpm ng build --configuration production` clean (`financing-routes` 56.55 kB).
+- [ ] Live browser walk (no browser in this environment) — handed to the user: load a creditor-financed Sept split, 3 installments → $0 now, "Scheduled" reads Oct/Nov/Dec, no "Settled up" in the party **detail** view.
+
+### Completion notes
+
+Slice 1's client footprint is doc + spec-fixture wording only — the API does all the cycle arithmetic. Slice 2's is one method (`reconcile()` — one `||` clause) plus one microcopy line: the creditor path now takes the same no-poll `'scheduled'` route a card split already took, because both accrue at the due month rather than at submit. The Parties **list** page still reads "Settled up" for a $0-now scheduled party — that is **Slice 3** (`slice-3-schedule-aware-summary.md`), Phase 26 below; the detail view is correct after Slice 2. Not committed by this session — the user commits their own (API steps landed as `d4dd08f` + `bf4477b`).
+
+---
+
+## Phase 26 — Schedule-aware Parties summary (Slice 3)
+
+**Goal:** The Parties **list** page stops reading "Settled up" for a party that owes $0 now but has not-yet-accrued split installments (card or creditor) scheduled ahead — it reads "Nothing owed yet · N scheduled" instead. The detail view is already correct (Phase 25 / Slice 2).
+
+**Traces to:** `docs/cycle-due-month/slice-3-schedule-aware-summary.md` (+ `00-overview.md`; final slice of "Billing cycle 'due month' reframe + creditor-split parity"). API half is `app/api` Phase 27 (`GET /v1/parties/pending-shares` — a Financing bulk query aggregating per party, reusing the `GET /v1/parties/{id}/future-shares` allocator). `docs/DESIGN.md` §9 gains a `GET /v1/parties/pending-shares` row; `docs/PRD.md` §3.7 "List shows" updated. API `docs/PRD.md` §9 gains decision 11. **Closes the `docs/cycle-due-month/` initiative.**
+
+**Depends on:** Phase 23 (`parties-page.ts` `list()` + `debtSummary()` `forkJoin` merge, local `PartyListRow` VM), Phase 25 (the due-month reframe — the pending-shares figure is dated by the payment month server-side).
+
+### Tasks
+- [x] `features/parties/types/pending-shares-by-party-row.ts` — `PendingSharesByPartyRow = { partyId: string; scheduledCount: number; scheduledTotalMinorUnits: Money; currencyCode: string }` (mirrors `future-party-share.ts`).
+- [x] `parties-service.ts` — `pendingShares(): Observable<PendingSharesByPartyRow[]>` → `GET parties/pending-shares`, `{ rows }` envelope unwrap, placed next to `futureShares()`.
+- [x] `parties-page.ts` — local `PartyListRow` gains `scheduledCount: number`; `loadParties()` `forkJoin` gains a third source `pending: this.partiesService.pendingShares()`, builds a `scheduledCountByPartyId` map, sets `scheduledCount: map.get(party.id) ?? 0` on each row; `balanceHint()` gets a branch **before** the "Settled up" return — `netBalanceMinorUnits === 0 && scheduledCount > 0` → `` `Nothing owed yet · ${scheduledCount} scheduled` `` (over the doc's literal "$0 now · N scheduled" — avoids a currency-glyph assumption and reading redundant with the amount cell).
+- [x] `parties-page.html` — the amount `<span>` `[class.text-ledger]` guard widened `=== 0` → `=== 0 && party.scheduledCount === 0`, so a $0-now scheduled party is not painted settled-green. Hint `{{ balanceHint(party) }}` unchanged (`text-ink-faint` already correct).
+- [x] `parties-page.spec.ts` — new `pendingShares` jasmine spy (default `of([])`) in the `PartiesService` provider; merge test's `toEqual` gains `scheduledCount: 0`; settled-at-zero test renamed "no balance and no schedule"; +2 facts ($0 + pending 3 → `'Nothing owed yet · 3 scheduled'` + DOM `'3 scheduled'`; real posted balance + pending 2 → hint stays `'They owe you'`); re-fetch test resets + asserts `pendingShares` re-fires. `parties-service.spec.ts` +1 fact (`GET parties/pending-shares` → `{ rows }` unwrap).
+
+### Definition of done
+- [x] The list distinguishes truly-settled ($0 + nothing scheduled → "Settled up") from $0-now-with-a-schedule ("Nothing owed yet · N scheduled"), for card and creditor alike.
+- [x] "They owe you" / "You owe them" unchanged when there is a real posted balance, even with a schedule.
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **218/218** (215 at Phase 25 + 3); `pnpm ng build --configuration production` clean (`parties-routes` 42.95 kB).
+- [ ] Live browser walk (no browser here) — handed to the user: a $0-now card/creditor split party reads "Nothing owed yet · N scheduled" on the Parties list; a truly-settled party still reads "Settled up".
+
+### Completion notes
+
+Client footprint is one service method, one VM field, one `balanceHint` branch, and one template-guard clause — all the aggregation is the API's (`app/api` Phase 27, reusing `GetFuturePartySharesHandler`'s predicate + `PhantomPennyAllocator` rebuild). The slice doc's "extend the debt-summary read" was architecturally impossible (Reporting is a leaf module with no `DbContext` edge to Financing; phantom-penny has no SQL form), so the pending-schedule figure is a new Financing endpoint merged client-side as a third `forkJoin` source. Copy: **"Nothing owed yet · N scheduled"** over the doc's literal "$0 now · N scheduled" — the amount cell already shows the zero and "$0" presumes a glyph `formatArs` may not use. The roster from `GET /v1/parties` (Phase 23) already lists every party, so a schedule-only party needs no extra merge. Not committed by this session — the user commits their own. This is the last slice of `docs/cycle-due-month/`.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

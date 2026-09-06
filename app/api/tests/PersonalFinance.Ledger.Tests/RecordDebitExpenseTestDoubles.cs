@@ -43,6 +43,10 @@ internal sealed class FakePartiesApi : IPartiesApi {
     public Task<CurrentAccountTimelineResponse> GetCurrentAccountTimelineAsync(GetCurrentAccountTimelineQuery query, CancellationToken ct = default) {
         throw new NotSupportedException();
     }
+
+    public Task<ListPartiesResponse> ListPartiesAsync(ListPartiesQuery query, CancellationToken ct = default) {
+        throw new NotSupportedException();
+    }
 }
 
 /// <summary>

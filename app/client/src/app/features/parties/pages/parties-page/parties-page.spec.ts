@@ -8,9 +8,18 @@ import { Money } from '../../../../core/types/money';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
 import { CreateParty } from '../../types/create-party';
+import { Party } from '../../types/party';
 import { PartyResult } from '../../types/party-result';
+import { PendingSharesByPartyRow } from '../../types/pending-shares-by-party-row';
 import { PartiesService } from '../../parties-service';
 import { PartiesPage } from './parties-page';
+
+type PartyListRow = {
+  partyId: string;
+  partyName: string;
+  netBalanceMinorUnits: Money;
+  scheduledCount: number;
+};
 
 type PartiesView = {
   form: FormGroup<{ name: FormControl<string> }>;
@@ -18,21 +27,25 @@ type PartiesView = {
   submitStatus: () => 'idle' | 'submitting' | 'error';
   submitError: () => AppError | null;
   createdPartyId: () => string | null;
-  parties: () => PartyDebtRow[];
+  parties: () => PartyListRow[];
+  balanceHint: (row: PartyListRow) => string;
   onSubmit: () => void;
 };
 
-const debtRow: PartyDebtRow = {
-  partyId: 'p1',
-  partyName: 'Alice',
-  netBalanceMinorUnits: 250000 as Money,
-  currencyCode: 'ARS'
-};
+const roster: Party[] = [
+  { id: 'p1', name: 'Alice' },
+  { id: 'p2', name: 'Bob' }
+];
+const debtRows: PartyDebtRow[] = [
+  { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: 250000 as Money, currencyCode: 'ARS' }
+];
 
 describe('PartiesPage', () => {
   let fixture: ComponentFixture<PartiesPage>;
   let view: PartiesView;
+  let list: jasmine.Spy<() => Observable<Party[]>>;
   let debtSummary: jasmine.Spy<() => Observable<PartyDebtRow[]>>;
+  let pendingShares: jasmine.Spy<() => Observable<PendingSharesByPartyRow[]>>;
   let create: jasmine.Spy<(body: CreateParty) => Observable<PartyResult>>;
 
   function setup(): void {
@@ -46,14 +59,16 @@ describe('PartiesPage', () => {
   }
 
   beforeEach(() => {
-    debtSummary = jasmine.createSpy('debtSummary').and.returnValue(of<PartyDebtRow[]>([debtRow]));
+    list = jasmine.createSpy('list').and.returnValue(of<Party[]>(roster));
+    debtSummary = jasmine.createSpy('debtSummary').and.returnValue(of<PartyDebtRow[]>(debtRows));
+    pendingShares = jasmine.createSpy('pendingShares').and.returnValue(of<PendingSharesByPartyRow[]>([]));
     create = jasmine.createSpy('create').and.returnValue(of<PartyResult>({ id: 'p9' }));
     TestBed.configureTestingModule({
       imports: [PartiesPage],
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { create } },
+        { provide: PartiesService, useValue: { list, create, pendingShares } },
         { provide: ReportsService, useValue: { debtSummary } }
       ]
     });
@@ -63,17 +78,60 @@ describe('PartiesPage', () => {
     setup();
     expect(fixture.componentInstance).toBeTruthy();
   });
-  it('loads and renders the debt summary on init', () => {
+  it('lists every registered party, merging balances from the debt summary', () => {
     setup();
+    expect(list).toHaveBeenCalledTimes(1);
     expect(debtSummary).toHaveBeenCalledTimes(1);
+    expect(pendingShares).toHaveBeenCalledTimes(1);
     expect(view.listStatus()).toBe('ready');
-    expect(view.parties()).toEqual([debtRow]);
+    expect(view.parties()).toEqual([
+      { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: 250000 as Money, scheduledCount: 0 },
+      { partyId: 'p2', partyName: 'Bob', netBalanceMinorUnits: 0 as Money, scheduledCount: 0 }
+    ]);
     expect(text()).toContain('Alice');
+    expect(text()).toContain('Bob');
   });
-  it('shows the empty state when no party has movements', () => {
+  it('renders a party with no balance and no schedule as settled at zero', () => {
+    setup();
+    const bob = view.parties().find((row) => row.partyId === 'p2') as PartyListRow;
+    expect(bob.netBalanceMinorUnits).toBe(0 as Money);
+    expect(bob.scheduledCount).toBe(0);
+    expect(view.balanceHint(bob)).toBe('Settled up');
+  });
+  it('labels a $0 party with pending installment shares as scheduled, not settled', () => {
+    pendingShares.and.returnValue(
+      of<PendingSharesByPartyRow[]>([
+        { partyId: 'p2', scheduledCount: 3, scheduledTotalMinorUnits: 450000 as Money, currencyCode: 'ARS' }
+      ])
+    );
+    setup();
+    const bob = view.parties().find((row) => row.partyId === 'p2') as PartyListRow;
+    expect(bob.netBalanceMinorUnits).toBe(0 as Money);
+    expect(bob.scheduledCount).toBe(3);
+    expect(view.balanceHint(bob)).toBe('Nothing owed yet · 3 scheduled');
+    expect(text()).toContain('3 scheduled');
+  });
+  it('keeps a party with a real posted balance on its owe hint even when installments are scheduled', () => {
+    pendingShares.and.returnValue(
+      of<PendingSharesByPartyRow[]>([
+        { partyId: 'p1', scheduledCount: 2, scheduledTotalMinorUnits: 120000 as Money, currencyCode: 'ARS' }
+      ])
+    );
+    setup();
+    const alice = view.parties().find((row) => row.partyId === 'p1') as PartyListRow;
+    expect(alice.scheduledCount).toBe(2);
+    expect(view.balanceHint(alice)).toBe('They owe you');
+  });
+  it('shows the empty state when no party is registered', () => {
+    list.and.returnValue(of<Party[]>([]));
     debtSummary.and.returnValue(of<PartyDebtRow[]>([]));
     setup();
-    expect(text()).toContain('No parties with movements yet.');
+    expect(text()).toContain('No parties yet.');
+  });
+  it('goes to the error state when the roster fails to load', () => {
+    list.and.returnValue(throwError(() => new Error('boom')));
+    setup();
+    expect(view.listStatus()).toBe('error');
   });
   it('blocks submit while the name is missing', () => {
     setup();
@@ -83,15 +141,17 @@ describe('PartiesPage', () => {
   });
   it('trims the name, shows the confirmation and re-fetches the list', () => {
     setup();
+    list.calls.reset();
     debtSummary.calls.reset();
-    view.form.setValue({ name: '  Bob  ' });
+    pendingShares.calls.reset();
+    view.form.setValue({ name: '  Charlie  ' });
     view.onSubmit();
-    expect(create).toHaveBeenCalledWith({ name: 'Bob' });
+    expect(create).toHaveBeenCalledWith({ name: 'Charlie' });
     expect(view.createdPartyId()).toBe('p9');
+    expect(list).toHaveBeenCalledTimes(1);
     expect(debtSummary).toHaveBeenCalledTimes(1);
+    expect(pendingShares).toHaveBeenCalledTimes(1);
     expect(view.submitStatus()).toBe('idle');
-    fixture.detectChanges();
-    expect(text()).toContain('New parties appear in the list');
   });
   it('renders submitErrorText keyed off the AppError code on a 422', () => {
     const appError: AppError = {

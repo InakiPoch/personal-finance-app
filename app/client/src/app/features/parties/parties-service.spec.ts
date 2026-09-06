@@ -11,6 +11,7 @@ import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
 import { PartyResult } from './types/party-result';
+import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
 import { RegisterSharedExpense } from './types/register-shared-expense';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
@@ -183,5 +184,16 @@ describe('PartiesService', () => {
     );
     expect(error?.code).toBe('Parties.PartyNotFound');
     expect(error?.status).toBe(404);
+  });
+  it('GETs the pending scheduled shares per party and unwraps { rows }', () => {
+    const rows: PendingSharesByPartyRow[] = [
+      { partyId: 'p1', scheduledCount: 3, scheduledTotalMinorUnits: money(450000), currencyCode: 'ARS' }
+    ];
+    let result: PendingSharesByPartyRow[] | undefined;
+    service.pendingShares().subscribe((r: PendingSharesByPartyRow[]) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/pending-shares`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows });
+    expect(result).toEqual(rows);
   });
 });

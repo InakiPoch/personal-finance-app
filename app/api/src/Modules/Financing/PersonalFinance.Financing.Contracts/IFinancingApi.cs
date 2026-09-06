@@ -15,4 +15,6 @@ public interface IFinancingApi {
     Task<ListCreditCardsResponse> ListCreditCardsAsync(ListCreditCardsQuery query, CancellationToken ct = default);
     Task<Result<Guid>> CreateCreditorAsync(CreateCreditorCommand command, CancellationToken ct = default);
     Task<ListCreditorsResponse> ListCreditorsAsync(ListCreditorsQuery query, CancellationToken ct = default);
+    Task<GetFuturePartySharesResponse> GetFuturePartySharesAsync(GetFuturePartySharesQuery query, CancellationToken ct = default);
+    Task<GetPendingSharesByPartyResponse> GetPendingSharesByPartyAsync(GetPendingSharesByPartyQuery query, CancellationToken ct = default);
 }

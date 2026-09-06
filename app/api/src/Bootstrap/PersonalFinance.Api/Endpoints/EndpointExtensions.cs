@@ -185,6 +185,10 @@ internal static class EndpointExtensions {
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Parties.List, GetParties.Handle)
+                .WithSummary("List registered parties.")
+                .WithDescription("Returns every registered party, ordered by name.")
+                .Produces<PartiesListDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Parties.Balance, GetBalance.Handle)
                 .WithSummary("Get a party's current account balance.")
                 .WithDescription("Returns the live balance of the party's Ledger receivable account.")
@@ -193,6 +197,14 @@ internal static class EndpointExtensions {
                 .WithSummary("Get a party's current account timeline.")
                 .WithDescription("Returns the chronological movements on the party's Ledger receivable account.")
                 .Produces<CurrentAccountTimelineDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Parties.FutureShares, GetPartyFutureShares.Handle)
+                .WithSummary("A party's upcoming installment shares.")
+                .WithDescription("Projected not-yet-accrued monthly shares for the party's card-split plans.")
+                .Produces<FuturePartySharesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Parties.PendingShares, GetPendingSharesByParty.Handle)
+                .WithSummary("Pending scheduled installment shares per party.")
+                .WithDescription("One row per party with not-yet-accrued card-split or creditor-financed split shares — count and summed minor units. Lets the Parties list tell a truly-settled party from one that owes $0 now but has installments scheduled.")
+                .Produces<PendingSharesByPartyDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

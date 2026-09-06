@@ -12,4 +12,5 @@ public interface IPartiesApi {
     Task<Result> RecordSplitAccrualAsync(RecordSplitAccrualCommand command, CancellationToken ct = default);
     Task<CurrentAccountBalanceResponse> GetCurrentAccountBalanceAsync(GetCurrentAccountBalanceQuery query, CancellationToken ct = default);
     Task<CurrentAccountTimelineResponse> GetCurrentAccountTimelineAsync(GetCurrentAccountTimelineQuery query, CancellationToken ct = default);
+    Task<ListPartiesResponse> ListPartiesAsync(ListPartiesQuery query, CancellationToken ct = default);
 }

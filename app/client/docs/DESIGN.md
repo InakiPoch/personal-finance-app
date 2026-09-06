@@ -272,7 +272,12 @@ nested. Exact wire shape:
   before the Parties receivable is posted (async Outbox). The Load-expense page confirms the plan
   immediately, then reconciles by polling `PartiesService.getBalance` with a short bounded retry
   before showing the party's updated balance. A shared `pollUntil` helper (RxJS
-  `timer`+`switchMap`+`take`/`retry`) lives in `core/http`.
+  `timer`+`switchMap`+`take`/`retry`) lives in `core/http`. **Card and creditor-financed splits skip
+  the poll** — their co-borrower receivable accrues at the installment's due month (a scheduler, not a
+  synchronous post), so `reconcile(participants, mode)` seeds the table and marks each participant
+  *scheduled* before the loop when `mode === 'card' || mode === 'creditor'`
+  (`docs/parties-card-split/slice-1-reconcile-loop-fix.md` +
+  `docs/cycle-due-month/slice-2-creditor-split-parity.md`). Only debit/cash still polls.
 - **Reversal credit (API D12):** the Statement page states that a reversed paid installment yields a
   card credit netted on the **next** statement (not cash back).
 - **Scheduler-driven accrual/renewal (API D6):** the client cannot trigger these; it reflects the
@@ -318,11 +323,13 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 20 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
 | 21 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
 | 22 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail (timeline row → Reverse movement) |
-| 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
+| 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list (balances only — merged with #28) |
 | 24 | GET | `/v1/financing/creditor-payables` | `FinancingService.creditorPayables` | Owed to creditors list |
 | 25 | GET | `/health` | `HealthService.check` | (status indicator) |
 | 26 | GET | `/v1/expense-categories` | `LedgerService.listExpenseCategories` | Load expense (debit-cash category `<datalist>`) |
 | 27 | POST | `/v1/ledger/expenses` | `LedgerService.recordDebitExpense` | Load expense (debit-cash mode) |
+| 28 | GET | `/v1/parties` | `PartiesService.list` | Parties list (roster — merged with #23 for balances) + Load expense (split party picker) |
+| 29 | GET | `/v1/parties/pending-shares` | `PartiesService.pendingShares` | Parties list (pending-schedule count per party — merged with #23/#28 so a $0-now scheduled party reads "Nothing owed yet · N scheduled") |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

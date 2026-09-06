@@ -34,4 +34,8 @@ internal sealed class PartiesApi(ICommandBus commandBus, IQueryBus queryBus) : I
     public Task<CurrentAccountTimelineResponse> GetCurrentAccountTimelineAsync(GetCurrentAccountTimelineQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }
+
+    public Task<ListPartiesResponse> ListPartiesAsync(ListPartiesQuery query, CancellationToken ct = default) {
+        return queryBus.AskAsync(query, ct);
+    }
 }

@@ -112,6 +112,9 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<int>("Sequence")
                         .HasColumnType("INTEGER");
 
+                    b.Property<DateTimeOffset?>("SplitAccruedOnUtc")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("StatementId")
                         .HasColumnType("TEXT");
 

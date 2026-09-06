@@ -6,6 +6,7 @@ using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Persistence;
 using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 using Xunit;
@@ -56,6 +57,22 @@ public sealed class LinkPaymentPlanSplitHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_posts_no_receivable_on_link_for_a_card_less_split() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var partyId = Guid.CreateVersion7();
+        var receivableAccountId = Guid.CreateVersion7();
+        ledger.NextAccountId = Guid.CreateVersion7();
+        var plan = cardLessPlan(partyId);
+        await Persist(plan, cancellationToken);
+        var result = await Handle(new LinkPaymentPlanSplitCommand(
+            plan.Id, Guid.CreateVersion7(), [new PartyReceivable(partyId, receivableAccountId)]), cancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Empty(ledger.PostedTransactions);
+        var created = Assert.Single(ledger.CreatedAccounts);
+        Assert.Equal(AccountKind.CreditorPayable, created.Kind);
+    }
+
+    [Fact]
     public async Task Handle_does_not_provision_a_creditor_payable_for_a_card_backed_plan() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var partyId = Guid.CreateVersion7();
@@ -70,12 +87,11 @@ public sealed class LinkPaymentPlanSplitHandlerTests : IDisposable {
             splitParticipants: [(partyId, 1L)]
         ).Value;
         await Persist(plan, cancellationToken);
-
         var result = await Handle(new LinkPaymentPlanSplitCommand(
             plan.Id, Guid.CreateVersion7(), [new PartyReceivable(partyId, Guid.CreateVersion7())]), cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Empty(ledger.CreatedAccounts);
+        Assert.Empty(ledger.PostedTransactions);
         await using var verifyContext = NewContext();
         var stored = await verifyContext.PaymentPlans.SingleAsync(candidate => candidate.Id == plan.Id, cancellationToken);
         Assert.Null(stored.CreditorPayableAccountId);

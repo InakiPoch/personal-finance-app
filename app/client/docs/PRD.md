@@ -81,6 +81,11 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 - **After submit:** if a split was included, registration of the receivable is **eventually
   consistent** (API D8) — the plan id returns before the third-party receivable is posted. The view
   confirms the plan immediately and reconciles the party balance shortly after (see `DESIGN.md` §7).
+  For a **card** or **creditor-financed** split the co-borrower's receivable accrues at its due month,
+  not synchronously — the view marks each participant *scheduled* rather than polling for a balance
+  change that will not come in this session (`docs/parties-card-split/slice-1-reconcile-loop-fix.md` +
+  `docs/cycle-due-month/slice-2-creditor-split-parity.md`, both built). Only debit/cash splits post up
+  front and still reconcile live.
 - **Depends on:** card choices and party choices (see gaps §7).
 
 ### 3.4 Statement detail & pay — US-4
@@ -119,8 +124,12 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   simply reflects the latest state on load.
 
 ### 3.7 Parties — list & detail — US-7
-- **List shows:** every party with net balance (positive = they owe you). **Source:**
-  `GET /v1/reports/parties/debt-summary` (also the client's only way to enumerate parties).
+- **List shows:** every registered party with net balance (positive = they owe you); a party with no
+  movements yet shows as settled / $0 — unless it has not-yet-accrued split installments scheduled ahead,
+  in which case it reads "Nothing owed yet · N scheduled" instead of "Settled up". **Source:**
+  `GET /v1/parties` for the roster, merged by id with `GET /v1/reports/parties/debt-summary` for the
+  balances (the debt summary alone omits parties with zero ledger movements) and
+  `GET /v1/parties/pending-shares` for the pending-schedule count.
 - **Detail shows:** a party's current balance and the movement timeline (chronological, with running
   balance) that explains how the number was reached. Actions to register a shared expense and to
   register a settlement when someone pays.
@@ -128,6 +137,15 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   equivalent `GET /v1/reports/parties/{id}/timeline`), `POST /v1/parties/shared-expenses`,
   `POST /v1/parties/{id}/settlements`.
 - **Notes:** cross-debts net automatically server-side; the client shows the resulting net only.
+- **Scheduled shares (`docs/parties-card-split/slice-2b-party-future-shares.md` +
+  `docs/cycle-due-month/`, all built):** the detail view also shows a **"Scheduled"** block — what the
+  party will owe per upcoming month on its card-backed **and creditor-financed** split plans, before
+  each installment accrues (the timeline shows only posted movements, so a freshly split party would
+  otherwise read settled / $0). **Source:** `GET /v1/parties/{id}/future-shares` — one row per
+  not-yet-accrued installment share, byte-exact with what the server will post (the API reuses its
+  allocator; the client renders month, source label — card or creditor name — amount, and computes
+  nothing). The month shown is the **payment month** (statement-close cycle + 1; API `docs/PRD.md` §9
+  decisions 9–10); creditor rows follow the same rule (their first payment is the month after purchase).
 
 ### 3.8 Creditors setup (new — not part of the original 7-view scope)
 - **Shows:** a form to register a creditor (name) with optional free-text destination accounts

@@ -15,6 +15,7 @@ internal sealed class InstallmentConfiguration : IEntityTypeConfiguration<Instal
         builder.Property(installment => installment.CycleYear).IsRequired();
         builder.Property(installment => installment.CycleMonth).IsRequired();
         builder.Property(installment => installment.AccruedOnUtc);
+        builder.Property(installment => installment.SplitAccruedOnUtc);
         builder.Property(installment => installment.StatementId);
         builder.Property(installment => installment.IsReversed)
             .HasDefaultValue(false)
@@ -31,6 +32,8 @@ internal sealed class InstallmentConfiguration : IEntityTypeConfiguration<Instal
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
         builder.Ignore(installment => installment.IsAccrued);
+        builder.Ignore(installment => installment.IsSplitAccrued);
         builder.Ignore(installment => installment.Cycle);
+        builder.Ignore(installment => installment.DueCycle);
     }
 }

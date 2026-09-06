@@ -4,18 +4,19 @@ using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 
-namespace PersonalFinance.Financing.Application.Scheduling;
+namespace PersonalFinance.Financing.Application.Commands.LinkPaymentPlanSplit;
 
 /// <summary>
-/// Builds the Ledger legs for one installment of a card-less creditor-financed split plan.
+/// Builds the Ledger legs that book the co-borrowers' shares of a card-less creditor-financed
+/// split plan: <c>Dr Receivable_k</c> (each party's share) / <c>Cr CreditorPayable</c> (their sum).
 /// </summary>
-internal static class CreditorSplitAccrualCalculator {
+internal static class CreditorSplitReceivableCalculator {
     public static (IReadOnlyList<PostTransactionLine> Lines, long PartyPortionMinorUnits) BuildLines(
-        Money installmentAmount,
+        Money amount,
         IReadOnlyList<PaymentPlanSplitParticipant> participants,
         Guid creditorPayableAccountId) {
         long[] weights = [1L, .. participants.Select(participant => participant.Weight)];
-        var shares = new PhantomPennyAllocator().Allocate(installmentAmount, weights);
+        var shares = new PhantomPennyAllocator().Allocate(amount, weights);
         var lines = new List<PostTransactionLine>();
         var partyPortion = 0L;
         for(var index = 0; index < participants.Count; index++) {
@@ -29,7 +30,7 @@ internal static class CreditorSplitAccrualCalculator {
         if(partyPortion == 0) {
             return ([], 0L);
         }
-        lines.Add(new PostTransactionLine(creditorPayableAccountId, DebitOrCredit.Credit, Money.FromMinorUnits(partyPortion, installmentAmount.Currency)));
+        lines.Add(new PostTransactionLine(creditorPayableAccountId, DebitOrCredit.Credit, Money.FromMinorUnits(partyPortion, amount.Currency)));
         return (lines, partyPortion);
     }
 }

@@ -55,6 +55,5 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<IQueryHandler<ListCreditorsQuery, ListCreditorsResponse>, ListCreditorsHandler>();
         services.AddScoped<IQueryHandler<ListRecentPurchasesQuery, RecentPurchasesResponse>, ListRecentPurchasesHandler>();
         services.AddHostedService<AccrueInstallments>();
-        services.AddHostedService<AccrueCreditorSplitInstallments>();
     }
 }

@@ -66,6 +66,25 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         Assert.Equal(1, financing.LinkCalls);
     }
 
+    [Fact]
+    public async Task Card_split_starts_with_a_zero_accrued_receivable() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await Handle(SplitEvent());
+        await using var context = NewContext();
+        var split = await context.ExpenseSplits.SingleAsync(cancellationToken);
+        Assert.Equal(0, split.AccruedReceivable.MinorUnits);
+    }
+
+    [Fact]
+    public async Task Creditor_financed_split_starts_with_the_full_co_borrower_receivable_accrued() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        await Handle(SplitEvent(cardId: null));
+        await using var context = NewContext();
+        var split = await context.ExpenseSplits.SingleAsync(cancellationToken);
+        Assert.Equal(split.Total.MinorUnits - split.HolderShare.MinorUnits, split.AccruedReceivable.MinorUnits);
+        Assert.True(split.AccruedReceivable.MinorUnits > 0);
+    }
+
     private async Task Handle(PaymentPlanCreatedIntegrationEvent integrationEvent) {
         await using var context = NewContext();
         var handler = new OnPaymentPlanCreated(context, ledger, financing, new PartiesInboxStore(context));
@@ -77,11 +96,15 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
     }
 
     private static PaymentPlanCreatedIntegrationEvent SplitEvent() {
+        return SplitEvent(Guid.CreateVersion7());
+    }
+
+    private static PaymentPlanCreatedIntegrationEvent SplitEvent(Guid? cardId) {
         return new PaymentPlanCreatedIntegrationEvent(
             Guid.CreateVersion7(),
             DateTimeOffset.UtcNow,
             Guid.CreateVersion7(),
-            Guid.CreateVersion7(),
+            cardId,
             100_000,
             new DateOnly(2026, 3, 15),
             [new SplitParticipant(Guid.CreateVersion7(), 1), new SplitParticipant(Guid.CreateVersion7(), 1)]

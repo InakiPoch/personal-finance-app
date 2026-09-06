@@ -35,16 +35,6 @@ internal sealed class Installment : Entity<Guid> {
         return Result.Success();
     }
 
-    // Creditor-financed plans have no MonthlyStatement — the installment is accrued straight to the
-    // Ledger split legs (or to nothing, when the holder carries the whole cuota), so StatementId stays null.
-    public Result MarkCreditorAccrued(DateTimeOffset accruedOnUtc) {
-        if(AccruedOnUtc is not null) {
-            return Result.Failure(FinancingErrors.InstallmentAlreadyAccrued);
-        }
-        AccruedOnUtc = accruedOnUtc;
-        return Result.Success();
-    }
-
     public Result MarkReversed() {
         if(IsReversed) {
             return Result.Failure(FinancingErrors.InstallmentAlreadyReversed);

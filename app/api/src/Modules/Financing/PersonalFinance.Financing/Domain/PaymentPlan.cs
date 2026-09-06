@@ -12,8 +12,6 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
     public Guid? SplitReferenceId { get; private set; }
     public Guid? CreditorId { get; private set; }
     public Guid? CreditorAccountId { get; private set; }
-    // Set when a card-less creditor-financed plan carries a split — the Ledger liability its co-borrower
-    // receivables post against. See AccrueCreditorSplitInstallments.
     public Guid? CreditorPayableAccountId { get; private set; }
     public IReadOnlyList<Installment> Installments => installments;
     public IReadOnlyList<PaymentPlanSplitParticipant> SplitParticipants => splitParticipants;

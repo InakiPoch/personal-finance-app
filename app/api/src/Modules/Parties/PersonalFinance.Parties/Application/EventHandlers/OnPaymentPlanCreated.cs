@@ -52,13 +52,16 @@ internal sealed class OnPaymentPlanCreated(
             .Select((participant, index) => new PartyShare(participant.PartyId, Money.FromMinorUnits(shares.ParticipantShares[index], currency)))
             .ToList();
         var total = Money.FromMinorUnits(integrationEvent.TotalMinorUnits, currency);
+        var accruedReceivable = integrationEvent.CardId is null
+            ? participantShares.Aggregate(Money.Zero(currency), (running, share) => running + share.Share)
+            : Money.Zero(currency);
         var split = ExpenseSplit.Create(
             ExpenseSplitSource.CardPlan,
             integrationEvent.PaymentPlanId,
             total,
             holderShare,
             participantShares,
-            Money.Zero(currency)
+            accruedReceivable
         );
         if(split.IsFailure) {
             throw new InvalidOperationException(

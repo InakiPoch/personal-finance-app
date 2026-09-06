@@ -288,8 +288,8 @@
                   class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
                 >
                   <option value="">Choose a party</option>
-                  @for(party of parties(); track party.partyId) {
-                    <option [value]="party.partyId">{{ party.partyName }}</option>
+                  @for(party of parties(); track party.id) {
+                    <option [value]="party.id">{{ party.name }}</option>
                   }
                 </select>
                 <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">

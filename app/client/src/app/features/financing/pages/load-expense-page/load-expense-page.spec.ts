@@ -13,9 +13,8 @@ import { LedgerService } from '../../../ledger/ledger-service';
 import { RecordDebitExpense } from '../../../ledger/types/record-debit-expense';
 import { RecordDebitExpenseResult } from '../../../ledger/types/record-debit-expense-result';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
+import { Party } from '../../../parties/types/party';
 import { PartiesService } from '../../../parties/parties-service';
-import { PartyDebtRow } from '../../../reports/types/party-debt-row';
-import { ReportsService } from '../../../reports/reports-service';
 import { CreatePaymentPlan } from '../../types/create-payment-plan';
 import { CreatePaymentPlanResult } from '../../types/create-payment-plan-result';
 import { FinancingService } from '../../financing-service';
@@ -38,7 +37,7 @@ type LoadExpenseView = {
     categoryName: FormControl<string>;
   }>;
   creditorAccounts: () => CreditorAccount[];
-  parties: () => PartyDebtRow[];
+  parties: () => Party[];
   partiesStatus: () => 'loading' | 'ready' | 'error';
   submitStatus: () => 'idle' | 'submitting' | 'confirmed' | 'error';
   submitError: () => AppError | null;
@@ -61,12 +60,10 @@ describe('LoadExpensePage', () => {
   let createPaymentPlan: jasmine.Spy<(body: CreatePaymentPlan) => Observable<CreatePaymentPlanResult>>;
   let recordDebitExpense: jasmine.Spy<(body: RecordDebitExpense) => Observable<RecordDebitExpenseResult>>;
   let getBalance: jasmine.Spy<(partyId: string) => Observable<CurrentAccountBalance>>;
-  let debtSummary: jasmine.Spy<() => Observable<PartyDebtRow[]>>;
+  let listParties: jasmine.Spy<() => Observable<Party[]>>;
 
   const money = (value: number): Money => value as Money;
-  const partyRows: PartyDebtRow[] = [
-    { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: money(0), currencyCode: 'ARS' }
-  ];
+  const partyRoster: Party[] = [{ id: 'p1', name: 'Alice' }];
 
   function balance(value: number): CurrentAccountBalance {
     return { partyId: 'p1', name: 'Alice', balanceMinorUnits: money(value) };
@@ -122,7 +119,7 @@ describe('LoadExpensePage', () => {
       .createSpy('recordDebitExpense')
       .and.returnValue(of<RecordDebitExpenseResult>({ id: 'expense-1' }));
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance(100000)));
-    debtSummary = jasmine.createSpy('debtSummary').and.returnValue(of(partyRows));
+    listParties = jasmine.createSpy('list').and.returnValue(of<Party[]>(partyRoster));
     TestBed.configureTestingModule({
       imports: [LoadExpensePage],
       providers: [
@@ -132,8 +129,7 @@ describe('LoadExpensePage', () => {
           provide: LedgerService,
           useValue: { recordDebitExpense, listExpenseCategories: () => of<string[]>(['Groceries']) }
         },
-        { provide: PartiesService, useValue: { getBalance } },
-        { provide: ReportsService, useValue: { debtSummary } },
+        { provide: PartiesService, useValue: { getBalance, list: listParties } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: CreditorsService, useValue: { list: () => of<Creditor[]>(creditors) } }
       ]
@@ -146,7 +142,7 @@ describe('LoadExpensePage', () => {
   it('creates and loads the party list', () => {
     expect(fixture.componentInstance).toBeTruthy();
     expect(view.partiesStatus()).toBe('ready');
-    expect(view.parties()).toEqual(partyRows);
+    expect(view.parties()).toEqual(partyRoster);
   });
   it('offers only credit cards from the instrument list', () => {
     expect(view.form.value.cardId).toBe('');

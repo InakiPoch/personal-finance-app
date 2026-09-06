@@ -858,3 +858,28 @@ All new code is Ledger-side. Endpoint-placement fork resolved to **Option A** (d
 ### Completion notes
 
 Two-symptom / one-cause fix built one green-lit step at a time (view → Reporting query → migration → client regroup → tests → verification). The client half (`dashboard-page.ts` `cycleByCard()` keyed on `cardId` instead of the label string; `@for` `track` → `card.cardId ?? card.card`) is `app/client/.claude/TASK.md` Phase 22, as is Slice 1. `docs/DESIGN.md` §D11 reconciled with one clause. Full verification: `dotnet test --solution` 223/223, 0 warnings; `PersonalFinance.Architecture.Tests` green; migration applied and verified against `sqlite_master`. Manual browser walk handed to the user. Committed by the user as `979eb54`.
+
+## Phase 22 — Dashboard fixes: Parties list endpoint (Slice 3)
+
+**Goal:** Make a created party visible everywhere — add a plain `GET /v1/parties` list endpoint in the Parties module so the client no longer depends on `GET /v1/reports/parties/debt-summary` (whose INNER JOIN drops any party with zero ledger movements) just to enumerate parties.
+
+**Traces to:** `docs/dashboard-fixes/slice-3-parties-list-endpoint.md` (standalone planning doc; final slice of the dashboard-fixes initiative — fixes bug #2). No `docs/PRD.md` / `docs/DESIGN.md` change.
+
+**Depends on:** Phase 6 (Parties module — `PartiesDbContext.Parties`, `IPartiesApi`), Phase 13 (Creditors list vertical — the pattern mirrored one module over). No cross-module dependency.
+
+### Tasks
+- [x] `src/Modules/Parties/PersonalFinance.Parties.Contracts/Queries/ListPartiesQuery.cs` — `PartyRow(Guid Id, string Name)`, `ListPartiesResponse(IReadOnlyList<PartyRow> Rows)`, `ListPartiesQuery() : IQuery<ListPartiesResponse>`.
+- [x] `src/Modules/Parties/PersonalFinance.Parties/Application/Queries/ListParties/ListPartiesHandler.cs` — `context.Parties.AsNoTracking().Select(p => new { p.Id, p.Name }).ToListAsync()` then in-memory `OrderBy(Name, StringComparer.OrdinalIgnoreCase)` → `PartyRow`. No ledger join → every party appears.
+- [x] `IPartiesApi.ListPartiesAsync` (+ `Infrastructure/PublicApi/PartiesApi.cs` impl `queryBus.AskAsync`); registered in `PartiesModule.Register`. `.Contracts`-only → RNF-9 unaffected. `ListPartiesAsync` `NotSupportedException` stub added to `FakePartiesApi` in `tests/PersonalFinance.Financing.Tests/FakeModuleApis.cs` + `tests/PersonalFinance.Ledger.Tests/RecordDebitExpenseTestDoubles.cs`.
+- [x] Host: `ApiRoutes.Parties.List = "/"`; `Endpoints/Parties/GetParties.cs` (via `IPartiesApi` facade, like `GetCreditors`); `Endpoints/DTOs/PartiesListDTO.cs` — `PartyRowDto(Guid Id, string Name)` + `PartiesListDto(IReadOnlyList<PartyRowDto> Rows)` (`Guid Id`, matching the real `CreditorRowDto`); `PartyMappingExtensions.ToPartiesListDto`; `EndpointExtensions.MapPartiesEndpoints` `MapGet` with `.WithSummary`/`.WithDescription`/`.Produces<PartiesListDto>(200)`.
+- [x] Tests: `tests/PersonalFinance.Parties.Tests/ListPartiesHandlerTests.cs` (2, in-memory SQLite — name-ordered case-insensitively; zero-movement party still listed) + `tests/PersonalFinance.Api.Tests/PartiesListTests.cs` (2 WAF — POST party then GET list includes it by id/name; OpenAPI `/v1/parties` GET under `Parties` tag with 200).
+
+### Definition of done
+- [x] `GET /v1/parties` returns every registered party ordered by name, including parties with zero ledger movements.
+- [x] No EF migration (no schema change); no new module edge — `PersonalFinance.Architecture.Tests` (RNF-9) green.
+- [x] `dotnet test --solution` → **227 passed** (from 223 at Phase 21), 0 warnings.
+- [ ] Manual live E2E walk (`POST /v1/parties` a fresh party with no shared expense, then `GET /v1/parties` returns it; it shows on the Parties page as "settled" and is selectable in the load-expense split) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Pure additive CQRS read query mirroring the Creditors list vertical one module over, built one green-lit step at a time (contract → handler → facade → register → host wiring → client → tests → verification). The client half (`parties-service.list()`, the Parties page merging `list()` + `debtSummary()` so movement-less parties render as "settled" / $0, the load-expense split switching from `debtSummary()` to `list()`) is `app/client/.claude/TASK.md` Phase 23. `PartyRowDto` uses `Guid Id` — the planning doc's `string Id` + `.ToString()` was based on a misreading of `CreditorRowDto`, which uses `Guid`; JSON serializes it as a string regardless. Full verification: `dotnet test --solution` 227/227, 0 warnings; `PersonalFinance.Architecture.Tests` green. Manual E2E walk handed to the user. Not committed by this session — the user commits their own.

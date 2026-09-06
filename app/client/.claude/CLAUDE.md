@@ -145,6 +145,29 @@ Future row sharing one `cardId` but different `card` labels collapse into exactl
 keeps its name as the label. Verification: `pnpm ng lint` clean, `pnpm ng build` clean (no budget change,
 `financing-routes` chunk unchanged), `pnpm ng test` **208/208** (from 206). Live browser E2E not run —
 handed to the user. Committed by the user as `3b7a098` (Slice 1) + `979eb54` (Slice 2).
+**Slice 3 — Parties list endpoint (`slice-3-parties-list-endpoint.md`) — now built (final slice, spans
+`parties` + `financing` + the API):** fixes bug #2 — a created party was invisible because the client
+only ever enumerated parties via `ReportsService.debtSummary()` (`GET /v1/reports/parties/debt-summary`),
+whose INNER JOIN drops any party with zero ledger movements. The API adds `GET /v1/parties` (its
+Phase 22). Client: new `features/parties/types/party.ts` (`Party = { id: string; name: string }`);
+`parties-service.ts` gains `list(): Observable<Party[]>` (`GET parties`, `{ rows }` envelope unwrap)
+mirroring `CreditorsService.list()`. `parties-page.ts` loads **both** `partiesService.list()` and
+`reports.debtSummary()` via `forkJoin`, merging by id into a local `PartyListRow` VM
+(`{ partyId, partyName, netBalanceMinorUnits }` — field names kept identical to the used `PartyDebtRow`
+subset so the template + `balanceHint`/`tickWidth`/totals need no rename); a party with no matching debt
+row gets `netBalanceMinorUnits: fromMinorUnits(0)`, which the existing `balanceHint` renders as
+"Settled up" / `$0.00`. Empty state "No parties with movements yet." → "No parties yet."; the
+created-party note reworded (new parties now appear immediately). `load-expense-page.ts` `loadParties()`
+switches its source from `reportsService.debtSummary()` to `partiesService.list()` — `parties` signal
+`PartyDebtRow[]` → `Party[]`, `partyName()` helper and the split `<select>` template migrated from
+`partyId`/`partyName` to `id`/`name`, the `ReportsService` import + field dropped; "Add participant"
+(`[disabled]="parties().length === 0"`) now enables as soon as any party exists.
+`parties-page.spec.ts` rewritten (9 facts — merge, settled-at-zero, "No parties yet.", roster-load-fail
+→ error); `load-expense-page.spec.ts` reworked (`PartyDebtRow`→`Party`, `debtSummary` spy →
+`PartiesService.list`, `ReportsService` provider dropped). `docs/DESIGN.md` §9 gains a `GET /v1/parties`
+row; `docs/PRD.md` §3.7 note updated (`debt-summary` is no longer the only way to enumerate parties).
+Verification: `pnpm ng lint` clean, `pnpm ng test` **210/210** (from 208), `pnpm ng build` clean. Live
+browser E2E not run — handed to the user. Not committed by this session — the user commits their own.
 
 ## Conventions — the non-negotiables
 

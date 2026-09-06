@@ -926,6 +926,31 @@ Bug-fix initiative, not a feature — the drill-down itself was built in the `do
 
 ---
 
+## Phase 23 — Dashboard fixes: Parties list endpoint wiring (Slice 3)
+
+**Goal:** Make a created party visible on the Parties page and selectable in the load-expense split immediately — stop enumerating parties through `ReportsService.debtSummary()` (whose INNER JOIN hides movement-less parties) and consume the new `GET /v1/parties` roster endpoint instead.
+
+**Traces to:** `docs/dashboard-fixes/slice-3-parties-list-endpoint.md` (final slice of the dashboard-fixes initiative — fixes bug #2). API half is `app/api` Phase 22. `docs/DESIGN.md` §9 gains a `GET /v1/parties` row; `docs/PRD.md` §3.7 note updated (`debt-summary` no longer the only way to enumerate parties).
+
+**Depends on:** the `docs/creditor-expense-fields/` Slice 1 phase (`CreditorsService.list()` — the pattern mirrored).
+
+### Tasks
+- [x] `features/parties/types/party.ts` (new) — `Party = { id: string; name: string }`. `features/parties/parties-service.ts` — `list(): Observable<Party[]>` (`GET parties`, `{ rows }` envelope unwrap), mirroring `CreditorsService.list()`.
+- [x] `features/parties/pages/parties-page/parties-page.ts` + `.html` — `loadParties()` does `forkJoin({ roster: partiesService.list(), debts: reports.debtSummary() })`, merges by id into a local `PartyListRow` VM (`{ partyId, partyName, netBalanceMinorUnits }` — same field names as the used `PartyDebtRow` subset, so the template + `balanceHint`/`tickWidth`/totals need no rename); a party with no debt row → `netBalanceMinorUnits: fromMinorUnits(0)` → existing `balanceHint` renders "Settled up" / `$0.00`. Empty state "No parties with movements yet." → "No parties yet."; created-party note reworded.
+- [x] `features/financing/pages/load-expense-page/load-expense-page.ts` + `.html` — `loadParties()` source `reportsService.debtSummary()` → `partiesService.list()`; `parties` signal `PartyDebtRow[]` → `Party[]`; `partyName()` + the split `<select>` migrated `partyId`/`partyName` → `id`/`name`; `ReportsService` import + field removed. "Add participant" `[disabled]="parties().length === 0"` now reflects real party existence.
+- [x] `parties-page.spec.ts` rewritten (9 facts — merge of `list()` + `debtSummary()`, a party absent from the debt summary renders as "Settled up" at zero, "No parties yet." empty state, roster-load failure → error). `load-expense-page.spec.ts` reworked (`PartyDebtRow` → `Party`, `debtSummary` spy → `PartiesService.list`, `ReportsService` provider dropped).
+
+### Definition of done
+- [x] The Parties page lists every registered party; one with no movements shows "settled" / `$0`. The load-expense split offers a brand-new party immediately.
+- [x] `pnpm ng lint` clean; `pnpm ng build` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **210 passed** (208 baseline at Phase 22 + 2 net new facts).
+- [ ] Manual live E2E walk (create a fresh party with no shared expense, confirm it shows on the Parties page as "settled" and is selectable in the load-expense split) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Client half of the slice, built one green-lit step at a time in lockstep with the API's Phase 22. The Parties page keeps `debt-summary` as the balances source and merges it with the new roster endpoint; the load-expense split drops `debt-summary` entirely. The `PartyListRow` VM deliberately keeps `PartyDebtRow`'s field names so the Parties-page template and helpers needed no rename. Full verification: `pnpm ng lint` clean, `pnpm ng build` clean, `pnpm ng test` 210/210; API side `dotnet test --solution` 227/227. Manual browser walk handed to the user. Not committed by this session — the user commits their own.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

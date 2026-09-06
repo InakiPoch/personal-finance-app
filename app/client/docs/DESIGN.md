@@ -318,11 +318,12 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 20 | GET | `/v1/reports/monthly-expenses` | `ReportsService.monthlyExpenses` | Dashboard |
 | 21 | GET | `/v1/reports/card-due-by-month` | `ReportsService.cardDueByMonth` | Dashboard |
 | 22 | GET | `/v1/reports/parties/{id}/timeline` | `ReportsService.partyTimeline` | Party detail (timeline row → Reverse movement) |
-| 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list |
+| 23 | GET | `/v1/reports/parties/debt-summary` | `ReportsService.debtSummary` | Parties list (balances only — merged with #28) |
 | 24 | GET | `/v1/financing/creditor-payables` | `FinancingService.creditorPayables` | Owed to creditors list |
 | 25 | GET | `/health` | `HealthService.check` | (status indicator) |
 | 26 | GET | `/v1/expense-categories` | `LedgerService.listExpenseCategories` | Load expense (debit-cash category `<datalist>`) |
 | 27 | POST | `/v1/ledger/expenses` | `LedgerService.recordDebitExpense` | Load expense (debit-cash mode) |
+| 28 | GET | `/v1/parties` | `PartiesService.list` | Parties list (roster — merged with #23 for balances) + Load expense (split party picker) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

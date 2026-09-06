@@ -36,7 +36,7 @@
       </p>
 
       @if(parties().length === 0) {
-        <p class="mt-8 text-sm text-ink-soft">No parties with movements yet.</p>
+        <p class="mt-8 text-sm text-ink-soft">No parties yet.</p>
       } @else {
         <ul class="mt-8">
           @for(party of parties(); track party.partyId; let i = $index) {
@@ -125,8 +125,8 @@
           class="max-w-[52ch] text-[0.8125rem] leading-relaxed text-ledger text-pretty"
           role="status"
         >
-          Party created (id <code class="font-sans text-ink-soft">{{ id }}</code>). New parties
-          appear in the list above once they take part in a shared expense.
+          Party created (id <code class="font-sans text-ink-soft">{{ id }}</code>). It's in the
+          list above now, settled until it takes part in a shared expense.
         </p>
       }
     </div>

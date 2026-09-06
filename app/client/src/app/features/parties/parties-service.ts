@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
+import { Party } from './types/party';
 import { PartyResult } from './types/party-result';
 import { RegisterSharedExpense } from './types/register-shared-expense';
 import { SettleCurrentAccount } from './types/settle-current-account';
@@ -16,6 +17,12 @@ type RowsEnvelope<T> = { rows: T[] };
 export class PartiesService {
   private readonly http: HttpClient = inject(HttpClient);
 
+  list(): Observable<Party[]> {
+    return this.http
+      .get<RowsEnvelope<Party>>('parties')
+    .pipe(map((envelope: RowsEnvelope<Party>) => envelope.rows));
+  }
+
   getBalance(partyId: string): Observable<CurrentAccountBalance> {
     return this.http.get<CurrentAccountBalance>(`parties/${partyId}/balance`);
   }
@@ -23,7 +30,7 @@ export class PartiesService {
   getTimeline(partyId: string): Observable<CurrentAccountTimelineRow[]> {
     return this.http
       .get<RowsEnvelope<CurrentAccountTimelineRow>>(`parties/${partyId}/timeline`)
-      .pipe(map((envelope: RowsEnvelope<CurrentAccountTimelineRow>) => envelope.rows));
+    .pipe(map((envelope: RowsEnvelope<CurrentAccountTimelineRow>) => envelope.rows));
   }
 
   create(body: CreateParty): Observable<PartyResult> {

@@ -11,13 +11,14 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, forkJoin, takeUntil } from 'rxjs';
 import { formatArs, fromMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
 import { CreateParty } from '../../types/create-party';
+import { Party } from '../../types/party';
 import { PartyResult } from '../../types/party-result';
 import { PartiesService } from '../../parties-service';
 
@@ -27,6 +28,13 @@ type SubmitStatus = 'idle' | 'submitting' | 'error';
 type PartyForm = FormGroup<{
   name: FormControl<string>;
 }>;
+
+/** Every registered party (roster from `list()`) merged with its balance from `debtSummary()` — zero when the party has no movements yet. */
+type PartyListRow = {
+  partyId: string;
+  partyName: string;
+  netBalanceMinorUnits: Money;
+};
 
 @Component({
   selector: 'app-parties-page',
@@ -39,11 +47,11 @@ export class PartiesPage implements OnInit, OnDestroy {
   protected form!: PartyForm;
   protected readonly formatArs: (value: Money) => string = formatArs;
   protected readonly listStatus: WritableSignal<ListStatus> = signal<ListStatus>('loading');
-  protected readonly parties: WritableSignal<PartyDebtRow[]> = signal<PartyDebtRow[]>([]);
+  protected readonly parties: WritableSignal<PartyListRow[]> = signal<PartyListRow[]>([]);
   protected readonly totalReceivable: Signal<Money> = computed(() =>
     fromMinorUnits(
       this.parties().reduce(
-        (sum: number, row: PartyDebtRow) =>
+        (sum: number, row: PartyListRow) =>
           row.netBalanceMinorUnits > 0 ? sum + row.netBalanceMinorUnits : sum,
         0
       )
@@ -51,16 +59,12 @@ export class PartiesPage implements OnInit, OnDestroy {
   );
   protected readonly totalPayable: Signal<Money> = computed(() =>
     fromMinorUnits(
-      this.parties().reduce(
-        (sum: number, row: PartyDebtRow) =>
-          row.netBalanceMinorUnits < 0 ? sum - row.netBalanceMinorUnits : sum,
-        0
-      )
+      this.parties().reduce((sum: number, row: PartyListRow) => row.netBalanceMinorUnits < 0 ? sum - row.netBalanceMinorUnits : sum, 0)
     )
   );
   protected readonly maxMagnitude: Signal<number> = computed(() =>
     this.parties().reduce(
-      (max: number, row: PartyDebtRow) => Math.max(max, Math.abs(row.netBalanceMinorUnits)),
+      (max: number, row: PartyListRow) => Math.max(max, Math.abs(row.netBalanceMinorUnits)),
       0
     )
   );
@@ -109,7 +113,7 @@ export class PartiesPage implements OnInit, OnDestroy {
     );
   }
 
-  protected balanceHint(row: PartyDebtRow): string {
+  protected balanceHint(row: PartyListRow): string {
     if(row.netBalanceMinorUnits > 0) {
       return 'They owe you';
     }
@@ -124,19 +128,30 @@ export class PartiesPage implements OnInit, OnDestroy {
   }
 
   /** Width (%) of the magnitude tick behind a party row, relative to the largest |net balance|. */
-  protected tickWidth(row: PartyDebtRow): number {
+  protected tickWidth(row: PartyListRow): number {
     const max: number = this.maxMagnitude();
     return max === 0 ? 0 : Math.round((Math.abs(row.netBalanceMinorUnits) / max) * 100);
   }
 
   private loadParties(): void {
     this.listStatus.set('loading');
-    this.reports
-      .debtSummary()
+    forkJoin({
+      roster: this.partiesService.list(),
+      debts: this.reports.debtSummary()
+    })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (rows: PartyDebtRow[]) => {
-          this.parties.set(rows);
+        next: ({ roster, debts }: { roster: Party[]; debts: PartyDebtRow[] }) => {
+          const balanceByPartyId: Map<string, Money> = new Map(
+            debts.map((row: PartyDebtRow) => [row.partyId, row.netBalanceMinorUnits])
+          );
+          this.parties.set(
+            roster.map((party: Party) => ({
+              partyId: party.id,
+              partyName: party.name,
+              netBalanceMinorUnits: balanceByPartyId.get(party.id) ?? fromMinorUnits(0)
+            }))
+          );
           this.listStatus.set('ready');
         },
         error: () => this.listStatus.set('error')

@@ -53,10 +53,8 @@ public sealed class AccrueInstallmentsTests : IDisposable {
         var partyId = Guid.CreateVersion7();
         var receivableAccountId = Guid.CreateVersion7();
         var (cardId, planId) = await SeedCardSplitPlanAsync(15, new DateOnly(2026, 1, 10), 3, 9_000, partyId, receivableAccountId, cancellationToken);
-
         // January cycle has closed (day 20 > cutoff 15); its due cycle (February) has not begun.
         await TickAsync(new DateTimeOffset(2026, 1, 20, 0, 0, 0, TimeSpan.Zero));
-
         var posted = Assert.Single(ledger.PostedTransactions);
         var card = await LoadCardAsync(cardId, cancellationToken);
         var debit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Debit);
@@ -136,6 +134,110 @@ public sealed class AccrueInstallmentsTests : IDisposable {
         Assert.Equal(3_000, statement.AmountDue.MinorUnits);
         var first = await FirstInstallmentAsync(verify, planId, cancellationToken);
         Assert.NotNull(first.AccruedOnUtc);
+    }
+
+    [Fact]
+    public async Task Creditor_split_posts_nothing_before_the_due_cycle_begins() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var partyId = Guid.CreateVersion7();
+        var (planId, _, _) = await SeedCreditorSplitPlanAsync(new DateOnly(2026, 1, 10), 3, 9_000, partyId, cancellationToken);
+
+        // Installment 1 is stored on the January cycle; its due cycle (February) has not begun.
+        await TickAsync(new DateTimeOffset(2026, 1, 20, 0, 0, 0, TimeSpan.Zero));
+
+        Assert.Empty(ledger.PostedTransactions);
+        Assert.Empty(parties.RecordedAccruals);
+        await using var verify = NewContext();
+        var first = await FirstInstallmentAsync(verify, planId, cancellationToken);
+        Assert.Null(first.AccruedOnUtc);
+        Assert.Null(first.SplitAccruedOnUtc);
+    }
+
+    [Fact]
+    public async Task Creditor_split_accrues_the_co_borrower_share_against_the_creditor_payable_when_the_due_cycle_begins() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var partyId = Guid.CreateVersion7();
+        var (planId, receivableAccountId, payableAccountId) =
+            await SeedCreditorSplitPlanAsync(new DateOnly(2026, 1, 10), 3, 9_000, partyId, cancellationToken);
+
+        await TickAsync(new DateTimeOffset(2026, 1, 20, 0, 0, 0, TimeSpan.Zero));
+        await TickAsync(new DateTimeOffset(2026, 2, 5, 0, 0, 0, TimeSpan.Zero));
+
+        var posted = Assert.Single(ledger.PostedTransactions);
+        var debit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Debit);
+        var credit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Credit);
+        Assert.Equal(receivableAccountId, debit.AccountId);
+        Assert.Equal(1_500, debit.Amount.MinorUnits);
+        Assert.Equal(payableAccountId, credit.AccountId);
+        Assert.Equal(1_500, credit.Amount.MinorUnits);
+        Assert.Equal("Creditor-financed split accrual", posted.Description);
+        Assert.Null(posted.InstallmentReferenceId);
+
+        var recorded = Assert.Single(parties.RecordedAccruals);
+        Assert.Equal(1_500, recorded.AccruedReceivableMinorUnits);
+
+        await using var verify = NewContext();
+        var first = await FirstInstallmentAsync(verify, planId, cancellationToken);
+        Assert.Null(first.AccruedOnUtc);
+        Assert.NotNull(first.SplitAccruedOnUtc);
+    }
+
+    [Fact]
+    public async Task Creditor_split_is_idempotent_once_the_receivable_has_posted() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var partyId = Guid.CreateVersion7();
+        await SeedCreditorSplitPlanAsync(new DateOnly(2026, 1, 10), 3, 9_000, partyId, cancellationToken);
+
+        await TickAsync(new DateTimeOffset(2026, 2, 5, 0, 0, 0, TimeSpan.Zero));
+        await TickAsync(new DateTimeOffset(2026, 2, 6, 0, 0, 0, TimeSpan.Zero));
+
+        Assert.Single(ledger.PostedTransactions);
+        Assert.Single(parties.RecordedAccruals);
+    }
+
+    [Fact]
+    public async Task Creditor_split_accrues_each_installment_as_its_own_due_cycle_arrives() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var partyId = Guid.CreateVersion7();
+        var (planId, _, _) = await SeedCreditorSplitPlanAsync(new DateOnly(2026, 1, 10), 3, 9_000, partyId, cancellationToken);
+
+        await TickAsync(new DateTimeOffset(2026, 2, 5, 0, 0, 0, TimeSpan.Zero));
+        await TickAsync(new DateTimeOffset(2026, 3, 5, 0, 0, 0, TimeSpan.Zero));
+        await TickAsync(new DateTimeOffset(2026, 4, 5, 0, 0, 0, TimeSpan.Zero));
+
+        Assert.Equal(3, ledger.PostedTransactions.Count);
+        Assert.Equal(3, parties.RecordedAccruals.Count);
+        Assert.Equal(4_500, parties.RecordedAccruals.Sum(accrual => accrual.AccruedReceivableMinorUnits));
+        await using var verify = NewContext();
+        var installments = await verify.Set<Installment>()
+            .Where(installment => installment.PaymentPlanId == planId)
+            .ToListAsync(cancellationToken);
+        Assert.All(installments, installment => Assert.NotNull(installment.SplitAccruedOnUtc));
+    }
+
+    private async Task<(Guid PlanId, Guid ReceivableAccountId, Guid PayableAccountId)> SeedCreditorSplitPlanAsync(
+        DateOnly purchaseDate, int installmentCount, long totalMinorUnits, Guid partyId, CancellationToken cancellationToken) {
+        var receivableAccountId = Guid.CreateVersion7();
+        var payableAccountId = Guid.CreateVersion7();
+        var splitReferenceId = Guid.CreateVersion7();
+        await using var context = NewContext();
+        var plan = PaymentPlan.Create(
+            cardId: null,
+            Money.FromMinorUnits(totalMinorUnits, Currency.Reference),
+            installmentCount,
+            purchaseDate,
+            "Creditor split purchase",
+            cutoffDay: null,
+            new PhantomPennyAllocator(),
+            [(partyId, 1L)],
+            creditorId: Guid.CreateVersion7(),
+            creditorAccountId: Guid.CreateVersion7()
+        ).Value;
+        plan.LinkSplit(splitReferenceId, new Dictionary<Guid, Guid> { [partyId] = receivableAccountId });
+        plan.AssignCreditorPayableAccount(payableAccountId);
+        context.PaymentPlans.Add(plan);
+        await context.SaveChangesAsync(cancellationToken);
+        return (plan.Id, receivableAccountId, payableAccountId);
     }
 
     private async Task<(Guid CardId, Guid PlanId)> SeedCardSplitPlanAsync(

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using PersonalFinance.Financing.Application.Commands.LinkPaymentPlanSplit;
 using PersonalFinance.Financing.Contracts.IntegrationEvents;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
@@ -31,6 +32,7 @@ internal sealed class AccrueInstallments(
         var today = DateOnly.FromDateTime(now.UtcDateTime);
         await accrueClosedCyclesAsync(context, ledger, dispatcher, scopedLogger, now, today, cancellationToken);
         await accrueDueSplitReceivablesAsync(context, ledger, parties, scopedLogger, now, today, cancellationToken);
+        await accrueDueCreditorSplitReceivablesAsync(context, ledger, parties, scopedLogger, now, today, cancellationToken);
     }
 
     private static async Task accrueClosedCyclesAsync(
@@ -187,6 +189,83 @@ internal sealed class AccrueInstallments(
             if(splitAccrual.IsFailure) {
                 logger.LogWarning(
                     "Split accrual metadata not recorded for installment {InstallmentId} (split {SplitReferenceId}): {ErrorCode}.",
+                    installment.Id, plan.SplitReferenceId, splitAccrual.Error.Code
+                );
+            }
+        }
+    }
+
+    private static async Task accrueDueCreditorSplitReceivablesAsync(
+        FinancingDbContext context, ILedgerApi ledger, IPartiesApi parties,
+        ILogger logger, DateTimeOffset now, DateOnly today, CancellationToken cancellationToken) {
+        var pending = await (
+            from installment in context.Set<Installment>()
+            where installment.SplitAccruedOnUtc == null
+            where installment.IsReversed == false
+            join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
+            where plan.CardId == null
+            where plan.SplitReferenceId != null
+            where plan.CreditorPayableAccountId != null
+            select new { installment, plan }
+        ).ToListAsync(cancellationToken);
+        if(pending.Count == 0) {
+            return;
+        }
+        var currentCycleOrdinal = (today.Year * 12) + today.Month;
+        foreach(var row in pending) {
+            var installment = row.installment;
+            var plan = row.plan;
+            if(installment.SplitAccruedOnUtc is not null) {
+                continue;
+            }
+            var dueCycle = installment.DueCycle;
+            if((dueCycle.Year * 12) + dueCycle.Month > currentCycleOrdinal) {
+                continue;
+            }
+            var splitParticipants = await context.Set<PaymentPlanSplitParticipant>()
+                .Where(participant => participant.PaymentPlanId == plan.Id)
+                .OrderBy(participant => participant.PartyId)
+                .ToListAsync(cancellationToken);
+            var (lines, partyPortionMinorUnits) = CreditorSplitReceivableCalculator.BuildLines(
+                installment.Amount, splitParticipants, plan.CreditorPayableAccountId!.Value
+            );
+            if(partyPortionMinorUnits <= 0) {
+                installment.MarkSplitAccrued(now);
+                await context.SaveChangesAsync(cancellationToken);
+                continue;
+            }
+            var posting = await ledger.PostTransactionAsync(
+                new PostTransactionCommand(
+                    lines,
+                    now,
+                    SplitReferenceId: plan.SplitReferenceId,
+                    Description: "Creditor-financed split accrual"
+                ),
+                cancellationToken
+            );
+            if(posting.IsFailure) {
+                logger.LogWarning(
+                    "Skipping due-month creditor-split accrual of installment {InstallmentId}: ledger post failed ({ErrorCode}).",
+                    installment.Id, posting.Error.Code
+                );
+                continue;
+            }
+            var marked = installment.MarkSplitAccrued(now);
+            if(marked.IsFailure) {
+                logger.LogWarning(
+                    "Skipping due-month creditor-split accrual of installment {InstallmentId}: {ErrorCode}.",
+                    installment.Id, marked.Error.Code
+                );
+                continue;
+            }
+            await context.SaveChangesAsync(cancellationToken);
+            var splitAccrual = await parties.RecordSplitAccrualAsync(
+                new RecordSplitAccrualCommand(plan.SplitReferenceId!.Value, partyPortionMinorUnits),
+                cancellationToken
+            );
+            if(splitAccrual.IsFailure) {
+                logger.LogWarning(
+                    "Creditor-split accrual metadata not recorded for installment {InstallmentId} (split {SplitReferenceId}): {ErrorCode}.",
                     installment.Id, plan.SplitReferenceId, splitAccrual.Error.Code
                 );
             }

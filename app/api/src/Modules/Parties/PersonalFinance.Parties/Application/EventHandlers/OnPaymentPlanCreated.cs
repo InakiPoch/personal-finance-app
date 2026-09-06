@@ -52,9 +52,7 @@ internal sealed class OnPaymentPlanCreated(
             .Select((participant, index) => new PartyShare(participant.PartyId, Money.FromMinorUnits(shares.ParticipantShares[index], currency)))
             .ToList();
         var total = Money.FromMinorUnits(integrationEvent.TotalMinorUnits, currency);
-        var accruedReceivable = integrationEvent.CardId is null
-            ? participantShares.Aggregate(Money.Zero(currency), (running, share) => running + share.Share)
-            : Money.Zero(currency);
+        var accruedReceivable = Money.Zero(currency);
         var split = ExpenseSplit.Create(
             ExpenseSplitSource.CardPlan,
             integrationEvent.PaymentPlanId,
@@ -74,7 +72,8 @@ internal sealed class OnPaymentPlanCreated(
         );
         if(link.IsFailure) {
             throw new InvalidOperationException(
-                $"Could not link payment plan {integrationEvent.PaymentPlanId} to split {split.Value.Id}: {link.Error.Code}.");
+                $"Could not link payment plan {integrationEvent.PaymentPlanId} to split {split.Value.Id}: {link.Error.Code}."
+            );
         }
         await inbox.MarkConsumedAsync(integrationEvent.MessageId, Consumer, cancellationToken);
         await context.SaveChangesAsync(cancellationToken);

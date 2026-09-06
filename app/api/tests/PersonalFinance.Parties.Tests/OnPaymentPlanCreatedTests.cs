@@ -76,13 +76,12 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
     }
 
     [Fact]
-    public async Task Creditor_financed_split_starts_with_the_full_co_borrower_receivable_accrued() {
+    public async Task Creditor_financed_split_also_starts_with_a_zero_accrued_receivable() {
         var cancellationToken = TestContext.Current.CancellationToken;
         await Handle(SplitEvent(cardId: null));
         await using var context = NewContext();
         var split = await context.ExpenseSplits.SingleAsync(cancellationToken);
-        Assert.Equal(split.Total.MinorUnits - split.HolderShare.MinorUnits, split.AccruedReceivable.MinorUnits);
-        Assert.True(split.AccruedReceivable.MinorUnits > 0);
+        Assert.Equal(0, split.AccruedReceivable.MinorUnits);
     }
 
     private async Task Handle(PaymentPlanCreatedIntegrationEvent integrationEvent) {

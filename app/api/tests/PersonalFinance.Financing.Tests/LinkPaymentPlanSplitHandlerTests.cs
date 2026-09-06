@@ -57,28 +57,19 @@ public sealed class LinkPaymentPlanSplitHandlerTests : IDisposable {
     }
 
     [Fact]
-    public async Task Handle_books_the_co_borrower_receivable_in_full_up_front_for_a_card_less_split() {
+    public async Task Handle_posts_no_receivable_on_link_for_a_card_less_split() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var partyId = Guid.CreateVersion7();
         var receivableAccountId = Guid.CreateVersion7();
-        var payableAccountId = Guid.CreateVersion7();
-        ledger.NextAccountId = payableAccountId;
+        ledger.NextAccountId = Guid.CreateVersion7();
         var plan = cardLessPlan(partyId);
         await Persist(plan, cancellationToken);
-        var splitReferenceId = Guid.CreateVersion7();
         var result = await Handle(new LinkPaymentPlanSplitCommand(
-            plan.Id, splitReferenceId, [new PartyReceivable(partyId, receivableAccountId)]), cancellationToken);
+            plan.Id, Guid.CreateVersion7(), [new PartyReceivable(partyId, receivableAccountId)]), cancellationToken);
         Assert.True(result.IsSuccess);
-        var posted = Assert.Single(ledger.PostedTransactions);
-        Assert.Equal(splitReferenceId, posted.SplitReferenceId);
-        Assert.Null(posted.InstallmentReferenceId);
-        Assert.Equal(new DateTimeOffset(2026, 1, 10, 0, 0, 0, TimeSpan.Zero), posted.PostedOnUtc);
-        var debit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Debit);
-        Assert.Equal(receivableAccountId, debit.AccountId);
-        Assert.Equal(4500, debit.Amount.MinorUnits);
-        var credit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Credit);
-        Assert.Equal(payableAccountId, credit.AccountId);
-        Assert.Equal(4500, credit.Amount.MinorUnits);
+        Assert.Empty(ledger.PostedTransactions);
+        var created = Assert.Single(ledger.CreatedAccounts);
+        Assert.Equal(AccountKind.CreditorPayable, created.Kind);
     }
 
     [Fact]

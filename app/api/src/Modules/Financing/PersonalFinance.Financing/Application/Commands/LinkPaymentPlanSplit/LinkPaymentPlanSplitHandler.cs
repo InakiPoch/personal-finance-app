@@ -45,25 +45,6 @@ internal sealed class LinkPaymentPlanSplitHandler(FinancingDbContext context, IL
             }
             plan.AssignCreditorPayableAccount(account.Value);
         }
-        if(plan.CardId is null && plan.SplitParticipants.Count > 0) {
-            var (lines, _) = CreditorSplitReceivableCalculator.BuildLines(
-                plan.Total, plan.SplitParticipants, plan.CreditorPayableAccountId!.Value
-            );
-            if(lines.Count > 0) {
-                var posting = await ledger.PostTransactionAsync(
-                    new PostTransactionCommand(
-                        lines,
-                        plan.PurchaseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-                        SplitReferenceId: command.SplitReferenceId,
-                        Description: "Creditor-financed split"
-                    ),
-                    cancellationToken
-                );
-                if(posting.IsFailure) {
-                    return posting;
-                }
-            }
-        }
         await context.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }

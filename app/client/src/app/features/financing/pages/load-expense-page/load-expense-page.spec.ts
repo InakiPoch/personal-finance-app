@@ -47,7 +47,7 @@ type LoadExpenseView = {
   reconciliations: () => Array<{
     partyId: string;
     partyName: string;
-    status: 'reconciling' | 'reconciled' | 'stalled';
+    status: 'reconciling' | 'reconciled' | 'stalled' | 'scheduled';
     balanceMinorUnits: number | null;
   }>;
   addSplitRow: () => void;
@@ -250,6 +250,26 @@ describe('LoadExpensePage', () => {
       view.onSubmit();
     });
     expect(view.reconciliations()[0].status).toBe('stalled');
+  });
+  it('does not poll for a card split and marks the participant scheduled', () => {
+    fillValidForm();
+    addParticipant('p1', 1);
+    view.onSubmit();
+    expect(getBalance).not.toHaveBeenCalled();
+    expect(view.reconciliations()[0].status).toBe('scheduled');
+  });
+  it('still polls for a debit split (the card early-exit must not swallow other modes)', () => {
+    const scheduler: TestScheduler = new TestScheduler((actual, expected) =>
+      expect(actual).toEqual(expected),
+    );
+    getBalance.and.returnValue(of(balance(100000)));
+    fillValidDebitForm();
+    addParticipant('p1', 1);
+    scheduler.run(() => {
+      view.onSubmit();
+    });
+    expect(getBalance).toHaveBeenCalled();
+    expect(view.reconciliations()[0].status).not.toBe('scheduled');
   });
   it('swaps cardId validation for the creditor fields when the mode is "creditor"', () => {
     expect(view.form.controls.cardId.hasError('required')).toBe(true);

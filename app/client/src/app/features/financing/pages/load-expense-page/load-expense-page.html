@@ -384,6 +384,9 @@
                     still reconciling — the receivable is being posted, refresh shortly
                   </span>
                 }
+                @case('scheduled') {
+                  <span class="text-xs text-ink-faint">scheduled — accrues monthly</span>
+                }
               }
             </li>
           }

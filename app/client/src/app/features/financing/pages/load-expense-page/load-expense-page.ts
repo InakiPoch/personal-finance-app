@@ -31,7 +31,7 @@ import { atMostTwoDecimals, isoDate, noBlank, noNewline, positiveAmount, positiv
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SubmitStatus = 'idle' | 'submitting' | 'confirmed' | 'error';
-type ReconciliationStatus = 'reconciling' | 'reconciled' | 'stalled';
+type ReconciliationStatus = 'reconciling' | 'reconciled' | 'stalled' | 'scheduled';
 type LoadExpenseMode = 'card' | 'creditor' | 'debit';
 type ConfirmedKind = 'plan' | 'expense';
 
@@ -188,7 +188,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         this.confirmedDescription.set(description);
         this.submitStatus.set('confirmed');
         if(participants.length > 0) {
-          this.reconcile(participants);
+          this.reconcile(participants, raw.mode);
         }
       },
       error: (error: AppError) => {
@@ -198,7 +198,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     });
   }
 
-  private reconcile(participants: SplitParticipant[]): void {
+  private reconcile(participants: SplitParticipant[], mode?: LoadExpenseMode): void {
     this.reconciliations.set(
       participants.map((participant: SplitParticipant) => ({
         partyId: participant.partyId,
@@ -207,6 +207,14 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         balanceMinorUnits: null
       }))
     );
+    if(mode === 'card') {
+      // Card-split receivables accrue on each billing cycle (starting next month), so there is
+      // no synchronous balance change to wait for. Mark scheduled and skip the poll.
+      participants.forEach((participant: SplitParticipant) =>
+        this.updateReconciliation(participant.partyId, 'scheduled', null)
+      );
+      return;
+    }
     for(const participant of participants) {
       this.partiesService
         .getBalance(participant.partyId)

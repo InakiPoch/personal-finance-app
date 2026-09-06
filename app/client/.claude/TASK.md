@@ -900,6 +900,32 @@ Built one green-lit step at a time in lockstep with the API's Phase 20 (step 3 o
 
 ---
 
+## Phase 22 — Dashboard fixes: installments-paid wording + card name on future rows (Slices 1–2)
+
+**Goal:** Fix three Dashboard "Card Debt by Cycle" defects across two slices — the drill-down installment line phrased as "outstanding" instead of "paid" (Slice 1), and future-installment cards showing a GUID for a name plus expanding one card opening every row of the same physical card (Slice 2).
+
+**Traces to:** `docs/dashboard-fixes/slice-1-installments-paid-of-total.md` and `slice-2-card-name-and-expand.md` (standalone planning docs — `docs/PRD.md` §3.1 already describes the drill-down and stays unmodified; `docs/DESIGN.md` unchanged on the client side). Slice 2's API half is `app/api` Phase 21 (`vw_card_future_schedule` + `card_due_by_month.sql` + migration `20260906031333`).
+
+**Depends on:** the `docs/expense-description/` Slice 2 card-debt drill-down phase (`dashboard-page.ts` `cycleByCard()` + `expandedCardId` + the `#card-purchases-*` disclosure).
+
+### Tasks
+- [x] Slice 1 — `features/reports/pages/dashboard-page/dashboard-page.html` (~line 136): the drill-down purchase line changed from `{{ outstandingCount }} of {{ installmentCount }} installments outstanding` to `{{ installmentCount - outstandingCount }} of {{ installmentCount }} installments paid`. No `.ts`/type change — both fields already on `CardPurchaseRow`.
+- [x] Slice 2 — `dashboard-page.ts` `cycleByCard()` regrouped by the stable `cardId` instead of the label string. Grouping key `row.cardId ?? ('label:' + row.card)`; display label per card prefers the Accrued-bucket label, falls back to the Future label, never a GUID; two-pass ordering (accrued cards first, then future-only) preserved. `accruedByCard()`/`futureByCard()` untouched. A null-`cardId` row stays a plain non-expandable row, as before.
+- [x] Slice 2 — `dashboard-page.html`: `@for(card of cycleByCard(); track card.card)` → `track card.cardId ?? card.card`. No structural change (the `@if(card.cardId; as cardId)` guards + `expandedCardId() === cardId` stay correct once each `cardId` is on exactly one row).
+- [x] Slice 2 — `dashboard-page.spec.ts` +2 facts (`DashboardView` gains `cycleByCard`): an Accrued + a Future row sharing one `cardId` but different `card` labels collapse into exactly one `cycleByCard()` row (Accrued label wins) and expanding it renders exactly one `#card-purchases-*` block; a lone Future row keeps its name as the label.
+
+### Definition of done
+- [x] The drill-down line reads "N of M installments paid".
+- [x] A card with future installments shows its name (from the API's Phase 21), and expanding it reveals only its own purchases — one `cardId` maps to one rendered row regardless of any Accrued/Future label mismatch.
+- [x] `pnpm ng lint` clean; `pnpm ng build --configuration production` clean (no budget change, `financing-routes` chunk unchanged); `pnpm ng test --watch=false --browsers=ChromeHeadless` → **208 passed** (206 baseline at Phase 21 + 2 new facts).
+- [ ] Manual live E2E walk (run the API + client, open a Dashboard with a card that has future installments, confirm the card name shows and expanding it opens only its own purchases) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Bug-fix initiative, not a feature — the drill-down itself was built in the `docs/expense-description/` Slice 2 phase. No new D-numbers, no client-side PRD/DESIGN change (the API's `docs/DESIGN.md` §D11 gains one clause for the Future-half label). Slice 1 was a one-line template change; Slice 2's client half is the `cardId` regroup, its API half is `app/api` Phase 21. Full verification: `pnpm ng lint` clean, `pnpm ng build` clean, `pnpm ng test` 208/208; API side `dotnet test --solution` 223/223. Manual browser walk handed to the user. Committed by the user as `3b7a098` (Slice 1) + `979eb54` (Slice 2).
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

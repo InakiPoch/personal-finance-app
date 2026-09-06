@@ -834,3 +834,27 @@ Pure additive CQRS read-only query on the `GetCardPurchases` / `GetCardStatement
 ### Completion notes
 
 All new code is Ledger-side. Endpoint-placement fork resolved to **Option A** (dedicated Ledger-side `POST /v1/ledger/expenses`, per the doc's own recommendation), and the test-project EF dependency fork resolved to **Option A** (add `Microsoft.EntityFrameworkCore.Sqlite` to `PersonalFinance.Ledger.Tests.csproj` + regenerate its lock file). Steps 1 and 2 were committed by the user (`e9b2d01`, `d4b5cd2`); step 3 (client) is `app/client/.claude/TASK.md` Phase 21. Built one green-lit step at a time (contracts + category get-or-create/list → debit-expense handler + host wiring → client → verification). Full verification: `dotnet test --solution` 222/222, 0 warnings; `PersonalFinance.Architecture.Tests` green; `dotnet restore --locked-mode` clean. Manual sanity walk handed to the user. Not committed by this session for the client step — the user commits their own.
+
+## Phase 21 — Dashboard fixes: card name on future rows + expand hardening (Slice 2)
+
+**Goal:** Fix two Dashboard "Card Debt by Cycle" symptoms with one root cause — future-installment cards showing a GUID instead of the card name, and expanding one card opening every row of the same physical card. This phase is the **API half (Bug A)**; the client `cycleByCard()` regroup (Bug B) and Slice 1 (drill-down wording) are `app/client/.claude/TASK.md` Phase 22.
+
+**Traces to:** `docs/dashboard-fixes/slice-2-card-name-and-expand.md` (standalone planning doc; `docs/DESIGN.md` §D11 "Identidad de tarjeta compartida" gains one clause noting the Future half now labels with `CardName`).
+
+**Depends on:** Phase 7 (Reporting `card_due_by_month.sql`), Phase 10 (`lower(CardId)` case-safe join key — kept untouched), Phase 18 (`vw_card_future_schedule` drop-and-recreate migration precedent). No cross-module dependency.
+
+### Tasks
+- [x] `src/Modules/Financing/PersonalFinance.Financing/Infrastructure/Persistence/ReadViews/vw_card_future_schedule.sql` — add `c.Name AS CardName` + inner `JOIN financing_credit_cards c ON c.Id = p.CardId`; the existing `WHERE p.CardId IS NOT NULL` guarantees the join drops no legitimate row.
+- [x] `src/Reporting/PersonalFinance.Reporting/Sql/card_due_by_month.sql` — Future half: `CardId AS Card` → `CardName AS Card`; add `CardName` to the `GROUP BY`; keep `lower(CardId) AS CardId`. Embedded ADO string loaded by `ReportingSqlHelper` — **no migration for this file**.
+- [x] Migration `20260906031333_UpdateCardFutureScheduleView` (FinancingDbContext) — empty scaffold (the view is keyless / not EF-mapped, consumed only by Reporting via raw ADO); `Up` = `DROP VIEW IF EXISTS vw_card_future_schedule;` + `ReadViewSqlHelper.Load("vw_card_future_schedule.sql")`; `Down` = drop + inline previous `CREATE VIEW` (no `CardName`, no card join). Single-migration form — no table rebuild, so the Phase-18 deferred-rebuild caveat does not apply. Applied to the dev `personalfinance.db`, verified via `sqlite_master`.
+- [x] Tests: `tests/PersonalFinance.Reporting.Tests/ReportingQueryTests.cs` +1 fact `CardDueByMonth_labels_future_rows_with_the_card_name_not_its_id` — the seeded "Visa Reporting" future rows' `Card` equals the card name, not `ReportingCardId.ToString()`, not the `CardId` column.
+
+### Definition of done
+- [x] `GET /v1/reports/card-due-by-month` Future rows carry the card **name**; the Accrued/Future shared `lower(CardId)` key is unchanged.
+- [x] No Ledger migration (`vw_card_liability_accrued` already correct); no new module edge — `PersonalFinance.Architecture.Tests` (RNF-9) green.
+- [x] `dotnet test --solution` → **223 passed** (from 222 at Phase 20), 0 warnings.
+- [ ] Manual live browser E2E walk (run the API + client, open a Dashboard with a card that has future installments, confirm the card **name** shows and expanding it opens **only** its own purchases) — **handed to the user**, not run this session.
+
+### Completion notes
+
+Two-symptom / one-cause fix built one green-lit step at a time (view → Reporting query → migration → client regroup → tests → verification). The client half (`dashboard-page.ts` `cycleByCard()` keyed on `cardId` instead of the label string; `@for` `track` → `card.cardId ?? card.card`) is `app/client/.claude/TASK.md` Phase 22, as is Slice 1. `docs/DESIGN.md` §D11 reconciled with one clause. Full verification: `dotnet test --solution` 223/223, 0 warnings; `PersonalFinance.Architecture.Tests` green; migration applied and verified against `sqlite_master`. Manual browser walk handed to the user. Committed by the user as `979eb54`.

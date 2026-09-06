@@ -133,7 +133,7 @@
                           <span class="text-xs text-ink-soft">
                             {{ purchase.description }}
                             <span class="text-ink-faint">
-                              — {{ purchase.outstandingCount }} of {{ purchase.installmentCount }} installments outstanding
+                              — {{ purchase.installmentCount - purchase.outstandingCount }} of {{ purchase.installmentCount }} installments paid
                             </span>
                           </span>
                           <span class="text-xs text-ink [font-variant-numeric:tabular-nums_lining-nums]">

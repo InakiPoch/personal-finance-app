@@ -126,6 +126,7 @@ describe('DashboardPage', () => {
     expect(view.expandedPurchases()).toEqual(purchaseRows);
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('New laptop');
+    expect(text).toContain('3 of 6 installments paid');
   });
   it('collapses on a second toggle without calling the service again', () => {
     setup();

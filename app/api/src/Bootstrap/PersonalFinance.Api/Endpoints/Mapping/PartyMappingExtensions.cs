@@ -1,4 +1,5 @@
 using PersonalFinance.Api.Endpoints.DTOs;
+using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.Parties.Contracts.Queries;
 
@@ -48,6 +49,18 @@ internal static class PartyMappingExtensions {
             .Select(row => new PartyRowDto(row.Id, row.Name))
             .ToList();
         return new PartiesListDto(rows);
+    }
+
+    public static FuturePartySharesDto ToFuturePartySharesDto(this GetFuturePartySharesResponse response) {
+        var rows = response.Rows
+            .Select(row => new FuturePartyShareDto(
+                row.CycleYear,
+                row.CycleMonth,
+                row.ShareMinorUnits,
+                row.CurrencyCode,
+                row.SourceLabel))
+            .ToList();
+        return new FuturePartySharesDto(rows);
     }
 
     extension(Guid id) {

@@ -211,5 +211,9 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         public Task<ListCreditorsResponse> ListCreditorsAsync(ListCreditorsQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
+
+        public Task<GetFuturePartySharesResponse> GetFuturePartySharesAsync(GetFuturePartySharesQuery query, CancellationToken ct = default) {
+            throw new NotSupportedException();
+        }
     }
 }

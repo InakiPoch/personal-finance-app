@@ -46,4 +46,8 @@ internal sealed class FinancingApi(ICommandBus commandBus, IQueryBus queryBus) :
     public Task<ListCreditorsResponse> ListCreditorsAsync(ListCreditorsQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }
+
+    public Task<GetFuturePartySharesResponse> GetFuturePartySharesAsync(GetFuturePartySharesQuery query, CancellationToken ct = default) {
+        return queryBus.AskAsync(query, ct);
+    }
 }

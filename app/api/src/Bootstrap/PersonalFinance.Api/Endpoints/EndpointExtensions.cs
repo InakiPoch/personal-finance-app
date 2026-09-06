@@ -197,6 +197,10 @@ internal static class EndpointExtensions {
                 .WithSummary("Get a party's current account timeline.")
                 .WithDescription("Returns the chronological movements on the party's Ledger receivable account.")
                 .Produces<CurrentAccountTimelineDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Parties.FutureShares, GetPartyFutureShares.Handle)
+                .WithSummary("A party's upcoming installment shares.")
+                .WithDescription("Projected not-yet-accrued monthly shares for the party's card-split plans.")
+                .Produces<FuturePartySharesDto>(StatusCodes.Status200OK);
             return endpoints;
         }
 

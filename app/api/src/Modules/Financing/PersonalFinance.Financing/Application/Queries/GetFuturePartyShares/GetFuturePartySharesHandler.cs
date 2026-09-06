@@ -8,7 +8,8 @@ using PersonalFinance.SharedKernel.Allocation;
 namespace PersonalFinance.Financing.Application.Queries.GetFuturePartyShares;
 
 /// <summary>
-/// Projects the not-yet-accrued installment shares a party will owe on its card-split plans, one row per upcoming billing cycle.
+/// Projects the not-yet-accrued installment shares a party will owe on its card-split and creditor-financed
+/// split plans, one row per upcoming due month.
 /// </summary>
 internal sealed class GetFuturePartySharesHandler(FinancingDbContext context) : IQueryHandler<GetFuturePartySharesQuery, GetFuturePartySharesResponse> {
     public async Task<GetFuturePartySharesResponse> HandleAsync(GetFuturePartySharesQuery query, CancellationToken cancellationToken) {
@@ -17,10 +18,15 @@ internal sealed class GetFuturePartySharesHandler(FinancingDbContext context) : 
             where installment.SplitAccruedOnUtc == null
             where installment.IsReversed == false
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
-            where plan.CardId != null
             where plan.SplitParticipants.Any(participant => participant.PartyId == query.PartyId)
-            from card in context.CreditCards.Where(candidate => candidate.Id == plan.CardId)
-            select new { installment, plan, CardName = card.Name }
+            from card in context.CreditCards.Where(candidate => candidate.Id == plan.CardId).DefaultIfEmpty()
+            from creditor in context.Creditors.Where(candidate => candidate.Id == plan.CreditorId).DefaultIfEmpty()
+            select new {
+                installment,
+                plan,
+                CardName = card == null ? null : card.Name,
+                CreditorName = creditor == null ? null : creditor.Name
+            }
         ).ToListAsync(cancellationToken);
         if(pending.Count == 0) {
             return new GetFuturePartySharesResponse([]);
@@ -46,12 +52,13 @@ internal sealed class GetFuturePartySharesHandler(FinancingDbContext context) : 
                 continue;
             }
             var dueCycle = row.installment.DueCycle;
+            var sourceName = row.CardName ?? row.CreditorName ?? "Financed";
             rows.Add(new FuturePartyShareRow(
                 dueCycle.Year,
                 dueCycle.Month,
                 share.MinorUnits,
                 share.Currency.Code,
-                $"{row.CardName} — {row.plan.Description}"
+                $"{sourceName} — {row.plan.Description}"
             ));
         }
         var ordered = rows

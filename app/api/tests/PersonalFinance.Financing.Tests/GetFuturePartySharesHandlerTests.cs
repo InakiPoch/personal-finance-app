@@ -121,9 +121,10 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
     }
 
     [Fact]
-    public async Task Handle_excludes_a_card_less_creditor_financed_plan() {
+    public async Task Handle_includes_a_card_less_creditor_financed_split_dated_by_the_due_month() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var partyId = Guid.CreateVersion7();
+        var (creditorId, creditorAccountId) = await SeedCreditorAsync("MercadoPago", cancellationToken);
         var plan = PaymentPlan.Create(
             cardId: null,
             Money.FromMinorUnits(9_000, Currency.Reference),
@@ -133,12 +134,17 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
             cutoffDay: null,
             allocator: new PhantomPennyAllocator(),
             splitParticipants: [(partyId, 1L)],
-            creditorId: Guid.CreateVersion7(),
-            creditorAccountId: Guid.CreateVersion7()
+            creditorId: creditorId,
+            creditorAccountId: creditorAccountId
         ).Value;
         await PersistAsync(plan, cancellationToken);
         var response = await HandleAsync(partyId, cancellationToken);
-        Assert.Empty(response.Rows);
+        Assert.Equal(
+            new[] { (2026, 2), (2026, 3), (2026, 4) },
+            response.Rows.Select(row => (row.CycleYear, row.CycleMonth)).ToList()
+        );
+        Assert.All(response.Rows, row => Assert.Equal("MercadoPago — Creditor purchase", row.SourceLabel));
+        Assert.All(response.Rows, row => Assert.Equal(1_500, row.ShareMinorUnits));
     }
 
     [Fact]
@@ -238,6 +244,14 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
         context.CreditCards.Add(card);
         await context.SaveChangesAsync(cancellationToken);
         return cardId;
+    }
+
+    private async Task<(Guid CreditorId, Guid AccountId)> SeedCreditorAsync(string name, CancellationToken cancellationToken) {
+        await using var context = NewContext();
+        var creditor = Creditor.Create(Guid.CreateVersion7(), name, [("Main", "alias.pay")]).Value;
+        context.Creditors.Add(creditor);
+        await context.SaveChangesAsync(cancellationToken);
+        return (creditor.Id, creditor.Accounts[0].Id);
     }
 
     private FinancingDbContext NewContext() {

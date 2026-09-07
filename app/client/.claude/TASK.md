@@ -1081,6 +1081,32 @@ Built one green-lit step at a time (client steps 7–9 of the cross-stack slice)
 
 ---
 
+## Phase 29 — Individual installment payments: next-payment visibility (Slice 3)
+
+**Goal:** On the Recent purchases list (§3.9), each row shows "N/M paid · next: `<month>`", or "Fully paid" when no installment remains. "Next payment" is derived (the earliest un-paid, un-reversed installment's due month) — nothing is rescheduled.
+
+**Traces to:** `docs/individual-installment-payments/slice-3-next-payment-visibility.md` (+ `00-overview.md`; third and final slice of the "pay a statement's cuotas individually" initiative). API half is `app/api` Phase 30 (`ListRecentPurchasesQuery` / handler / DTO derive `PaidInstallmentCount` + `NextDueYear`/`NextDueMonth`). `docs/DESIGN.md` §9 gains a `GET /v1/financing/purchases/recent` row (#30); `docs/PRD.md` §3.9 "Shows"/"Source"/"Notes" updated. **This closes `docs/individual-installment-payments/`.**
+
+**Depends on:** Phase 9 (`recent-purchases-page` + `recent-purchases-table` + `financing-service.recentPurchases()`).
+
+### Tasks
+- [x] `features/financing/types/recent-purchase-row.ts` — `RecentPurchaseRow` gains `paidInstallmentCount: number` + `nextDueYear: number | null` + `nextDueMonth: number | null` (matches the API's nullable ints).
+- [x] `pages/recent-purchases-page/recent-purchases-table.ts` — module-level `MONTH_LABELS` array (the `party-detail-page.ts` pattern, no new date lib); `installmentLabel` replaced by `paidLabel(purchase)` → `"1/3 paid"` and `nextPaymentLabel(purchase)` → `"next: Nov 2026"` (`MONTH_LABELS[nextDueMonth - 1] + ' ' + nextDueYear`) / `"Fully paid"` when either `nextDue*` is null.
+- [x] `pages/recent-purchases-page/recent-purchases-table.html` — first-cell sub-line → `{{ paidLabel(purchase) }} &middot; {{ nextPaymentLabel(purchase) }}`.
+- [x] Specs — `recent-purchases-table.spec.ts` +2 (renders `1/3 paid`; renders `next: Nov 2026` on the due row and `Fully paid` on the null row); `recent-purchases-page.spec.ts` + `financing-service.spec.ts` fixtures got the 3 new fields.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **228/228** (from 226: recent-purchases-table +2); `pnpm ng build --configuration production` clean (no budget change).
+- [x] No route / nav / service-method change — the endpoint was already wired in Phase 9; `recentPurchases()` needs no mapper change (bare cast).
+- [x] `types/recent-purchase-row.ts` field-matches the API's `RecentPurchaseRowDto`.
+- [ ] Manual browser walk (no browser here) — handed to the user: a purchase with some cuotas paid shows an accurate paid count and the correct next-payment month; paying its last cuota (via §3.4) flips it to "Fully paid".
+
+### Completion notes
+
+Built one green-lit step at a time (8 self-defined steps — the slice doc has no numbered steps). Pure additive read; no deviations from the slice doc. The month label reuses `party-detail-page.ts`'s `MONTH_LABELS` array rather than introducing `Intl.DateTimeFormat` or a date library. The `installmentLabel` helper is dropped — the total count survives as the `M` in "N/M paid". Not committed by this session — the user commits their own (API landed with Phase 30).
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

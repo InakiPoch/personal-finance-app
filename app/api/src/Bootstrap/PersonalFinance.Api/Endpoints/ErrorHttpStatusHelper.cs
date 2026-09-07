@@ -22,6 +22,8 @@ internal static class ErrorHttpStatusHelper {
             "Financing.StatementAlreadyPaid" => StatusCodes.Status409Conflict,
             "Financing.InstallmentAlreadyAccrued" => StatusCodes.Status409Conflict,
             "Financing.InstallmentAlreadyReversed" => StatusCodes.Status409Conflict,
+            "Financing.InstallmentAlreadyPaid" => StatusCodes.Status409Conflict,
+            "Financing.InstallmentNotAccrued" => StatusCodes.Status409Conflict,
             "Subscriptions.SubscriptionNotActive" => StatusCodes.Status409Conflict,
             "Parties.SettlementExceedsBalance" => StatusCodes.Status409Conflict,
 

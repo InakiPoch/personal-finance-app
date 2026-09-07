@@ -75,6 +75,13 @@ internal static class EndpointExtensions {
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapPost(ApiRoutes.Financing.InstallmentPayment, PayInstallment.Handle)
+                .WithSummary("Pay a single installment.")
+                .WithDescription("Posts a plain Dr CardLiability / Cr Bank for one accrued installment and marks it paid, without touching carried card credit. The parent statement is marked paid only once all its accrued, non-reversed installments are paid. Fails if the installment is unknown, reversed, already paid, or not yet accrued.")
+                .Produces<PayInstallmentResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapGet(ApiRoutes.Financing.FutureSchedule, GetCardFutureSchedule.Handle)
                 .WithSummary("Get a card's future installment schedule.")
                 .WithDescription("Returns the not-yet-accrued installments for the given credit card.")

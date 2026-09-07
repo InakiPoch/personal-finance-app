@@ -26,12 +26,20 @@ internal static class FinancingMappingExtensions {
         return new PayStatementCommand(statementId, dto.BankAccountId, dto.PaidOnUtc);
     }
 
+    public static PayInstallmentCommand ToPayInstallmentCommand(this PayInstallmentDto dto, Guid installmentId) {
+        return new PayInstallmentCommand(installmentId, dto.BankAccountId, dto.PaidOnUtc);
+    }
+
     public static CreatePaymentPlanResultDto ToCreatePaymentPlanResultDto(this Guid paymentPlanId) {
         return new CreatePaymentPlanResultDto(paymentPlanId);
     }
 
     public static PayStatementResultDto ToPayStatementResultDto(this Guid statementId) {
         return new PayStatementResultDto(statementId);
+    }
+
+    public static PayInstallmentResultDto ToPayInstallmentResultDto(this Guid installmentId) {
+        return new PayInstallmentResultDto(installmentId);
     }
 
     public static CardFutureScheduleDto ToCardFutureScheduleDto(this CardFutureScheduleResponse response, Guid cardId) {

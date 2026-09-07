@@ -1107,6 +1107,32 @@ Built one green-lit step at a time (8 self-defined steps — the slice doc has n
 
 ---
 
+## Phase 30 — Back-dated card expenses (Slice 1)
+
+**Goal:** On Load expense (§3.3), a **credit-card** purchase with a past date reveals a required "Paid from" account (the API settles its already-elapsed installments from it), and a future purchase date is rejected before submit.
+
+**Traces to:** `docs/backdated-expenses/slice-1-card-backdating.md` (+ `00-overview.md`; first of three slices — Slice 2 creditor cutoff has no new client UI, Slice 3 optional pending-$). API half is `app/api` Phase 31 (`CreatePaymentPlanCommand.BankAccountId`; `CreatePaymentPlanHandler` accrues + pays the elapsed cuotas at creation; `FuturePurchaseDate` / `BackdatedCardBankAccountRequired` → 422). `docs/DESIGN.md` §3 `CreatePaymentPlan` type gains `bankAccountId?: string`; `docs/PRD.md` §3.3 "Shows"/"Source" updated.
+
+**Depends on:** Phase 10 (payment-mode selector on `load-expense-page`), Phase 21 (`bankAndCashInstruments()` computed signal, reused as the back-dated funding source).
+
+### Tasks
+- [x] `features/financing/types/create-payment-plan.ts` — `CreatePaymentPlan` gains a trailing optional `bankAccountId?: string`.
+- [x] `pages/load-expense-page/load-expense-page.ts` — `bankAccountId: FormControl<string>` on the form (type + `initLoadExpenseForm`); `isBackdatedCardPurchase()` (`mode === 'card'` && ISO-shaped `purchaseDate` && `< todayIso()` where `todayIso()` = `new Date().toISOString().slice(0, 10)`); `watchBackdatedFunding()` on `merge(mode.valueChanges, purchaseDate.valueChanges)` toggles `Validators.required` on `bankAccountId` and clears its value/validator otherwise (wired in `ngOnInit` after `watchModeChange`); `onSubmit` spreads `bankAccountId` into the card-mode branch when truthy; `submitErrorMessages` gains `Financing.FuturePurchaseDate` + `Financing.BackdatedCardBankAccountRequired`.
+- [x] `pages/load-expense-page/load-expense-page.html` — "Paid from" `<select id="bankAccountId">` inside the `mode === 'card'` branch, gated by `@if(isBackdatedCardPurchase())`, options from `bankAndCashInstruments()`, plus a back-dated explainer line, the shared "no debit or cash accounts" empty-state, and the `required` error line.
+- [x] `features/financing/validation-helpers.ts` — new `notFuture: ValidatorFn` (`{ notFuture: true }` when a well-formed ISO date is strictly `> new Date().toISOString().slice(0, 10)`); `purchaseDate` validators → `[isoDate, notFuture]`; `notFuture` error line + `errorMessages` entry in `load-expense-page`.
+- [x] Specs — `load-expense-page.spec.ts`: `fillValidForm` / `fillValidDebitForm` and the two `purchaseDate` payload assertions switched from `'2026-09-01'` to a dynamic `todayIso()` (a hardcoded past date would make every card-mode test permanently "back-dated"); `LoadExpenseView` form type gains `bankAccountId`; **+6 facts** (selector hidden for a today-dated card purchase; shown + required for a back-dated one; `bankAccountId` in the posted body; omitted for a today-dated one; requirement dropped when re-dated to today; a future date blocks submit).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **234/234** (from 228: `load-expense-page` +6); `pnpm ng build --configuration production` clean (no budget change).
+- [x] `create-payment-plan.ts` field-matches the API's `CreatePaymentPlanCommand`.
+- [ ] Manual browser walk (no browser here) — handed to the user: pick *My credit card*, set the purchase date ~2 months back → a "Paid from" select appears and the form is invalid until an account is chosen; set the date to a future day → the field shows the future-date error and submit is blocked; a today-dated card purchase shows no "Paid from" select.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 5–8 of the slice; steps 1–4 are the API's Phase 31). Not committed by this session — the user commits their own. **Deviation from the slice doc:** the back-dated trigger is the coarser "`purchaseDate` before today" rather than "cuota 1's due cycle is already past" — the client cannot resolve the billing cycle without the card's cutoff day, and the API ignores `bankAccountId` when it is not needed, so an occasionally-shown selector is harmless. `todayIso()` uses `toISOString()` (UTC) to match the API's `TimeProvider.GetUtcNow()`. Making the spec fixtures time-independent also fixed a latent brittleness (the old `'2026-09-01'` literal). Doc-sync is this phase's step 8-equivalent, done here.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

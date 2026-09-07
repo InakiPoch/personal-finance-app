@@ -129,8 +129,11 @@ no `I-` prefix.
 **Financing** (`CreatePaymentPlanDto`, `MonthlyStatementDetailDto`, `PayStatementDto`,
 `CardFutureScheduleDto`)
 - `SplitParticipant = { partyId: string; weight: number }`
-- `CreatePaymentPlan = { amountMinorUnits: Money; cardId: string; installmentCount: number;
-  purchaseDate: IsoDate; split?: SplitParticipant[] }`
+- `CreatePaymentPlan = { amountMinorUnits: Money; cardId?: string; installmentCount: number;
+  purchaseDate: IsoDate; description: string; split?: SplitParticipant[]; creditorId?: string;
+  creditorAccountId?: string; bankAccountId?: string }` — `cardId` xor `creditorId`+`creditorAccountId`
+  by payment mode; `bankAccountId` only when a card purchase is back-dated (funds the API's
+  retroactive settlement of the elapsed installments — `docs/backdated-expenses/slice-1-card-backdating.md`)
 - `CreatePaymentPlanResult = { paymentPlanId: string }`
 - `MonthlyStatementInstallment = { planId: string; installmentId: string; sequence: number;
   installmentCount: number; purchaseDate: IsoDate; cycleYear: number; cycleMonth: number;

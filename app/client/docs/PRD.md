@@ -69,6 +69,13 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   client never computes the billing cycle or the split cents — it submits raw inputs and the API
   allocates. On confirmation, the description headlines the panel — "payment plan created" for the
   card/creditor modes, "expense recorded" for debit-cash.
+- **Back-dated card purchase (`docs/backdated-expenses/slice-1-card-backdating.md`, Slice 1 built):**
+  a future purchase date is rejected client-side (and by the API, `Financing.FuturePurchaseDate`).
+  When *My credit card* is chosen and the purchase date is before today, a required **"Paid from"**
+  account selector appears (same debit/cash instrument list as debit-cash mode) — the API settles
+  that purchase's already-elapsed installments from it, with historically-dated ledger postings, so
+  the purchase reads as one you have been paying for months rather than "0/N paid". A today-dated
+  card purchase shows no selector. Creditor mode is unaffected (Slice 2).
 - **Category (debit-cash only):** a free-type field backed by the existing list from
   `GET /v1/expense-categories` — pick an existing category or type a new one; it is required, and
   a new name get-or-creates its `Expense` Ledger account server-side (trim + case-insensitive

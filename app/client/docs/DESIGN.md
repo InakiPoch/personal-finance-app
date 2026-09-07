@@ -57,8 +57,8 @@ src/app/
       financing-service.ts
       types/  (create-payment-plan.ts, split-participant.ts, create-payment-plan-result.ts,
                monthly-statement.ts, monthly-statement-installment.ts, monthly-statement-summary.ts,
-               pay-statement.ts, pay-statement-result.ts, card-future-schedule.ts,
-               card-future-schedule-row.ts)
+               pay-statement.ts, pay-statement-result.ts, pay-installment.ts, pay-installment-result.ts,
+               card-future-schedule.ts, card-future-schedule-row.ts)
       pages/  statements-page/, statement-page/, load-expense-page/
       financing.routes.ts
     subscriptions/
@@ -141,6 +141,8 @@ no `I-` prefix.
   installments: MonthlyStatementInstallment[] }`
 - `PayStatement = { bankAccountId: string; paidOnUtc: IsoInstant }`
 - `PayStatementResult = { statementId: string }`
+- `PayInstallment = { bankAccountId: string; paidOnUtc: IsoInstant }`
+- `PayInstallmentResult = { installmentId: string }`
 - `CardFutureScheduleRow = { planId: string; installmentId: string; sequence: number;
   cycleYear: number; cycleMonth: number; amountMinorUnits: Money }`
 - `CardFutureSchedule = { cardId: string; rows: CardFutureScheduleRow[] }`
@@ -199,6 +201,7 @@ One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(Http
 - **FinancingService** — `createPaymentPlan(body: CreatePaymentPlan): Observable<CreatePaymentPlanResult>`;
   `getStatement(id: string): Observable<MonthlyStatement>`;
   `payStatement(id: string, body: PayStatement): Observable<PayStatementResult>`;
+  `payInstallment(id: string, body: PayInstallment): Observable<PayInstallmentResult>`;
   `getFutureSchedule(cardId: string): Observable<CardFutureSchedule>`;
   `listStatements(cardId: string): Observable<MonthlyStatementSummary[]>` (unwraps the `{ rows }` envelope)
 - **SubscriptionsService** — `create(body: CreateSubscription): Observable<SubscriptionResult>`;

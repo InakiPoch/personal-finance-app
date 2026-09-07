@@ -90,12 +90,13 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 
 ### 3.4 Statement detail & pay — US-4
 - **Shows:** a statement's cycle, total due, paid/unpaid status, and the **itemized installments**
-  that compose the total (sequence "1 of 3", purchase date, amount, reversed flag, and a per-row **Reverse**
-  action for the installment's accrual). A "Pay" action
-  requiring the funding bank account and pay date. Optionally, the card's **future schedule** (not
-  yet accrued installments) for the full-debt picture.
+  that compose the total (sequence "1 of 3", purchase date, amount, a paid / reversed status chip, and
+  per-row **Pay** + **Reverse** actions — Pay is disabled for a paid or reversed row). A shared bank
+  account + pay-date form feeds both a per-row single-installment payment and the **"Pay full statement"**
+  action (which charges only the still-unpaid, non-reversed cuotas). Optionally, the card's **future
+  schedule** (not yet accrued installments) for the full-debt picture.
 - **Source:** `GET /v1/financing/statements/{id}`, `POST /v1/financing/statements/{id}/pay`,
-  `GET /v1/financing/cards/{id}/future-schedule`.
+  `POST /v1/financing/installments/{id}/pay`, `GET /v1/financing/cards/{id}/future-schedule`.
 - **Reversal-credit UX (API D12):** when a paid installment was reversed, a compensating card credit
   is netted against the **next** statement, not refunded as cash. The view must state this plainly.
 - ~~**Gap:** no endpoint lists a card's statements.~~ **Resolved (Phase 12):** `GET

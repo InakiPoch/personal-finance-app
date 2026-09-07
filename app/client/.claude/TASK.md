@@ -1052,6 +1052,35 @@ Two new type fields and three one-line fixture touches — no template, no compo
 
 ---
 
+## Phase 28 — Individual installment payments: pay a single installment (Slice 2)
+
+**Goal:** The headline feature — a per-row **Pay** button on the statement `installments-table` that settles one cuota via the new `POST /v1/financing/installments/{id}/pay`, reusing the statement page's existing bank-account + pay-date form; the full-statement button is relabelled **"Pay full statement"** and both actions coexist. Paid rows show a "Paid" chip.
+
+**Traces to:** `docs/individual-installment-payments/slice-2-pay-single-installment.md` (+ `00-overview.md`; second slice of the "pay a statement's cuotas individually" initiative). API half is `app/api` Phase 29 (`PayInstallmentCommand` + endpoint; plain `Dr CardLiability / Cr Bank`, no netting). `docs/DESIGN.md` §2 tree + §3 type list + §4 `FinancingService` updated; `docs/PRD.md` §3.4 "Statement detail & pay" updated.
+
+**Depends on:** Phase 6 (`statement-page` + `installments-table` + `financing-service`), Phase 27 (`MonthlyStatementInstallment.isPaid` / `paidOnUtc`).
+
+### Tasks
+- [x] `features/financing/types/pay-installment.ts` — `PayInstallment = { bankAccountId: string; paidOnUtc: IsoInstant }` (mirrors `pay-statement.ts`). `features/financing/types/pay-installment-result.ts` — `PayInstallmentResult = { installmentId: string }`.
+- [x] `financing-service.ts` — `payInstallment(id: string, body: PayInstallment): Observable<PayInstallmentResult>` → `POST financing/installments/${id}/pay`, right after `payStatement`.
+- [x] `pages/statement-page/installments-table.ts` — `paying: InputSignal<boolean>` (default `false`) + `payClick: OutputEmitterRef<string>`; `canPay(i)` = `!i.isPaid && !i.isReversed`; `onPay(i)` emits `i.installmentId` when `canPay`.
+- [x] `pages/statement-page/installments-table.html` — status cell `@else if(installment.isPaid) { <span class="installments__badge">Paid</span> }` (same green pill as "Reversed"); action cell gains a `Pay` button (`text-stamp`, `[disabled]="!canPay(installment) || paying()"`) before `Reverse`, both wrapped in `<div class="inline-flex items-center gap-3">`; header sr-only `Reverse` → `Actions`.
+- [x] `pages/statement-page/statement-page.ts` — import `PayInstallment`; `onPayInstallment(installmentId)` validates the shared `form` (`markAllAsTouched` on invalid), builds `PayInstallment` from `bankAccountId` + `paidOnUtc` (same `new Date(raw.paidOnUtc).toISOString()` transform as `onSubmit`), reuses `payStatus` / `payError`, calls `financing.payInstallment`, on success `loadStatement(statementId)` (local const captured after the null-guard). `payErrorMessages` gains `Financing.InstallmentNotFound` / `InstallmentAlreadyPaid` / `InstallmentAlreadyReversed` / `InstallmentNotAccrued`.
+- [x] `pages/statement-page/statement-page.html` — `<app-installments-table>` binds `[paying]="payStatus() === 'paying'"` + `(payClick)="onPayInstallment($event)"`; full-statement submit button `Record payment` → **`Pay full statement`**; section heading → "Pay the full statement"; the installments-section hint notes the per-row Pay uses the form below.
+- [x] Specs — `financing-service.spec.ts` +1 (`payInstallment` → `POST …/installments/inst-1/pay` body/URL, returns `installmentId`). `installments-table.spec.ts` — the 2 Reverse tests rewritten to select buttons by text (`buttonsByLabel` helper; each row now has 2 buttons) + 4 added: Pay enabled only when `!isPaid && !isReversed`, Pay emits the id, `[paying]` disables every Pay button, Paid chip renders for a paid row. `statement-page.spec.ts` — `payInstallment` spy in the `FinancingService` mock, `StatementView` gains `onPayInstallment`; reverse-button test switched to text selection; +3 (label is "Pay full statement", pays one installment via the shared form then refetches, won't pay while the form is invalid).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **226/226** (from 218: service +1, installments-table +4, statement-page +3); `pnpm ng build --configuration production` clean (`financing-routes` 58.34 kB).
+- [x] Per-row Pay is disabled for paid / reversed rows and while a payment is in flight; the full-statement action is relabelled and still calls `payStatement`; both reuse the one shared bank/date form.
+- [x] `types/pay-installment*.ts` field-match the API's `PayInstallmentDto` / `PayInstallmentResultDto`.
+- [ ] Manual browser walk (no browser here) — handed to the user: accrue a multi-cuota purchase into a statement, open it, pay one cuota → it shows Paid, the owed total drops by that amount, the rest stay owed; "Pay full statement" then settles only the rest.
+
+### Completion notes
+
+Built one green-lit step at a time (client steps 7–9 of the cross-stack slice). Per-row Pay is **emit-up** — the table emits `payClick(installmentId)` and the page validates + submits the existing reactive form, so there is no second selector (the slice doc's "pass the shared bank/date down to `InstallmentsTable`" alternative was not taken). The "Paid" chip reuses `installments__badge` verbatim — its CSS comment already says it matches the statements-table Paid-badge treatment. **Spec gotcha:** `fixture.nativeElement.querySelectorAll<T>(...)` fails `TS2347` (`nativeElement` is `any`) — annotate the receiving const `: NodeListOf<HTMLButtonElement>` instead of passing the type argument. Not committed by this session — the user commits their own (API landed with Phase 29).
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

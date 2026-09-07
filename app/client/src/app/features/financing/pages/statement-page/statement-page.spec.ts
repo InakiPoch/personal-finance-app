@@ -9,6 +9,8 @@ import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { FinancingService } from '../../financing-service';
 import { MonthlyStatement } from '../../types/monthly-statement';
+import { PayInstallment } from '../../types/pay-installment';
+import { PayInstallmentResult } from '../../types/pay-installment-result';
 import { PayStatement } from '../../types/pay-statement';
 import { PayStatementResult } from '../../types/pay-statement-result';
 import { StatementPage } from './statement-page';
@@ -23,6 +25,7 @@ type StatementView = {
   payStatus: () => 'idle' | 'paying' | 'paid' | 'error';
   payError: () => AppError | null;
   onSubmit: () => void;
+  onPayInstallment: (installmentId: string) => void;
 };
 
 describe('StatementPage', () => {
@@ -30,6 +33,7 @@ describe('StatementPage', () => {
   let view: StatementView;
   let getStatement: jasmine.Spy<(id: string) => Observable<MonthlyStatement>>;
   let payStatement: jasmine.Spy<(id: string, body: PayStatement) => Observable<PayStatementResult>>;
+  let payInstallment: jasmine.Spy<(id: string, body: PayInstallment) => Observable<PayInstallmentResult>>;
   let navigate: jasmine.Spy<(commands: unknown[]) => Promise<boolean>>;
 
   const money = (value: number): Money => value as Money;
@@ -53,7 +57,9 @@ describe('StatementPage', () => {
       cycleMonth: 9,
       amountMinorUnits: money(150000),
       isReversed: false,
-      reversalTransactionId: 'tx-acc-1'
+      reversalTransactionId: 'tx-acc-1',
+      isPaid: false,
+      paidOnUtc: null
     }]
   };
   const paidStatement: MonthlyStatement = {
@@ -81,12 +87,15 @@ describe('StatementPage', () => {
     payStatement = jasmine
       .createSpy('payStatement')
       .and.returnValue(of<PayStatementResult>({ statementId: 'st-1' }));
+    payInstallment = jasmine
+      .createSpy('payInstallment')
+      .and.returnValue(of<PayInstallmentResult>({ installmentId: 'i1' }));
     navigate = jasmine.createSpy('navigate').and.resolveTo(true);
     TestBed.configureTestingModule({
       imports: [StatementPage],
       providers: [
         provideZonelessChangeDetection(),
-        { provide: FinancingService, useValue: { getStatement, payStatement } },
+        { provide: FinancingService, useValue: { getStatement, payStatement, payInstallment } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: Router, useValue: { navigate } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'st-1' })) } }
@@ -118,10 +127,20 @@ describe('StatementPage', () => {
   it('navigates to the id-driven reverse route when an installment Reverse button is clicked', () => {
     setup();
     fixture.detectChanges();
-    const button: HTMLButtonElement =
-      fixture.nativeElement.querySelector('app-installments-table tbody tr button');
-    button.click();
+    const allButtons: NodeListOf<HTMLButtonElement> =
+      fixture.nativeElement.querySelectorAll('app-installments-table tbody tr button');
+    const reverseButton: HTMLButtonElement = Array.from(allButtons).find(
+      (button: HTMLButtonElement) => button.textContent?.trim() === 'Reverse'
+    )!;
+    reverseButton.click();
     expect(navigate).toHaveBeenCalledWith(['ledger', 'transactions', 'tx-acc-1', 'reverse']);
+  });
+  it('labels the full-statement action "Pay full statement"', () => {
+    setup();
+    fixture.detectChanges();
+    const submit: HTMLButtonElement =
+      fixture.nativeElement.querySelector('.statement__pay button[type="submit"]');
+    expect(submit.textContent?.trim()).toBe('Pay full statement');
   });
   it('keeps the pay form invalid until an account and date are chosen', () => {
     setup();
@@ -159,6 +178,26 @@ describe('StatementPage', () => {
     expect(view.payError()).toEqual(appError);
     expect(view.payStatus()).toBe('error');
     expect(getStatement).toHaveBeenCalledTimes(1);
+  });
+  it('pays a single installment with the shared form values then refetches', () => {
+    setup();
+    fixture.detectChanges();
+    fillPayForm();
+    view.onPayInstallment('i1');
+    expect(payInstallment).toHaveBeenCalledTimes(1);
+    const [id, body]: [string, PayInstallment] = payInstallment.calls.mostRecent().args;
+    expect(id).toBe('i1');
+    expect(body.bankAccountId).toBe('acct-debit');
+    expect(body.paidOnUtc).toBe(new Date('2026-09-15T10:30').toISOString());
+    expect(view.payStatus()).toBe('paid');
+    expect(getStatement).toHaveBeenCalledTimes(2);
+  });
+  it('does not pay an installment while the shared form is invalid', () => {
+    setup();
+    fixture.detectChanges();
+    view.onPayInstallment('i1');
+    expect(payInstallment).not.toHaveBeenCalled();
+    expect(view.form.touched).toBe(true);
   });
   it('hides the pay form when the statement is already paid', () => {
     getStatement.and.returnValue(of(paidStatement));

@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Financing.Contracts.Queries;
+using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 
 namespace PersonalFinance.Financing.Application.Queries.ListRecentPurchases;
@@ -21,17 +22,45 @@ internal sealed class ListRecentPurchasesHandler(FinancingDbContext context) : I
                 plan.CreditorId
             })
             .ToListAsync(cancellationToken);
-        var rows = plans
+        var recentPlans = plans
             .OrderByDescending(plan => plan.PurchaseDate)
             .Take(query.Limit)
-            .Select(plan => new RecentPurchaseRow(
-                plan.Id,
-                plan.Description,
-                plan.CardId is { } cardId ? cardNames.GetValueOrDefault(cardId, "") : "",
-                plan.PurchaseDate,
-                plan.Total.MinorUnits,
-                plan.InstallmentCount,
-                plan.CreditorId is not null))
+            .ToList();
+        var planIds = recentPlans.Select(plan => plan.Id).ToList();
+        var installments = await context.Set<Installment>()
+            .Where(installment => planIds.Contains(installment.PaymentPlanId))
+            .Select(installment => new {
+                installment.PaymentPlanId,
+                installment.Sequence,
+                installment.IsReversed,
+                installment.PaidOnUtc,
+                installment.CycleYear,
+                installment.CycleMonth
+            })
+            .ToListAsync(cancellationToken);
+        var installmentsByPlan = installments.ToLookup(installment => installment.PaymentPlanId);
+        var rows = recentPlans
+            .Select(plan => {
+                var planInstallments = installmentsByPlan[plan.Id].ToList();
+                var paidInstallmentCount = planInstallments.Count(installment => installment.PaidOnUtc is not null);
+                var nextDue = planInstallments
+                    .Where(installment => installment.PaidOnUtc is null && installment.IsReversed == false)
+                    .OrderBy(installment => installment.Sequence)
+                    .Select(installment => new BillingCycle(installment.CycleYear, installment.CycleMonth).DueCycle)
+                    .FirstOrDefault();
+                return new RecentPurchaseRow(
+                    plan.Id,
+                    plan.Description,
+                    plan.CardId is { } cardId ? cardNames.GetValueOrDefault(cardId, "") : "",
+                    plan.PurchaseDate,
+                    plan.Total.MinorUnits,
+                    plan.InstallmentCount,
+                    plan.CreditorId is not null,
+                    paidInstallmentCount,
+                    nextDue?.Year,
+                    nextDue?.Month
+                );
+            })
             .ToList();
         return new RecentPurchasesResponse(rows);
     }

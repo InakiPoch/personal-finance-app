@@ -25,7 +25,10 @@ describe('RecentPurchasesPage', () => {
     purchaseDate: '2026-09-01',
     totalMinorUnits: money(1200000),
     installmentCount: 3,
-    isCreditorPayment: false
+    isCreditorPayment: false,
+    paidInstallmentCount: 0,
+    nextDueYear: 2026,
+    nextDueMonth: 10
   }];
 
   function setup(): void {

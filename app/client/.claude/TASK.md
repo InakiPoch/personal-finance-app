@@ -1030,6 +1030,83 @@ Client footprint is one service method, one VM field, one `balanceHint` branch, 
 
 ---
 
+## Phase 27 — Individual installment payments: statement-installment type wiring (Slice 1)
+
+**Goal:** Keep `MonthlyStatementInstallment` field-matching the API DTO after `app/api` Phase 28 added a per-cuota `isPaid` / `paidOnUtc` to `GET /v1/financing/statements/{id}`. **No visible change** — the per-row Pay button and paid chip are Slice 2.
+
+**Traces to:** `docs/individual-installment-payments/slice-1-foundation-payable-from-installments.md` (+ `00-overview.md`; first slice of the "pay a statement's cuotas individually" initiative). API half is `app/api` Phase 28 (`Installment.PaidOnUtc`; `PayStatement` charges Σ unpaid, non-reversed installments instead of the stored `AmountDue`). `docs/DESIGN.md` §3 `MonthlyStatementInstallment` row updated.
+
+**Depends on:** Phase 6 (`statement-page` + `installments-table` + `financing-service.getStatement`).
+
+### Tasks
+- [x] `features/financing/types/monthly-statement-installment.ts` — `MonthlyStatementInstallment` gains `isPaid: boolean` + `paidOnUtc: IsoInstant | null` (import `IsoInstant`; branded, matching the sibling `MonthlyStatement.paidOnUtc` — over the slice doc's literal `string | null`). No mapper touched: `financing-service.getStatement()` is a bare `http.get<MonthlyStatement>` cast.
+- [x] Specs — `installments-table.spec.ts` (3 typed `MonthlyStatementInstallment` fixture rows), `statement-page.spec.ts` (`unpaidStatement.installments[0]`), `financing-service.spec.ts` ("GETs a statement" fixture) each get `isPaid: false, paidOnUtc: null` on the installment literal (explicitly typed → would not compile otherwise).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **218/218** (unchanged from Phase 26 — type addition only); `pnpm ng build --configuration production` clean.
+- [x] `types/monthly-statement-installment.ts` field-matches the API's `MonthlyStatementInstallmentRowDto`.
+
+### Completion notes
+
+Two new type fields and three one-line fixture touches — no template, no component, no service-logic change. The `<installments-table>` renders paid state (a "Paid" chip, per-row **Pay** button) in **Phase 28 / Slice 2**. Not committed by this session — the user commits their own (API landed as `f528422` + `8b27758`).
+
+---
+
+## Phase 28 — Individual installment payments: pay a single installment (Slice 2)
+
+**Goal:** The headline feature — a per-row **Pay** button on the statement `installments-table` that settles one cuota via the new `POST /v1/financing/installments/{id}/pay`, reusing the statement page's existing bank-account + pay-date form; the full-statement button is relabelled **"Pay full statement"** and both actions coexist. Paid rows show a "Paid" chip.
+
+**Traces to:** `docs/individual-installment-payments/slice-2-pay-single-installment.md` (+ `00-overview.md`; second slice of the "pay a statement's cuotas individually" initiative). API half is `app/api` Phase 29 (`PayInstallmentCommand` + endpoint; plain `Dr CardLiability / Cr Bank`, no netting). `docs/DESIGN.md` §2 tree + §3 type list + §4 `FinancingService` updated; `docs/PRD.md` §3.4 "Statement detail & pay" updated.
+
+**Depends on:** Phase 6 (`statement-page` + `installments-table` + `financing-service`), Phase 27 (`MonthlyStatementInstallment.isPaid` / `paidOnUtc`).
+
+### Tasks
+- [x] `features/financing/types/pay-installment.ts` — `PayInstallment = { bankAccountId: string; paidOnUtc: IsoInstant }` (mirrors `pay-statement.ts`). `features/financing/types/pay-installment-result.ts` — `PayInstallmentResult = { installmentId: string }`.
+- [x] `financing-service.ts` — `payInstallment(id: string, body: PayInstallment): Observable<PayInstallmentResult>` → `POST financing/installments/${id}/pay`, right after `payStatement`.
+- [x] `pages/statement-page/installments-table.ts` — `paying: InputSignal<boolean>` (default `false`) + `payClick: OutputEmitterRef<string>`; `canPay(i)` = `!i.isPaid && !i.isReversed`; `onPay(i)` emits `i.installmentId` when `canPay`.
+- [x] `pages/statement-page/installments-table.html` — status cell `@else if(installment.isPaid) { <span class="installments__badge">Paid</span> }` (same green pill as "Reversed"); action cell gains a `Pay` button (`text-stamp`, `[disabled]="!canPay(installment) || paying()"`) before `Reverse`, both wrapped in `<div class="inline-flex items-center gap-3">`; header sr-only `Reverse` → `Actions`.
+- [x] `pages/statement-page/statement-page.ts` — import `PayInstallment`; `onPayInstallment(installmentId)` validates the shared `form` (`markAllAsTouched` on invalid), builds `PayInstallment` from `bankAccountId` + `paidOnUtc` (same `new Date(raw.paidOnUtc).toISOString()` transform as `onSubmit`), reuses `payStatus` / `payError`, calls `financing.payInstallment`, on success `loadStatement(statementId)` (local const captured after the null-guard). `payErrorMessages` gains `Financing.InstallmentNotFound` / `InstallmentAlreadyPaid` / `InstallmentAlreadyReversed` / `InstallmentNotAccrued`.
+- [x] `pages/statement-page/statement-page.html` — `<app-installments-table>` binds `[paying]="payStatus() === 'paying'"` + `(payClick)="onPayInstallment($event)"`; full-statement submit button `Record payment` → **`Pay full statement`**; section heading → "Pay the full statement"; the installments-section hint notes the per-row Pay uses the form below.
+- [x] Specs — `financing-service.spec.ts` +1 (`payInstallment` → `POST …/installments/inst-1/pay` body/URL, returns `installmentId`). `installments-table.spec.ts` — the 2 Reverse tests rewritten to select buttons by text (`buttonsByLabel` helper; each row now has 2 buttons) + 4 added: Pay enabled only when `!isPaid && !isReversed`, Pay emits the id, `[paying]` disables every Pay button, Paid chip renders for a paid row. `statement-page.spec.ts` — `payInstallment` spy in the `FinancingService` mock, `StatementView` gains `onPayInstallment`; reverse-button test switched to text selection; +3 (label is "Pay full statement", pays one installment via the shared form then refetches, won't pay while the form is invalid).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **226/226** (from 218: service +1, installments-table +4, statement-page +3); `pnpm ng build --configuration production` clean (`financing-routes` 58.34 kB).
+- [x] Per-row Pay is disabled for paid / reversed rows and while a payment is in flight; the full-statement action is relabelled and still calls `payStatement`; both reuse the one shared bank/date form.
+- [x] `types/pay-installment*.ts` field-match the API's `PayInstallmentDto` / `PayInstallmentResultDto`.
+- [ ] Manual browser walk (no browser here) — handed to the user: accrue a multi-cuota purchase into a statement, open it, pay one cuota → it shows Paid, the owed total drops by that amount, the rest stay owed; "Pay full statement" then settles only the rest.
+
+### Completion notes
+
+Built one green-lit step at a time (client steps 7–9 of the cross-stack slice). Per-row Pay is **emit-up** — the table emits `payClick(installmentId)` and the page validates + submits the existing reactive form, so there is no second selector (the slice doc's "pass the shared bank/date down to `InstallmentsTable`" alternative was not taken). The "Paid" chip reuses `installments__badge` verbatim — its CSS comment already says it matches the statements-table Paid-badge treatment. **Spec gotcha:** `fixture.nativeElement.querySelectorAll<T>(...)` fails `TS2347` (`nativeElement` is `any`) — annotate the receiving const `: NodeListOf<HTMLButtonElement>` instead of passing the type argument. Not committed by this session — the user commits their own (API landed with Phase 29).
+
+---
+
+## Phase 29 — Individual installment payments: next-payment visibility (Slice 3)
+
+**Goal:** On the Recent purchases list (§3.9), each row shows "N/M paid · next: `<month>`", or "Fully paid" when no installment remains. "Next payment" is derived (the earliest un-paid, un-reversed installment's due month) — nothing is rescheduled.
+
+**Traces to:** `docs/individual-installment-payments/slice-3-next-payment-visibility.md` (+ `00-overview.md`; third and final slice of the "pay a statement's cuotas individually" initiative). API half is `app/api` Phase 30 (`ListRecentPurchasesQuery` / handler / DTO derive `PaidInstallmentCount` + `NextDueYear`/`NextDueMonth`). `docs/DESIGN.md` §9 gains a `GET /v1/financing/purchases/recent` row (#30); `docs/PRD.md` §3.9 "Shows"/"Source"/"Notes" updated. **This closes `docs/individual-installment-payments/`.**
+
+**Depends on:** Phase 9 (`recent-purchases-page` + `recent-purchases-table` + `financing-service.recentPurchases()`).
+
+### Tasks
+- [x] `features/financing/types/recent-purchase-row.ts` — `RecentPurchaseRow` gains `paidInstallmentCount: number` + `nextDueYear: number | null` + `nextDueMonth: number | null` (matches the API's nullable ints).
+- [x] `pages/recent-purchases-page/recent-purchases-table.ts` — module-level `MONTH_LABELS` array (the `party-detail-page.ts` pattern, no new date lib); `installmentLabel` replaced by `paidLabel(purchase)` → `"1/3 paid"` and `nextPaymentLabel(purchase)` → `"next: Nov 2026"` (`MONTH_LABELS[nextDueMonth - 1] + ' ' + nextDueYear`) / `"Fully paid"` when either `nextDue*` is null.
+- [x] `pages/recent-purchases-page/recent-purchases-table.html` — first-cell sub-line → `{{ paidLabel(purchase) }} &middot; {{ nextPaymentLabel(purchase) }}`.
+- [x] Specs — `recent-purchases-table.spec.ts` +2 (renders `1/3 paid`; renders `next: Nov 2026` on the due row and `Fully paid` on the null row); `recent-purchases-page.spec.ts` + `financing-service.spec.ts` fixtures got the 3 new fields.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **228/228** (from 226: recent-purchases-table +2); `pnpm ng build --configuration production` clean (no budget change).
+- [x] No route / nav / service-method change — the endpoint was already wired in Phase 9; `recentPurchases()` needs no mapper change (bare cast).
+- [x] `types/recent-purchase-row.ts` field-matches the API's `RecentPurchaseRowDto`.
+- [ ] Manual browser walk (no browser here) — handed to the user: a purchase with some cuotas paid shows an accurate paid count and the correct next-payment month; paying its last cuota (via §3.4) flips it to "Fully paid".
+
+### Completion notes
+
+Built one green-lit step at a time (8 self-defined steps — the slice doc has no numbered steps). Pure additive read; no deviations from the slice doc. The month label reuses `party-detail-page.ts`'s `MONTH_LABELS` array rather than introducing `Intl.DateTimeFormat` or a date library. The `installmentLabel` helper is dropped — the total count survives as the `M` in "N/M paid". Not committed by this session — the user commits their own (API landed with Phase 30).
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

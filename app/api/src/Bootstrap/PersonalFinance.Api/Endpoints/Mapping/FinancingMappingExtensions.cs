@@ -26,12 +26,20 @@ internal static class FinancingMappingExtensions {
         return new PayStatementCommand(statementId, dto.BankAccountId, dto.PaidOnUtc);
     }
 
+    public static PayInstallmentCommand ToPayInstallmentCommand(this PayInstallmentDto dto, Guid installmentId) {
+        return new PayInstallmentCommand(installmentId, dto.BankAccountId, dto.PaidOnUtc);
+    }
+
     public static CreatePaymentPlanResultDto ToCreatePaymentPlanResultDto(this Guid paymentPlanId) {
         return new CreatePaymentPlanResultDto(paymentPlanId);
     }
 
     public static PayStatementResultDto ToPayStatementResultDto(this Guid statementId) {
         return new PayStatementResultDto(statementId);
+    }
+
+    public static PayInstallmentResultDto ToPayInstallmentResultDto(this Guid installmentId) {
+        return new PayInstallmentResultDto(installmentId);
     }
 
     public static CardFutureScheduleDto ToCardFutureScheduleDto(this CardFutureScheduleResponse response, Guid cardId) {
@@ -87,7 +95,10 @@ internal static class FinancingMappingExtensions {
                 row.PurchaseDate,
                 row.TotalMinorUnits,
                 row.InstallmentCount,
-                row.IsCreditorPayment)
+                row.IsCreditorPayment,
+                row.PaidInstallmentCount,
+                row.NextDueYear,
+                row.NextDueMonth)
             )
             .ToList();
         return new RecentPurchasesDto(rows);
@@ -125,7 +136,9 @@ internal static class FinancingMappingExtensions {
                 row.CycleMonth,
                 row.AmountMinorUnits,
                 row.IsReversed,
-                row.ReversalTransactionId)
+                row.ReversalTransactionId,
+                row.IsPaid,
+                row.PaidOnUtc)
             )
             .ToList();
         return new MonthlyStatementDetailDto(

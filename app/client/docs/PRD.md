@@ -90,12 +90,13 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 
 ### 3.4 Statement detail & pay — US-4
 - **Shows:** a statement's cycle, total due, paid/unpaid status, and the **itemized installments**
-  that compose the total (sequence "1 of 3", purchase date, amount, reversed flag, and a per-row **Reverse**
-  action for the installment's accrual). A "Pay" action
-  requiring the funding bank account and pay date. Optionally, the card's **future schedule** (not
-  yet accrued installments) for the full-debt picture.
+  that compose the total (sequence "1 of 3", purchase date, amount, a paid / reversed status chip, and
+  per-row **Pay** + **Reverse** actions — Pay is disabled for a paid or reversed row). A shared bank
+  account + pay-date form feeds both a per-row single-installment payment and the **"Pay full statement"**
+  action (which charges only the still-unpaid, non-reversed cuotas). Optionally, the card's **future
+  schedule** (not yet accrued installments) for the full-debt picture.
 - **Source:** `GET /v1/financing/statements/{id}`, `POST /v1/financing/statements/{id}/pay`,
-  `GET /v1/financing/cards/{id}/future-schedule`.
+  `POST /v1/financing/installments/{id}/pay`, `GET /v1/financing/cards/{id}/future-schedule`.
 - **Reversal-credit UX (API D12):** when a paid installment was reversed, a compensating card credit
   is netted against the **next** statement, not refunded as cash. The view must state this plainly.
 - ~~**Gap:** no endpoint lists a card's statements.~~ **Resolved (Phase 12):** `GET
@@ -166,14 +167,20 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 
 ### 3.9 Recent purchases (new — not part of the original 7-view scope, now built)
 - **Shows:** a standalone, newest-first chronological list of every loaded expense across every
-  card — each row's description (§3.3), card name, purchase date, total, installment count, and a
-  creditor-payment marker. It is a plain browseable history, not a debt view: purchases appear
+  card — each row's description (§3.3), card name, purchase date, total, a creditor-payment
+  marker, and a **payment-progress line**: "N/M paid · next: `<month>`", or "Fully paid" when no
+  installment remains. It is a plain browseable history, not a debt view: purchases appear
   whether or not they're paid off, and there is no card picker (unlike §3.4's Statements view).
-- **Source:** `GET /v1/financing/purchases/recent`.
-- **Notes:** this is Slice 3 of `docs/expense-description/slice-3-recent-purchases-view.md`, the
-  final slice of that initiative (Slice 1 is §3.3's description field; Slice 2 is §3.1's card-debt
-  drill-down). Reachable from the global nav and a second Dashboard quick-action link — the
-  client's known discoverability weak spot does not apply here.
+- **Source:** `GET /v1/financing/purchases/recent` — the row carries `paidInstallmentCount` and a
+  derived next-payment month (`nextDueYear` / `nextDueMonth`, null once every installment is paid
+  or reversed); nothing is rescheduled, this only surfaces the earliest un-paid, un-reversed
+  installment's due month.
+- **Notes:** the base view is Slice 3 of `docs/expense-description/slice-3-recent-purchases-view.md`
+  (Slice 1 is §3.3's description field; Slice 2 is §3.1's card-debt drill-down). The
+  payment-progress line is Slice 3 of `docs/individual-installment-payments/slice-3-next-payment-visibility.md`
+  — the final slice of that initiative, which also added §3.4's per-installment Pay action.
+  Reachable from the global nav and a second Dashboard quick-action link — the client's known
+  discoverability weak spot does not apply here.
 
 ### 3.10 Owed to creditors (new — not part of the original 7-view scope, now built)
 - **Shows:** a standalone list of every creditor with an outstanding balance across all

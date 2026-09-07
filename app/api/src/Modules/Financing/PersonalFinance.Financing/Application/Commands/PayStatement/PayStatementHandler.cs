@@ -10,9 +10,9 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.PayStatement;
 
 /// <summary>
-/// Pays a closed statement in full. Any carried card credit from a reversed paid installment is netted first, turning the posting into
-/// <c>Dr CardLiability (amount due) / Cr Bank (remainder) / Cr CardCredit (credit applied)</c> and retiring the applied credit from the card.
-/// With no carried credit it stays the plain <c>Dr CardLiability / Cr Bank</c>.
+/// Pays a closed statement by settling every accrued, non-reversed, still-unpaid installment it holds in one posting. The charge is the sum of
+/// those installments — not the stored <see cref="MonthlyStatement.AmountDue"/>, which is only ever incremented and still carries reversed cuotas
+/// whose ledger liability was already stornoed.
 /// </summary>
 internal sealed class PayStatementHandler(FinancingDbContext context, ILedgerApi ledger) : ICommandHandler<PayStatementCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(PayStatementCommand command, CancellationToken cancellationToken) {
@@ -33,9 +33,22 @@ internal sealed class PayStatementHandler(FinancingDbContext context, ILedgerApi
         if(card is null) {
             return FinancingErrors.CardNotFound;
         }
+        var statementInstallments = await context.Set<Installment>()
+            .Where(installment => installment.StatementId == command.StatementId)
+            .ToListAsync(cancellationToken);
+        var settleable = statementInstallments
+            .Where(installment => installment.IsAccrued && !installment.IsReversed && !installment.IsPaid)
+            .ToList();
+        var payable = settleable.Aggregate(
+            Money.Zero(Currency.Reference),
+            (running, installment) => running + installment.Amount
+        );
+        if(payable.MinorUnits == 0) {
+            return FinancingErrors.StatementAlreadyPaid;
+        }
         var netted = StatementPaymentCalculator.Build(
             card.CarriedCreditBalance,
-            statement.AmountDue,
+            payable,
             card.LiabilityAccountId,
             command.BankAccountId,
             card.CreditAccountId
@@ -51,6 +64,12 @@ internal sealed class PayStatementHandler(FinancingDbContext context, ILedgerApi
             var consumed = card.ConsumeCredit(netted.CreditApplied);
             if(consumed.IsFailure) {
                 return consumed.Error;
+            }
+        }
+        foreach(var installment in settleable) {
+            var installmentPaid = installment.MarkPaid(command.PaidOnUtc);
+            if(installmentPaid.IsFailure) {
+                return installmentPaid.Error;
             }
         }
         var paid = statement.MarkPaid(command.PaidOnUtc);

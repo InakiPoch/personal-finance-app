@@ -18,7 +18,9 @@ describe('InstallmentsTable', () => {
       cycleMonth: 9,
       amountMinorUnits: money(100000),
       isReversed: false,
-      reversalTransactionId: 'tx-1'
+      reversalTransactionId: 'tx-1',
+      isPaid: false,
+      paidOnUtc: null
     }, {
       planId: 'pl1',
       installmentId: 'i2',
@@ -29,7 +31,9 @@ describe('InstallmentsTable', () => {
       cycleMonth: 10,
       amountMinorUnits: money(100000),
       isReversed: true,
-      reversalTransactionId: 'tx-2'
+      reversalTransactionId: 'tx-2',
+      isPaid: false,
+      paidOnUtc: null
     }, {
       planId: 'pl1',
       installmentId: 'i3',
@@ -40,8 +44,18 @@ describe('InstallmentsTable', () => {
       cycleMonth: 11,
       amountMinorUnits: money(100000),
       isReversed: false,
-      reversalTransactionId: null
+      reversalTransactionId: null,
+      isPaid: false,
+      paidOnUtc: null
   }];
+
+  const buttonsByLabel = (label: string): HTMLButtonElement[] => {
+    const nodes: NodeListOf<HTMLButtonElement> =
+      fixture.nativeElement.querySelectorAll('tbody tr button');
+    return Array.from(nodes).filter(
+      (button: HTMLButtonElement) => button.textContent?.trim() === label
+    );
+  };
 
   beforeEach(() => {
     TestBed.configureTestingModule({
@@ -70,20 +84,58 @@ describe('InstallmentsTable', () => {
   it('enables Reverse only for a live, un-reversed accrual', () => {
     fixture.componentRef.setInput('installments', rows);
     fixture.detectChanges();
-    const buttons: NodeListOf<HTMLButtonElement> =
-      fixture.nativeElement.querySelectorAll('tbody tr button');
-    expect(buttons[0].disabled).toBeFalse();
-    expect(buttons[1].disabled).toBeTrue();
-    expect(buttons[2].disabled).toBeTrue();
+    const reverse: HTMLButtonElement[] = buttonsByLabel('Reverse');
+    expect(reverse[0].disabled).toBeFalse();
+    expect(reverse[1].disabled).toBeTrue();
+    expect(reverse[2].disabled).toBeTrue();
   });
   it('emits the accrual transaction id when an active Reverse button is clicked', () => {
     fixture.componentRef.setInput('installments', rows);
     let emitted: string | undefined;
     fixture.componentInstance.reverseClick.subscribe((id: string) => (emitted = id));
     fixture.detectChanges();
-    const button: HTMLButtonElement = fixture.nativeElement.querySelector('tbody tr button');
-    button.click();
+    buttonsByLabel('Reverse')[0].click();
     expect(emitted).toBe('tx-1');
+  });
+  it('enables Pay only for an unpaid, un-reversed installment', () => {
+    const mixed: MonthlyStatementInstallment[] = [
+      rows[0],
+      rows[1],
+      { ...rows[2], isPaid: true, paidOnUtc: '2026-09-20T12:00:00Z' }
+    ];
+    fixture.componentRef.setInput('installments', mixed);
+    fixture.detectChanges();
+    const pay: HTMLButtonElement[] = buttonsByLabel('Pay');
+    expect(pay[0].disabled).toBeFalse();
+    expect(pay[1].disabled).toBeTrue();
+    expect(pay[2].disabled).toBeTrue();
+  });
+  it('emits the installment id when an active Pay button is clicked', () => {
+    fixture.componentRef.setInput('installments', rows);
+    let emitted: string | undefined;
+    fixture.componentInstance.payClick.subscribe((id: string) => (emitted = id));
+    fixture.detectChanges();
+    buttonsByLabel('Pay')[0].click();
+    expect(emitted).toBe('i1');
+  });
+  it('disables every Pay button while a payment is in flight', () => {
+    fixture.componentRef.setInput('installments', rows);
+    fixture.componentRef.setInput('paying', true);
+    fixture.detectChanges();
+    const pay: HTMLButtonElement[] = buttonsByLabel('Pay');
+    expect(pay.every((button: HTMLButtonElement) => button.disabled)).toBeTrue();
+  });
+  it('shows a Paid chip for a paid installment', () => {
+    const mixed: MonthlyStatementInstallment[] = [
+      { ...rows[0], isPaid: true, paidOnUtc: '2026-09-20T12:00:00Z' },
+      rows[2]
+    ];
+    fixture.componentRef.setInput('installments', mixed);
+    fixture.detectChanges();
+    const badges: NodeListOf<HTMLElement> =
+      fixture.nativeElement.querySelectorAll('.installments__badge');
+    expect(badges.length).toBe(1);
+    expect(badges[0].textContent).toContain('Paid');
   });
   it('shows an empty note when there are no installments', () => {
     fixture.componentRef.setInput('installments', []);

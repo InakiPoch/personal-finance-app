@@ -41,7 +41,8 @@ internal sealed class GetMonthlyStatementHandler(FinancingDbContext context, ILe
                 installment.CycleYear,
                 installment.CycleMonth,
                 installment.Amount,
-                installment.IsReversed
+                installment.IsReversed,
+                installment.PaidOnUtc
             }
         ).ToListAsync(cancellationToken);
         var accrualTransactionIds = await ledger.FindAccrualTransactionIdsAsync(
@@ -60,7 +61,9 @@ internal sealed class GetMonthlyStatementHandler(FinancingDbContext context, ILe
                 row.CycleMonth,
                 row.Amount.MinorUnits,
                 row.IsReversed,
-                accrualTransactionIds.ByInstallmentReferenceId.TryGetValue(row.Id, out var transactionId) ? transactionId : null))
+                accrualTransactionIds.ByInstallmentReferenceId.TryGetValue(row.Id, out var transactionId) ? transactionId : null,
+                row.PaidOnUtc is not null,
+                row.PaidOnUtc))
             .ToList();
         return new MonthlyStatementDetailResponse(
             true,

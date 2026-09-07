@@ -15,7 +15,10 @@ describe('RecentPurchasesTable', () => {
       purchaseDate: '2026-09-01',
       totalMinorUnits: money(1200000),
       installmentCount: 3,
-      isCreditorPayment: false
+      isCreditorPayment: false,
+      paidInstallmentCount: 1,
+      nextDueYear: 2026,
+      nextDueMonth: 11
     },{
       planId: 'plan-2',
       description: 'Rent',
@@ -23,7 +26,10 @@ describe('RecentPurchasesTable', () => {
       purchaseDate: '2026-08-15',
       totalMinorUnits: money(500000),
       installmentCount: 1,
-      isCreditorPayment: true
+      isCreditorPayment: true,
+      paidInstallmentCount: 1,
+      nextDueYear: null,
+      nextDueMonth: null
   }];
 
   beforeEach(() => {
@@ -49,6 +55,19 @@ describe('RecentPurchasesTable', () => {
     const rowEls: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('tbody tr');
     expect(rowEls[0].textContent).not.toContain('Creditor payment');
     expect(rowEls[1].textContent).toContain('Creditor payment');
+  });
+  it('renders the paid-of-total installment count', () => {
+    fixture.componentRef.setInput('purchases', rows);
+    fixture.detectChanges();
+    const rowEls: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rowEls[0].textContent).toContain('1/3 paid');
+  });
+  it('renders the next payment month when one is due, and "Fully paid" when none remains', () => {
+    fixture.componentRef.setInput('purchases', rows);
+    fixture.detectChanges();
+    const rowEls: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rowEls[0].textContent).toContain('next: Nov 2026');
+    expect(rowEls[1].textContent).toContain('Fully paid');
   });
   it('shows an empty note when there are no purchases', () => {
     fixture.componentRef.setInput('purchases', []);

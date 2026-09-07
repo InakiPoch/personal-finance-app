@@ -57,8 +57,8 @@ src/app/
       financing-service.ts
       types/  (create-payment-plan.ts, split-participant.ts, create-payment-plan-result.ts,
                monthly-statement.ts, monthly-statement-installment.ts, monthly-statement-summary.ts,
-               pay-statement.ts, pay-statement-result.ts, card-future-schedule.ts,
-               card-future-schedule-row.ts)
+               pay-statement.ts, pay-statement-result.ts, pay-installment.ts, pay-installment-result.ts,
+               card-future-schedule.ts, card-future-schedule-row.ts)
       pages/  statements-page/, statement-page/, load-expense-page/
       financing.routes.ts
     subscriptions/
@@ -134,12 +134,15 @@ no `I-` prefix.
 - `CreatePaymentPlanResult = { paymentPlanId: string }`
 - `MonthlyStatementInstallment = { planId: string; installmentId: string; sequence: number;
   installmentCount: number; purchaseDate: IsoDate; cycleYear: number; cycleMonth: number;
-  amountMinorUnits: Money; isReversed: boolean }`
+  amountMinorUnits: Money; isReversed: boolean; reversalTransactionId: string | null;
+  isPaid: boolean; paidOnUtc: IsoInstant | null }`
 - `MonthlyStatement = { statementId: string; cardId: string; cardName: string; cycleYear: number;
   cycleMonth: number; amountDueMinorUnits: Money; isPaid: boolean; paidOnUtc: IsoInstant | null;
   installments: MonthlyStatementInstallment[] }`
 - `PayStatement = { bankAccountId: string; paidOnUtc: IsoInstant }`
 - `PayStatementResult = { statementId: string }`
+- `PayInstallment = { bankAccountId: string; paidOnUtc: IsoInstant }`
+- `PayInstallmentResult = { installmentId: string }`
 - `CardFutureScheduleRow = { planId: string; installmentId: string; sequence: number;
   cycleYear: number; cycleMonth: number; amountMinorUnits: Money }`
 - `CardFutureSchedule = { cardId: string; rows: CardFutureScheduleRow[] }`
@@ -198,6 +201,7 @@ One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(Http
 - **FinancingService** — `createPaymentPlan(body: CreatePaymentPlan): Observable<CreatePaymentPlanResult>`;
   `getStatement(id: string): Observable<MonthlyStatement>`;
   `payStatement(id: string, body: PayStatement): Observable<PayStatementResult>`;
+  `payInstallment(id: string, body: PayInstallment): Observable<PayInstallmentResult>`;
   `getFutureSchedule(cardId: string): Observable<CardFutureSchedule>`;
   `listStatements(cardId: string): Observable<MonthlyStatementSummary[]>` (unwraps the `{ rows }` envelope)
 - **SubscriptionsService** — `create(body: CreateSubscription): Observable<SubscriptionResult>`;
@@ -330,6 +334,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 27 | POST | `/v1/ledger/expenses` | `LedgerService.recordDebitExpense` | Load expense (debit-cash mode) |
 | 28 | GET | `/v1/parties` | `PartiesService.list` | Parties list (roster — merged with #23 for balances) + Load expense (split party picker) |
 | 29 | GET | `/v1/parties/pending-shares` | `PartiesService.pendingShares` | Parties list (pending-schedule count per party — merged with #23/#28 so a $0-now scheduled party reads "Nothing owed yet · N scheduled") |
+| 30 | GET | `/v1/financing/purchases/recent` | `FinancingService.recentPurchases` | Recent purchases list (§3.9; each row carries a derived `paidInstallmentCount` + next-payment `nextDueYear`/`nextDueMonth`, rendered "N/M paid · next: `<month>`" or "Fully paid") |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

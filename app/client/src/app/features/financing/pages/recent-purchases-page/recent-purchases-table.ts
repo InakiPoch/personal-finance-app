@@ -3,6 +3,10 @@ import { formatArs } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { RecentPurchaseRow } from '../../types/recent-purchase-row';
 
+const MONTH_LABELS: readonly string[] = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+];
+
 @Component({
   selector: 'app-recent-purchases-table',
   imports: [],
@@ -15,7 +19,14 @@ export class RecentPurchasesTable {
 
   protected readonly formatArs: (value: Money) => string = formatArs;
 
-  protected installmentLabel(purchase: RecentPurchaseRow): string {
-    return purchase.installmentCount === 1 ? '1 installment' : `${purchase.installmentCount} installments`;
+  protected paidLabel(purchase: RecentPurchaseRow): string {
+    return `${purchase.paidInstallmentCount}/${purchase.installmentCount} paid`;
+  }
+
+  protected nextPaymentLabel(purchase: RecentPurchaseRow): string {
+    if(purchase.nextDueYear === null || purchase.nextDueMonth === null) {
+      return 'Fully paid';
+    }
+    return `next: ${MONTH_LABELS[purchase.nextDueMonth - 1]} ${purchase.nextDueYear}`;
   }
 }

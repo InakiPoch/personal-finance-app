@@ -188,7 +188,10 @@ describe('FinancingService', () => {
       purchaseDate: '2026-09-01',
       totalMinorUnits: money(1200000),
       installmentCount: 3,
-      isCreditorPayment: false
+      isCreditorPayment: false,
+      paidInstallmentCount: 0,
+      nextDueYear: null,
+      nextDueMonth: null
     }];
     let result: RecentPurchaseRow[] | undefined;
     service.recentPurchases().subscribe((r: RecentPurchaseRow[]) => (result = r));

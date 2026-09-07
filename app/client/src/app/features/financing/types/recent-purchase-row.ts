@@ -9,4 +9,7 @@ export type RecentPurchaseRow = {
   totalMinorUnits: Money;
   installmentCount: number;
   isCreditorPayment: boolean;
+  paidInstallmentCount: number;
+  nextDueYear: number | null;
+  nextDueMonth: number | null;
 };

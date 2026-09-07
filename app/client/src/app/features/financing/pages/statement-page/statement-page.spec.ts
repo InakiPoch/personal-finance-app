@@ -53,7 +53,9 @@ describe('StatementPage', () => {
       cycleMonth: 9,
       amountMinorUnits: money(150000),
       isReversed: false,
-      reversalTransactionId: 'tx-acc-1'
+      reversalTransactionId: 'tx-acc-1',
+      isPaid: false,
+      paidOnUtc: null
     }]
   };
   const paidStatement: MonthlyStatement = {

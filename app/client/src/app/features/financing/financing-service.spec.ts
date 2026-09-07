@@ -93,7 +93,9 @@ describe('FinancingService', () => {
         cycleMonth: 9,
         amountMinorUnits: money(400000),
         isReversed: false,
-        reversalTransactionId: 'tx-acc-1'
+        reversalTransactionId: 'tx-acc-1',
+        isPaid: false,
+        paidOnUtc: null
       }]
     };
     let result: MonthlyStatement | undefined;

@@ -18,7 +18,9 @@ describe('InstallmentsTable', () => {
       cycleMonth: 9,
       amountMinorUnits: money(100000),
       isReversed: false,
-      reversalTransactionId: 'tx-1'
+      reversalTransactionId: 'tx-1',
+      isPaid: false,
+      paidOnUtc: null
     }, {
       planId: 'pl1',
       installmentId: 'i2',
@@ -29,7 +31,9 @@ describe('InstallmentsTable', () => {
       cycleMonth: 10,
       amountMinorUnits: money(100000),
       isReversed: true,
-      reversalTransactionId: 'tx-2'
+      reversalTransactionId: 'tx-2',
+      isPaid: false,
+      paidOnUtc: null
     }, {
       planId: 'pl1',
       installmentId: 'i3',
@@ -40,7 +44,9 @@ describe('InstallmentsTable', () => {
       cycleMonth: 11,
       amountMinorUnits: money(100000),
       isReversed: false,
-      reversalTransactionId: null
+      reversalTransactionId: null,
+      isPaid: false,
+      paidOnUtc: null
   }];
 
   beforeEach(() => {

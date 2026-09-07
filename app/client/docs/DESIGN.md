@@ -134,7 +134,8 @@ no `I-` prefix.
 - `CreatePaymentPlanResult = { paymentPlanId: string }`
 - `MonthlyStatementInstallment = { planId: string; installmentId: string; sequence: number;
   installmentCount: number; purchaseDate: IsoDate; cycleYear: number; cycleMonth: number;
-  amountMinorUnits: Money; isReversed: boolean }`
+  amountMinorUnits: Money; isReversed: boolean; reversalTransactionId: string | null;
+  isPaid: boolean; paidOnUtc: IsoInstant | null }`
 - `MonthlyStatement = { statementId: string; cardId: string; cardName: string; cycleYear: number;
   cycleMonth: number; amountDueMinorUnits: Money; isPaid: boolean; paidOnUtc: IsoInstant | null;
   installments: MonthlyStatementInstallment[] }`

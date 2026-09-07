@@ -1030,6 +1030,28 @@ Client footprint is one service method, one VM field, one `balanceHint` branch, 
 
 ---
 
+## Phase 27 — Individual installment payments: statement-installment type wiring (Slice 1)
+
+**Goal:** Keep `MonthlyStatementInstallment` field-matching the API DTO after `app/api` Phase 28 added a per-cuota `isPaid` / `paidOnUtc` to `GET /v1/financing/statements/{id}`. **No visible change** — the per-row Pay button and paid chip are Slice 2.
+
+**Traces to:** `docs/individual-installment-payments/slice-1-foundation-payable-from-installments.md` (+ `00-overview.md`; first slice of the "pay a statement's cuotas individually" initiative). API half is `app/api` Phase 28 (`Installment.PaidOnUtc`; `PayStatement` charges Σ unpaid, non-reversed installments instead of the stored `AmountDue`). `docs/DESIGN.md` §3 `MonthlyStatementInstallment` row updated.
+
+**Depends on:** Phase 6 (`statement-page` + `installments-table` + `financing-service.getStatement`).
+
+### Tasks
+- [x] `features/financing/types/monthly-statement-installment.ts` — `MonthlyStatementInstallment` gains `isPaid: boolean` + `paidOnUtc: IsoInstant | null` (import `IsoInstant`; branded, matching the sibling `MonthlyStatement.paidOnUtc` — over the slice doc's literal `string | null`). No mapper touched: `financing-service.getStatement()` is a bare `http.get<MonthlyStatement>` cast.
+- [x] Specs — `installments-table.spec.ts` (3 typed `MonthlyStatementInstallment` fixture rows), `statement-page.spec.ts` (`unpaidStatement.installments[0]`), `financing-service.spec.ts` ("GETs a statement" fixture) each get `isPaid: false, paidOnUtc: null` on the installment literal (explicitly typed → would not compile otherwise).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **218/218** (unchanged from Phase 26 — type addition only); `pnpm ng build --configuration production` clean.
+- [x] `types/monthly-statement-installment.ts` field-matches the API's `MonthlyStatementInstallmentRowDto`.
+
+### Completion notes
+
+Two new type fields and three one-line fixture touches — no template, no component, no service-logic change. The `<installments-table>` renders paid state (a "Paid" chip, per-row **Pay** button) in **Phase 28 / Slice 2**. Not committed by this session — the user commits their own (API landed as `f528422` + `8b27758`).
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

@@ -249,6 +249,8 @@ party.scheduledCount === 0` so a $0-now scheduled party is not painted settled-g
 `pnpm ng build --configuration production` clean (`parties-routes` 42.95 kB). Live browser E2E not run —
 handed to the user. Not committed by this session — the user commits their own.
 
+**Individual installment payments — Slice 1 (foundation, `docs/individual-installment-payments/slice-1-foundation-payable-from-installments.md`) — type wiring only, no visible change.** The API (`app/api` Phase 28) now sends a per-cuota `isPaid` / `paidOnUtc` on `GET /v1/financing/statements/{id}` and charges only the unpaid, non-reversed installments when a statement is paid. Client side: `features/financing/types/monthly-statement-installment.ts` `MonthlyStatementInstallment` gains `isPaid: boolean` + `paidOnUtc: IsoInstant | null` (branded `IsoInstant`, matching the sibling `MonthlyStatement.paidOnUtc` — the slice doc's literal `string | null` was not followed). `getStatement()` is a bare `http.get<MonthlyStatement>` cast — no field mapper — so nothing else changed; three `installments`-fixture specs (`installments-table.spec.ts`, `statement-page.spec.ts`, `financing-service.spec.ts`) got `isPaid: false, paidOnUtc: null` on their typed literals. `pnpm ng lint` clean, `pnpm ng test` **218/218**, `pnpm ng build --configuration production` clean. No template change — the per-row **Pay** button and the paid chip land in **Slice 2**. Not committed by this session — the user commits their own.
+
 ## Conventions — the non-negotiables
 
 **Class layout** — every class artifact (component, service, pipe) follows the member order in

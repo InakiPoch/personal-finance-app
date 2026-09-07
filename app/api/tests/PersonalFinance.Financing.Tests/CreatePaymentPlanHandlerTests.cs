@@ -303,6 +303,137 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         Assert.Equal(2, plan.Installments.Count(installment => installment.IsPaid));
     }
 
+    [Fact]
+    public async Task Handle_applies_the_26th_cutoff_uniformly_to_creditor_purchases() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (creditorId, creditorAccountId) = await SeedCreditorAsync(cancellationToken);
+        var asOfMarch28 = new DateTimeOffset(2026, 3, 28, 12, 0, 0, TimeSpan.Zero);
+        var afterCutoff = new CreatePaymentPlanCommand(
+            9000, CardId: null, 3, new DateOnly(2026, 3, 27),
+            Description: "After the cutoff", CreditorId: creditorId, CreditorAccountId: creditorAccountId);
+        var onCutoff = new CreatePaymentPlanCommand(
+            9000, CardId: null, 3, new DateOnly(2026, 3, 26),
+            Description: "On the cutoff", CreditorId: creditorId, CreditorAccountId: creditorAccountId);
+        Guid afterId;
+        Guid onId;
+        await using(var context = NewContext()) {
+            afterId = (await HandlerAsOf(context, asOfMarch28).HandleAsync(afterCutoff, cancellationToken)).Value;
+        }
+        await using(var context = NewContext()) {
+            onId = (await HandlerAsOf(context, asOfMarch28).HandleAsync(onCutoff, cancellationToken)).Value;
+        }
+        var afterCycles = (await LoadPlanAsync(afterId, cancellationToken)).Installments
+            .OrderBy(installment => installment.Sequence)
+            .Select(installment => (installment.CycleYear, installment.CycleMonth))
+            .ToArray();
+        var onCycles = (await LoadPlanAsync(onId, cancellationToken)).Installments
+            .OrderBy(installment => installment.Sequence)
+            .Select(installment => (installment.CycleYear, installment.CycleMonth))
+            .ToArray();
+        Assert.Equal([(2026, 4), (2026, 5), (2026, 6)], afterCycles);
+        Assert.Equal([(2026, 3), (2026, 4), (2026, 5)], onCycles);
+    }
+
+    [Fact]
+    public async Task Handle_backdated_creditor_plan_stamps_the_elapsed_installments_paid_and_posts_nothing_to_the_ledger() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (creditorId, creditorAccountId) = await SeedCreditorAsync(cancellationToken);
+        var command = new CreatePaymentPlanCommand(
+            300_000, CardId: null, 3, new DateOnly(2026, 6, 15),
+            Description: "Back-dated fridge", CreditorId: creditorId, CreditorAccountId: creditorAccountId);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var result = await HandlerAsOf(context, septemberSeventh).HandleAsync(command, cancellationToken);
+            Assert.True(result.IsSuccess);
+            planId = result.Value;
+        }
+        // Jun 15 (<= 26) → close cycles Jun/Jul/Aug, due cycles Jul/Aug/Sep. As of Sep 7: Jul + Aug are past, Sep is current.
+        var installments = (await LoadPlanAsync(planId, cancellationToken)).Installments
+            .OrderBy(installment => installment.Sequence)
+            .ToArray();
+        Assert.True(installments[0].IsPaid);
+        Assert.True(installments[1].IsPaid);
+        Assert.False(installments[2].IsPaid);
+        Assert.Equal(2, installments.Count(installment => installment.IsPaid));
+        Assert.All(installments, installment => Assert.False(installment.IsAccrued));
+        Assert.All(installments, installment => Assert.Null(installment.SplitAccruedOnUtc));
+        Assert.Empty(ledger.PostedTransactions);
+        await using var verify = NewContext();
+        Assert.Empty(await verify.MonthlyStatements.ToListAsync(cancellationToken));
+    }
+
+    [Fact]
+    public async Task Handle_fully_elapsed_backdated_creditor_plan_marks_every_installment_paid() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (creditorId, creditorAccountId) = await SeedCreditorAsync(cancellationToken);
+        var command = new CreatePaymentPlanCommand(
+            300_000, CardId: null, 3, new DateOnly(2026, 1, 10),
+            Description: "Old sofa", CreditorId: creditorId, CreditorAccountId: creditorAccountId);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var result = await HandlerAsOf(context, septemberSeventh).HandleAsync(command, cancellationToken);
+            Assert.True(result.IsSuccess);
+            planId = result.Value;
+        }
+        var plan = await LoadPlanAsync(planId, cancellationToken);
+        Assert.All(plan.Installments, installment => Assert.True(installment.IsPaid));
+        Assert.Empty(ledger.PostedTransactions);
+    }
+
+    [Fact]
+    public async Task Handle_backdated_creditor_split_stamps_the_holder_cuotas_and_leaves_gate_three_to_accrue_the_co_borrower() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var (creditorId, creditorAccountId) = await SeedCreditorAsync(cancellationToken);
+        var partyId = Guid.CreateVersion7();
+        var command = new CreatePaymentPlanCommand(
+            300_000, CardId: null, 3, new DateOnly(2026, 6, 15),
+            Description: "Back-dated shared TV",
+            Split: new PaymentPlanSplitPayload([new SplitParticipant(partyId, 1L)]),
+            CreditorId: creditorId, CreditorAccountId: creditorAccountId);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var result = await HandlerAsOf(context, septemberSeventh).HandleAsync(command, cancellationToken);
+            Assert.True(result.IsSuccess);
+            planId = result.Value;
+        }
+        var installments = (await LoadPlanAsync(planId, cancellationToken)).Installments
+            .OrderBy(installment => installment.Sequence)
+            .ToArray();
+        Assert.True(installments[0].IsPaid);
+        Assert.True(installments[1].IsPaid);
+        Assert.False(installments[2].IsPaid);
+        Assert.Empty(ledger.PostedTransactions);
+
+        // Simulate the split link the outbox consumer performs, then let the scheduler run.
+        var receivableAccountId = Guid.CreateVersion7();
+        var payableAccountId = Guid.CreateVersion7();
+        await using(var linkContext = NewContext()) {
+            var plan = await linkContext.PaymentPlans
+                .Include(candidate => candidate.SplitParticipants)
+                .SingleAsync(candidate => candidate.Id == planId, cancellationToken);
+            plan.LinkSplit(Guid.CreateVersion7(), new Dictionary<Guid, Guid> { [partyId] = receivableAccountId });
+            plan.AssignCreditorPayableAccount(payableAccountId);
+            await linkContext.SaveChangesAsync(cancellationToken);
+        }
+
+        await RunAccrueInstallmentsAsync(septemberSeventh);
+
+        var creditorSplitAccruals = ledger.PostedTransactions
+            .Where(post => post.Description == "Creditor-financed split accrual")
+            .ToList();
+        Assert.NotEmpty(creditorSplitAccruals);
+        Assert.All(creditorSplitAccruals, post => {
+            Assert.Contains(post.Lines, line => line.AccountId == receivableAccountId && line.Direction == DebitOrCredit.Debit);
+            Assert.Contains(post.Lines, line => line.AccountId == payableAccountId && line.Direction == DebitOrCredit.Credit);
+        });
+        var afterScheduler = (await LoadPlanAsync(planId, cancellationToken)).Installments
+            .OrderBy(installment => installment.Sequence)
+            .ToArray();
+        Assert.True(afterScheduler[0].IsPaid);
+        Assert.True(afterScheduler[1].IsPaid);
+        Assert.All(afterScheduler, installment => Assert.NotNull(installment.SplitAccruedOnUtc));
+    }
+
     private async Task<Guid> SeedCardAsync(CancellationToken cancellationToken) {
         var cardId = Guid.CreateVersion7();
         await using var context = NewContext();

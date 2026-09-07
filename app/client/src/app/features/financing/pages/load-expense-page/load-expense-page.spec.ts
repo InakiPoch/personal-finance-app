@@ -377,6 +377,23 @@ describe('LoadExpensePage', () => {
     expect(view.form.controls.bankAccountId.hasError('required')).toBe(false);
     expect(view.form.controls.bankAccountId.value).toBe('');
   });
+  it('keeps the "Paid from" selector hidden for a back-dated creditor purchase', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    const past: string = pastIso();
+    fillValidForm();
+    view.form.controls.mode.setValue('creditor');
+    view.form.controls.creditorId.setValue('creditor-1');
+    view.form.controls.purchaseDate.setValue(past);
+    fixture.detectChanges();
+    expect(host.querySelector('#bankAccountId')).toBeNull();
+    expect(view.form.controls.bankAccountId.hasError('required')).toBe(false);
+    expect(view.form.valid).toBe(true);
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect('bankAccountId' in body).toBe(false);
+    expect(body.creditorId).toBe('creditor-1');
+    expect(body.purchaseDate).toBe(past);
+  });
   it('blocks submit when the purchase date is in the future', () => {
     fillValidForm();
     view.form.controls.purchaseDate.setValue(futureIso());

@@ -17,11 +17,11 @@ namespace PersonalFinance.Financing.Application.Commands.CreatePaymentPlan;
 /// For a back-dated card purchase it also settles every already-elapsed installment synchronously — accruing each closed
 /// cycle onto its <see cref="MonthlyStatement"/> and paying, from <see cref="CreatePaymentPlanCommand.BankAccountId"/>,
 /// the ones whose due month is already past — with historically-dated ledger postings, so Recent Purchases and the
-/// statement list read correctly the instant the plan is saved instead of a scheduler tick later.
+/// statement list read correctly the instant the plan is saved instead of a scheduler tick later. For a back-dated
+/// creditor-financed purchase it stamps every already-elapsed installment as paid (display-only <c>PaidOnUtc</c>, no
+/// ledger movement and no accrual — creditor debt has no ledger footprint for the holder anywhere in the system).
 /// </summary>
-internal sealed class CreatePaymentPlanHandler(
-    FinancingDbContext context, FinancingOutboxWriter outboxWriter, TimeProvider timeProvider, ILedgerApi ledger)
-    : ICommandHandler<CreatePaymentPlanCommand, Guid> {
+internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, FinancingOutboxWriter outboxWriter, TimeProvider timeProvider, ILedgerApi ledger) : ICommandHandler<CreatePaymentPlanCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(CreatePaymentPlanCommand command, CancellationToken cancellationToken) {
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var validation = CreatePaymentPlanValidator.Validate(command, today);
@@ -73,6 +73,11 @@ internal sealed class CreatePaymentPlanHandler(
             if(settlement.IsFailure) {
                 return settlement.Error;
             }
+        } else {
+            var stamped = stampBackdatedCreditorInstallments(plan.Value, today);
+            if(stamped.IsFailure) {
+                return stamped.Error;
+            }
         }
         if(command.Split is not null) {
             outboxWriter.Add(new PaymentPlanCreatedIntegrationEvent(
@@ -101,6 +106,20 @@ internal sealed class CreatePaymentPlanHandler(
     private static DateTimeOffset clampedCutoffInstant(BillingCycle cycle, int cutoffDay) {
         var day = Math.Min(cutoffDay, DateTime.DaysInMonth(cycle.Year, cycle.Month));
         return new DateTimeOffset(new DateOnly(cycle.Year, cycle.Month, day).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+    }
+
+    private static Result stampBackdatedCreditorInstallments(PaymentPlan plan, DateOnly today) {
+        var currentMonthOrdinal = ordinalOf(new BillingCycle(today.Year, today.Month));
+        foreach(var installment in plan.Installments.OrderBy(candidate => candidate.Sequence)) {
+            if(ordinalOf(installment.DueCycle) >= currentMonthOrdinal) {
+                break;
+            }
+            var marked = installment.MarkPaid(clampedCutoffInstant(installment.DueCycle, PaymentPlan.CreditorCutoffDay));
+            if(marked.IsFailure) {
+                return marked;
+            }
+        }
+        return Result.Success();
     }
 
     private async Task<Result> accrueAndSettleBackdatedInstallmentsAsync(

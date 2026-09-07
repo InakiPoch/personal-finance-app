@@ -1086,3 +1086,26 @@ An individual cuota payment posts `Dr CardLiability(installment.Amount) / Cr Ban
 ### Completion notes
 
 Built one green-lit step at a time (steps 1–9; step 10 = this doc sync). Nothing committed by this session — the user commits their own. **Two deviations from the slice doc, both kept:** (1) endpoint DTOs live in `Endpoints/DTOs/` (repo convention), not `Endpoints/Financing/DTOs/` as the doc wrote; (2) the "not-accrued" guard needed a brand-new `FinancingErrors.InstallmentNotAccrued` — nothing existing covered it, and without an explicit `ErrorHttpStatusHelper` line it would have mapped to 400 rather than 409. The ledger legs are built inline in the handler (two `PostTransactionLine`s) rather than via a pure calculator — the slice doc only forbids touching `StatementPaymentCalculator`, and a 2-line plain posting does not earn its own calculator. Client per-row Pay is **emit-up**: the table emits `payClick(installmentId)` and the page validates + submits the existing reactive form, so there is no second bank/date selector. Client spec gotcha: `fixture.nativeElement.querySelectorAll<T>(...)` fails `TS2347` (nativeElement is `any`) — annotate the receiving const `: NodeListOf<HTMLButtonElement>` instead of passing the type argument.
+
+---
+
+## Phase 30 — "Next payment for this purchase" visibility (Slice 3)
+
+**Goal:** Make each purchase legible at a glance on the **Recent Purchases** list — "3/12 paid · next: Nov 2026", or "Fully paid" when nothing remains. "Next payment" is **derived** (the earliest un-paid, un-reversed installment's `DueCycle`); nothing is rescheduled.
+
+**Traces to:** `docs/individual-installment-payments/slice-3-next-payment-visibility.md` (+ `00-overview.md`; third and final slice of the "pay a statement's cuotas individually" initiative). `docs/DESIGN.md` D2 gains a `ListRecentPurchasesQuery` read-model bullet; `docs/PRD.md` §9 decision 12 marks Slice 3 done and records the initiative closed. **Pure additive read — no cross-module dependency, no schema change, no EF migration, no Ledger touch.** **This closes `docs/individual-installment-payments/`.**
+
+### Tasks
+- [x] `Financing.Contracts/Queries/ListRecentPurchasesQuery.cs` — `RecentPurchaseRow` gains trailing `int PaidInstallmentCount, int? NextDueYear, int? NextDueMonth`.
+- [x] `Application/Queries/ListRecentPurchases/ListRecentPurchasesHandler.cs` — order + `Take(query.Limit)` the newest plans in memory first; one extra query loads their installments (`context.Set<Installment>().Where(i => planIds.Contains(i.PaymentPlanId))` — no root `DbSet`, `GetCreditorPayables` / `GetCardPurchases` precedent), projecting `PaidOnUtc` (the computed `IsPaid` is `builder.Ignore`d — cannot `.Select` it), `IsReversed`, `Sequence`, `CycleYear`, `CycleMonth`. Per plan: `paidInstallmentCount = Count(PaidOnUtc is not null)`; `nextDue = earliest by Sequence where PaidOnUtc is null && IsReversed == false → new BillingCycle(CycleYear, CycleMonth).DueCycle` (reuse the domain `+1`, don't hand-roll); `FirstOrDefault()` → null → both `NextDue*` null. Reuses the `IsReversed == false` predicate shape from `GetCreditorPayablesHandler`.
+- [x] Host — `RecentPurchaseRowDto` (`Endpoints/DTOs/RecentPurchasesDTO.cs`) + `FinancingMappingExtensions.ToRecentPurchasesDto` mirror the three fields (the slice doc named only the Contracts row).
+- [x] Tests — `tests/PersonalFinance.Financing.Tests/ListRecentPurchasesHandlerTests.cs` +3 facts + `CreateMultiInstallmentPlan` helper (the pre-existing `CreatePlan` is single-installment): mixed paid/reversed → correct `PaidInstallmentCount` + `nextDue` = earliest unpaid-non-reversed `DueCycle`; reversed earliest cuota skipped; fully-paid plan → null `DueCycle`.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. Test binaries run directly → **Financing 113** (from 110), Ledger 31, Subscriptions 32, Parties 32, Reporting 7, Architecture 15, Api 43 = **273**. `AccrualBoundaryTests` + `PersonalFinance.Architecture.Tests` (RNF-9) untouched.
+- [x] Client — `features/financing/types/recent-purchase-row.ts` gains `paidInstallmentCount` / `nextDueYear` / `nextDueMonth`; `recent-purchases-table.ts` (`MONTH_LABELS`, `paidLabel`, `nextPaymentLabel`) + `.html` sub-line; `recent-purchases-table.spec.ts` +2. `pnpm ng lint` clean, `pnpm ng test` **228/228** (from 226), `pnpm ng build --configuration production` clean.
+- [ ] Live E2E (no browser here) — handed to the user: a purchase with some cuotas paid shows an accurate paid count and the correct next-payment month; paying its last cuota flips it to "Fully paid".
+
+### Completion notes
+
+Built one green-lit step at a time (8 self-defined steps — the slice doc has no numbered steps). Nothing committed by this session — the user commits their own. No deviations from the slice doc. The client month label reuses the `party-detail-page.ts` `MONTH_LABELS` array pattern (no new date library); the table's `installmentLabel` helper is replaced (the total `M` survives as the denominator in "N/M paid"). Doc-sync is this phase's step 8-equivalent, done here.

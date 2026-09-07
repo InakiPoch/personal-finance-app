@@ -75,7 +75,10 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   account selector appears (same debit/cash instrument list as debit-cash mode) — the API settles
   that purchase's already-elapsed installments from it, with historically-dated ledger postings, so
   the purchase reads as one you have been paying for months rather than "0/N paid". A today-dated
-  card purchase shows no selector. Creditor mode is unaffected (Slice 2).
+  card purchase shows no selector. **Creditor mode (Slice 2, built):** a back-dated
+  creditor-financed purchase's elapsed cuotas are stamped paid server-side (display-only, no
+  ledger, no bank picked) and Recent Purchases reads "N/M paid · next: <month>" — no client
+  change, the "Paid from" selector stays card-only.
 - **Category (debit-cash only):** a free-type field backed by the existing list from
   `GET /v1/expense-categories` — pick an existing category or type a new one; it is required, and
   a new name get-or-creates its `Expense` Ledger account server-side (trim + case-insensitive

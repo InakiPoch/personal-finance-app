@@ -1133,6 +1133,27 @@ Built one green-lit step at a time (steps 5–8 of the slice; steps 1–4 are th
 
 ---
 
+## Phase 31 — Back-dated creditor cutoff (Slice 2)
+
+**Goal:** A back-dated **creditor-financed** purchase on Load expense (§3.3) reads like one you have been paying for months — its elapsed cuotas shown as paid — with no new UI and no new field.
+
+**Traces to:** `docs/backdated-expenses/slice-2-creditor-cutoff.md` (+ `00-overview.md`; middle of three slices — Slice 1 was card mode, Slice 3 optional pending-$). API half is `app/api` Phase 32 (`PaymentPlan.Create` routes the creditor branch through `ResolveCycle(purchaseDate, 26)` uniformly; `CreatePaymentPlanHandler` stamps elapsed creditor cuotas `PaidOnUtc`, display-only, no ledger). **No client production change.**
+
+**Depends on:** Phase 30 (`load-expense-page` back-dated "Paid from" selector — already card-only), Phase 17 / `app/api` Phase 30 (Recent Purchases "N/M paid · next: <month>" from `PaidOnUtc`).
+
+### Tasks
+- [x] No `.ts` / `.html` change — the Slice-1 "Paid from" selector is already card-only (`isBackdatedCardPurchase()` → `mode === 'card'`), and Recent Purchases already renders "N/M paid · next: <month>" from `PaidOnUtc`. Creditor mode never showed the selector.
+- [x] `pages/load-expense-page/load-expense-page.spec.ts` — +1 fact `keeps the "Paid from" selector hidden for a back-dated creditor purchase`: creditor mode + a past `purchaseDate` → `#bankAccountId` null, `bankAccountId` not required, form valid, submit body carries `creditorId` and no `bankAccountId`.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **235/235** (from 234: `load-expense-page` +1); `pnpm ng build --configuration production` clean (no budget change).
+
+### Completion notes
+
+API-only slice on the client's side — no production code touched. The one spec fact pins down that the card-only gating already covers the creditor path (so a future change to `isBackdatedCardPurchase()` can't silently leak the bank selector into creditor mode). Not committed by this session — the user commits their own. Doc-sync done here.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

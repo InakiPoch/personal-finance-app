@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Observable, Subject, map, switchMap, takeUntil } from 'rxjs';
+import { Observable, Subject, map, merge, switchMap, takeUntil } from 'rxjs';
 import { pollUntil } from '../../../../core/http/poll-until';
 import { formatArs, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
@@ -27,7 +27,15 @@ import { PartiesService } from '../../../parties/parties-service';
 import { FinancingService } from '../../financing-service';
 import { CreatePaymentPlanResult } from '../../types/create-payment-plan-result';
 import { SplitParticipant } from '../../types/split-participant';
-import { atMostTwoDecimals, isoDate, noBlank, noNewline, positiveAmount, positiveInteger } from '../../validation-helpers';
+import {
+  atMostTwoDecimals,
+  isoDate,
+  noBlank,
+  noNewline,
+  notFuture,
+  positiveAmount,
+  positiveInteger,
+} from '../../validation-helpers';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SubmitStatus = 'idle' | 'submitting' | 'confirmed' | 'error';
@@ -59,6 +67,7 @@ type LoadExpenseForm = FormGroup<{
   mode: FormControl<LoadExpenseMode>;
   creditorId: FormControl<string>;
   creditorAccountId: FormControl<string>;
+  bankAccountId: FormControl<string>;
   sourceInstrumentId: FormControl<string>;
   categoryName: FormControl<string>;
 }>;
@@ -102,6 +111,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     atMostTwoDecimals: 'Use at most two decimal places.',
     positiveInteger: 'Enter a whole number of at least 1.',
     isoDate: 'Use the YYYY-MM-DD format.',
+    notFuture: 'The purchase date cannot be in the future.',
     required: 'This field is required.',
     noBlank: 'Enter a description.',
     noNewline: 'Use a single line.',
@@ -117,6 +127,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
     'Financing.CardNotFound': 'That card is not registered with the API yet.',
+    'Financing.FuturePurchaseDate': 'The purchase date cannot be in the future.',
+    'Financing.BackdatedCardBankAccountRequired': 'Pick an account to settle the already-due installments from.',
     'Ledger.AccountNotFound': 'That account is not registered with the API.',
     'Ledger.SourceAccountNotSpendable': 'Pick a debit or cash account to pay from.',
     'Ledger.InvalidExpenseCategory': 'Enter a category for the expense.',
@@ -137,6 +149,15 @@ export class LoadExpensePage implements OnInit, OnDestroy {
 
   protected submitErrorText(error: AppError): string {
     return this.submitErrorMessages[error.code] ?? 'The expense could not be loaded.';
+  }
+
+  protected isBackdatedCardPurchase(): boolean {
+    const purchaseDate: string = this.form.controls.purchaseDate.value;
+    return (
+      this.form.controls.mode.value === 'card' &&
+      /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate) &&
+      purchaseDate < this.todayIso()
+    );
   }
 
   protected onSubmit(): void {
@@ -171,7 +192,10 @@ export class LoadExpensePage implements OnInit, OnDestroy {
               purchaseDate: raw.purchaseDate,
               description,
               ...(raw.mode === 'card'
-                ? { cardId: raw.cardId }
+                ? {
+                    cardId: raw.cardId,
+                    ...(raw.bankAccountId ? { bankAccountId: raw.bankAccountId } : {}),
+                  }
                 : { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId }),
               ...split,
             })
@@ -321,6 +345,25 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     });
   }
 
+  private todayIso(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  private watchBackdatedFunding(): void {
+    merge(this.form.controls.mode.valueChanges, this.form.controls.purchaseDate.valueChanges)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe(() => {
+        const control: FormControl<string> = this.form.controls.bankAccountId;
+        if(this.isBackdatedCardPurchase()) {
+          control.setValidators(Validators.required);
+        } else {
+          control.setValidators(null);
+          control.setValue('', { emitEvent: false });
+        }
+        control.updateValueAndValidity({ emitEvent: false });
+      });
+  }
+
   private watchCreditorSelection(): void {
     this.form.controls.creditorId.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((creditorId: string) => {
       const accounts: CreditorAccount[] =
@@ -344,7 +387,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       }),
       cardId: this.fb.nonNullable.control('', { validators: Validators.required }),
       installmentCount: this.fb.control<number | null>(1, { validators: positiveInteger }),
-      purchaseDate: this.fb.nonNullable.control('', { validators: isoDate }),
+      purchaseDate: this.fb.nonNullable.control('', { validators: [isoDate, notFuture] }),
       description: this.fb.nonNullable.control('', {
         validators: [Validators.required, Validators.maxLength(120), noBlank, noNewline],
       }),
@@ -352,6 +395,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       mode: this.fb.nonNullable.control<LoadExpenseMode>('card'),
       creditorId: this.fb.nonNullable.control(''),
       creditorAccountId: this.fb.nonNullable.control(''),
+      bankAccountId: this.fb.nonNullable.control(''),
       sourceInstrumentId: this.fb.nonNullable.control(''),
       categoryName: this.fb.nonNullable.control('')
     });
@@ -364,6 +408,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     this.loadCreditors();
     this.loadExpenseCategories();
     this.watchModeChange();
+    this.watchBackdatedFunding();
     this.watchCreditorSelection();
   }
 

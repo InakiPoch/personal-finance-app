@@ -32,6 +32,15 @@ export const isoDate: ValidatorFn = (control: AbstractControl): ValidationErrors
   return typeof value === 'string' && ISO_DATE.test(value) ? null : { isoDate: true };
 };
 
+export const notFuture: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
+  const value: unknown = control.value;
+  if(typeof value !== 'string' || !ISO_DATE.test(value)) {
+    return null;
+  }
+  const today: string = new Date().toISOString().slice(0, 10);
+  return value > today ? { notFuture: true } : null;
+};
+
 export const noBlank: ValidatorFn = (control: AbstractControl): ValidationErrors | null => {
   const value: unknown = control.value;
   const valid: boolean = typeof value === 'string' && value.trim().length > 0;

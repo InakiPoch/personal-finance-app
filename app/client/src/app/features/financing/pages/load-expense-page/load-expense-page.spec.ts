@@ -33,6 +33,7 @@ type LoadExpenseView = {
     mode: FormControl<'card' | 'creditor' | 'debit'>;
     creditorId: FormControl<string>;
     creditorAccountId: FormControl<string>;
+    bankAccountId: FormControl<string>;
     sourceInstrumentId: FormControl<string>;
     categoryName: FormControl<string>;
   }>;
@@ -64,6 +65,9 @@ describe('LoadExpensePage', () => {
 
   const money = (value: number): Money => value as Money;
   const partyRoster: Party[] = [{ id: 'p1', name: 'Alice' }];
+  const todayIso = (): string => new Date().toISOString().slice(0, 10);
+  const pastIso = (): string => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
+  const futureIso = (): string => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
   function balance(value: number): CurrentAccountBalance {
     return { partyId: 'p1', name: 'Alice', balanceMinorUnits: money(value) };
@@ -74,7 +78,7 @@ describe('LoadExpensePage', () => {
       amount: 1234.5,
       cardId: 'card-credit',
       installmentCount: 3,
-      purchaseDate: '2026-09-01',
+      purchaseDate: todayIso(),
       description: 'New laptop'
     });
   }
@@ -83,7 +87,7 @@ describe('LoadExpensePage', () => {
     view.form.patchValue({
       mode: 'debit',
       amount: 1234.5,
-      purchaseDate: '2026-09-01',
+      purchaseDate: todayIso(),
       description: 'Weekly shop',
       sourceInstrumentId: 'acct-debit',
       categoryName: 'Groceries'
@@ -167,7 +171,7 @@ describe('LoadExpensePage', () => {
     expect(body.amountMinorUnits).toBe(money(123450));
     expect(body.cardId).toBe('card-credit');
     expect(body.installmentCount).toBe(3);
-    expect(body.purchaseDate).toBe('2026-09-01');
+    expect(body.purchaseDate).toBe(todayIso());
     expect(body.description).toBe('New laptop');
     expect('split' in body).toBe(false);
     expect('creditorId' in body).toBe(false);
@@ -331,6 +335,55 @@ describe('LoadExpensePage', () => {
     expect('creditorId' in body).toBe(false);
     expect('creditorAccountId' in body).toBe(false);
   });
+  it('hides the "Paid from" selector for a today-dated card purchase', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    fillValidForm();
+    fixture.detectChanges();
+    expect(host.querySelector('#bankAccountId')).toBeNull();
+    expect(view.form.controls.bankAccountId.hasError('required')).toBe(false);
+  });
+  it('shows and requires the "Paid from" selector for a back-dated card purchase', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    fillValidForm();
+    view.form.controls.purchaseDate.setValue(pastIso());
+    fixture.detectChanges();
+    expect(host.querySelector('#bankAccountId')).not.toBeNull();
+    expect(view.form.controls.bankAccountId.hasError('required')).toBe(true);
+    expect(view.form.valid).toBe(false);
+  });
+  it('includes bankAccountId in the submit body for a back-dated card purchase', () => {
+    const past: string = pastIso();
+    fillValidForm();
+    view.form.controls.purchaseDate.setValue(past);
+    view.form.controls.bankAccountId.setValue('acct-debit');
+    view.onSubmit();
+    expect(createPaymentPlan).toHaveBeenCalledTimes(1);
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect(body.bankAccountId).toBe('acct-debit');
+    expect(body.purchaseDate).toBe(past);
+  });
+  it('omits bankAccountId from the submit body for a today-dated card purchase', () => {
+    fillValidForm();
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect('bankAccountId' in body).toBe(false);
+  });
+  it('drops the bank requirement when a back-dated card purchase is re-dated to today', () => {
+    fillValidForm();
+    view.form.controls.purchaseDate.setValue(pastIso());
+    expect(view.form.controls.bankAccountId.hasError('required')).toBe(true);
+    view.form.controls.bankAccountId.setValue('acct-debit');
+    view.form.controls.purchaseDate.setValue(todayIso());
+    expect(view.form.controls.bankAccountId.hasError('required')).toBe(false);
+    expect(view.form.controls.bankAccountId.value).toBe('');
+  });
+  it('blocks submit when the purchase date is in the future', () => {
+    fillValidForm();
+    view.form.controls.purchaseDate.setValue(futureIso());
+    expect(view.form.controls.purchaseDate.hasError('notFuture')).toBe(true);
+    view.onSubmit();
+    expect(createPaymentPlan).not.toHaveBeenCalled();
+  });
   it('submits creditorId and creditorAccountId and omits cardId in "creditor" mode', () => {
     fillValidForm();
     view.form.controls.mode.setValue('creditor');
@@ -379,7 +432,7 @@ describe('LoadExpensePage', () => {
     expect(body.amountMinorUnits).toBe(money(123450));
     expect(body.sourceInstrumentId).toBe('acct-debit');
     expect(body.categoryName).toBe('Groceries');
-    expect(body.purchaseDate).toBe('2026-09-01');
+    expect(body.purchaseDate).toBe(todayIso());
     expect(body.description).toBe('Weekly shop');
     expect('split' in body).toBe(false);
     expect(view.submitStatus()).toBe('confirmed');

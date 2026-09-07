@@ -7,16 +7,16 @@ namespace PersonalFinance.Financing.Application.Commands.PayStatement;
 /// <summary>
 /// The ledger posting for a statement payment, with any carried card credit netted in.
 /// </summary>
-/// <param name="Lines">Balanced legs: <c>Dr CardLiability (amount due)</c>, <c>Cr Bank (remainder)</c> when the bank still owes anything, <c>Cr CardCredit (credit applied)</c> when credit was used.</param>
+/// <param name="Lines">Balanced legs: <c>Dr CardLiability (payable)</c>, <c>Cr Bank (remainder)</c> when the bank still owes anything, <c>Cr CardCredit (credit applied)</c> when credit was used.</param>
 /// <param name="CreditApplied">How much carried credit this payment consumes.</param>
 internal sealed record StatementPaymentPosting(IReadOnlyList<PostTransactionLine> Lines, Money CreditApplied);
 
 internal static class StatementPaymentCalculator {
-    public static StatementPaymentPosting Build(Money carriedCredit, Money amountDue, Guid liabilityAccountId, Guid bankAccountId, Guid cardCreditAccountId) {
-        var creditApplied = carriedCredit <= amountDue ? carriedCredit : amountDue;
-        var fromBank = amountDue - creditApplied;
+    public static StatementPaymentPosting Build(Money carriedCredit, Money payable, Guid liabilityAccountId, Guid bankAccountId, Guid cardCreditAccountId) {
+        var creditApplied = carriedCredit <= payable ? carriedCredit : payable;
+        var fromBank = payable - creditApplied;
         var lines = new List<PostTransactionLine> {
-            new(liabilityAccountId, DebitOrCredit.Debit, amountDue)
+            new(liabilityAccountId, DebitOrCredit.Debit, payable)
         };
         if(fromBank.MinorUnits > 0) {
             lines.Add(new PostTransactionLine(bankAccountId, DebitOrCredit.Credit, fromBank));

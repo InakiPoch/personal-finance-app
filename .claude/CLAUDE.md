@@ -11,6 +11,12 @@ This is a monorepo with two independently-built sub-projects. Each has its own d
 
 There is no root `package.json`, no Docker/Compose setup, and no CONTRIBUTING.md — do not assume tooling that isn't there. The root `README.md` is currently empty.
 
+## Subagents
+
+- Only launch subagents that are defined under `.claude/agents/` (project or user scope), or ones the user explicitly names in the request. Never fall back to the built-in `general-purpose` / `claude` catch-all agent, and never invent an agent type.
+- For parallelized codebase research and information gathering, use `codebase-researcher` (Haiku 4.5, read-only). Spawn one instance per independent question and run them concurrently.
+- If no defined agent fits the task and the user has not named one, talk the user about this before making decisions.
+
 ## Commands
 
 All commands are run from within the sub-project directory, not the repo root — there is no root-level build tool.

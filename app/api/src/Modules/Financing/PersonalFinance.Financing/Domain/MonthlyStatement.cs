@@ -39,4 +39,13 @@ internal sealed class MonthlyStatement : AggregateRoot<Guid> {
         PaidOnUtc = paidOnUtc;
         return Result.Success();
     }
+
+    /// <summary>
+    /// The statement is fully paid once every accrued, non-reversed installment it holds carries its own <see cref="Installment.PaidOnUtc"/>.
+    /// </summary>
+    public bool IsFullyPaidBy(IEnumerable<Installment> statementInstallments) {
+        return statementInstallments
+            .Where(installment => installment.IsAccrued && !installment.IsReversed)
+            .All(installment => installment.IsPaid);
+    }
 }

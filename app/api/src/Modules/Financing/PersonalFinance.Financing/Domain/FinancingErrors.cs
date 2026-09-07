@@ -63,6 +63,11 @@ internal static class FinancingErrors {
         "The installment's split receivable has already been accrued to the ledger."
     );
 
+    public static readonly Error InstallmentAlreadyPaid = new(
+        "Financing.InstallmentAlreadyPaid",
+        "The installment has already been paid."
+    );
+
     public static readonly Error NonPositiveCreditAmount = new(
         "Financing.NonPositiveCreditAmount",
         "A card credit amount must be a positive number of minor units."

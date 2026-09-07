@@ -106,10 +106,83 @@ public sealed class ListRecentPurchasesHandlerTests : IDisposable {
         Assert.Equal(2, response.Rows.Count);
     }
 
+    [Fact]
+    public async Task Handle_projects_the_paid_count_and_the_earliest_unpaid_non_reversed_due_cycle() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", 15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreateMultiInstallmentPlan(cardId, 15, new DateOnly(2026, 1, 10), "Laptop", 4);
+            planId = plan.Id;
+            var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
+            ordered[0].MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            ordered[1].MarkReversed();
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new ListRecentPurchasesHandler(readContext).HandleAsync(new ListRecentPurchasesQuery(), cancellationToken);
+        var row = response.Rows.Single(row => row.PlanId == planId);
+        Assert.Equal(1, row.PaidInstallmentCount);
+        // Cuota 1 paid, cuota 2 reversed -> cuota 3 is the next: cycle Mar 2026, DueCycle Apr 2026.
+        Assert.Equal(2026, row.NextDueYear);
+        Assert.Equal(4, row.NextDueMonth);
+    }
+
+    [Fact]
+    public async Task Handle_skips_a_reversed_earliest_installment_when_picking_the_next_due_cycle() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", 15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreateMultiInstallmentPlan(cardId, 15, new DateOnly(2026, 1, 10), "Phone", 3);
+            planId = plan.Id;
+            plan.Installments.OrderBy(installment => installment.Sequence).First().MarkReversed();
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new ListRecentPurchasesHandler(readContext).HandleAsync(new ListRecentPurchasesQuery(), cancellationToken);
+        var row = response.Rows.Single(row => row.PlanId == planId);
+        Assert.Equal(0, row.PaidInstallmentCount);
+        // Cuota 1 reversed -> cuota 2 is the next: cycle Feb 2026, DueCycle Mar 2026.
+        Assert.Equal(2026, row.NextDueYear);
+        Assert.Equal(3, row.NextDueMonth);
+    }
+
+    [Fact]
+    public async Task Handle_returns_a_null_next_due_cycle_when_every_installment_is_paid() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", 15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreateMultiInstallmentPlan(cardId, 15, new DateOnly(2026, 1, 10), "Sofa", 3);
+            planId = plan.Id;
+            foreach(var installment in plan.Installments) {
+                installment.MarkPaid(new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero));
+            }
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new ListRecentPurchasesHandler(readContext).HandleAsync(new ListRecentPurchasesQuery(), cancellationToken);
+        var row = response.Rows.Single(row => row.PlanId == planId);
+        Assert.Equal(3, row.PaidInstallmentCount);
+        Assert.Null(row.NextDueYear);
+        Assert.Null(row.NextDueMonth);
+    }
+
     private static PaymentPlan CreatePlan(Guid cardId, int cutoffDay, DateOnly purchaseDate, string description) {
         var total = Money.FromMinorUnits(10_000, Currency.Reference);
         return PaymentPlan.Create(
             cardId, total, 1, purchaseDate, description, cutoffDay, new PhantomPennyAllocator()
+        ).Value;
+    }
+
+    private static PaymentPlan CreateMultiInstallmentPlan(Guid cardId, int cutoffDay, DateOnly purchaseDate, string description, int installmentCount) {
+        var total = Money.FromMinorUnits(12_000, Currency.Reference);
+        return PaymentPlan.Create(
+            cardId, total, installmentCount, purchaseDate, description, cutoffDay, new PhantomPennyAllocator()
         ).Value;
     }
 

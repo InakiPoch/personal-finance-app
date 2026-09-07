@@ -2,7 +2,7 @@ using PersonalFinance.Abstractions.Messaging;
 
 namespace PersonalFinance.Financing.Contracts.Queries;
 
-public sealed record RecentPurchaseRow(Guid PlanId, string Description, string CardName, DateOnly PurchaseDate, long TotalMinorUnits, int InstallmentCount, bool IsCreditorPayment);
+public sealed record RecentPurchaseRow(Guid PlanId, string Description, string CardName, DateOnly PurchaseDate, long TotalMinorUnits, int InstallmentCount, bool IsCreditorPayment, int PaidInstallmentCount, int? NextDueYear, int? NextDueMonth);
 
 /// <summary>
 /// Every payment plan across every card, newest-first, capped at Limit.

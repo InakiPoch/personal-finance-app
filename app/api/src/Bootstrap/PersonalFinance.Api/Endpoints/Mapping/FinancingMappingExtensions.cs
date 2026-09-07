@@ -95,7 +95,10 @@ internal static class FinancingMappingExtensions {
                 row.PurchaseDate,
                 row.TotalMinorUnits,
                 row.InstallmentCount,
-                row.IsCreditorPayment)
+                row.IsCreditorPayment,
+                row.PaidInstallmentCount,
+                row.NextDueYear,
+                row.NextDueMonth)
             )
             .ToList();
         return new RecentPurchasesDto(rows);

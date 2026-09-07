@@ -137,4 +137,14 @@ internal static class FinancingErrors {
         "Financing.DescriptionMustBeSingleLine",
         "A payment plan description must not contain line breaks."
     );
+
+    public static readonly Error FuturePurchaseDate = new(
+        "Financing.FuturePurchaseDate",
+        "A payment plan purchase date must not be in the future."
+    );
+
+    public static readonly Error BackdatedCardBankAccountRequired = new(
+        "Financing.BackdatedCardBankAccountRequired",
+        "A back-dated card purchase with an already-elapsed installment requires a bank account to fund its retroactive payment."
+    );
 }

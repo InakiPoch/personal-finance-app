@@ -5,6 +5,8 @@ using PersonalFinance.Financing.Contracts.IntegrationEvents;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Financing.Infrastructure.Persistence.Outbox;
+using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 
@@ -12,16 +14,24 @@ namespace PersonalFinance.Financing.Application.Commands.CreatePaymentPlan;
 
 /// <summary>
 /// Persists an installment plan and, when the purchase is shared, a durable <see cref="PaymentPlanCreatedIntegrationEvent"/>.
+/// For a back-dated card purchase it also settles every already-elapsed installment synchronously — accruing each closed
+/// cycle onto its <see cref="MonthlyStatement"/> and paying, from <see cref="CreatePaymentPlanCommand.BankAccountId"/>,
+/// the ones whose due month is already past — with historically-dated ledger postings, so Recent Purchases and the
+/// statement list read correctly the instant the plan is saved instead of a scheduler tick later.
 /// </summary>
-internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, FinancingOutboxWriter outboxWriter) : ICommandHandler<CreatePaymentPlanCommand, Guid> {
+internal sealed class CreatePaymentPlanHandler(
+    FinancingDbContext context, FinancingOutboxWriter outboxWriter, TimeProvider timeProvider, ILedgerApi ledger)
+    : ICommandHandler<CreatePaymentPlanCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(CreatePaymentPlanCommand command, CancellationToken cancellationToken) {
-        var validation = CreatePaymentPlanValidator.Validate(command);
+        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var validation = CreatePaymentPlanValidator.Validate(command, today);
         if(validation.IsFailure) {
             return validation.Error;
         }
         int? cutoffDay;
+        CreditCard? card = null;
         if(command.CardId is { } cardId) {
-            var card = await context.CreditCards.FirstOrDefaultAsync(candidate => candidate.Id == cardId, cancellationToken);
+            card = await context.CreditCards.FirstOrDefaultAsync(candidate => candidate.Id == cardId, cancellationToken);
             if(card is null) {
                 return FinancingErrors.CardNotFound;
             }
@@ -53,7 +63,17 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
         if(plan.IsFailure) {
             return plan.Error;
         }
+        if(card is not null && hasElapsedInstallment(plan.Value, today) && command.BankAccountId is null) {
+            return FinancingErrors.BackdatedCardBankAccountRequired;
+        }
         context.PaymentPlans.Add(plan.Value);
+        if(card is not null) {
+            var settlement = await accrueAndSettleBackdatedInstallmentsAsync(
+                plan.Value, card, command.BankAccountId, today, cancellationToken);
+            if(settlement.IsFailure) {
+                return settlement.Error;
+            }
+        }
         if(command.Split is not null) {
             outboxWriter.Add(new PaymentPlanCreatedIntegrationEvent(
                 Guid.CreateVersion7(),
@@ -67,5 +87,97 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
         }
         await context.SaveChangesAsync(cancellationToken);
         return plan.Value.Id;
+    }
+
+    private static bool hasElapsedInstallment(PaymentPlan plan, DateOnly today) {
+        var currentMonthOrdinal = ordinalOf(new BillingCycle(today.Year, today.Month));
+        return plan.Installments.Any(installment => ordinalOf(installment.DueCycle) < currentMonthOrdinal);
+    }
+
+    private static int ordinalOf(BillingCycle cycle) {
+        return (cycle.Year * 12) + cycle.Month;
+    }
+
+    private static DateTimeOffset clampedCutoffInstant(BillingCycle cycle, int cutoffDay) {
+        var day = Math.Min(cutoffDay, DateTime.DaysInMonth(cycle.Year, cycle.Month));
+        return new DateTimeOffset(new DateOnly(cycle.Year, cycle.Month, day).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+    }
+
+    private async Task<Result> accrueAndSettleBackdatedInstallmentsAsync(
+        PaymentPlan plan, CreditCard card, Guid? bankAccountId, DateOnly today, CancellationToken cancellationToken) {
+        var currentMonthOrdinal = ordinalOf(new BillingCycle(today.Year, today.Month));
+        foreach(var installment in plan.Installments.OrderBy(candidate => candidate.Sequence)) {
+            var closeCycle = installment.Cycle;
+            if(!closeCycle.IsClosedAsOf(today, card.CutoffDay)) {
+                break;
+            }
+            var closeInstant = clampedCutoffInstant(closeCycle, card.CutoffDay);
+            var statement = await context.MonthlyStatements.FirstOrDefaultAsync(
+                candidate => candidate.CardId == card.Id
+                    && candidate.CycleYear == closeCycle.Year
+                    && candidate.CycleMonth == closeCycle.Month,
+                cancellationToken
+            );
+            if(statement is null) {
+                statement = MonthlyStatement.Open(card.Id, closeCycle);
+                context.MonthlyStatements.Add(statement);
+            }
+            var accrualLines = new List<PostTransactionLine> {
+                new(card.ExpenseAccountId, DebitOrCredit.Debit, installment.Amount),
+                new(card.LiabilityAccountId, DebitOrCredit.Credit, installment.Amount)
+            };
+            var accrualPosting = await ledger.PostTransactionAsync(
+                new PostTransactionCommand(
+                    accrualLines,
+                    closeInstant,
+                    InstallmentReferenceId: installment.Id,
+                    SplitReferenceId: plan.SplitReferenceId
+                ),
+                cancellationToken
+            );
+            if(accrualPosting.IsFailure) {
+                return Result.Failure(accrualPosting.Error);
+            }
+            var accrued = statement.Accrue(installment);
+            if(accrued.IsFailure) {
+                return accrued;
+            }
+            var markedAccrued = installment.MarkAccrued(closeInstant, statement);
+            if(markedAccrued.IsFailure) {
+                return markedAccrued;
+            }
+            if(ordinalOf(installment.DueCycle) >= currentMonthOrdinal) {
+                continue;
+            }
+            var dueInstant = clampedCutoffInstant(installment.DueCycle, card.CutoffDay);
+            var paymentLines = new List<PostTransactionLine> {
+                new(card.LiabilityAccountId, DebitOrCredit.Debit, installment.Amount),
+                new(bankAccountId!.Value, DebitOrCredit.Credit, installment.Amount)
+            };
+            var paymentPosting = await ledger.PostTransactionAsync(
+                new PostTransactionCommand(paymentLines, dueInstant),
+                cancellationToken
+            );
+            if(paymentPosting.IsFailure) {
+                return Result.Failure(paymentPosting.Error);
+            }
+            var markedPaid = installment.MarkPaid(dueInstant);
+            if(markedPaid.IsFailure) {
+                return markedPaid;
+            }
+            var persistedStatementInstallments = await context.Set<Installment>()
+                .Where(candidate => candidate.StatementId == statement.Id)
+                .ToListAsync(cancellationToken);
+            var statementInstallments = persistedStatementInstallments
+                .Concat(plan.Installments.Where(candidate => candidate.StatementId == statement.Id))
+                .ToList();
+            if(!statement.IsPaid && statement.IsFullyPaidBy(statementInstallments)) {
+                var statementPaid = statement.MarkPaid(dueInstant);
+                if(statementPaid.IsFailure) {
+                    return statementPaid;
+                }
+            }
+        }
+        return Result.Success();
     }
 }

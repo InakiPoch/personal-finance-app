@@ -9,8 +9,9 @@ public sealed record CreatePaymentPlanDto(
     string PurchaseDate,
     string Description,
     IReadOnlyList<SplitParticipantDto>? Split = null,
-    Guid? CreditorId = null, 
-    Guid? CreditorAccountId = null
+    Guid? CreditorId = null,
+    Guid? CreditorAccountId = null,
+    Guid? BankAccountId = null
 );
 
 public sealed record CreatePaymentPlanResultDto(Guid PaymentPlanId);

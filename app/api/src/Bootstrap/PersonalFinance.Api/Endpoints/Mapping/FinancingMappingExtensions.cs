@@ -18,7 +18,8 @@ internal static class FinancingMappingExtensions {
             dto.Description,
             split,
             dto.CreditorId,
-            dto.CreditorAccountId
+            dto.CreditorAccountId,
+            dto.BankAccountId
         );
     }
 

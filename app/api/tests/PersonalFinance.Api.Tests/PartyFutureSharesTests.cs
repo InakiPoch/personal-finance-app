@@ -33,7 +33,7 @@ public sealed class PartyFutureSharesTests(ApiWebApplicationFactory factory) : I
                 amountMinorUnits = 9_000,
                 cardId,
                 installmentCount = 3,
-                purchaseDate = "2026-01-10",
+                purchaseDate = DateOnly.FromDateTime(DateTime.UtcNow).ToString("yyyy-MM-dd"),
                 description = "Shared laptop",
                 split = new[] { new { partyId, weight = 1L } }
             },

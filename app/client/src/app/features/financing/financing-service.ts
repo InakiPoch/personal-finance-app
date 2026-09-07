@@ -8,6 +8,8 @@ import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayInstallment } from './types/pay-installment';
+import { PayInstallmentResult } from './types/pay-installment-result';
 import { PayStatement } from './types/pay-statement';
 import { PayStatementResult } from './types/pay-statement-result';
 import { RecentPurchaseRow } from './types/recent-purchase-row';
@@ -28,6 +30,10 @@ export class FinancingService {
 
   payStatement(id: string, body: PayStatement): Observable<PayStatementResult> {
     return this.http.post<PayStatementResult>(`financing/statements/${id}/pay`, body);
+  }
+
+  payInstallment(id: string, body: PayInstallment): Observable<PayInstallmentResult> {
+    return this.http.post<PayInstallmentResult>(`financing/installments/${id}/pay`, body);
   }
 
   getFutureSchedule(cardId: string): Observable<CardFutureSchedule> {

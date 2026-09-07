@@ -3,7 +3,6 @@
     <p class="font-serif text-sm italic text-stamp">Personal ledger</p>
     <h1 class="mt-1 font-serif text-2xl font-medium tracking-tight text-heading">Statement detail</h1>
   </header>
-
   @if(loadStatus() === 'loading') {
     <p class="text-sm text-ink-faint">Loading statement…</p>
   } @else if(loadStatus() === 'error') {
@@ -32,7 +31,6 @@
         }
       </p>
     </section>
-
     <section class="mb-12" aria-labelledby="installments-label">
       <h2
         id="installments-label"
@@ -41,14 +39,19 @@
         Installments
       </h2>
       <div class="mt-6">
-        <app-installments-table [installments]="detail.installments" (reverseClick)="openReverse($event)" />
+        <app-installments-table
+          [installments]="detail.installments"
+          [paying]="payStatus() === 'paying'"
+          (payClick)="onPayInstallment($event)"
+          (reverseClick)="openReverse($event)"
+        />
       </div>
       <p class="mt-4 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-        Reversing a paid installment does not refund cash. The API posts a credit that is netted
-        against your next statement for this card.
+        Paying one installment uses the bank account and date from the form below. Reversing a paid
+        installment does not refund cash — the API posts a credit that is netted against your next
+        statement for this card.
       </p>
     </section>
-
     @if(!detail.isPaid) {
       <form
         class="statement__pay rounded-card border border-rule bg-paper-raised p-6 shadow-card"
@@ -57,7 +60,7 @@
         aria-labelledby="pay-label"
       >
         <h2 id="pay-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
-          Pay this statement
+          Pay the full statement
         </h2>
 
         <div class="mt-6 flex flex-col gap-1.5">
@@ -119,7 +122,7 @@
             [disabled]="payStatus() === 'paying'"
             class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
-            {{ payStatus() === 'paying' ? 'Recording…' : 'Record payment' }}
+            {{ payStatus() === 'paying' ? 'Recording…' : 'Pay full statement' }}
           </button>
           @if(payError(); as error) {
             <p class="text-xs text-negative" role="alert">{{ payErrorText(error) }}</p>

@@ -20,6 +20,7 @@ import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { FinancingService } from '../../financing-service';
 import { MonthlyStatement } from '../../types/monthly-statement';
+import { PayInstallment } from '../../types/pay-installment';
 import { PayStatement } from '../../types/pay-statement';
 import { PayStatementResult } from '../../types/pay-statement-result';
 import { InstallmentsTable } from './installments-table';
@@ -63,6 +64,10 @@ export class StatementPage implements OnInit, OnDestroy {
   private readonly payErrorMessages: Record<string, string> = {
     'Financing.AlreadyPaid': 'This statement has already been paid.',
     'Financing.StatementNotFound': 'No statement matches that id.',
+    'Financing.InstallmentNotFound': 'No installment matches that id.',
+    'Financing.InstallmentAlreadyPaid': 'That installment has already been paid.',
+    'Financing.InstallmentAlreadyReversed': 'That installment was reversed and cannot be paid.',
+    'Financing.InstallmentNotAccrued': 'That installment has not been billed to a statement yet.',
     'Http.BadRequest': 'The payment could not be recorded — check the values and try again.',
     'Http.UnprocessableEntity': 'The API rejected the payment — check the account and date.',
     'Http.Conflict': 'This statement has already been paid.',
@@ -91,6 +96,35 @@ export class StatementPage implements OnInit, OnDestroy {
         next: (result: PayStatementResult) => {
           this.payStatus.set('paid');
           this.loadStatement(result.statementId);
+        },
+        error: (error: AppError) => {
+          this.payError.set(error);
+          this.payStatus.set('error');
+        }
+      }
+    );
+  }
+
+  protected onPayInstallment(installmentId: string): void {
+    if(this.form.invalid || this.statementId === null) {
+      this.form.markAllAsTouched();
+      return;
+    }
+    const statementId: string = this.statementId;
+    const raw: { bankAccountId: string; paidOnUtc: string } = this.form.getRawValue();
+    const body: PayInstallment = {
+      bankAccountId: raw.bankAccountId,
+      paidOnUtc: new Date(raw.paidOnUtc).toISOString() as IsoInstant
+    };
+    this.payError.set(null);
+    this.payStatus.set('paying');
+    this.financing
+      .payInstallment(installmentId, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.payStatus.set('paid');
+          this.loadStatement(statementId);
         },
         error: (error: AppError) => {
           this.payError.set(error);

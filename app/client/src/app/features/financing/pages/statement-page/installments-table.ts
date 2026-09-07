@@ -20,12 +20,24 @@ import { MonthlyStatementInstallment } from '../../types/monthly-statement-insta
 export class InstallmentsTable {
   readonly installments: InputSignal<MonthlyStatementInstallment[]> =
     input.required<MonthlyStatementInstallment[]>();
+  readonly paying: InputSignal<boolean> = input<boolean>(false);
+  readonly payClick: OutputEmitterRef<string> = output<string>();
   readonly reverseClick: OutputEmitterRef<string> = output<string>();
 
   protected readonly formatArs: (value: Money) => string = formatArs;
 
+  protected canPay(installment: MonthlyStatementInstallment): boolean {
+    return !installment.isPaid && !installment.isReversed;
+  }
+
   protected canReverse(installment: MonthlyStatementInstallment): boolean {
     return installment.reversalTransactionId !== null && !installment.isReversed;
+  }
+
+  protected onPay(installment: MonthlyStatementInstallment): void {
+    if(this.canPay(installment)) {
+      this.payClick.emit(installment.installmentId);
+    }
   }
 
   protected onReverse(installment: MonthlyStatementInstallment): void {

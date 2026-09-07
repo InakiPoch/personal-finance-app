@@ -29,7 +29,7 @@
           Status
         </th>
         <th scope="col" class="pb-2 text-right">
-          <span class="sr-only">Reverse</span>
+          <span class="sr-only">Actions</span>
         </th>
       </tr>
     </thead>
@@ -48,19 +48,31 @@
           <td class="py-2.5 text-right">
             @if(installment.isReversed) {
               <span class="installments__badge">Reversed</span>
+            } @else if(installment.isPaid) {
+              <span class="installments__badge">Paid</span>
             } @else {
               <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">Active</span>
             }
           </td>
           <td class="py-2.5 text-right">
-            <button
-              type="button"
-              [disabled]="!canReverse(installment)"
-              (click)="onReverse(installment)"
-              class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
-            >
-              Reverse
-            </button>
+            <div class="inline-flex items-center gap-3">
+              <button
+                type="button"
+                [disabled]="!canPay(installment) || paying()"
+                (click)="onPay(installment)"
+                class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+              >
+                Pay
+              </button>
+              <button
+                type="button"
+                [disabled]="!canReverse(installment)"
+                (click)="onReverse(installment)"
+                class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+              >
+                Reverse
+              </button>
+            </div>
           </td>
         </tr>
       }

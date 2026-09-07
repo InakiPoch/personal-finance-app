@@ -13,6 +13,8 @@ import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayInstallment } from './types/pay-installment';
+import { PayInstallmentResult } from './types/pay-installment-result';
 import { PayStatement } from './types/pay-statement';
 import { PayStatementResult } from './types/pay-statement-result';
 import { RecentPurchaseRow } from './types/recent-purchase-row';
@@ -114,6 +116,16 @@ describe('FinancingService', () => {
     expect(req.request.body).toEqual(body);
     req.flush({ statementId: 'st-1' });
     expect(result).toBe('st-1');
+  });
+  it('POSTs an installment payment and returns the installment id', () => {
+    const body: PayInstallment = { bankAccountId: 'bank-1', paidOnUtc: '2026-09-20T12:00:00Z' };
+    let result: string | undefined;
+    service.payInstallment('inst-1', body).subscribe((r: PayInstallmentResult) => (result = r.installmentId));
+    const req = httpMock.expectOne(`${base}/financing/installments/inst-1/pay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ installmentId: 'inst-1' });
+    expect(result).toBe('inst-1');
   });
   it('maps a 409 AlreadyPaid on pay to an AppError keyed off code', () => {
     let error: AppError | undefined;

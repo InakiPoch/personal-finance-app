@@ -1252,6 +1252,32 @@ Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are th
 
 ---
 
+## Phase 36 — Owed to creditors: pay a creditor's full debt (Slice 4)
+
+**Goal:** The Slice-2 creditor detail page gains one **"Pay full debt"** button that settles the creditor's entire remaining debt (display-only stamp server-side — no bank, no ledger). Disabled when nothing is outstanding; a lightweight inline confirm before it runs; on success the page re-fetches so the badges and the Slice-1 list figures drop to $0.
+
+**Traces to:** `docs/owed-to-creditors/slice-4-pay-full-debt.md` (+ `00-overview.md`; fourth of four slices — **closes the initiative**). API half is `app/api` Phase 37 (`POST /v1/financing/creditor-payables/{creditorId}/pay-full` — `PayCreditorFullDebtCommand : ICommand<int>`, returns the count settled; zero settleable → `0`; unknown creditor → 404 `Financing.CreditorNotFound`; no bulk undo). `docs/DESIGN.md` §9 gains the pay-full endpoint row (plus the Slice-3 pay/unpay rows it had been missing); no `docs/PRD.md` client-side change (the API's `docs/PRD.md` §9 decision 14 marks Slice 4 done and closes the initiative).
+
+**Depends on:** `app/client` Phase 34 (the `creditor-detail-page` container this hangs the button off), Phase 35 (the `payStatus` / `payError` signals + `loadDetail` re-fetch it reuses).
+
+### Tasks
+- [x] `features/financing/types/pay-creditor-full-debt-result.ts` — `{ settledCount: number }`.
+- [x] `financing-service.ts` — `payCreditorFullDebt(creditorId: string): Observable<PayCreditorFullDebtResult>` → `POST financing/creditor-payables/${creditorId}/pay-full` with an empty `{}` body, after `unpayCreditorInstallment`.
+- [x] `pages/creditor-detail-page/creditor-detail-page.ts` — `confirmingFullDebt: WritableSignal<boolean>` + `lastSettledCount: WritableSignal<number | null>` protected signals; `hasOutstanding()` (`(this.detail()?.purchases ?? []).some(g => g.outstandingMinorUnits > 0)` — no money arithmetic); `requestPayFullDebt()` (clear error/count, arm the confirm), `cancelPayFullDebt()` (disarm), `confirmPayFullDebt()` (guards `creditorId`, sets `payStatus='busy'`, calls `financing.payCreditorFullDebt`, on next → `idle` + disarm + `lastSettledCount.set(result.settledCount)` + `loadDetail(creditorId)`, on error → `payError` + `'error'` + disarm). The per-cuota `runMutation` is untouched.
+- [x] `pages/creditor-detail-page/creditor-detail-page.html` — a `<div class="mt-4 flex flex-wrap items-center gap-3">` under the "Purchases" header: `@if(confirmingFullDebt()) { <span>Settle every remaining cuota for this creditor?</span> <button (click)="confirmPayFullDebt()">Confirm</button> <button (click)="cancelPayFullDebt()">Cancel</button> } @else { <button [disabled]="!hasOutstanding() || payStatus() === 'busy'" (click)="requestPayFullDebt()">Pay full debt</button> }`, all `[disabled]` while `payStatus() === 'busy'`, button classes copied from the card `installments-table` Pay button (Cancel swaps `text-stamp` → `text-ink-soft`); then `@if(lastSettledCount(); as settled) { <p class="mt-3 text-sm text-ink-soft">{{ settled }} cuota(s) settled.</p> }` before the existing `payError` line.
+- [x] `pages/creditor-detail-page/creditor-purchases-table.html` — remove the now-satisfied `<!-- Slice 4 seam: a "Pay full debt" action belongs above this list. -->` comment.
+- [x] Specs — `financing-service.spec.ts` +1 (`payCreditorFullDebt('cr-1')` → POST `financing/creditor-payables/cr-1/pay-full`, method `POST`, body `{}`, unwraps `{ settledCount: 4 }` → `4`). `creditor-detail-page.spec.ts` — new `payCreditorFullDebt` spy (defaulted `of({ settledCount: 3 })` in the `beforeEach`, added to the `FinancingService` mock), +3 facts: arms the inline confirm then **Confirm** → `payCreditorFullDebt('cred-1')` + `creditorDetail` called 2× + "cuota(s) settled" text; `Pay full debt` button `.disabled` when a fixture with every group `outstandingMinorUnits: money(0)`; **Cancel** → service not called, `Pay full debt` still present.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **262/262** (from 258: +1 `financing-service`, +3 `creditor-detail-page`); `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk 72.14 → 74.77 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user, the full-initiative walk: load a back-dated creditor purchase → "Owed to creditors" shows Due now + Total owed → open the creditor → purchases grouped with per-cuota status → Pay one cuota → figures drop → Undo → figures restore → **Pay full debt** → Total owed = $0, every cuota Paid. No bank balance moves anywhere.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are the API's Phase 37, step 5 is doc-sync). **"Pay full debt" placement:** the slice doc said "page header"; put in the "Purchases" section header row instead — it needs `detail()` loaded to know whether anything is outstanding, and only renders once the detail is `ready`. **Confirm affordance:** a two-click inline text prompt + Confirm/Cancel, not a modal (the doc's stated preference). `hasOutstanding()` deliberately avoids summing `Money` (the style guide's "no float arithmetic on money") — a `.some(... > 0)` check is enough for the disabled guard. `docs/DESIGN.md` §9 also picked up the two Slice-3 endpoint rows (`.../pay`, `/unpay`) that Slice 3 had left un-listed. Not committed by this session — the user commits their own. **This closes `docs/owed-to-creditors/` — the initiative is complete.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

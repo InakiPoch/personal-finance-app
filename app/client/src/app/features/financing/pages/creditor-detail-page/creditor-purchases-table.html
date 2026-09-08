@@ -1,0 +1,94 @@
+@if(purchases().length === 0) {
+  <p class="text-sm text-ink-soft">This creditor has no recorded purchases.</p>
+} @else {
+  <!-- Slice 3 seam: a "Pay full debt" action belongs above this list. -->
+  <ul class="flex flex-col gap-9">
+    @for(purchase of purchases(); track purchase.planId; let i = $index) {
+      <li class="purchase-group" [style.animation-delay.ms]="i * 40">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <h3 class="text-sm text-ink">{{ purchase.description }}</h3>
+          <span
+            class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]"
+          >
+            {{ purchase.purchaseDate }}
+          </span>
+        </div>
+        <p class="mt-1 text-[0.8125rem] [font-variant-numeric:tabular-nums_lining-nums]">
+          <span class="text-ink">{{ formatArs(purchase.outstandingMinorUnits) }}</span>
+          <span class="text-ink-faint">
+            outstanding of {{ formatArs(purchase.totalMinorUnits) }}
+          </span>
+        </p>
+        <table class="mt-3 w-full text-left">
+          <thead>
+            <tr class="border-b border-rule">
+              <th
+                scope="col"
+                class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+              >
+                Cuota
+              </th>
+              <th
+                scope="col"
+                class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+              >
+                Due
+              </th>
+              <th
+                scope="col"
+                class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+              >
+                Amount
+              </th>
+              <th
+                scope="col"
+                class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+              >
+                Status
+              </th>
+              <!-- Slice 3 seam: a per-row "Pay" / "Undo" action column slots in here. -->
+            </tr>
+          </thead>
+          <tbody>
+            @for(row of purchase.installments; track row.installmentId) {
+              <tr class="border-b border-rule last:border-0">
+                <td
+                  class="py-2 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]"
+                >
+                  {{ installmentLabel(row) }}
+                </td>
+                <td
+                  class="py-2 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]"
+                >
+                  {{ dueLabel(row) }}
+                </td>
+                <td class="py-2 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                  {{ formatArs(row.amountMinorUnits) }}
+                </td>
+                <td class="py-2 text-right">
+                  @switch(row.status) {
+                    @case('paid') {
+                      <span class="status-badge">Paid</span>
+                    }
+                    @case('reversed') {
+                      <span class="status-badge">Reversed</span>
+                    }
+                    @case('overdue') {
+                      <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink">Overdue</span>
+                    }
+                    @case('due') {
+                      <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-soft">Due</span>
+                    }
+                    @default {
+                      <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">Future</span>
+                    }
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </li>
+    }
+  </ul>
+}

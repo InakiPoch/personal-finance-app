@@ -1,11 +1,12 @@
 import { ChangeDetectionStrategy, Component, InputSignal, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { formatArs } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { CreditorPayableRow } from '../../types/creditor-payable-row';
 
 @Component({
   selector: 'app-creditor-payables-table',
-  imports: [],
+  imports: [RouterLink],
   templateUrl: './creditor-payables-table.html',
   styleUrl: './creditor-payables-table.css',
   changeDetection: ChangeDetectionStrategy.OnPush

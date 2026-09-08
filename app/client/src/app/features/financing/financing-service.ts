@@ -5,6 +5,7 @@ import { CardFutureSchedule } from './types/card-future-schedule';
 import { CardPurchaseRow } from './types/card-purchase-row';
 import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
+import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
@@ -62,5 +63,9 @@ export class FinancingService {
     return this.http
       .get<RowsEnvelope<CreditorPayableRow>>('financing/creditor-payables')
     .pipe(map((envelope: RowsEnvelope<CreditorPayableRow>) => envelope.rows));
+  }
+
+  creditorDetail(creditorId: string): Observable<CreditorDetail> {
+    return this.http.get<CreditorDetail>(`financing/creditor-payables/${creditorId}`);
   }
 }

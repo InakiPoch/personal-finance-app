@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { formatArs } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { CreditorPayableRow } from '../../types/creditor-payable-row';
@@ -36,7 +37,7 @@ describe('CreditorPayablesTable', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [CreditorPayablesTable],
-      providers: [provideZonelessChangeDetection()]
+      providers: [provideZonelessChangeDetection(), provideRouter([])]
     });
     fixture = TestBed.createComponent(CreditorPayablesTable);
   });
@@ -62,6 +63,12 @@ describe('CreditorPayablesTable', () => {
     fixture.detectChanges();
     const rowEls: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('tbody tr.payable-row');
     expect(rowEls.length).toBe(2);
+  });
+  it('links each creditor name to its detail route', () => {
+    fixture.componentRef.setInput('payables', rows);
+    fixture.detectChanges();
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector('tbody tr.payable-row a');
+    expect(link.getAttribute('href')).toBe('/financing/creditor-payables/cred-1');
   });
   it('shows an empty note when there are no creditors', () => {
     fixture.componentRef.setInput('payables', []);

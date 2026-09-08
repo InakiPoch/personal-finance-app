@@ -200,10 +200,13 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 - **Shows:** a standalone list of every creditor with an outstanding balance across all
   creditor-financed purchases, ordered by creditor name — each row's creditor name (+ a muted
   sub-line listing their account labels), next due date (`—` when no schedule has started), and
-  the outstanding total.
+  **two** money figures: **"Due now"** (the focal value — Σ unpaid, non-reversed cuotas whose
+  payment month is at or before the current creditor cycle, with earlier-month arrears folded in)
+  and a muted **"&lt;total&gt; total"** sub-line (Σ all unpaid, non-reversed cuotas, future included).
+  Paid cuotas are excluded from both.
   An empty-state note when no creditor has an outstanding balance.
 - **Source:** `GET /v1/financing/creditor-payables`.
-- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md`; Financing-only, read-only, no Ledger (D7). **Accepted limitation:** there is no per-installment payment/settlement tracking, so "outstanding" is the entire creditor-financed plan (every non-reversed installment); `NextDueDate` is the earliest *scheduled* month and does not advance as months pass — a future session will refine this when a settlement concept lands. Reachable from the global nav right after "Recent purchases".
+- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (the list) and `docs/owed-to-creditors/slice-1-current-cycle-outstanding.md` (the two-figure split — API's Phase 34); Financing-only, read-only, no Ledger (D7). Paid cuotas now drop out of both money figures (`Installment.PaidOnUtc`, stamped by the back-dated creditor path and — from Slice 3 — a "pay a cuota" action). **Still pending:** `NextDueDate` is the earliest *scheduled* month and does not advance as months pass; the per-account sub-line breakdown still sums over all non-reversed cuotas, so it can exceed "Total owed" when a creditor has paid cuotas — both deferred to a later slice. Detail-by-purchase (Slice 2) and pay/undo (Slices 3–4) are not built yet. Reachable from the global nav right after "Recent purchases".
 
 ### 3.11 Debit/cash expenses with categories (new — extends §3.3, now built)
 - **Shows:** the third *My debit-cash* mode of §3.3's Load-Expense form. When selected, the form

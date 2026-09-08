@@ -1177,6 +1177,29 @@ Built one green-lit step at a time (steps 3–5 of the slice; steps 1–2 are th
 
 ---
 
+## Phase 33 — Owed to creditors: current-cycle outstanding (Slice 1)
+
+**Goal:** The "Owed to creditors" table (`financing/creditor-payables`) stops showing the *historic* total per creditor and shows **two** figures per row — "Due now" (this creditor cycle + folded-in arrears) and "Total owed" (the whole remaining debt) — with "Due now" as the focal figure.
+
+**Traces to:** `docs/owed-to-creditors/slice-1-current-cycle-outstanding.md` (+ `00-overview.md`; first of four slices — Slice 2 detail-by-purchase, Slice 3 pay a cuota + undo, Slice 4 pay full debt). API half is `app/api` Phase 34 (`CreditorPayableRow` drops `OutstandingMinorUnits`, gains `DueNowMinorUnits` + `TotalOwedMinorUnits`; `GetCreditorPayablesHandler` gains `TimeProvider`; paid cuotas excluded from both). `docs/DESIGN.md` §3 `CreditorPayableRow` type swaps `outstandingMinorUnits` for the two fields; `docs/PRD.md` §9 decision 14.
+
+**Depends on:** `app/client` Phase 20 (the `creditor-payables-page` + table + route + nav entry — all already exist).
+
+### Tasks
+- [x] `features/financing/types/creditor-payable-row.ts` — drop `outstandingMinorUnits: Money`, add `dueNowMinorUnits: Money` + `totalOwedMinorUnits: Money`. `creditor-payable-account.ts` unchanged (per-account `outstandingMinorUnits` stays — the API kept `CreditorPayableAccountBreakdown.OutstandingMinorUnits`).
+- [x] `pages/creditor-payables-page/creditor-payables-table.html` — amount `<td>` → focal `{{ formatArs(row.dueNowMinorUnits) }}` (`block text-sm text-ink`) + muted sub-line `{{ formatArs(row.totalOwedMinorUnits) }} total` (`block text-[0.6875rem] text-ink-faint`, matching the account sub-line). Header `Amount` → `Due now / Total`. `creditor-payables-table.ts` / `creditor-payables-page.ts` — no change (neither reads the field; `formatArs` / `Money` already imported; `creditorPayables()` stays a bare `{ rows }` cast).
+- [x] Fixtures — `financing-service.spec.ts` + `creditor-payables-page.spec.ts` `CreditorPayableRow` literals swap `outstandingMinorUnits` for the two fields. `creditor-payables-table.spec.ts` imports `formatArs`, gives its two fixture rows distinct due-now / total-owed values, +1 fact (`renders both the due-now and total-owed figures for a row` — asserts `formatArs(300000)`, `formatArs(500000)`, and `'total'` in the row text).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **237/237** (from 236: `creditor-payables-table` +1); `pnpm ng build --configuration production` clean (no budget change).
+- [ ] Manual (no browser here) — handed to the user: a creditor with overdue + current + future unpaid cuotas reads "Due now $X" (overdue folded in, paid excluded) and "$Y total" (future added).
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are the API's Phase 34, step 5 is doc-sync). Pure additive read reshape — no route, nav, or service-method change; `creditorPayables()` stays a bare cast. The muted sub-line reuses the exact classes of the existing account-labels sub-line. Not committed by this session — the user commits their own. **Known cosmetic carried from the API:** the per-account breakdown still sums over all non-reversed cuotas (paid included), so a sub-line can exceed "Total owed"; deferred to a later slice. Slices 2–4 remain — not started.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

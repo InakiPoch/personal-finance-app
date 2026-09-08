@@ -149,6 +149,14 @@ no `I-` prefix.
 - `CardFutureScheduleRow = { planId: string; installmentId: string; sequence: number;
   cycleYear: number; cycleMonth: number; amountMinorUnits: Money }`
 - `CardFutureSchedule = { cardId: string; rows: CardFutureScheduleRow[] }`
+- `CreditorPayableAccount = { accountId: string; label: string; outstandingMinorUnits: Money }`
+- `CreditorPayableRow = { creditorId: string; creditorName: string; dueNowMinorUnits: Money;
+  totalOwedMinorUnits: Money; nextDueDate: IsoDate | null; accounts: CreditorPayableAccount[] }` —
+  `dueNowMinorUnits` = Σ unpaid, non-reversed cuotas due by the current creditor cycle (arrears
+  folded in); `totalOwedMinorUnits` = Σ all unpaid, non-reversed (future included); paid excluded
+  from both (`docs/owed-to-creditors/slice-1-current-cycle-outstanding.md`). `nextDueDate` and the
+  per-account `outstandingMinorUnits` are still over all non-reversed cuotas.
+- `creditorPayables` returns `CreditorPayableRow[]` — the service casts + unwraps the `{ rows }` envelope
 
 **Subscriptions** (`CreateSubscriptionDto`, `SubscriptionResultDto`, `ActiveSubscriptionsDto`)
 - `Frequency = 'monthly' | 'weekly' | 'daily' | 'annually'`

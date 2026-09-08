@@ -119,6 +119,11 @@ internal static class EndpointExtensions {
                 .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Financing.CreditorPayableFullPayment, PayCreditorFullDebt.Handle)
+                .WithSummary("Settle a creditor's entire remaining debt.")
+                .WithDescription("Stamps a display-only PaidOnUtc on every unpaid, non-reversed installment across all of the creditor's purchases — no bank account and no ledger posting. Already-paid and reversed installments are skipped; the result carries the number newly settled (zero when the debt was already clear). An unknown creditor yields a 404.")
+                .Produces<PayCreditorFullDebtResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
             return endpoints;
         }
 

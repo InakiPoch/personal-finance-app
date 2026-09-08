@@ -39,6 +39,10 @@ internal static class FinancingMappingExtensions {
         return new PayStatementResultDto(statementId);
     }
 
+    public static PayCreditorFullDebtResultDto ToPayCreditorFullDebtResultDto(this int settledCount) {
+        return new PayCreditorFullDebtResultDto(settledCount);
+    }
+
     extension(Guid installmentId) {
         public PayInstallmentResultDto ToPayInstallmentResultDto() {
             return new PayInstallmentResultDto(installmentId);

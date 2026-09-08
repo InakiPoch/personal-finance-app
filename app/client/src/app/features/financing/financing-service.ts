@@ -9,6 +9,7 @@ import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
@@ -70,17 +71,15 @@ export class FinancingService {
     return this.http.get<CreditorDetail>(`financing/creditor-payables/${creditorId}`);
   }
 
-  payCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> {
-    return this.http.post<PayCreditorInstallmentResult>(
-      `financing/creditor-installments/${installmentId}/pay`,
-      {},
-    );
+  payCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> { 
+    return this.http.post<PayCreditorInstallmentResult>(`financing/creditor-installments/${installmentId}/pay`, {});
   }
 
   unpayCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> {
-    return this.http.post<PayCreditorInstallmentResult>(
-      `financing/creditor-installments/${installmentId}/unpay`,
-      {},
-    );
+    return this.http.post<PayCreditorInstallmentResult>(`financing/creditor-installments/${installmentId}/unpay`, {});
+  }
+
+  payCreditorFullDebt(creditorId: string): Observable<PayCreditorFullDebtResult> {
+    return this.http.post<PayCreditorFullDebtResult>(`financing/creditor-payables/${creditorId}/pay-full`, {});
   }
 }

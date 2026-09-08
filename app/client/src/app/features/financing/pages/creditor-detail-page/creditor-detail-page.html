@@ -38,6 +38,39 @@
           </span>
         }
       </div>
+      <div class="mt-4 flex flex-wrap items-center gap-3">
+        @if(confirmingFullDebt()) {
+          <span class="text-xs text-ink-faint">Settle every remaining cuota for this creditor?</span>
+          <button
+            type="button"
+            [disabled]="payStatus() === 'busy'"
+            (click)="confirmPayFullDebt()"
+            class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+          >
+            Confirm
+          </button>
+          <button
+            type="button"
+            [disabled]="payStatus() === 'busy'"
+            (click)="cancelPayFullDebt()"
+            class="text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+          >
+            Cancel
+          </button>
+        } @else {
+          <button
+            type="button"
+            [disabled]="!hasOutstanding() || payStatus() === 'busy'"
+            (click)="requestPayFullDebt()"
+            class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+          >
+            Pay full debt
+          </button>
+        }
+      </div>
+      @if(lastSettledCount(); as settled) {
+        <p class="mt-3 text-sm text-ink-soft">{{ settled }} cuota(s) settled.</p>
+      }
       @if(payError(); as error) {
         <p class="mt-4 text-sm text-negative" role="alert">{{ payErrorText(error) }}</p>
       }

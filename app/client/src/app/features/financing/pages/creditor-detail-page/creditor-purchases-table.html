@@ -1,7 +1,6 @@
 @if(purchases().length === 0) {
   <p class="text-sm text-ink-soft">This creditor has no recorded purchases.</p>
 } @else {
-  <!-- Slice 4 seam: a "Pay full debt" action belongs above this list. -->
   <ul class="flex flex-col gap-9">
     @for(purchase of purchases(); track purchase.planId; let i = $index) {
       <li class="purchase-group" [style.animation-delay.ms]="i * 40">

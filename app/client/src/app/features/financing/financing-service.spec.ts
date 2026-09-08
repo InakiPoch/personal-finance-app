@@ -14,6 +14,7 @@ import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
@@ -280,6 +281,16 @@ describe('FinancingService', () => {
     expect(req.request.body).toEqual({});
     req.flush({ installmentId: 'ci-1' });
     expect(result).toBe('ci-1');
+  });
+  it('POSTs an empty body to pay a creditor full debt and returns the settled count', () => {
+    let result: number | undefined;
+    service.payCreditorFullDebt('cr-1')
+      .subscribe((r: PayCreditorFullDebtResult) => (result = r.settledCount));
+    const req = httpMock.expectOne(`${base}/financing/creditor-payables/cr-1/pay-full`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ settledCount: 4 });
+    expect(result).toBe(4);
   });
   it('maps a 404 on getStatement to an AppError keyed off code', () => {
     let error: AppError | undefined;

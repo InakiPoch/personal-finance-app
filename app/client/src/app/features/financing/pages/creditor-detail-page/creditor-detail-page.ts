@@ -12,6 +12,8 @@ import { Observable, Subject, takeUntil } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
 import { FinancingService } from '../../financing-service';
 import { CreditorDetail } from '../../types/creditor-detail';
+import { CreditorPurchaseGroup } from '../../types/creditor-purchase-group';
+import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
 import { CreditorPurchasesTable } from './creditor-purchases-table';
 
@@ -32,6 +34,8 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
   protected readonly loadError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly payStatus: WritableSignal<PayStatus> = signal<PayStatus>('idle');
   protected readonly payError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly confirmingFullDebt: WritableSignal<boolean> = signal<boolean>(false);
+  protected readonly lastSettledCount: WritableSignal<number | null> = signal<number | null>(null);
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly financing: FinancingService = inject(FinancingService);
@@ -58,6 +62,47 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
 
   protected onUndo(installmentId: string): void {
     this.runMutation(this.financing.unpayCreditorInstallment(installmentId));
+  }
+
+  protected hasOutstanding(): boolean {
+    return (this.detail()?.purchases ?? []).some(
+      (group: CreditorPurchaseGroup) => group.outstandingMinorUnits > 0,
+    );
+  }
+
+  protected requestPayFullDebt(): void {
+    this.payError.set(null);
+    this.lastSettledCount.set(null);
+    this.confirmingFullDebt.set(true);
+  }
+
+  protected cancelPayFullDebt(): void {
+    this.confirmingFullDebt.set(false);
+  }
+
+  protected confirmPayFullDebt(): void {
+    const creditorId: string | null = this.creditorId;
+    if(creditorId === null) {
+      return;
+    }
+    this.payError.set(null);
+    this.payStatus.set('busy');
+    this.financing
+      .payCreditorFullDebt(creditorId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (result: PayCreditorFullDebtResult) => {
+          this.payStatus.set('idle');
+          this.confirmingFullDebt.set(false);
+          this.lastSettledCount.set(result.settledCount);
+          this.loadDetail(creditorId);
+        },
+        error: (error: AppError) => {
+          this.payError.set(error);
+          this.payStatus.set('error');
+          this.confirmingFullDebt.set(false);
+        }
+      });
   }
 
   private runMutation(operation: Observable<PayCreditorInstallmentResult>): void {

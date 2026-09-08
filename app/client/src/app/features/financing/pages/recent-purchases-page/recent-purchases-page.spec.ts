@@ -28,7 +28,8 @@ describe('RecentPurchasesPage', () => {
     isCreditorPayment: false,
     paidInstallmentCount: 0,
     nextDueYear: 2026,
-    nextDueMonth: 10
+    nextDueMonth: 10,
+    pendingAmountMinorUnits: money(1200000)
   }];
 
   function setup(): void {

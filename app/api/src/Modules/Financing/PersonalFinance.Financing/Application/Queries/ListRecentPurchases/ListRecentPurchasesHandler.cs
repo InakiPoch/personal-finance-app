@@ -35,7 +35,8 @@ internal sealed class ListRecentPurchasesHandler(FinancingDbContext context) : I
                 installment.IsReversed,
                 installment.PaidOnUtc,
                 installment.CycleYear,
-                installment.CycleMonth
+                installment.CycleMonth,
+                installment.Amount
             })
             .ToListAsync(cancellationToken);
         var installmentsByPlan = installments.ToLookup(installment => installment.PaymentPlanId);
@@ -43,8 +44,11 @@ internal sealed class ListRecentPurchasesHandler(FinancingDbContext context) : I
             .Select(plan => {
                 var planInstallments = installmentsByPlan[plan.Id].ToList();
                 var paidInstallmentCount = planInstallments.Count(installment => installment.PaidOnUtc is not null);
-                var nextDue = planInstallments
+                var unpaidInstallments = planInstallments
                     .Where(installment => installment.PaidOnUtc is null && installment.IsReversed == false)
+                    .ToList();
+                var pendingAmountMinorUnits = unpaidInstallments.Sum(installment => installment.Amount.MinorUnits);
+                var nextDue = unpaidInstallments
                     .OrderBy(installment => installment.Sequence)
                     .Select(installment => new BillingCycle(installment.CycleYear, installment.CycleMonth).DueCycle)
                     .FirstOrDefault();
@@ -58,7 +62,8 @@ internal sealed class ListRecentPurchasesHandler(FinancingDbContext context) : I
                     plan.CreditorId is not null,
                     paidInstallmentCount,
                     nextDue?.Year,
-                    nextDue?.Month
+                    nextDue?.Month,
+                    pendingAmountMinorUnits
                 );
             })
             .ToList();

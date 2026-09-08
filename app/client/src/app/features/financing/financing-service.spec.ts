@@ -191,7 +191,8 @@ describe('FinancingService', () => {
       isCreditorPayment: false,
       paidInstallmentCount: 0,
       nextDueYear: null,
-      nextDueMonth: null
+      nextDueMonth: null,
+      pendingAmountMinorUnits: money(0)
     }];
     let result: RecentPurchaseRow[] | undefined;
     service.recentPurchases().subscribe((r: RecentPurchaseRow[]) => (result = r));

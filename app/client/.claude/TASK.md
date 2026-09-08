@@ -1154,6 +1154,29 @@ API-only slice on the client's side — no production code touched. The one spec
 
 ---
 
+## Phase 32 — Back-dated expenses: pending $ on Recent Purchases (Slice 3, OPTIONAL)
+
+**Goal:** A Recent Purchases row (§3.9) shows **how much of the total is still pending** on that purchase, next to the existing "N/M paid · next: <month>" sub-line.
+
+**Traces to:** `docs/backdated-expenses/slice-3-pending-amount.md` (+ `00-overview.md`; last of three slices — **closes the initiative**). API half is `app/api` Phase 33 (`ListRecentPurchasesQuery` / handler / DTO gain `PendingAmountMinorUnits` = Σ unpaid, non-reversed installment amounts). `docs/DESIGN.md` §3 `RecentPurchaseRow` type gains `pendingAmountMinorUnits: Money`; `docs/PRD.md` §3.9 "Shows" updated.
+
+**Depends on:** Phase 29 / `app/api` Phase 30 (Recent Purchases "N/M paid · next: <month>" sub-line — the pending segment slots into it).
+
+### Tasks
+- [x] `features/financing/types/recent-purchase-row.ts` — `RecentPurchaseRow` gains `pendingAmountMinorUnits: Money` (`Money` already imported).
+- [x] `pages/recent-purchases-page/recent-purchases-table.ts` — `hasPending(purchase)` (`purchase.pendingAmountMinorUnits > 0`) + `pendingLabel(purchase)` (`` `${formatArs(purchase.pendingAmountMinorUnits)} pending` ``). `recent-purchases-table.html` sub-line → `{{ paidLabel(purchase) }}` then `@if(hasPending(purchase)) { &middot; {{ pendingLabel(purchase) }} }` then `&middot; {{ nextPaymentLabel(purchase) }}` — pending segment hidden when `0`.
+- [x] Fixtures — `recent-purchases-table.spec.ts`, `recent-purchases-page.spec.ts`, `financing-service.spec.ts` `RecentPurchaseRow` literals gain `pendingAmountMinorUnits`. `recent-purchases-table.spec.ts` +1 fact (label present on a partly-paid row, absent on a fully-paid one).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **236/236** (from 235: `recent-purchases-table` +1); `pnpm ng build --configuration production` clean (no budget change).
+- [ ] Manual (no browser here) — handed to the user: a partly-paid purchase reads "N/M paid · $X pending · next: <month>"; a fully-paid one reads "N/M paid · Fully paid" with no pending segment.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–5 of the slice; steps 1–2 are the API's Phase 33). Pure additive read — no route, nav, or service-method change; `recentPurchases()` stays a bare cast. `hasPending`/`pendingLabel` mirror the existing `paidLabel`/`nextPaymentLabel` helper shape. Not committed by this session — the user commits their own. **This closes `docs/backdated-expenses/`.** Doc-sync done here.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

@@ -18,7 +18,8 @@ describe('RecentPurchasesTable', () => {
       isCreditorPayment: false,
       paidInstallmentCount: 1,
       nextDueYear: 2026,
-      nextDueMonth: 11
+      nextDueMonth: 11,
+      pendingAmountMinorUnits: money(800000)
     },{
       planId: 'plan-2',
       description: 'Rent',
@@ -29,7 +30,8 @@ describe('RecentPurchasesTable', () => {
       isCreditorPayment: true,
       paidInstallmentCount: 1,
       nextDueYear: null,
-      nextDueMonth: null
+      nextDueMonth: null,
+      pendingAmountMinorUnits: money(0)
   }];
 
   beforeEach(() => {
@@ -68,6 +70,13 @@ describe('RecentPurchasesTable', () => {
     const rowEls: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('tbody tr');
     expect(rowEls[0].textContent).toContain('next: Nov 2026');
     expect(rowEls[1].textContent).toContain('Fully paid');
+  });
+  it('renders the pending amount for a partly-paid row and hides it for a fully-paid one', () => {
+    fixture.componentRef.setInput('purchases', rows);
+    fixture.detectChanges();
+    const rowEls: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(rowEls[0].textContent).toContain('pending');
+    expect(rowEls[1].textContent).not.toContain('pending');
   });
   it('shows an empty note when there are no purchases', () => {
     fixture.componentRef.setInput('purchases', []);

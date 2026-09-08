@@ -23,6 +23,14 @@ export class RecentPurchasesTable {
     return `${purchase.paidInstallmentCount}/${purchase.installmentCount} paid`;
   }
 
+  protected hasPending(purchase: RecentPurchaseRow): boolean {
+    return purchase.pendingAmountMinorUnits > 0;
+  }
+
+  protected pendingLabel(purchase: RecentPurchaseRow): string {
+    return `${formatArs(purchase.pendingAmountMinorUnits)} pending`;
+  }
+
   protected nextPaymentLabel(purchase: RecentPurchaseRow): string {
     if(purchase.nextDueYear === null || purchase.nextDueMonth === null) {
       return 'Fully paid';

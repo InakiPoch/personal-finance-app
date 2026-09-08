@@ -12,4 +12,5 @@ export type RecentPurchaseRow = {
   paidInstallmentCount: number;
   nextDueYear: number | null;
   nextDueMonth: number | null;
+  pendingAmountMinorUnits: Money;
 };

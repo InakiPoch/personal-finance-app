@@ -1,7 +1,7 @@
 @if(purchases().length === 0) {
   <p class="text-sm text-ink-soft">This creditor has no recorded purchases.</p>
 } @else {
-  <!-- Slice 3 seam: a "Pay full debt" action belongs above this list. -->
+  <!-- Slice 4 seam: a "Pay full debt" action belongs above this list. -->
   <ul class="flex flex-col gap-9">
     @for(purchase of purchases(); track purchase.planId; let i = $index) {
       <li class="purchase-group" [style.animation-delay.ms]="i * 40">
@@ -46,7 +46,9 @@
               >
                 Status
               </th>
-              <!-- Slice 3 seam: a per-row "Pay" / "Undo" action column slots in here. -->
+              <th scope="col" class="pb-2 text-right">
+                <span class="sr-only">Actions</span>
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -82,6 +84,27 @@
                     @default {
                       <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">Future</span>
                     }
+                  }
+                </td>
+                <td class="py-2 text-right">
+                  @if(canPay(row)) {
+                    <button
+                      type="button"
+                      [disabled]="paying()"
+                      (click)="onPay(row)"
+                      class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                    >
+                      Pay
+                    </button>
+                  } @else if(row.isPaid) {
+                    <button
+                      type="button"
+                      [disabled]="paying()"
+                      (click)="onUndo(row)"
+                      class="text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                    >
+                      Undo
+                    </button>
                   }
                 </td>
               </tr>

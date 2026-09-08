@@ -14,6 +14,7 @@ import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
 import { PayStatement } from './types/pay-statement';
@@ -259,6 +260,26 @@ describe('FinancingService', () => {
     );
     expect(error?.code).toBe('Financing.CreditorNotFound');
     expect(error?.status).toBe(404);
+  });
+  it('POSTs an empty body to pay a creditor installment and returns its id', () => {
+    let result: string | undefined;
+    service.payCreditorInstallment('ci-1')
+      .subscribe((r: PayCreditorInstallmentResult) => (result = r.installmentId));
+    const req = httpMock.expectOne(`${base}/financing/creditor-installments/ci-1/pay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ installmentId: 'ci-1' });
+    expect(result).toBe('ci-1');
+  });
+  it('POSTs an empty body to undo a creditor installment payment and returns its id', () => {
+    let result: string | undefined;
+    service.unpayCreditorInstallment('ci-1')
+      .subscribe((r: PayCreditorInstallmentResult) => (result = r.installmentId));
+    const req = httpMock.expectOne(`${base}/financing/creditor-installments/ci-1/unpay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ installmentId: 'ci-1' });
+    expect(result).toBe('ci-1');
   });
   it('maps a 404 on getStatement to an AppError keyed off code', () => {
     let error: AppError | undefined;

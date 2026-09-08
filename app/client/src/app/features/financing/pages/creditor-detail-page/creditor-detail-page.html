@@ -38,8 +38,16 @@
           </span>
         }
       </div>
+      @if(payError(); as error) {
+        <p class="mt-4 text-sm text-negative" role="alert">{{ payErrorText(error) }}</p>
+      }
       <div class="mt-6">
-        <app-creditor-purchases-table [purchases]="loaded.purchases" />
+        <app-creditor-purchases-table
+          [purchases]="loaded.purchases"
+          [paying]="payStatus() === 'busy'"
+          (payClick)="onPay($event)"
+          (undoClick)="onUndo($event)"
+        />
       </div>
     </section>
   }

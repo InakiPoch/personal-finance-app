@@ -9,6 +9,7 @@ import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
 import { PayStatement } from './types/pay-statement';
@@ -67,5 +68,19 @@ export class FinancingService {
 
   creditorDetail(creditorId: string): Observable<CreditorDetail> {
     return this.http.get<CreditorDetail>(`financing/creditor-payables/${creditorId}`);
+  }
+
+  payCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> {
+    return this.http.post<PayCreditorInstallmentResult>(
+      `financing/creditor-installments/${installmentId}/pay`,
+      {},
+    );
+  }
+
+  unpayCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> {
+    return this.http.post<PayCreditorInstallmentResult>(
+      `financing/creditor-installments/${installmentId}/unpay`,
+      {},
+    );
   }
 }

@@ -76,4 +76,56 @@ describe('CreditorPurchasesTable', () => {
     expect(fixture.nativeElement.textContent).toContain('This creditor has no recorded purchases.');
     expect(fixture.nativeElement.querySelector('table')).toBeNull();
   });
+
+  function buttonsByLabel(label: string): HTMLButtonElement[] {
+    const all: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('button');
+    return Array.from(all).filter((button: HTMLButtonElement) => button.textContent?.trim() === label);
+  }
+
+  it('shows a Pay button per unpaid, non-reversed installment and an Undo button per paid one', () => {
+    fixture.componentRef.setInput('purchases', groups);
+    fixture.detectChanges();
+    expect(buttonsByLabel('Pay').length).toBe(3);
+    expect(buttonsByLabel('Undo').length).toBe(1);
+  });
+  it('shows neither action for a reversed installment', () => {
+    const reversed: CreditorPurchaseGroup[] = [{
+      planId: 'pl-r',
+      description: 'Fridge',
+      purchaseDate: '2026-01-10',
+      totalMinorUnits: money(50000),
+      outstandingMinorUnits: money(0),
+      installments: [
+        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: true, status: 'reversed' }
+      ]
+    }];
+    fixture.componentRef.setInput('purchases', reversed);
+    fixture.detectChanges();
+    expect(buttonsByLabel('Pay').length).toBe(0);
+    expect(buttonsByLabel('Undo').length).toBe(0);
+  });
+  it('emits payClick with the installment id when Pay is clicked', () => {
+    fixture.componentRef.setInput('purchases', groups);
+    fixture.detectChanges();
+    let emitted: string | undefined;
+    fixture.componentInstance.payClick.subscribe((id: string) => (emitted = id));
+    buttonsByLabel('Pay')[0].click();
+    expect(emitted).toBe('i-2');
+  });
+  it('emits undoClick with the installment id when Undo is clicked', () => {
+    fixture.componentRef.setInput('purchases', groups);
+    fixture.detectChanges();
+    let emitted: string | undefined;
+    fixture.componentInstance.undoClick.subscribe((id: string) => (emitted = id));
+    buttonsByLabel('Undo')[0].click();
+    expect(emitted).toBe('i-1');
+  });
+  it('disables every action button while a request is in flight', () => {
+    fixture.componentRef.setInput('purchases', groups);
+    fixture.componentRef.setInput('paying', true);
+    fixture.detectChanges();
+    const actions: HTMLButtonElement[] = [...buttonsByLabel('Pay'), ...buttonsByLabel('Undo')];
+    expect(actions.length).toBe(4);
+    expect(actions.every((button: HTMLButtonElement) => button.disabled)).toBe(true);
+  });
 });

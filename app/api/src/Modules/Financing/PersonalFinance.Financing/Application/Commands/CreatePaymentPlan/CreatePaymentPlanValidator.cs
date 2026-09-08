@@ -6,12 +6,15 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.CreatePaymentPlan;
 
 internal static class CreatePaymentPlanValidator {
-    public static Result Validate(CreatePaymentPlanCommand command) {
+    public static Result Validate(CreatePaymentPlanCommand command, DateOnly today) {
         if(command.AmountMinorUnits <= 0) {
             return Result.Failure(FinancingErrors.NonPositivePlanAmount);
         }
         if(command.InstallmentCount < 1) {
             return Result.Failure(FinancingErrors.InvalidInstallmentCount);
+        }
+        if(command.PurchaseDate > today) {
+            return Result.Failure(FinancingErrors.FuturePurchaseDate);
         }
         if(command.CardId is null && command.CreditorId is null) {
             return Result.Failure(FinancingErrors.PlanNeedsCardOrCreditor);

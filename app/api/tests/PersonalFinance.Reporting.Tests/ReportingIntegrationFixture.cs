@@ -114,7 +114,9 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await PostAsync("Rent", At(5, 1), rent, bank, 30_000);
         await PostAsync("Snacks", At(5, 12), snacks, cash, 2_000);
         await PostAsync("Card accrual", At(5, 20), cardPurchases, cardLiability, 12_000);
-        await CreatePaymentPlanAsync(300_000, ReportingCardId, 3, new DateOnly(2026, 6, 1));
+        // A fresh (today-dated) purchase: no cycle has closed, so all three installments stay in the
+        // "Future" bucket and none are auto-settled at creation (back-dated card settlement, slice 1).
+        await CreatePaymentPlanAsync(300_000, ReportingCardId, 3, DateOnly.FromDateTime(DateTime.UtcNow));
         AliceId = await CreatePartyAsync("Alice Reporting");
         await RegisterSharedExpenseAsync("Alice dinner", 10_000, sharedDining, bank, At(5, 25), AliceId);
         AliceOwed = await GetPartyBalanceAsync(AliceId);

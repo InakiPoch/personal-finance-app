@@ -18,7 +18,8 @@ internal static class FinancingMappingExtensions {
             dto.Description,
             split,
             dto.CreditorId,
-            dto.CreditorAccountId
+            dto.CreditorAccountId,
+            dto.BankAccountId
         );
     }
 
@@ -98,7 +99,8 @@ internal static class FinancingMappingExtensions {
                 row.IsCreditorPayment,
                 row.PaidInstallmentCount,
                 row.NextDueYear,
-                row.NextDueMonth)
+                row.NextDueMonth,
+                row.PendingAmountMinorUnits)
             )
             .ToList();
         return new RecentPurchasesDto(rows);

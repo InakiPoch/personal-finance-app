@@ -129,8 +129,11 @@ no `I-` prefix.
 **Financing** (`CreatePaymentPlanDto`, `MonthlyStatementDetailDto`, `PayStatementDto`,
 `CardFutureScheduleDto`)
 - `SplitParticipant = { partyId: string; weight: number }`
-- `CreatePaymentPlan = { amountMinorUnits: Money; cardId: string; installmentCount: number;
-  purchaseDate: IsoDate; split?: SplitParticipant[] }`
+- `CreatePaymentPlan = { amountMinorUnits: Money; cardId?: string; installmentCount: number;
+  purchaseDate: IsoDate; description: string; split?: SplitParticipant[]; creditorId?: string;
+  creditorAccountId?: string; bankAccountId?: string }` — `cardId` xor `creditorId`+`creditorAccountId`
+  by payment mode; `bankAccountId` only when a card purchase is back-dated (funds the API's
+  retroactive settlement of the elapsed installments — `docs/backdated-expenses/slice-1-card-backdating.md`)
 - `CreatePaymentPlanResult = { paymentPlanId: string }`
 - `MonthlyStatementInstallment = { planId: string; installmentId: string; sequence: number;
   installmentCount: number; purchaseDate: IsoDate; cycleYear: number; cycleMonth: number;
@@ -334,7 +337,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 27 | POST | `/v1/ledger/expenses` | `LedgerService.recordDebitExpense` | Load expense (debit-cash mode) |
 | 28 | GET | `/v1/parties` | `PartiesService.list` | Parties list (roster — merged with #23 for balances) + Load expense (split party picker) |
 | 29 | GET | `/v1/parties/pending-shares` | `PartiesService.pendingShares` | Parties list (pending-schedule count per party — merged with #23/#28 so a $0-now scheduled party reads "Nothing owed yet · N scheduled") |
-| 30 | GET | `/v1/financing/purchases/recent` | `FinancingService.recentPurchases` | Recent purchases list (§3.9; each row carries a derived `paidInstallmentCount` + next-payment `nextDueYear`/`nextDueMonth`, rendered "N/M paid · next: `<month>`" or "Fully paid") |
+| 30 | GET | `/v1/financing/purchases/recent` | `FinancingService.recentPurchases` | Recent purchases list (§3.9; each row carries a derived `paidInstallmentCount` + next-payment `nextDueYear`/`nextDueMonth` + `pendingAmountMinorUnits`, rendered "N/M paid · $X pending · next: `<month>`" or "Fully paid") |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

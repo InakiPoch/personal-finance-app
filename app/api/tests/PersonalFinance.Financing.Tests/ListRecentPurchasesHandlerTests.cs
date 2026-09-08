@@ -172,6 +172,47 @@ public sealed class ListRecentPurchasesHandlerTests : IDisposable {
         Assert.Null(row.NextDueMonth);
     }
 
+    [Fact]
+    public async Task Handle_projects_the_pending_amount_as_the_sum_of_unpaid_non_reversed_installments() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", 15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreateMultiInstallmentPlan(cardId, 15, new DateOnly(2026, 1, 10), "Laptop", 4);
+            planId = plan.Id;
+            var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
+            ordered[0].MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            ordered[1].MarkReversed();
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new ListRecentPurchasesHandler(readContext).HandleAsync(new ListRecentPurchasesQuery(), cancellationToken);
+        var row = response.Rows.Single(row => row.PlanId == planId);
+        // 12_000 over 4 cuotas -> 3_000 each. Cuota 1 paid, cuota 2 reversed -> cuotas 3 + 4 pending.
+        Assert.Equal(6_000, row.PendingAmountMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_reports_a_zero_pending_amount_when_every_installment_is_paid() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", 15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreateMultiInstallmentPlan(cardId, 15, new DateOnly(2026, 1, 10), "Sofa", 3);
+            planId = plan.Id;
+            foreach(var installment in plan.Installments) {
+                installment.MarkPaid(new DateTimeOffset(2026, 3, 1, 0, 0, 0, TimeSpan.Zero));
+            }
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new ListRecentPurchasesHandler(readContext).HandleAsync(new ListRecentPurchasesQuery(), cancellationToken);
+        var row = response.Rows.Single(row => row.PlanId == planId);
+        Assert.Equal(0, row.PendingAmountMinorUnits);
+    }
+
     private static PaymentPlan CreatePlan(Guid cardId, int cutoffDay, DateOnly purchaseDate, string description) {
         var total = Money.FromMinorUnits(10_000, Currency.Reference);
         return PaymentPlan.Create(

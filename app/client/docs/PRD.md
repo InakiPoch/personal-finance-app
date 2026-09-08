@@ -69,6 +69,16 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   client never computes the billing cycle or the split cents — it submits raw inputs and the API
   allocates. On confirmation, the description headlines the panel — "payment plan created" for the
   card/creditor modes, "expense recorded" for debit-cash.
+- **Back-dated card purchase (`docs/backdated-expenses/slice-1-card-backdating.md`, Slice 1 built):**
+  a future purchase date is rejected client-side (and by the API, `Financing.FuturePurchaseDate`).
+  When *My credit card* is chosen and the purchase date is before today, a required **"Paid from"**
+  account selector appears (same debit/cash instrument list as debit-cash mode) — the API settles
+  that purchase's already-elapsed installments from it, with historically-dated ledger postings, so
+  the purchase reads as one you have been paying for months rather than "0/N paid". A today-dated
+  card purchase shows no selector. **Creditor mode (Slice 2, built):** a back-dated
+  creditor-financed purchase's elapsed cuotas are stamped paid server-side (display-only, no
+  ledger, no bank picked) and Recent Purchases reads "N/M paid · next: <month>" — no client
+  change, the "Paid from" selector stays card-only.
 - **Category (debit-cash only):** a free-type field backed by the existing list from
   `GET /v1/expense-categories` — pick an existing category or type a new one; it is required, and
   a new name get-or-creates its `Expense` Ledger account server-side (trim + case-insensitive
@@ -168,17 +178,21 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 ### 3.9 Recent purchases (new — not part of the original 7-view scope, now built)
 - **Shows:** a standalone, newest-first chronological list of every loaded expense across every
   card — each row's description (§3.3), card name, purchase date, total, a creditor-payment
-  marker, and a **payment-progress line**: "N/M paid · next: `<month>`", or "Fully paid" when no
-  installment remains. It is a plain browseable history, not a debt view: purchases appear
-  whether or not they're paid off, and there is no card picker (unlike §3.4's Statements view).
-- **Source:** `GET /v1/financing/purchases/recent` — the row carries `paidInstallmentCount` and a
+  marker, and a **payment-progress line**: "N/M paid · $X pending · next: `<month>`" (the pending
+  segment drops out when nothing is owed), or "Fully paid" when no installment remains. It is a
+  plain browseable history, not a debt view: purchases appear whether or not they're paid off,
+  and there is no card picker (unlike §3.4's Statements view).
+- **Source:** `GET /v1/financing/purchases/recent` — the row carries `paidInstallmentCount`, a
   derived next-payment month (`nextDueYear` / `nextDueMonth`, null once every installment is paid
-  or reversed); nothing is rescheduled, this only surfaces the earliest un-paid, un-reversed
-  installment's due month.
+  or reversed), and `pendingAmountMinorUnits` (Σ of the un-paid, un-reversed installment amounts —
+  the same population the next-payment month is drawn from). Nothing is rescheduled; this only
+  surfaces what already exists.
 - **Notes:** the base view is Slice 3 of `docs/expense-description/slice-3-recent-purchases-view.md`
   (Slice 1 is §3.3's description field; Slice 2 is §3.1's card-debt drill-down). The
   payment-progress line is Slice 3 of `docs/individual-installment-payments/slice-3-next-payment-visibility.md`
-  — the final slice of that initiative, which also added §3.4's per-installment Pay action.
+  — the final slice of that initiative, which also added §3.4's per-installment Pay action; the
+  pending-$ segment is Slice 3 of `docs/backdated-expenses/slice-3-pending-amount.md`, which closes
+  that initiative.
   Reachable from the global nav and a second Dashboard quick-action link — the client's known
   discoverability weak spot does not apply here.
 

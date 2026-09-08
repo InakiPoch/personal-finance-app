@@ -11,4 +11,5 @@ export type CreatePaymentPlan = {
   split?: SplitParticipant[];
   creditorId?: string;
   creditorAccountId?: string;
+  bankAccountId?: string;
 };

@@ -49,6 +49,8 @@ internal static class ErrorHttpStatusHelper {
             "Financing.BlankDescription" => StatusCodes.Status422UnprocessableEntity,
             "Financing.DescriptionTooLong" => StatusCodes.Status422UnprocessableEntity,
             "Financing.DescriptionMustBeSingleLine" => StatusCodes.Status422UnprocessableEntity,
+            "Financing.FuturePurchaseDate" => StatusCodes.Status422UnprocessableEntity,
+            "Financing.BackdatedCardBankAccountRequired" => StatusCodes.Status422UnprocessableEntity,
             "Subscriptions.InvalidName" => StatusCodes.Status422UnprocessableEntity,
             "Subscriptions.InvalidCategory" => StatusCodes.Status422UnprocessableEntity,
             "Subscriptions.NonPositiveAmount" => StatusCodes.Status422UnprocessableEntity,

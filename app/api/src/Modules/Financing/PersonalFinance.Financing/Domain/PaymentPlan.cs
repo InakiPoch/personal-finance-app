@@ -16,6 +16,8 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
     public IReadOnlyList<Installment> Installments => installments;
     public IReadOnlyList<PaymentPlanSplitParticipant> SplitParticipants => splitParticipants;
 
+    internal const int CreditorCutoffDay = 26;
+
     private readonly List<Installment> installments = [];
     private readonly List<PaymentPlanSplitParticipant> splitParticipants = [];
 
@@ -61,7 +63,7 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         var shares = allocator.Allocate(total, weights);
         var firstCycle = cardId is not null
             ? BillingCycleCalculator.ResolveCycle(purchaseDate, cutoffDay!.Value)
-            : new BillingCycle(purchaseDate.Year, purchaseDate.Month);
+            : BillingCycleCalculator.ResolveCycle(purchaseDate, CreditorCutoffDay);
         for(var i = 0; i < installmentCount; i++) {
             plan.installments.Add(Installment.Schedule(plan.Id, i + 1, shares[i], firstCycle.AddMonths(i)));
         }

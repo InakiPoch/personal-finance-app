@@ -110,6 +110,39 @@
             <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
           }
         </div>
+        @if(isBackdatedCardPurchase()) {
+          <div class="mt-6 flex flex-col gap-1.5">
+            <label for="bankAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Paid from
+            </label>
+            <div class="relative">
+              <select
+                id="bankAccountId"
+                formControlName="bankAccountId"
+                class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+              >
+                <option value="">Choose an account</option>
+                @for(account of bankAndCashInstruments(); track account.id) {
+                  <option [value]="account.id">{{ account.name }}</option>
+                }
+              </select>
+              <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+                &#9662;
+              </span>
+            </div>
+            <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+              This purchase is back-dated — its already-due installments are settled from this account.
+            </p>
+            @if(bankAndCashInstruments().length === 0) {
+              <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+                No debit or cash accounts registered yet — add one on the Instruments page.
+              </p>
+            }
+            @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+            }
+          </div>
+        }
       } @else if(form.controls.mode.value === 'creditor') {
         <div class="mt-6 grid gap-6 sm:grid-cols-2">
           <div class="flex flex-col gap-1.5">
@@ -253,6 +286,9 @@
           />
           @if(form.controls.purchaseDate.touched && form.controls.purchaseDate.hasError('isoDate')) {
             <p class="text-xs text-negative" role="alert">{{ errorMessages['isoDate'] }}</p>
+          }
+          @if(form.controls.purchaseDate.touched && form.controls.purchaseDate.hasError('notFuture')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['notFuture'] }}</p>
           }
         </div>
       </div>

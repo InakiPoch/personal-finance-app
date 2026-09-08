@@ -1107,6 +1107,76 @@ Built one green-lit step at a time (8 self-defined steps — the slice doc has n
 
 ---
 
+## Phase 30 — Back-dated card expenses (Slice 1)
+
+**Goal:** On Load expense (§3.3), a **credit-card** purchase with a past date reveals a required "Paid from" account (the API settles its already-elapsed installments from it), and a future purchase date is rejected before submit.
+
+**Traces to:** `docs/backdated-expenses/slice-1-card-backdating.md` (+ `00-overview.md`; first of three slices — Slice 2 creditor cutoff has no new client UI, Slice 3 optional pending-$). API half is `app/api` Phase 31 (`CreatePaymentPlanCommand.BankAccountId`; `CreatePaymentPlanHandler` accrues + pays the elapsed cuotas at creation; `FuturePurchaseDate` / `BackdatedCardBankAccountRequired` → 422). `docs/DESIGN.md` §3 `CreatePaymentPlan` type gains `bankAccountId?: string`; `docs/PRD.md` §3.3 "Shows"/"Source" updated.
+
+**Depends on:** Phase 10 (payment-mode selector on `load-expense-page`), Phase 21 (`bankAndCashInstruments()` computed signal, reused as the back-dated funding source).
+
+### Tasks
+- [x] `features/financing/types/create-payment-plan.ts` — `CreatePaymentPlan` gains a trailing optional `bankAccountId?: string`.
+- [x] `pages/load-expense-page/load-expense-page.ts` — `bankAccountId: FormControl<string>` on the form (type + `initLoadExpenseForm`); `isBackdatedCardPurchase()` (`mode === 'card'` && ISO-shaped `purchaseDate` && `< todayIso()` where `todayIso()` = `new Date().toISOString().slice(0, 10)`); `watchBackdatedFunding()` on `merge(mode.valueChanges, purchaseDate.valueChanges)` toggles `Validators.required` on `bankAccountId` and clears its value/validator otherwise (wired in `ngOnInit` after `watchModeChange`); `onSubmit` spreads `bankAccountId` into the card-mode branch when truthy; `submitErrorMessages` gains `Financing.FuturePurchaseDate` + `Financing.BackdatedCardBankAccountRequired`.
+- [x] `pages/load-expense-page/load-expense-page.html` — "Paid from" `<select id="bankAccountId">` inside the `mode === 'card'` branch, gated by `@if(isBackdatedCardPurchase())`, options from `bankAndCashInstruments()`, plus a back-dated explainer line, the shared "no debit or cash accounts" empty-state, and the `required` error line.
+- [x] `features/financing/validation-helpers.ts` — new `notFuture: ValidatorFn` (`{ notFuture: true }` when a well-formed ISO date is strictly `> new Date().toISOString().slice(0, 10)`); `purchaseDate` validators → `[isoDate, notFuture]`; `notFuture` error line + `errorMessages` entry in `load-expense-page`.
+- [x] Specs — `load-expense-page.spec.ts`: `fillValidForm` / `fillValidDebitForm` and the two `purchaseDate` payload assertions switched from `'2026-09-01'` to a dynamic `todayIso()` (a hardcoded past date would make every card-mode test permanently "back-dated"); `LoadExpenseView` form type gains `bankAccountId`; **+6 facts** (selector hidden for a today-dated card purchase; shown + required for a back-dated one; `bankAccountId` in the posted body; omitted for a today-dated one; requirement dropped when re-dated to today; a future date blocks submit).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **234/234** (from 228: `load-expense-page` +6); `pnpm ng build --configuration production` clean (no budget change).
+- [x] `create-payment-plan.ts` field-matches the API's `CreatePaymentPlanCommand`.
+- [ ] Manual browser walk (no browser here) — handed to the user: pick *My credit card*, set the purchase date ~2 months back → a "Paid from" select appears and the form is invalid until an account is chosen; set the date to a future day → the field shows the future-date error and submit is blocked; a today-dated card purchase shows no "Paid from" select.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 5–8 of the slice; steps 1–4 are the API's Phase 31). Not committed by this session — the user commits their own. **Deviation from the slice doc:** the back-dated trigger is the coarser "`purchaseDate` before today" rather than "cuota 1's due cycle is already past" — the client cannot resolve the billing cycle without the card's cutoff day, and the API ignores `bankAccountId` when it is not needed, so an occasionally-shown selector is harmless. `todayIso()` uses `toISOString()` (UTC) to match the API's `TimeProvider.GetUtcNow()`. Making the spec fixtures time-independent also fixed a latent brittleness (the old `'2026-09-01'` literal). Doc-sync is this phase's step 8-equivalent, done here.
+
+---
+
+## Phase 31 — Back-dated creditor cutoff (Slice 2)
+
+**Goal:** A back-dated **creditor-financed** purchase on Load expense (§3.3) reads like one you have been paying for months — its elapsed cuotas shown as paid — with no new UI and no new field.
+
+**Traces to:** `docs/backdated-expenses/slice-2-creditor-cutoff.md` (+ `00-overview.md`; middle of three slices — Slice 1 was card mode, Slice 3 optional pending-$). API half is `app/api` Phase 32 (`PaymentPlan.Create` routes the creditor branch through `ResolveCycle(purchaseDate, 26)` uniformly; `CreatePaymentPlanHandler` stamps elapsed creditor cuotas `PaidOnUtc`, display-only, no ledger). **No client production change.**
+
+**Depends on:** Phase 30 (`load-expense-page` back-dated "Paid from" selector — already card-only), Phase 17 / `app/api` Phase 30 (Recent Purchases "N/M paid · next: <month>" from `PaidOnUtc`).
+
+### Tasks
+- [x] No `.ts` / `.html` change — the Slice-1 "Paid from" selector is already card-only (`isBackdatedCardPurchase()` → `mode === 'card'`), and Recent Purchases already renders "N/M paid · next: <month>" from `PaidOnUtc`. Creditor mode never showed the selector.
+- [x] `pages/load-expense-page/load-expense-page.spec.ts` — +1 fact `keeps the "Paid from" selector hidden for a back-dated creditor purchase`: creditor mode + a past `purchaseDate` → `#bankAccountId` null, `bankAccountId` not required, form valid, submit body carries `creditorId` and no `bankAccountId`.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **235/235** (from 234: `load-expense-page` +1); `pnpm ng build --configuration production` clean (no budget change).
+
+### Completion notes
+
+API-only slice on the client's side — no production code touched. The one spec fact pins down that the card-only gating already covers the creditor path (so a future change to `isBackdatedCardPurchase()` can't silently leak the bank selector into creditor mode). Not committed by this session — the user commits their own. Doc-sync done here.
+
+---
+
+## Phase 32 — Back-dated expenses: pending $ on Recent Purchases (Slice 3, OPTIONAL)
+
+**Goal:** A Recent Purchases row (§3.9) shows **how much of the total is still pending** on that purchase, next to the existing "N/M paid · next: <month>" sub-line.
+
+**Traces to:** `docs/backdated-expenses/slice-3-pending-amount.md` (+ `00-overview.md`; last of three slices — **closes the initiative**). API half is `app/api` Phase 33 (`ListRecentPurchasesQuery` / handler / DTO gain `PendingAmountMinorUnits` = Σ unpaid, non-reversed installment amounts). `docs/DESIGN.md` §3 `RecentPurchaseRow` type gains `pendingAmountMinorUnits: Money`; `docs/PRD.md` §3.9 "Shows" updated.
+
+**Depends on:** Phase 29 / `app/api` Phase 30 (Recent Purchases "N/M paid · next: <month>" sub-line — the pending segment slots into it).
+
+### Tasks
+- [x] `features/financing/types/recent-purchase-row.ts` — `RecentPurchaseRow` gains `pendingAmountMinorUnits: Money` (`Money` already imported).
+- [x] `pages/recent-purchases-page/recent-purchases-table.ts` — `hasPending(purchase)` (`purchase.pendingAmountMinorUnits > 0`) + `pendingLabel(purchase)` (`` `${formatArs(purchase.pendingAmountMinorUnits)} pending` ``). `recent-purchases-table.html` sub-line → `{{ paidLabel(purchase) }}` then `@if(hasPending(purchase)) { &middot; {{ pendingLabel(purchase) }} }` then `&middot; {{ nextPaymentLabel(purchase) }}` — pending segment hidden when `0`.
+- [x] Fixtures — `recent-purchases-table.spec.ts`, `recent-purchases-page.spec.ts`, `financing-service.spec.ts` `RecentPurchaseRow` literals gain `pendingAmountMinorUnits`. `recent-purchases-table.spec.ts` +1 fact (label present on a partly-paid row, absent on a fully-paid one).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **236/236** (from 235: `recent-purchases-table` +1); `pnpm ng build --configuration production` clean (no budget change).
+- [ ] Manual (no browser here) — handed to the user: a partly-paid purchase reads "N/M paid · $X pending · next: <month>"; a fully-paid one reads "N/M paid · Fully paid" with no pending segment.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–5 of the slice; steps 1–2 are the API's Phase 33). Pure additive read — no route, nav, or service-method change; `recentPurchases()` stays a bare cast. `hasPending`/`pendingLabel` mirror the existing `paidLabel`/`nextPaymentLabel` helper shape. Not committed by this session — the user commits their own. **This closes `docs/backdated-expenses/`.** Doc-sync done here.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

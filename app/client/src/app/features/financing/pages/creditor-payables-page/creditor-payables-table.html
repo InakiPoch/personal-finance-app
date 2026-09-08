@@ -20,7 +20,7 @@
           scope="col"
           class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
         >
-          Amount
+          Due now / Total
         </th>
       </tr>
     </thead>
@@ -42,8 +42,11 @@
               —
             }
           </td>
-          <td class="py-2.5 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-            {{ formatArs(row.outstandingMinorUnits) }}
+          <td class="py-2.5 text-right [font-variant-numeric:tabular-nums_lining-nums]">
+            <span class="block text-sm text-ink">{{ formatArs(row.dueNowMinorUnits) }}</span>
+            <span class="block text-[0.6875rem] text-ink-faint">
+              {{ formatArs(row.totalOwedMinorUnits) }} total
+            </span>
           </td>
         </tr>
       }

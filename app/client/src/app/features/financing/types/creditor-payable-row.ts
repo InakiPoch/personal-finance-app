@@ -5,7 +5,8 @@ import { CreditorPayableAccount } from './creditor-payable-account';
 export type CreditorPayableRow = {
   creditorId: string;
   creditorName: string;
-  outstandingMinorUnits: Money;
+  dueNowMinorUnits: Money;
+  totalOwedMinorUnits: Money;
   nextDueDate: IsoDate | null;
   accounts: CreditorPayableAccount[];
 };

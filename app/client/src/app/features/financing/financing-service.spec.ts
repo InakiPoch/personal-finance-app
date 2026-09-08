@@ -205,7 +205,8 @@ describe('FinancingService', () => {
     const rows: CreditorPayableRow[] = [{
       creditorId: 'cr-1',
       creditorName: 'Juan',
-      outstandingMinorUnits: money(45000),
+      dueNowMinorUnits: money(45000),
+      totalOwedMinorUnits: money(45000),
       nextDueDate: '2026-03-10',
       accounts: [
         { accountId: 'acc-1', label: 'Galicia', outstandingMinorUnits: money(45000) }

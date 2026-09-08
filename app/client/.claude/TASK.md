@@ -1177,6 +1177,107 @@ Built one green-lit step at a time (steps 3–5 of the slice; steps 1–2 are th
 
 ---
 
+## Phase 33 — Owed to creditors: current-cycle outstanding (Slice 1)
+
+**Goal:** The "Owed to creditors" table (`financing/creditor-payables`) stops showing the *historic* total per creditor and shows **two** figures per row — "Due now" (this creditor cycle + folded-in arrears) and "Total owed" (the whole remaining debt) — with "Due now" as the focal figure.
+
+**Traces to:** `docs/owed-to-creditors/slice-1-current-cycle-outstanding.md` (+ `00-overview.md`; first of four slices — Slice 2 detail-by-purchase, Slice 3 pay a cuota + undo, Slice 4 pay full debt). API half is `app/api` Phase 34 (`CreditorPayableRow` drops `OutstandingMinorUnits`, gains `DueNowMinorUnits` + `TotalOwedMinorUnits`; `GetCreditorPayablesHandler` gains `TimeProvider`; paid cuotas excluded from both). `docs/DESIGN.md` §3 `CreditorPayableRow` type swaps `outstandingMinorUnits` for the two fields; `docs/PRD.md` §9 decision 14.
+
+**Depends on:** `app/client` Phase 20 (the `creditor-payables-page` + table + route + nav entry — all already exist).
+
+### Tasks
+- [x] `features/financing/types/creditor-payable-row.ts` — drop `outstandingMinorUnits: Money`, add `dueNowMinorUnits: Money` + `totalOwedMinorUnits: Money`. `creditor-payable-account.ts` unchanged (per-account `outstandingMinorUnits` stays — the API kept `CreditorPayableAccountBreakdown.OutstandingMinorUnits`).
+- [x] `pages/creditor-payables-page/creditor-payables-table.html` — amount `<td>` → focal `{{ formatArs(row.dueNowMinorUnits) }}` (`block text-sm text-ink`) + muted sub-line `{{ formatArs(row.totalOwedMinorUnits) }} total` (`block text-[0.6875rem] text-ink-faint`, matching the account sub-line). Header `Amount` → `Due now / Total`. `creditor-payables-table.ts` / `creditor-payables-page.ts` — no change (neither reads the field; `formatArs` / `Money` already imported; `creditorPayables()` stays a bare `{ rows }` cast).
+- [x] Fixtures — `financing-service.spec.ts` + `creditor-payables-page.spec.ts` `CreditorPayableRow` literals swap `outstandingMinorUnits` for the two fields. `creditor-payables-table.spec.ts` imports `formatArs`, gives its two fixture rows distinct due-now / total-owed values, +1 fact (`renders both the due-now and total-owed figures for a row` — asserts `formatArs(300000)`, `formatArs(500000)`, and `'total'` in the row text).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **237/237** (from 236: `creditor-payables-table` +1); `pnpm ng build --configuration production` clean (no budget change).
+- [ ] Manual (no browser here) — handed to the user: a creditor with overdue + current + future unpaid cuotas reads "Due now $X" (overdue folded in, paid excluded) and "$Y total" (future added).
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are the API's Phase 34, step 5 is doc-sync). Pure additive read reshape — no route, nav, or service-method change; `creditorPayables()` stays a bare cast. The muted sub-line reuses the exact classes of the existing account-labels sub-line. Not committed by this session — the user commits their own. **Known cosmetic carried from the API:** the per-account breakdown still sums over all non-reversed cuotas (paid included), so a sub-line can exceed "Total owed"; deferred to a later slice. Slices 2–4 remain — not started.
+
+---
+
+## Phase 34 — Owed to creditors: creditor detail view (Slice 2)
+
+**Goal:** A read-only drill-down page at `financing/creditor-payables/:creditorId` showing one creditor's debt **grouped by purchase** — each `PaymentPlan` a section (description, date, "X outstanding of Y") with its installments beneath (cuota N/M, due month, amount, a status badge). Each row of the "Owed to creditors" list becomes a link into it.
+
+**Traces to:** `docs/owed-to-creditors/slice-2-creditor-detail-view.md` (+ `00-overview.md`; second of four slices — Slice 3 pay a cuota + undo, Slice 4 pay full debt). API half is `app/api` Phase 35 (`GET /v1/financing/creditor-payables/{creditorId}` — pure additive CQRS query; `Found` flag → 404 `Financing.CreditorNotFound`). `docs/DESIGN.md` §3 gains the three new types + §9 an endpoint row; `docs/PRD.md` §3.10 records the detail view.
+
+**Depends on:** `app/client` Phase 20 (the `creditor-payables-page` + table + route + nav entry) and Phase 33 (the two-figure list this drills out of).
+
+### Tasks
+- [x] `features/financing/types/` — three one-type-per-file models: `creditor-installment-row.ts` (`{ installmentId; sequence; installmentCount; amountMinorUnits: Money; dueYear; dueMonth; isPaid; isReversed; status: 'overdue' | 'due' | 'future' | 'paid' | 'reversed' }` — the union inlined on the field, not a separate export, to keep one type per file); `creditor-purchase-group.ts` (`{ planId; description; purchaseDate: IsoDate; totalMinorUnits: Money; outstandingMinorUnits: Money; installments: CreditorInstallmentRow[] }`); `creditor-detail.ts` (`{ creditorId; creditorName; purchases: CreditorPurchaseGroup[] }` — no `found`, the 404 never parses as this type).
+- [x] `financing-service.ts` — `creditorDetail(creditorId): Observable<CreditorDetail>` → bare `http.get<CreditorDetail>(\`financing/creditor-payables/${creditorId}\`)` (single object, no `{ rows }` envelope — the `getStatement` pattern), after `creditorPayables()`.
+- [x] `financing.routes.ts` — import `CreditorDetailPage`, add `{ path: 'creditor-payables/:creditorId', component: CreditorDetailPage }` after the list route.
+- [x] `pages/creditor-detail-page/creditor-detail-page.{ts,html,css}` — container on the `statement-page` pattern: `LoadStatus = 'idle' | 'loading' | 'ready' | 'error'`, signals `detail` / `loadStatus` / `loadError: AppError | null`; reads `:creditorId` from `route.paramMap` in `ngOnInit`, `loadDetail(id)` subscribes with `takeUntil(destroy$)`. `isNotFound()` = `loadError()?.code === 'Financing.CreditorNotFound'`. Template: loading → faint line; error → `isNotFound()` ? plain `text-ink-soft` "No creditor matches that link — it may have been removed." : `text-negative role="alert"` "Could not load this creditor — try again in a moment."; ready → a "Purchases" section + "N shown" + `<app-creditor-purchases-table [purchases]="loaded.purchases" />`. Header `<h1>` shows `creditorName` once loaded, else "Creditor detail".
+- [x] `pages/creditor-detail-page/creditor-purchases-table.{ts,html,css}` — presentational, `purchases = input.required<CreditorPurchaseGroup[]>()` (no access modifier, matching the sibling tables). Module-level `MONTH_LABELS` (copied from `recent-purchases-table.ts`, not shared). A `<ul>` of `<li class="purchase-group">` (staggered `[style.animation-delay.ms]="i * 40"`), each: description + `purchaseDate`, "`<outstanding>` outstanding of `<total>`", then an installments `<table>` (`installmentLabel` → `N/M`, `dueLabel` → `Mon YYYY` from `dueMonth`/`dueYear`, amount, status). Status cell `@switch(row.status)`: `paid`/`reversed` → `<span class="status-badge">` (hairline `--ledger` pill; CSS copied from `installments-table.css`, renamed `.status-badge`), `overdue` → `text-ink`, `due` → `text-ink-soft`, `@default` (future) → `text-ink-faint` small-caps text. Empty note "This creditor has no recorded purchases." Two HTML comments mark the Slice-3/4 seams (header "Pay full debt" + per-row Pay/Undo column).
+- [x] `pages/creditor-payables-page/creditor-payables-table.{ts,html}` — creditor name wrapped in `<a [routerLink]="['/financing', 'creditor-payables', row.creditorId]">` with a `&rsaquo;` chevron (the `parties-page` link idiom); `RouterLink` added to `imports`. Account sub-line unchanged.
+- [x] Specs — `financing-service.spec.ts` +2 (`creditorDetail` bare GET at `${base}/financing/creditor-payables/cr-1`; 404 `Financing.CreditorNotFound` → `AppError` keyed off code). `creditor-payables-table.spec.ts` — `provideRouter([])` added, +1 fact (`tbody tr.payable-row a` `href` === `/financing/creditor-payables/cred-1`). `creditor-payables-page.spec.ts` — **required fix**: `provideRouter([])` added (the existing "renders the payables on init" fact broke with `NG0201 No provider for ActivatedRoute` once `RouterLink` instantiates on rendered rows). New `creditor-detail-page.spec.ts` (4 facts — loads by route param + renders `Juan`/`Sofa`/`1/3`/`Feb 2026`; a status label per installment; `Financing.CreditorNotFound` 404 → `isNotFound()` + "No creditor matches that link"; any other error → `isNotFound()` false + "Could not load this creditor"). New `creditor-purchases-table.spec.ts` (4 facts — one `li.purchase-group` per purchase + "outstanding of" + both money figures; installment rows list `1/3` + `Feb 2026` + `Paid`/`Overdue`/`Future` in order; `.status-badge` renders for `paid`; empty note + no `<table>`).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **248/248** (from 237: +2 `financing-service`, +1 `creditor-payables-table`, +4 `creditor-detail-page`, +4 `creditor-purchases-table`); `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk 58.3 → 68.7 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: click a creditor on "Owed to creditors" → the detail page lists its purchases grouped, each with its cuotas and correct status badges; an unknown id shows the friendly not-found state.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are the API's Phase 35, step 5 is doc-sync). Read-only — no writes, the per-row Pay/Undo and "Pay full debt" buttons are Slices 3–4 and the presentational table leaves HTML-comment seams for them. **Deviation forced by the RouterLink addition:** two existing `creditor-payables-*` specs needed `provideRouter([])` — the table spec because `RouterLink` is now in its imports, the page spec because its container renders the table with real rows and `RouterLink` only injects `ActivatedRoute` once an `<a>` is created (the empty/error facts were unaffected). Not committed by this session — the user commits their own. Slices 3–4 remain — not started.
+
+---
+
+## Phase 35 — Owed to creditors: pay a creditor cuota + undo (Slice 3)
+
+**Goal:** The Slice-2 creditor detail page gains per-row **Pay** / **Undo** buttons. Paying stamps `Installment.PaidOnUtc` server-side (display-only — no bank, no ledger); undo clears it. On success the page re-fetches the detail so the status badges and the Slice-1 list figures move.
+
+**Traces to:** `docs/owed-to-creditors/slice-3-pay-installment-and-undo.md` (+ `00-overview.md`; third of four slices — Slice 4 pay full debt remains). API half is `app/api` Phase 36 (`POST /v1/financing/creditor-installments/{id}/pay` + `/unpay`; new `Financing.NotACreditorInstallment` 409 for a card installment). No `docs/DESIGN.md` / `docs/PRD.md` client-side change (the API's `docs/PRD.md` §9 decision 14 marks Slice 3 done).
+
+**Depends on:** `app/client` Phase 34 (the `creditor-detail-page` + `creditor-purchases-table` this hangs the buttons off).
+
+### Tasks
+- [x] `features/financing/types/pay-creditor-installment-result.ts` — `{ installmentId: string }`.
+- [x] `financing-service.ts` — `payCreditorInstallment(installmentId): Observable<PayCreditorInstallmentResult>` → `POST financing/creditor-installments/${id}/pay` with an empty `{}` body; `unpayCreditorInstallment(...)` → `.../unpay`. Both after `creditorDetail`.
+- [x] `pages/creditor-detail-page/creditor-purchases-table.{ts,html}` — `paying: InputSignal<boolean> = input<boolean>(false)`, `payClick` / `undoClick: OutputEmitterRef<string> = output<string>()`; `canPay(row)` = `!row.isPaid && !row.isReversed`; `onPay(row)` / `onUndo(row)` emit `row.installmentId` (guarded). HTML: the `<thead>` "Slice 3 seam" comment → a real `<th class="pb-2 text-right"><span class="sr-only">Actions</span></th>`; each `<tr>` gains a trailing `<td class="py-2 text-right">` with `@if(canPay(row)) { <button … text-stamp … [disabled]="paying()" (click)="onPay(row)">Pay</button> } @else if(row.isPaid) { <button … text-ink-soft … [disabled]="paying()" (click)="onUndo(row)">Undo</button> }` (button classes copied from the card `installments-table.html`); the top "Pay full debt" seam comment retagged Slice 4.
+- [x] `pages/creditor-detail-page/creditor-detail-page.{ts,html}` — `type PayStatus = 'idle' | 'busy' | 'error'`; `payStatus` / `payError: AppError | null` protected signals; `private creditorId: string | null` (set from the `paramMap` sub before `loadDetail`); `private payErrorMessages` (`Financing.NotACreditorInstallment` / `InstallmentAlreadyPaid` / `InstallmentAlreadyReversed` / `InstallmentNotFound`); `payErrorText(error)`; `onPay(id)` / `onUndo(id)` → `private runMutation(operation: Observable<PayCreditorInstallmentResult>)` (guards `creditorId`, sets `busy`, on next → `idle` + `loadDetail(creditorId)`, on error → `payError` + `error`). Template: a `@if(payError(); as error) { <p class="mt-4 text-sm text-negative" role="alert">{{ payErrorText(error) }}</p> }` before the table; `<app-creditor-purchases-table>` gains `[paying]="payStatus() === 'busy'"` `(payClick)="onPay($event)"` `(undoClick)="onUndo($event)"`. **No form, no bank selector.**
+- [x] Specs — `financing-service.spec.ts` +2 (pay/unpay POST URL + `{}` body + `{ installmentId }` result). `creditor-purchases-table.spec.ts` +5 (`buttonsByLabel` helper; 3 Pay + 1 Undo for the shared fixture; a reversed row → neither; `payClick` emits `'i-2'`, `undoClick` emits `'i-1'`; `[paying]=true` disables all four). `creditor-detail-page.spec.ts` +2 spies (`payCreditorInstallment` / `unpayCreditorInstallment`, defaulted in a `beforeEach`), +`buttonByLabel` helper, +3 facts (Pay click → `payCreditorInstallment('i-2')` + `creditorDetail` called 2×; Undo click → `unpayCreditorInstallment('i-1')` + 2×; failed pay `Financing.InstallmentAlreadyPaid` → "already marked paid" text + `creditorDetail` still 1×).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **258/258** (from 248: +2 `financing-service`, +5 `creditor-purchases-table`, +3 `creditor-detail-page`); `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk 68.7 → 72.14 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: on a creditor detail page, Pay one cuota → its badge flips to Paid, the group outstanding and the list `DueNow`/`TotalOwed` drop by that amount; Undo → everything restores; no bank balance moves.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are the API's Phase 36, step 5 is doc-sync). The re-fetch reuses `loadDetail`, which briefly flips `loadStatus` to `'loading'` (hiding the table) — same as the `statement-page` precedent, accepted over a more elaborate keep-visible refresh. `runMutation` guards `creditorId` non-null so a mutation before the route param resolves is a silent no-op. Not committed by this session — the user commits their own. Slice 4 remains — not started.
+
+---
+
+## Phase 36 — Owed to creditors: pay a creditor's full debt (Slice 4)
+
+**Goal:** The Slice-2 creditor detail page gains one **"Pay full debt"** button that settles the creditor's entire remaining debt (display-only stamp server-side — no bank, no ledger). Disabled when nothing is outstanding; a lightweight inline confirm before it runs; on success the page re-fetches so the badges and the Slice-1 list figures drop to $0.
+
+**Traces to:** `docs/owed-to-creditors/slice-4-pay-full-debt.md` (+ `00-overview.md`; fourth of four slices — **closes the initiative**). API half is `app/api` Phase 37 (`POST /v1/financing/creditor-payables/{creditorId}/pay-full` — `PayCreditorFullDebtCommand : ICommand<int>`, returns the count settled; zero settleable → `0`; unknown creditor → 404 `Financing.CreditorNotFound`; no bulk undo). `docs/DESIGN.md` §9 gains the pay-full endpoint row (plus the Slice-3 pay/unpay rows it had been missing); no `docs/PRD.md` client-side change (the API's `docs/PRD.md` §9 decision 14 marks Slice 4 done and closes the initiative).
+
+**Depends on:** `app/client` Phase 34 (the `creditor-detail-page` container this hangs the button off), Phase 35 (the `payStatus` / `payError` signals + `loadDetail` re-fetch it reuses).
+
+### Tasks
+- [x] `features/financing/types/pay-creditor-full-debt-result.ts` — `{ settledCount: number }`.
+- [x] `financing-service.ts` — `payCreditorFullDebt(creditorId: string): Observable<PayCreditorFullDebtResult>` → `POST financing/creditor-payables/${creditorId}/pay-full` with an empty `{}` body, after `unpayCreditorInstallment`.
+- [x] `pages/creditor-detail-page/creditor-detail-page.ts` — `confirmingFullDebt: WritableSignal<boolean>` + `lastSettledCount: WritableSignal<number | null>` protected signals; `hasOutstanding()` (`(this.detail()?.purchases ?? []).some(g => g.outstandingMinorUnits > 0)` — no money arithmetic); `requestPayFullDebt()` (clear error/count, arm the confirm), `cancelPayFullDebt()` (disarm), `confirmPayFullDebt()` (guards `creditorId`, sets `payStatus='busy'`, calls `financing.payCreditorFullDebt`, on next → `idle` + disarm + `lastSettledCount.set(result.settledCount)` + `loadDetail(creditorId)`, on error → `payError` + `'error'` + disarm). The per-cuota `runMutation` is untouched.
+- [x] `pages/creditor-detail-page/creditor-detail-page.html` — a `<div class="mt-4 flex flex-wrap items-center gap-3">` under the "Purchases" header: `@if(confirmingFullDebt()) { <span>Settle every remaining cuota for this creditor?</span> <button (click)="confirmPayFullDebt()">Confirm</button> <button (click)="cancelPayFullDebt()">Cancel</button> } @else { <button [disabled]="!hasOutstanding() || payStatus() === 'busy'" (click)="requestPayFullDebt()">Pay full debt</button> }`, all `[disabled]` while `payStatus() === 'busy'`, button classes copied from the card `installments-table` Pay button (Cancel swaps `text-stamp` → `text-ink-soft`); then `@if(lastSettledCount(); as settled) { <p class="mt-3 text-sm text-ink-soft">{{ settled }} cuota(s) settled.</p> }` before the existing `payError` line.
+- [x] `pages/creditor-detail-page/creditor-purchases-table.html` — remove the now-satisfied `<!-- Slice 4 seam: a "Pay full debt" action belongs above this list. -->` comment.
+- [x] Specs — `financing-service.spec.ts` +1 (`payCreditorFullDebt('cr-1')` → POST `financing/creditor-payables/cr-1/pay-full`, method `POST`, body `{}`, unwraps `{ settledCount: 4 }` → `4`). `creditor-detail-page.spec.ts` — new `payCreditorFullDebt` spy (defaulted `of({ settledCount: 3 })` in the `beforeEach`, added to the `FinancingService` mock), +3 facts: arms the inline confirm then **Confirm** → `payCreditorFullDebt('cred-1')` + `creditorDetail` called 2× + "cuota(s) settled" text; `Pay full debt` button `.disabled` when a fixture with every group `outstandingMinorUnits: money(0)`; **Cancel** → service not called, `Pay full debt` still present.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **262/262** (from 258: +1 `financing-service`, +3 `creditor-detail-page`); `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk 72.14 → 74.77 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user, the full-initiative walk: load a back-dated creditor purchase → "Owed to creditors" shows Due now + Total owed → open the creditor → purchases grouped with per-cuota status → Pay one cuota → figures drop → Undo → figures restore → **Pay full debt** → Total owed = $0, every cuota Paid. No bank balance moves anywhere.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are the API's Phase 37, step 5 is doc-sync). **"Pay full debt" placement:** the slice doc said "page header"; put in the "Purchases" section header row instead — it needs `detail()` loaded to know whether anything is outstanding, and only renders once the detail is `ready`. **Confirm affordance:** a two-click inline text prompt + Confirm/Cancel, not a modal (the doc's stated preference). `hasOutstanding()` deliberately avoids summing `Money` (the style guide's "no float arithmetic on money") — a `.some(... > 0)` check is enough for the disabled guard. `docs/DESIGN.md` §9 also picked up the two Slice-3 endpoint rows (`.../pay`, `/unpay`) that Slice 3 had left un-listed. Not committed by this session — the user commits their own. **This closes `docs/owed-to-creditors/` — the initiative is complete.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

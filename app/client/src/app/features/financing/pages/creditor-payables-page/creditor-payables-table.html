@@ -20,7 +20,7 @@
           scope="col"
           class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
         >
-          Amount
+          Due now / Total
         </th>
       </tr>
     </thead>
@@ -28,7 +28,16 @@
       @for(row of payables(); track row.creditorId; let i = $index) {
         <tr class="payable-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
           <td class="py-2.5 text-sm text-ink">
-            {{ row.creditorName }}
+            <a
+              [routerLink]="['/financing', 'creditor-payables', row.creditorId]"
+              class="group inline-flex items-center gap-1 transition-colors hover:text-stamp"
+            >
+              {{ row.creditorName }}
+              <span
+                aria-hidden="true"
+                class="transition-transform group-hover:translate-x-0.5"
+              >&rsaquo;</span>
+            </a>
             @if(row.accounts.length > 0) {
               <span class="block text-[0.6875rem] text-ink-faint">
                 {{ accountsLabel(row) }}
@@ -42,8 +51,11 @@
               —
             }
           </td>
-          <td class="py-2.5 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-            {{ formatArs(row.outstandingMinorUnits) }}
+          <td class="py-2.5 text-right [font-variant-numeric:tabular-nums_lining-nums]">
+            <span class="block text-sm text-ink">{{ formatArs(row.dueNowMinorUnits) }}</span>
+            <span class="block text-[0.6875rem] text-ink-faint">
+              {{ formatArs(row.totalOwedMinorUnits) }} total
+            </span>
           </td>
         </tr>
       }

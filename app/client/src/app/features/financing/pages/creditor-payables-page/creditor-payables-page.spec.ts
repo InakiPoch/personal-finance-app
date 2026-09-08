@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../financing-service';
@@ -21,7 +22,8 @@ describe('CreditorPayablesPage', () => {
   const rows: CreditorPayableRow[] = [{
     creditorId: 'cred-1',
     creditorName: 'Bank A',
-    outstandingMinorUnits: money(500000),
+    dueNowMinorUnits: money(500000),
+    totalOwedMinorUnits: money(500000),
     nextDueDate: '2026-10-01',
     accounts: [{
       accountId: 'acc-1',
@@ -35,6 +37,7 @@ describe('CreditorPayablesPage', () => {
       imports: [CreditorPayablesPage],
       providers: [
         provideZonelessChangeDetection(),
+        provideRouter([]),
         { provide: FinancingService, useValue: { creditorPayables } }
       ]
     });

@@ -102,6 +102,28 @@ internal static class EndpointExtensions {
                 .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
                 .WithDescription("Read-only roll-up over creditor-financed payment plans. There is no per-installment paid/settled flag yet, so \"outstanding\" is the whole plan: every non-reversed installment of a creditor-financed plan counts as still owed. Card-backed plans never appear.")
                 .Produces<CreditorPayablesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.CreditorPayableDetail, GetCreditorDetail.Handle)
+                .WithSummary("Get one creditor's outstanding debt, grouped by purchase.")
+                .WithDescription("Read-only drill-down: every creditor-financed purchase (payment plan) for the given creditor with its installments listed beneath — sequence, amount, due month, and paid/reversed status. An unknown creditor yields a 404.")
+                .Produces<CreditorDetailDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
+            group.MapPost(ApiRoutes.Financing.CreditorInstallmentPayment, PayCreditorInstallment.Handle)
+                .WithSummary("Mark a creditor installment paid.")
+                .WithDescription("Stamps a display-only PaidOnUtc on one creditor-financed installment — no bank account and no ledger posting (creditor debt is ledger-free for the holder). Fails if the installment is unknown, belongs to a credit-card plan, reversed, or already paid.")
+                .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Financing.CreditorInstallmentUnpayment, UnpayCreditorInstallment.Handle)
+                .WithSummary("Undo a creditor installment payment.")
+                .WithDescription("Clears the display-only PaidOnUtc stamp on one creditor-financed installment (fat-finger recovery). There is no ledger transaction to reverse. Fails if the installment is unknown, belongs to a credit-card plan, or is reversed.")
+                .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Financing.CreditorPayableFullPayment, PayCreditorFullDebt.Handle)
+                .WithSummary("Settle a creditor's entire remaining debt.")
+                .WithDescription("Stamps a display-only PaidOnUtc on every unpaid, non-reversed installment across all of the creditor's purchases — no bank account and no ledger posting. Already-paid and reversed installments are skipped; the result carries the number newly settled (zero when the debt was already clear). An unknown creditor yields a 404.")
+                .Produces<PayCreditorFullDebtResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
             return endpoints;
         }
 

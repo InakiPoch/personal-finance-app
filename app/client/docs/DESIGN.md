@@ -149,6 +149,27 @@ no `I-` prefix.
 - `CardFutureScheduleRow = { planId: string; installmentId: string; sequence: number;
   cycleYear: number; cycleMonth: number; amountMinorUnits: Money }`
 - `CardFutureSchedule = { cardId: string; rows: CardFutureScheduleRow[] }`
+- `CreditorPayableAccount = { accountId: string; label: string; outstandingMinorUnits: Money }`
+- `CreditorPayableRow = { creditorId: string; creditorName: string; dueNowMinorUnits: Money;
+  totalOwedMinorUnits: Money; nextDueDate: IsoDate | null; accounts: CreditorPayableAccount[] }` —
+  `dueNowMinorUnits` = Σ unpaid, non-reversed cuotas due by the current creditor cycle (arrears
+  folded in); `totalOwedMinorUnits` = Σ all unpaid, non-reversed (future included); paid excluded
+  from both (`docs/owed-to-creditors/slice-1-current-cycle-outstanding.md`). `nextDueDate` and the
+  per-account `outstandingMinorUnits` are still over all non-reversed cuotas.
+- `creditorPayables` returns `CreditorPayableRow[]` — the service casts + unwraps the `{ rows }` envelope
+- `CreditorInstallmentRow = { installmentId: string; sequence: number; installmentCount: number;
+  amountMinorUnits: Money; dueYear: number; dueMonth: number; isPaid: boolean; isReversed: boolean;
+  status: 'overdue' | 'due' | 'future' | 'paid' | 'reversed' }` — `dueYear`/`dueMonth` are the payment
+  month (stored cycle + 1); `status` is server-computed
+- `CreditorPurchaseGroup = { planId: string; description: string; purchaseDate: IsoDate;
+  totalMinorUnits: Money; outstandingMinorUnits: Money; installments: CreditorInstallmentRow[] }` —
+  `totalMinorUnits` = Σ non-reversed cuotas of the plan, `outstandingMinorUnits` = Σ unpaid non-reversed
+- `CreditorDetail = { creditorId: string; creditorName: string; purchases: CreditorPurchaseGroup[] }` —
+  one creditor's debt grouped by purchase, groups newest-first
+  (`docs/owed-to-creditors/slice-2-creditor-detail-view.md`)
+- `creditorDetail(creditorId)` returns `CreditorDetail` — the service casts the bare object (no `{ rows }`
+  envelope); an unknown creditor is a `404 Financing.CreditorNotFound` the detail page renders as a
+  friendly not-found state
 
 **Subscriptions** (`CreateSubscriptionDto`, `SubscriptionResultDto`, `ActiveSubscriptionsDto`)
 - `Frequency = 'monthly' | 'weekly' | 'daily' | 'annually'`
@@ -338,6 +359,10 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 28 | GET | `/v1/parties` | `PartiesService.list` | Parties list (roster — merged with #23 for balances) + Load expense (split party picker) |
 | 29 | GET | `/v1/parties/pending-shares` | `PartiesService.pendingShares` | Parties list (pending-schedule count per party — merged with #23/#28 so a $0-now scheduled party reads "Nothing owed yet · N scheduled") |
 | 30 | GET | `/v1/financing/purchases/recent` | `FinancingService.recentPurchases` | Recent purchases list (§3.9; each row carries a derived `paidInstallmentCount` + next-payment `nextDueYear`/`nextDueMonth` + `pendingAmountMinorUnits`, rendered "N/M paid · $X pending · next: `<month>`" or "Fully paid") |
+| 31 | GET | `/v1/financing/creditor-payables/{creditorId}` | `FinancingService.creditorDetail` | Owed to creditors — creditor detail (§3.10; one creditor's debt grouped by purchase; unknown creditor → 404 `Financing.CreditorNotFound` → friendly not-found state) |
+| 32 | POST | `/v1/financing/creditor-installments/{id}/pay` | `FinancingService.payCreditorInstallment` | Creditor detail — per-cuota **Pay** (display-only `PaidOnUtc` stamp, empty `{}` body; card installment → 409 `Financing.NotACreditorInstallment`) |
+| 33 | POST | `/v1/financing/creditor-installments/{id}/unpay` | `FinancingService.unpayCreditorInstallment` | Creditor detail — per-cuota **Undo** (clears the stamp, empty `{}` body; already-unpaid → no-op success) |
+| 34 | POST | `/v1/financing/creditor-payables/{creditorId}/pay-full` | `FinancingService.payCreditorFullDebt` | Creditor detail — **Pay full debt** (stamps every unpaid, non-reversed cuota across the creditor's purchases, empty `{}` body; returns `{ settledCount }`; zero settleable → `0`; unknown creditor → 404) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

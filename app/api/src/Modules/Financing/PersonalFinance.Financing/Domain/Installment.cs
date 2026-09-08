@@ -56,6 +56,11 @@ internal sealed class Installment : Entity<Guid> {
         return Result.Success();
     }
 
+    public Result ClearPayment() {
+        PaidOnUtc = null;
+        return Result.Success();
+    }
+
     public Result MarkReversed() {
         if(IsReversed) {
             return Result.Failure(FinancingErrors.InstallmentAlreadyReversed);

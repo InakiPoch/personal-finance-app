@@ -10,9 +10,12 @@ import { environment } from '../../environments/environment';
 import { CardFutureSchedule } from './types/card-future-schedule';
 import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
+import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
+import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
 import { PayStatement } from './types/pay-statement';
@@ -205,7 +208,8 @@ describe('FinancingService', () => {
     const rows: CreditorPayableRow[] = [{
       creditorId: 'cr-1',
       creditorName: 'Juan',
-      outstandingMinorUnits: money(45000),
+      dueNowMinorUnits: money(45000),
+      totalOwedMinorUnits: money(45000),
       nextDueDate: '2026-03-10',
       accounts: [
         { accountId: 'acc-1', label: 'Galicia', outstandingMinorUnits: money(45000) }
@@ -217,6 +221,76 @@ describe('FinancingService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ rows });
     expect(result).toEqual(rows);
+  });
+  it('GETs a creditor detail as a bare object with its purchase groups intact', () => {
+    const detail: CreditorDetail = {
+      creditorId: 'cr-1',
+      creditorName: 'Juan',
+      purchases: [{
+        planId: 'pl-1',
+        description: 'Sofa',
+        purchaseDate: '2026-01-10',
+        totalMinorUnits: money(300000),
+        outstandingMinorUnits: money(200000),
+        installments: [{
+          installmentId: 'i-1',
+          sequence: 1,
+          installmentCount: 3,
+          amountMinorUnits: money(100000),
+          dueYear: 2026,
+          dueMonth: 2,
+          isPaid: false,
+          isReversed: false,
+          status: 'due'
+        }]
+      }]
+    };
+    let result: CreditorDetail | undefined;
+    service.creditorDetail('cr-1').subscribe((r: CreditorDetail) => (result = r));
+    const req = httpMock.expectOne(`${base}/financing/creditor-payables/cr-1`);
+    expect(req.request.method).toBe('GET');
+    req.flush(detail);
+    expect(result).toEqual(detail);
+  });
+  it('maps a 404 CreditorNotFound on creditorDetail to an AppError keyed off code', () => {
+    let error: AppError | undefined;
+    service.creditorDetail('missing').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
+    httpMock.expectOne(`${base}/financing/creditor-payables/missing`).flush(
+      { title: 'Not found', status: 404, detail: 'no such creditor', code: 'Financing.CreditorNotFound' },
+      { status: 404, statusText: 'Not Found' }
+    );
+    expect(error?.code).toBe('Financing.CreditorNotFound');
+    expect(error?.status).toBe(404);
+  });
+  it('POSTs an empty body to pay a creditor installment and returns its id', () => {
+    let result: string | undefined;
+    service.payCreditorInstallment('ci-1')
+      .subscribe((r: PayCreditorInstallmentResult) => (result = r.installmentId));
+    const req = httpMock.expectOne(`${base}/financing/creditor-installments/ci-1/pay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ installmentId: 'ci-1' });
+    expect(result).toBe('ci-1');
+  });
+  it('POSTs an empty body to undo a creditor installment payment and returns its id', () => {
+    let result: string | undefined;
+    service.unpayCreditorInstallment('ci-1')
+      .subscribe((r: PayCreditorInstallmentResult) => (result = r.installmentId));
+    const req = httpMock.expectOne(`${base}/financing/creditor-installments/ci-1/unpay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ installmentId: 'ci-1' });
+    expect(result).toBe('ci-1');
+  });
+  it('POSTs an empty body to pay a creditor full debt and returns the settled count', () => {
+    let result: number | undefined;
+    service.payCreditorFullDebt('cr-1')
+      .subscribe((r: PayCreditorFullDebtResult) => (result = r.settledCount));
+    const req = httpMock.expectOne(`${base}/financing/creditor-payables/cr-1/pay-full`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ settledCount: 4 });
+    expect(result).toBe(4);
   });
   it('maps a 404 on getStatement to an AppError keyed off code', () => {
     let error: AppError | undefined;

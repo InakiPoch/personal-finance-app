@@ -39,8 +39,18 @@ internal static class FinancingMappingExtensions {
         return new PayStatementResultDto(statementId);
     }
 
-    public static PayInstallmentResultDto ToPayInstallmentResultDto(this Guid installmentId) {
-        return new PayInstallmentResultDto(installmentId);
+    public static PayCreditorFullDebtResultDto ToPayCreditorFullDebtResultDto(this int settledCount) {
+        return new PayCreditorFullDebtResultDto(settledCount);
+    }
+
+    extension(Guid installmentId) {
+        public PayInstallmentResultDto ToPayInstallmentResultDto() {
+            return new PayInstallmentResultDto(installmentId);
+        }
+
+        public PayCreditorInstallmentResultDto ToPayCreditorInstallmentResultDto() {
+            return new PayCreditorInstallmentResultDto(installmentId);
+        }
     }
 
     public static CardFutureScheduleDto ToCardFutureScheduleDto(this CardFutureScheduleResponse response, Guid cardId) {
@@ -111,7 +121,8 @@ internal static class FinancingMappingExtensions {
             .Select(row => new CreditorPayableRowDto(
                 row.CreditorId,
                 row.CreditorName,
-                row.OutstandingMinorUnits,
+                row.DueNowMinorUnits,
+                row.TotalOwedMinorUnits,
                 row.NextDueDate,
                 row.Accounts
                     .Select(account => new CreditorPayableAccountDto(
@@ -124,6 +135,33 @@ internal static class FinancingMappingExtensions {
             )
             .ToList();
         return new CreditorPayablesDto(rows);
+    }
+
+    public static CreditorDetailDto ToCreditorDetailDto(this CreditorDetailResponse response) {
+        var purchases = response.Purchases
+            .Select(group => new CreditorPurchaseGroupDto(
+                group.PlanId,
+                group.Description,
+                group.PurchaseDate,
+                group.TotalMinorUnits,
+                group.OutstandingMinorUnits,
+                group.Installments
+                    .Select(row => new CreditorInstallmentRowDto(
+                        row.InstallmentId,
+                        row.Sequence,
+                        row.InstallmentCount,
+                        row.AmountMinorUnits,
+                        row.DueYear,
+                        row.DueMonth,
+                        row.IsPaid,
+                        row.IsReversed,
+                        row.Status)
+                    )
+                    .ToList()
+                )
+            )
+            .ToList();
+        return new CreditorDetailDto(response.CreditorId, response.CreditorName, purchases);
     }
 
     public static MonthlyStatementDetailDto ToMonthlyStatementDetailDto(this MonthlyStatementDetailResponse response) {

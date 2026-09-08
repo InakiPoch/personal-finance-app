@@ -102,6 +102,11 @@ internal static class EndpointExtensions {
                 .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
                 .WithDescription("Read-only roll-up over creditor-financed payment plans. There is no per-installment paid/settled flag yet, so \"outstanding\" is the whole plan: every non-reversed installment of a creditor-financed plan counts as still owed. Card-backed plans never appear.")
                 .Produces<CreditorPayablesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.CreditorPayableDetail, GetCreditorDetail.Handle)
+                .WithSummary("Get one creditor's outstanding debt, grouped by purchase.")
+                .WithDescription("Read-only drill-down: every creditor-financed purchase (payment plan) for the given creditor with its installments listed beneath — sequence, amount, due month, and paid/reversed status. An unknown creditor yields a 404.")
+                .Produces<CreditorDetailDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
             return endpoints;
         }
 

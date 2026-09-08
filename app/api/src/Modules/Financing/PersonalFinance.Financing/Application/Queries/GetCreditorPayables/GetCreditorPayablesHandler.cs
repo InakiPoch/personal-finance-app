@@ -8,9 +8,11 @@ namespace PersonalFinance.Financing.Application.Queries.GetCreditorPayables;
 
 /// <summary>
 /// Read-only "Owed to creditors" list: every creditor-financed installment that has not been reversed,
-/// grouped by creditor, with the outstanding total, the earliest owed date, and the per-account breakdown.
+/// grouped by creditor, with the amount due by the current billing cycle (arrears folded in), the whole
+/// remaining debt, the earliest owed date, and the per-account breakdown. Paid installments are excluded
+/// from both money figures.
 /// </summary>
-internal sealed class GetCreditorPayablesHandler(FinancingDbContext context) : IQueryHandler<GetCreditorPayablesQuery, CreditorPayablesResponse> {
+internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, TimeProvider timeProvider) : IQueryHandler<GetCreditorPayablesQuery, CreditorPayablesResponse> {
     public async Task<CreditorPayablesResponse> HandleAsync(GetCreditorPayablesQuery query, CancellationToken cancellationToken) {
         var installments = await (
             from installment in context.Set<Installment>()
@@ -23,9 +25,13 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context) : I
                 installment.Amount,
                 installment.CycleYear,
                 installment.CycleMonth,
+                installment.PaidOnUtc,
                 plan.PurchaseDate
             }
         ).ToListAsync(cancellationToken);
+        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var currentDueCycle = BillingCycleCalculator.ResolveCycle(today, PaymentPlan.CreditorCutoffDay).DueCycle;
+        var currentOrdinal = currentDueCycle.Year * 12 + currentDueCycle.Month;
         var creditors = await context.Creditors
             .Include(creditor => creditor.Accounts)
             .ToListAsync(cancellationToken);
@@ -36,7 +42,14 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context) : I
         var rows = installments
             .GroupBy(row => row.CreditorId!.Value)
             .Select(group => {
-                var outstandingMinorUnits = group.Sum(row => row.Amount.MinorUnits);
+                var unpaid = group.Where(row => row.PaidOnUtc is null).ToList();
+                var totalOwedMinorUnits = unpaid.Sum(row => row.Amount.MinorUnits);
+                var dueNowMinorUnits = unpaid
+                    .Where(row => {
+                        var dueCycle = new BillingCycle(row.CycleYear, row.CycleMonth).DueCycle;
+                        return dueCycle.Year * 12 + dueCycle.Month <= currentOrdinal;
+                    })
+                    .Sum(row => row.Amount.MinorUnits);
                 var earliest = group
                     .OrderBy(row => row.CycleYear)
                     .ThenBy(row => row.CycleMonth)
@@ -58,7 +71,8 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context) : I
                 return new CreditorPayableRow(
                     group.Key,
                     creditorNameById.TryGetValue(group.Key, out var name) ? name : "",
-                    outstandingMinorUnits,
+                    dueNowMinorUnits,
+                    totalOwedMinorUnits,
                     nextDueDate,
                     accounts
                 );

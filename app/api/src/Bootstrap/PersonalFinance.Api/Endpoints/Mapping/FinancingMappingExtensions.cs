@@ -111,7 +111,8 @@ internal static class FinancingMappingExtensions {
             .Select(row => new CreditorPayableRowDto(
                 row.CreditorId,
                 row.CreditorName,
-                row.OutstandingMinorUnits,
+                row.DueNowMinorUnits,
+                row.TotalOwedMinorUnits,
                 row.NextDueDate,
                 row.Accounts
                     .Select(account => new CreditorPayableAccountDto(

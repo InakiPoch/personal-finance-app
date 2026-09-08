@@ -15,6 +15,8 @@ using Xunit;
 namespace PersonalFinance.Financing.Tests;
 
 public sealed class GetCreditorPayablesHandlerTests : IDisposable {
+    private static readonly DateTimeOffset fixedNow = new(2026, 6, 15, 0, 0, 0, TimeSpan.Zero);
+
     private readonly SqliteConnection connection;
     private readonly DbContextOptions<FinancingDbContext> options;
 
@@ -44,12 +46,12 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCreditorPayablesHandler(readContext).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
         Assert.Equal(2, response.Rows.Count);
         Assert.Equal("Alpha", response.Rows[0].CreditorName);
-        Assert.Equal(42_000, response.Rows[0].OutstandingMinorUnits);
+        Assert.Equal(42_000, response.Rows[0].TotalOwedMinorUnits);
         Assert.Equal("Beta", response.Rows[1].CreditorName);
-        Assert.Equal(9_000, response.Rows[1].OutstandingMinorUnits);
+        Assert.Equal(9_000, response.Rows[1].TotalOwedMinorUnits);
     }
 
     [Fact]
@@ -62,11 +64,11 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCreditorPayablesHandler(readContext).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
         var row = Assert.Single(response.Rows);
         Assert.Equal("Solo", row.CreditorName);
-        Assert.Equal(15_000, row.OutstandingMinorUnits);
-        Assert.DoesNotContain(response.Rows, candidate => candidate.OutstandingMinorUnits == 77_777);
+        Assert.Equal(15_000, row.TotalOwedMinorUnits);
+        Assert.DoesNotContain(response.Rows, candidate => candidate.TotalOwedMinorUnits == 77_777);
     }
 
     [Fact]
@@ -78,7 +80,7 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCreditorPayablesHandler(readContext).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
         var row = Assert.Single(response.Rows);
         Assert.Equal(new DateOnly(2026, 2, 10), row.NextDueDate);
     }
@@ -95,9 +97,9 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCreditorPayablesHandler(readContext).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
         var row = Assert.Single(response.Rows);
-        Assert.Equal(50_000, row.OutstandingMinorUnits);
+        Assert.Equal(50_000, row.TotalOwedMinorUnits);
         Assert.Equal(2, row.Accounts.Count);
         Assert.Equal("AA Bank", row.Accounts[0].Label);
         Assert.Equal(20_000, row.Accounts[0].OutstandingMinorUnits);
@@ -113,8 +115,62 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCreditorPayablesHandler(readContext).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
         Assert.Empty(response.Rows);
+    }
+
+    [Fact]
+    public async Task Handle_folds_overdue_unpaid_installments_into_due_now() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Carlos", ["Carlos Bank"], cancellationToken);
+        await using(var context = NewContext()) {
+            // Purchase Jan 10 -> stored cycles Jan/Feb/Mar/Apr 2026 -> DueCycles Feb/Mar/Apr/May 2026.
+            context.PaymentPlans.Add(CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 4, 40_000));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        // Clock Mar 15 -> current creditor DueCycle is Apr 2026: cuotas due Feb/Mar (overdue) + Apr (current) all fold in; May is future.
+        var handler = new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(new DateTimeOffset(2026, 3, 15, 0, 0, 0, TimeSpan.Zero)));
+        var response = await handler.HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var row = Assert.Single(response.Rows);
+        Assert.Equal(30_000, row.DueNowMinorUnits);
+        Assert.Equal(40_000, row.TotalOwedMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_excludes_future_installments_from_due_now_but_counts_them_in_total_owed() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Diana", ["Diana Bank"], cancellationToken);
+        await using(var context = NewContext()) {
+            // Purchase Jan 10 -> stored cycles Jan/Feb 2026 -> DueCycles Feb/Mar 2026.
+            context.PaymentPlans.Add(CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 2, 20_000));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        // Clock Jan 15 -> current creditor DueCycle is Feb 2026: only cuota 1 (DueCycle Feb) is due now; cuota 2 (DueCycle Mar) is future.
+        var handler = new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(new DateTimeOffset(2026, 1, 15, 0, 0, 0, TimeSpan.Zero)));
+        var response = await handler.HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var row = Assert.Single(response.Rows);
+        Assert.Equal(10_000, row.DueNowMinorUnits);
+        Assert.Equal(20_000, row.TotalOwedMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_excludes_paid_installments_from_both_figures() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Elena", ["Elena Bank"], cancellationToken);
+        await using(var context = NewContext()) {
+            var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 3, 30_000);
+            plan.Installments.OrderBy(installment => installment.Sequence).First().MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        // fixedNow (Jun 15 2026) puts every DueCycle in the past, so only the paid stamp can drop cuota 1 out.
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var row = Assert.Single(response.Rows);
+        Assert.Equal(20_000, row.DueNowMinorUnits);
+        Assert.Equal(20_000, row.TotalOwedMinorUnits);
     }
 
     private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits) {
@@ -160,6 +216,12 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
 
     private FinancingDbContext NewContext() {
         return new FinancingDbContext(options, ThrowingConnectionFactory.Instance);
+    }
+
+    private sealed class FixedTimeProvider(DateTimeOffset now) : TimeProvider {
+        public override DateTimeOffset GetUtcNow() {
+            return now;
+        }
     }
 
     private sealed class ThrowingConnectionFactory : ISqliteConnectionFactory {

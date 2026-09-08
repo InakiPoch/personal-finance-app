@@ -204,9 +204,17 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   payment month is at or before the current creditor cycle, with earlier-month arrears folded in)
   and a muted **"&lt;total&gt; total"** sub-line (Σ all unpaid, non-reversed cuotas, future included).
   Paid cuotas are excluded from both.
-  An empty-state note when no creditor has an outstanding balance.
-- **Source:** `GET /v1/financing/creditor-payables`.
-- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (the list) and `docs/owed-to-creditors/slice-1-current-cycle-outstanding.md` (the two-figure split — API's Phase 34); Financing-only, read-only, no Ledger (D7). Paid cuotas now drop out of both money figures (`Installment.PaidOnUtc`, stamped by the back-dated creditor path and — from Slice 3 — a "pay a cuota" action). **Still pending:** `NextDueDate` is the earliest *scheduled* month and does not advance as months pass; the per-account sub-line breakdown still sums over all non-reversed cuotas, so it can exceed "Total owed" when a creditor has paid cuotas — both deferred to a later slice. Detail-by-purchase (Slice 2) and pay/undo (Slices 3–4) are not built yet. Reachable from the global nav right after "Recent purchases".
+  An empty-state note when no creditor has an outstanding balance. **Each creditor name is a link
+  into its detail view.**
+- **Detail view (`financing/creditor-payables/:creditorId`, now built):** a read-only drill-down
+  showing one creditor's debt **grouped by purchase** — each payment plan a section with its
+  description, purchase date and "`<outstanding>` outstanding of `<total>`", and an installments
+  sub-table beneath (cuota N/M, payment month, amount, and a status badge: overdue / due / future /
+  paid / reversed). Sections are ordered newest purchase first. An unknown creditor id renders a
+  friendly "no creditor matches that link" state. No pay/undo actions yet — the table leaves a seam
+  for them (Slices 3–4).
+- **Source:** `GET /v1/financing/creditor-payables` (list) + `GET /v1/financing/creditor-payables/{creditorId}` (detail).
+- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (the list) and `docs/owed-to-creditors/` (`slice-1-current-cycle-outstanding.md` — the two-figure split, API's Phase 34; `slice-2-creditor-detail-view.md` — the detail view, API's Phase 35); Financing-only, read-only, no Ledger (D7). Paid cuotas drop out of both list money figures (`Installment.PaidOnUtc`, stamped by the back-dated creditor path and — from Slice 3 — a "pay a cuota" action). **Still pending:** `NextDueDate` is the earliest *scheduled* month and does not advance as months pass; the per-account sub-line breakdown still sums over all non-reversed cuotas, so it can exceed "Total owed" when a creditor has paid cuotas — both deferred to a later slice. Pay/undo a cuota and pay the full debt (Slices 3–4) are not built yet. Reachable from the global nav right after "Recent purchases".
 
 ### 3.11 Debit/cash expenses with categories (new — extends §3.3, now built)
 - **Shows:** the third *My debit-cash* mode of §3.3's Load-Expense form. When selected, the form

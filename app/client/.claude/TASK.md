@@ -1227,6 +1227,31 @@ Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are th
 
 ---
 
+## Phase 35 — Owed to creditors: pay a creditor cuota + undo (Slice 3)
+
+**Goal:** The Slice-2 creditor detail page gains per-row **Pay** / **Undo** buttons. Paying stamps `Installment.PaidOnUtc` server-side (display-only — no bank, no ledger); undo clears it. On success the page re-fetches the detail so the status badges and the Slice-1 list figures move.
+
+**Traces to:** `docs/owed-to-creditors/slice-3-pay-installment-and-undo.md` (+ `00-overview.md`; third of four slices — Slice 4 pay full debt remains). API half is `app/api` Phase 36 (`POST /v1/financing/creditor-installments/{id}/pay` + `/unpay`; new `Financing.NotACreditorInstallment` 409 for a card installment). No `docs/DESIGN.md` / `docs/PRD.md` client-side change (the API's `docs/PRD.md` §9 decision 14 marks Slice 3 done).
+
+**Depends on:** `app/client` Phase 34 (the `creditor-detail-page` + `creditor-purchases-table` this hangs the buttons off).
+
+### Tasks
+- [x] `features/financing/types/pay-creditor-installment-result.ts` — `{ installmentId: string }`.
+- [x] `financing-service.ts` — `payCreditorInstallment(installmentId): Observable<PayCreditorInstallmentResult>` → `POST financing/creditor-installments/${id}/pay` with an empty `{}` body; `unpayCreditorInstallment(...)` → `.../unpay`. Both after `creditorDetail`.
+- [x] `pages/creditor-detail-page/creditor-purchases-table.{ts,html}` — `paying: InputSignal<boolean> = input<boolean>(false)`, `payClick` / `undoClick: OutputEmitterRef<string> = output<string>()`; `canPay(row)` = `!row.isPaid && !row.isReversed`; `onPay(row)` / `onUndo(row)` emit `row.installmentId` (guarded). HTML: the `<thead>` "Slice 3 seam" comment → a real `<th class="pb-2 text-right"><span class="sr-only">Actions</span></th>`; each `<tr>` gains a trailing `<td class="py-2 text-right">` with `@if(canPay(row)) { <button … text-stamp … [disabled]="paying()" (click)="onPay(row)">Pay</button> } @else if(row.isPaid) { <button … text-ink-soft … [disabled]="paying()" (click)="onUndo(row)">Undo</button> }` (button classes copied from the card `installments-table.html`); the top "Pay full debt" seam comment retagged Slice 4.
+- [x] `pages/creditor-detail-page/creditor-detail-page.{ts,html}` — `type PayStatus = 'idle' | 'busy' | 'error'`; `payStatus` / `payError: AppError | null` protected signals; `private creditorId: string | null` (set from the `paramMap` sub before `loadDetail`); `private payErrorMessages` (`Financing.NotACreditorInstallment` / `InstallmentAlreadyPaid` / `InstallmentAlreadyReversed` / `InstallmentNotFound`); `payErrorText(error)`; `onPay(id)` / `onUndo(id)` → `private runMutation(operation: Observable<PayCreditorInstallmentResult>)` (guards `creditorId`, sets `busy`, on next → `idle` + `loadDetail(creditorId)`, on error → `payError` + `error`). Template: a `@if(payError(); as error) { <p class="mt-4 text-sm text-negative" role="alert">{{ payErrorText(error) }}</p> }` before the table; `<app-creditor-purchases-table>` gains `[paying]="payStatus() === 'busy'"` `(payClick)="onPay($event)"` `(undoClick)="onUndo($event)"`. **No form, no bank selector.**
+- [x] Specs — `financing-service.spec.ts` +2 (pay/unpay POST URL + `{}` body + `{ installmentId }` result). `creditor-purchases-table.spec.ts` +5 (`buttonsByLabel` helper; 3 Pay + 1 Undo for the shared fixture; a reversed row → neither; `payClick` emits `'i-2'`, `undoClick` emits `'i-1'`; `[paying]=true` disables all four). `creditor-detail-page.spec.ts` +2 spies (`payCreditorInstallment` / `unpayCreditorInstallment`, defaulted in a `beforeEach`), +`buttonByLabel` helper, +3 facts (Pay click → `payCreditorInstallment('i-2')` + `creditorDetail` called 2×; Undo click → `unpayCreditorInstallment('i-1')` + 2×; failed pay `Financing.InstallmentAlreadyPaid` → "already marked paid" text + `creditorDetail` still 1×).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **258/258** (from 248: +2 `financing-service`, +5 `creditor-purchases-table`, +3 `creditor-detail-page`); `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk 68.7 → 72.14 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: on a creditor detail page, Pay one cuota → its badge flips to Paid, the group outstanding and the list `DueNow`/`TotalOwed` drop by that amount; Undo → everything restores; no bank balance moves.
+
+### Completion notes
+
+Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are the API's Phase 36, step 5 is doc-sync). The re-fetch reuses `loadDetail`, which briefly flips `loadStatus` to `'loading'` (hiding the table) — same as the `statement-page` precedent, accepted over a more elaborate keep-visible refresh. `runMutation` guards `creditorId` non-null so a mutation before the route param resolves is a silent no-op. Not committed by this session — the user commits their own. Slice 4 remains — not started.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

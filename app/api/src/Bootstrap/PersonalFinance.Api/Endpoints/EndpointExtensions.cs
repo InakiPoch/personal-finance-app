@@ -107,6 +107,18 @@ internal static class EndpointExtensions {
                 .WithDescription("Read-only drill-down: every creditor-financed purchase (payment plan) for the given creditor with its installments listed beneath — sequence, amount, due month, and paid/reversed status. An unknown creditor yields a 404.")
                 .Produces<CreditorDetailDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound);
+            group.MapPost(ApiRoutes.Financing.CreditorInstallmentPayment, PayCreditorInstallment.Handle)
+                .WithSummary("Mark a creditor installment paid.")
+                .WithDescription("Stamps a display-only PaidOnUtc on one creditor-financed installment — no bank account and no ledger posting (creditor debt is ledger-free for the holder). Fails if the installment is unknown, belongs to a credit-card plan, reversed, or already paid.")
+                .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Financing.CreditorInstallmentUnpayment, UnpayCreditorInstallment.Handle)
+                .WithSummary("Undo a creditor installment payment.")
+                .WithDescription("Clears the display-only PaidOnUtc stamp on one creditor-financed installment (fat-finger recovery). There is no ledger transaction to reverse. Fails if the installment is unknown, belongs to a credit-card plan, or is reversed.")
+                .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
             return endpoints;
         }
 

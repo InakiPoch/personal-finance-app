@@ -39,8 +39,14 @@ internal static class FinancingMappingExtensions {
         return new PayStatementResultDto(statementId);
     }
 
-    public static PayInstallmentResultDto ToPayInstallmentResultDto(this Guid installmentId) {
-        return new PayInstallmentResultDto(installmentId);
+    extension(Guid installmentId) {
+        public PayInstallmentResultDto ToPayInstallmentResultDto() {
+            return new PayInstallmentResultDto(installmentId);
+        }
+
+        public PayCreditorInstallmentResultDto ToPayCreditorInstallmentResultDto() {
+            return new PayCreditorInstallmentResultDto(installmentId);
+        }
     }
 
     public static CardFutureScheduleDto ToCardFutureScheduleDto(this CardFutureScheduleResponse response, Guid cardId) {

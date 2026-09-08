@@ -73,6 +73,11 @@ internal static class FinancingErrors {
         "The installment has not been accrued to a statement yet and cannot be paid individually."
     );
 
+    public static readonly Error NotACreditorInstallment = new(
+        "Financing.NotACreditorInstallment",
+        "The referenced installment belongs to a credit-card plan, not a creditor-financed one."
+    );
+
     public static readonly Error NonPositiveCreditAmount = new(
         "Financing.NonPositiveCreditAmount",
         "A card credit amount must be a positive number of minor units."

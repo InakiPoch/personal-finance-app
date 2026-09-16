@@ -1,6 +1,7 @@
 import { IsoDate } from '../../../core/types/iso-date';
 import { Money } from '../../../core/types/money';
 import { Frequency } from './frequency';
+import { SubscriptionStatus } from './subscription-status';
 
 export type ActiveSubscription = {
   subscriptionId: string;
@@ -10,4 +11,5 @@ export type ActiveSubscription = {
   frequency: Frequency;
   anchorDay: number;
   nextDueDate: IsoDate;
+  status: SubscriptionStatus;
 };

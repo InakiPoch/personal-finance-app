@@ -9,7 +9,8 @@ public sealed record ActiveSubscriptionRow(
     string Category,
     RecurrenceFrequency Frequency,
     int AnchorDay,
-    DateOnly NextDueDate
+    DateOnly NextDueDate,
+    string Status
 );
 
 /// <summary>

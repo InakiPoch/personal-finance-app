@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PersonalFinance.Subscriptions.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using PersonalFinance.Subscriptions.Infrastructure.Persistence;
 namespace PersonalFinance.Subscriptions.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(SubscriptionsDbContext))]
-    partial class SubscriptionsDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260916232659_RenameLastRenewalToLastPaidPeriod")]
+    partial class RenameLastRenewalToLastPaidPeriod
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");

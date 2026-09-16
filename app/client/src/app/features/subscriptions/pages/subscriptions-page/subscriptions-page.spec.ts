@@ -39,7 +39,8 @@ const activeRow: ActiveSubscription = {
   category: 'Entertainment',
   frequency: 'monthly',
   anchorDay: 15,
-  nextDueDate: '2026-10-15'
+  nextDueDate: '2026-10-15',
+  status: 'upcoming'
 };
 
 const instruments: Instrument[] = [
@@ -94,6 +95,20 @@ describe('SubscriptionsPage', () => {
     expect(view.listStatus()).toBe('ready');
     expect(view.active()).toEqual([activeRow]);
     expect(text()).toContain('Netflix');
+  });
+
+  it('renders the correct status badge per row', () => {
+    listActive.and.returnValue(
+      of<ActiveSubscription[]>([
+        { ...activeRow, subscriptionId: 'sub-paid', status: 'paid' },
+        { ...activeRow, subscriptionId: 'sub-overdue', status: 'overdue' },
+        { ...activeRow, subscriptionId: 'sub-upcoming', status: 'upcoming' },
+      ]),
+    );
+    setup();
+    expect(text()).toContain('Paid');
+    expect(text()).toContain('Overdue');
+    expect(text()).toContain('Upcoming');
   });
 
   it('shows the empty state when there are no active subscriptions', () => {

@@ -5,11 +5,10 @@
       Subscriptions
     </h1>
     <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
-      The recurring charges on autopilot. Creating one bills the first period immediately;
-      the API schedules every renewal after that.
+      A subscription is due, then overdue, until you pay it. Nothing is charged on its own —
+      only when you mark a period paid.
     </p>
   </header>
-
   <form
     class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
     [formGroup]="form"
@@ -19,7 +18,6 @@
     <h2 id="new-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       New subscription
     </h2>
-
     <div class="mt-6 flex flex-col gap-1.5">
       <label
         for="amount"
@@ -50,7 +48,6 @@
         <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
       }
     </div>
-
     <div class="mt-6 grid gap-6 sm:grid-cols-2">
       <div class="flex flex-col gap-1.5">
         <label
@@ -69,7 +66,6 @@
           <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
         }
       </div>
-
       <div class="flex flex-col gap-1.5">
         <label
           for="category"
@@ -88,12 +84,8 @@
         }
       </div>
     </div>
-
     <div class="mt-6 flex flex-col gap-1.5">
-      <label
-        for="fundingAccountId"
-        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-      >
+      <label for="fundingAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
         Funding account
       </label>
       <div class="relative">
@@ -107,10 +99,7 @@
             <option [value]="instrument.id">{{ instrument.name }} ({{ instrument.type }})</option>
           }
         </select>
-        <span
-          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
-          aria-hidden="true"
-        >
+        <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
           &#9662;
         </span>
       </div>
@@ -123,13 +112,9 @@
         <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
       }
     </div>
-
     <div class="mt-6 grid gap-6 sm:grid-cols-2">
       <div class="flex flex-col gap-1.5">
-        <label
-          for="frequency"
-          class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-        >
+        <label for="frequency" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
           Frequency
         </label>
         <div class="relative">
@@ -151,7 +136,6 @@
           The API bills monthly subscriptions only for now.
         </p>
       </div>
-
       <div class="flex flex-col gap-1.5">
         <label
           for="anchorDay"
@@ -174,11 +158,10 @@
         }
       </div>
     </div>
-
     <p class="mt-6 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-      Creating a subscription charges the first period immediately.
+      Charges the first period only if the anchor day has already passed this month —
+      otherwise it starts upcoming, unpaid.
     </p>
-
     <div class="mt-6 flex flex-col gap-2">
       <button
         type="submit"
@@ -193,7 +176,6 @@
       }
     </div>
   </form>
-
   <section aria-labelledby="active-label">
     <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
       <h2
@@ -208,7 +190,6 @@
         </span>
       }
     </div>
-
     <div class="mt-6">
       @if(listStatus() === 'loading') {
         <p class="text-sm text-ink-faint">Loading subscriptions…</p>
@@ -253,6 +234,12 @@
                 >
                   Next due
                 </th>
+                <th
+                  scope="col"
+                  class="pb-2 pl-4 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+                >
+                  Status
+                </th>
                 <th scope="col" class="pb-2 pl-4 text-right">
                   <span class="sr-only">Cancel</span>
                 </th>
@@ -282,6 +269,19 @@
                     class="py-2.5 pl-4 text-right text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]"
                   >
                     {{ subscription.nextDueDate }}
+                  </td>
+                  <td class="py-2.5 pl-4 text-right">
+                    @switch(subscription.status) {
+                      @case('paid') {
+                        <span class="status-badge">Paid</span>
+                      }
+                      @case('overdue') {
+                        <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-negative">Overdue</span>
+                      }
+                      @default {
+                        <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">Upcoming</span>
+                      }
+                    }
                   </td>
                   <td class="py-2.5 pl-4 text-right">
                     <div class="inline-flex flex-col items-end gap-1">

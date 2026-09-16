@@ -22,7 +22,7 @@ internal sealed class SubscriptionTemplateConfiguration : IEntityTypeConfigurati
         builder.Property(template => template.IsActive)
             .HasDefaultValue(true)
             .IsRequired();
-        builder.Property(template => template.LastRenewalOnUtc);
+        builder.Property(template => template.LastPaidPeriod);
         builder.Property(template => template.Amount)
             .HasConversion(
                 amount => amount.MinorUnits,

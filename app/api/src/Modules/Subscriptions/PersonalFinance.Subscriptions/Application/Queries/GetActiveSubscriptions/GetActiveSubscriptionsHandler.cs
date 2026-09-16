@@ -5,8 +5,9 @@ using PersonalFinance.Subscriptions.Infrastructure.Persistence;
 
 namespace PersonalFinance.Subscriptions.Application.Queries.GetActiveSubscriptions;
 
-internal sealed class GetActiveSubscriptionsHandler(SubscriptionsDbContext context) : IQueryHandler<GetActiveSubscriptionsQuery, ActiveSubscriptionsResponse> {
+internal sealed class GetActiveSubscriptionsHandler(SubscriptionsDbContext context, TimeProvider timeProvider) : IQueryHandler<GetActiveSubscriptionsQuery, ActiveSubscriptionsResponse> {
     public async Task<ActiveSubscriptionsResponse> HandleAsync(GetActiveSubscriptionsQuery query, CancellationToken cancellationToken) {
+        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var active = await context.SubscriptionTemplates
             .AsNoTracking()
             .Where(template => template.IsActive)
@@ -18,7 +19,8 @@ internal sealed class GetActiveSubscriptionsHandler(SubscriptionsDbContext conte
                 template.Category,
                 template.Frequency,
                 template.AnchorDay,
-                template.NextDueDate
+                template.NextDueDate,
+                template.LastPaidPeriod
             })
             .ToListAsync(cancellationToken);
         var rows = active
@@ -29,9 +31,17 @@ internal sealed class GetActiveSubscriptionsHandler(SubscriptionsDbContext conte
                 template.Category,
                 template.Frequency,
                 template.AnchorDay,
-                template.NextDueDate)
+                template.NextDueDate,
+                statusFor(template.LastPaidPeriod, template.NextDueDate, today))
             )
             .ToList();
         return new ActiveSubscriptionsResponse(rows);
+    }
+
+    private static string statusFor(DateOnly? lastPaidPeriod, DateOnly nextDueDate, DateOnly today) {
+        if(lastPaidPeriod is { } paidPeriod && paidPeriod.Year == today.Year && paidPeriod.Month == today.Month) {
+            return "paid";
+        }
+        return nextDueDate <= today ? "overdue" : "upcoming";
     }
 }

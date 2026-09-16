@@ -4,8 +4,7 @@ using PersonalFinance.Subscriptions.Contracts;
 namespace PersonalFinance.Subscriptions.Domain;
 
 /// <summary>
-/// How a subscription recurs: a frequency plus the day-of-month it anchors to. Rebuilt from the
-/// aggregate's flat columns, exactly as <c>Installment.Cycle</c> is.
+/// How a subscription recurs: a frequency plus the day-of-month it anchors to. Rebuilt from the aggregate's flat columns, exactly as <c>Installment.Cycle</c> is.
 /// </summary>
 internal sealed record RecurrenceRule(RecurrenceFrequency Frequency, int AnchorDay) {
     public static Result<RecurrenceRule> Create(RecurrenceFrequency frequency, int anchorDay) {
@@ -13,6 +12,10 @@ internal sealed record RecurrenceRule(RecurrenceFrequency Frequency, int AnchorD
             return SubscriptionErrors.InvalidAnchorDay;
         }
         return new RecurrenceRule(frequency, anchorDay);
+    }
+
+    public DateOnly CurrentOccurrence(DateOnly referenceDate) {
+        return onAnchorDay(referenceDate.Year, referenceDate.Month);
     }
 
     public DateOnly Next(DateOnly after) {

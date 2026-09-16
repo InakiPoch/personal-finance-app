@@ -30,7 +30,8 @@ internal static class SubscriptionMappingExtensions {
                 row.Category,
                 row.Frequency.ToString(),
                 row.AnchorDay,
-                row.NextDueDate)
+                row.NextDueDate,
+                row.Status)
             )
             .ToList();
         return new ActiveSubscriptionsDto(rows);

@@ -47,7 +47,8 @@ describe('SubscriptionsService', () => {
           category: 'Entertainment',
           frequency: 'Monthly',
           anchorDay: 15,
-          nextDueDate: '2026-10-15'
+          nextDueDate: '2026-10-15',
+          status: 'paid'
         }
       ]
     });
@@ -59,7 +60,8 @@ describe('SubscriptionsService', () => {
         category: 'Entertainment',
         frequency: 'monthly',
         anchorDay: 15,
-        nextDueDate: '2026-10-15'
+        nextDueDate: '2026-10-15',
+        status: 'paid'
       }
     ]);
   });

@@ -16,7 +16,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
     public int AnchorDay { get; }
     public DateOnly NextDueDate { get; private set; }
     public bool IsActive { get; private set; }
-    public DateTimeOffset? LastRenewalOnUtc { get; private set; }
+    public DateOnly? LastPaidPeriod { get; private set; }
     public RecurrenceRule Recurrence => new(Frequency, AnchorDay);
     public RenewalSchedule Schedule => new(NextDueDate, IsActive);
 
@@ -30,7 +30,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         RecurrenceFrequency frequency,
         int anchorDay,
         DateOnly nextDueDate,
-        DateTimeOffset? lastRenewalOnUtc) : base(id) {
+        DateOnly? lastPaidPeriod) : base(id) {
         Name = name;
         Amount = amount;
         Category = category;
@@ -40,7 +40,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         AnchorDay = anchorDay;
         NextDueDate = nextDueDate;
         IsActive = true;
-        LastRenewalOnUtc = lastRenewalOnUtc;
+        LastPaidPeriod = lastPaidPeriod;
     }
 
     public static Result<SubscriptionTemplate> Create(
@@ -51,8 +51,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         Guid fundingAccountId,
         RecurrenceFrequency frequency,
         int anchorDay,
-        DateOnly nextDueDate,
-        DateTimeOffset firstChargeOnUtc) {
+        DateOnly nextDueDate) {
         if(string.IsNullOrWhiteSpace(name)) {
             return SubscriptionErrors.InvalidName;
         }
@@ -78,8 +77,26 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
             frequency,
             anchorDay,
             nextDueDate,
-            firstChargeOnUtc
+            null
         );
+    }
+
+    public Result MarkCurrentPeriodPaid(DateOnly paidPeriodAnchor) {
+        if(!IsActive) {
+            return Result.Failure(SubscriptionErrors.SubscriptionNotActive);
+        }
+        LastPaidPeriod = paidPeriodAnchor;
+        NextDueDate = Recurrence.Next(NextDueDate);
+        return Result.Success();
+    }
+
+    public Result RevertLastPayment() {
+        if(!IsActive) {
+            return Result.Failure(SubscriptionErrors.SubscriptionNotActive);
+        }
+        LastPaidPeriod = LastPaidPeriod?.AddMonths(-1);
+        NextDueDate = NextDueDate.AddMonths(-1);
+        return Result.Success();
     }
 
     public Result Cancel() {

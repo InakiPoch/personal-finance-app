@@ -11,10 +11,6 @@ internal sealed class SubscriptionsApi(ICommandBus commandBus, IQueryBus queryBu
         return commandBus.SendAsync(command, ct);
     }
 
-    public Task<Result<Guid>> RenewSubscriptionAsync(RenewSubscriptionCommand command, CancellationToken ct = default) {
-        return commandBus.SendAsync(command, ct);
-    }
-
     public Task<Result> CancelSubscriptionAsync(CancelSubscriptionCommand command, CancellationToken ct = default) {
         return commandBus.SendAsync(command, ct);
     }

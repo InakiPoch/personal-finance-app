@@ -4,9 +4,7 @@ using PersonalFinance.Subscriptions.Contracts;
 namespace PersonalFinance.Subscriptions.Domain;
 
 /// <summary>
-/// A recurring charge definition. Charged on subscribe;
-/// every subsequent period is advanced by the renewal scheduler. Cancelling stops future
-/// renewals and never touches charges already generated.
+/// A recurring charge definition.
 /// </summary>
 internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
     public string Name { get; }
@@ -82,15 +80,6 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
             nextDueDate,
             firstChargeOnUtc
         );
-    }
-
-    public Result Renew(DateTimeOffset renewedOnUtc) {
-        if(!IsActive) {
-            return Result.Failure(SubscriptionErrors.SubscriptionNotActive);
-        }
-        NextDueDate = Recurrence.Next(NextDueDate);
-        LastRenewalOnUtc = renewedOnUtc;
-        return Result.Success();
     }
 
     public Result Cancel() {

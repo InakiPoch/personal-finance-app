@@ -76,30 +76,6 @@ public class SubscriptionTemplateTests {
     }
 
     [Fact]
-    public void Renew_advances_the_due_date_by_one_period_and_stamps_the_renewal_moment() {
-        var template = CreateTemplate(anchorDay: 15).Value;
-        var renewedOn = new DateTimeOffset(2026, 3, 15, 6, 0, 0, TimeSpan.Zero);
-
-        var result = template.Renew(renewedOn);
-
-        Assert.True(result.IsSuccess);
-        Assert.Equal(new DateOnly(2026, 4, 15), template.NextDueDate);
-        Assert.Equal(renewedOn, template.LastRenewalOnUtc);
-    }
-
-    [Fact]
-    public void Renew_after_cancellation_fails_and_leaves_the_due_date_untouched() {
-        var template = CreateTemplate(anchorDay: 15).Value;
-        template.Cancel();
-
-        var result = template.Renew(new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero));
-
-        Assert.True(result.IsFailure);
-        Assert.Equal(SubscriptionErrors.SubscriptionNotActive, result.Error);
-        Assert.Equal(new DateOnly(2026, 3, 15), template.NextDueDate);
-    }
-
-    [Fact]
     public void Cancel_is_idempotent_and_deactivates_the_template() {
         var template = CreateTemplate().Value;
 

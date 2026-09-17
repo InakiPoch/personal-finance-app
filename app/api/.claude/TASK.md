@@ -1277,3 +1277,83 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 ### Completion notes
 
 Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, doc-sync). Nothing committed by this session — the user commits their own. **Return-type choice:** `ICommand<int>` returning the newly-settled count (over `Guid`/void) so the client can confirm "Settled N cuotas". **Existence check kept** (`Creditors.AnyAsync`) so a bad id gives a clean 404 rather than a silent `0`. **Client "Pay full debt" placement:** the slice doc said "page header"; put in the "Purchases" section header row instead, since it needs `detail()` loaded to compute whether anything is outstanding and to be meaningful — and it renders a lightweight two-click inline confirm ("Settle every remaining cuota?" → Confirm / Cancel), not a modal, per the doc's own preference. **This closes `docs/owed-to-creditors/` — the initiative is complete.**
+
+---
+
+## Phase 38 — Subscriptions rework: explicit-pay foundation (Slice 1)
+
+**Goal:** Fix the "N missed cycles = N·X" Dashboard out-of-pocket bug by killing subscriptions' auto-charge scheduler outright and replacing it with an explicit-pay model: a period goes pending → overdue with time, and only posts a real ledger charge when the user marks it paid by hand (Slice 2) or a specific registration-time "assume paid" rule fires (this slice).
+
+**Traces to:** `docs/subscriptions-rework/slice-1-explicit-pay-foundation.md` (+ `00-overview.md`; first of four slices — Slice 2 pay a period by hand, Slice 3 undo that payment, Slice 4 a Dashboard subscriptions block). `docs/DESIGN.md` §2 D6 + §3 RF-5 + §5.2/§5.3 + §6 folder tree reconciled (no more `RenewDueSubscriptions` scheduler or `SubscriptionRenewed` event); `docs/PRD.md` §9 decision 15 records the rework.
+
+**Depends on:** `app/api` Phase 5 (the Subscriptions module + its original auto-charge model, now reworked).
+
+### Tasks
+- [x] **Step 0 — one-time data wipe.** `docs/subscriptions-rework/slice-1-step0-wipe.sql` — deletes every subscription-linked `ledger_entries` / `ledger_transactions` / `ledger_accounts` row and all `subscriptions_templates` rows. The data model changes incompatibly (no migration path for periods already charged under the old scheme); executed once against the live dev `personalfinance.db` (confirmed 4 templates / 5 transactions / 10 entries → all zero after).
+- [x] **Step 1 — delete the auto-charge machinery.** Removed `Application/Scheduling/RenewDueSubscriptions.cs`, the `Application/Commands/RenewSubscription/` folder (handler + validator), `Contracts/Commands/RenewSubscriptionCommand.cs`, `ISubscriptionsApi.RenewSubscriptionAsync` + its impl; `SubscriptionsModule.cs` drops the handler registration and `AddHostedService<RenewDueSubscriptions>()`.
+- [x] **Step 2 — repurpose the paid marker.** `SubscriptionTemplate.LastRenewalOnUtc : DateTimeOffset?` renamed/retyped to `LastPaidPeriod : DateOnly?`; `Create()` drops its trailing paid-timestamp ctor param (always starts `null`, no compatibility shim). New `MarkCurrentPeriodPaid(DateOnly paidPeriodAnchor)` (guards `IsActive`, sets `LastPaidPeriod`, advances `NextDueDate` via `Recurrence.Next`) + `RevertLastPayment()` (guards `IsActive`, rolls both back one month — Slice 3's undo primitive). `RecurrenceRule.CurrentOccurrence(DateOnly referenceDate)` added (`onAnchorDay(Year, Month)`). Migration `20260916232659_RenameLastRenewalToLastPaidPeriod` + `SubscriptionTemplateConfiguration` updated.
+- [x] **Step 3 — registration-time "assume paid" rule (`00-overview.md` decision 8).** `CreateSubscriptionTemplateHandler` rewritten: injects `TimeProvider`, computes `currentAnchor = recurrence.Value.CurrentOccurrence(today)`; `currentAnchor <= today` → posts the first period's charge synchronously and calls `MarkCurrentPeriodPaid`; else provisions the account and posts nothing, subscription starts `Upcoming`. The only remaining auto-charge path, fires at most once, at creation.
+- [x] **Step 4 — derived status on the read side.** `GetActiveSubscriptionsQuery.ActiveSubscriptionRow` gains trailing `string Status`; `GetActiveSubscriptionsHandler` injects `TimeProvider` + a private `statusFor(...)` helper deriving `paid` / `overdue` / `upcoming`. Threaded through `ActiveSubscriptionsDTO` / `SubscriptionMappingExtensions` unchanged (`row.Status` already lowercase, no enum `.ToString()`).
+- [x] **Cleanup (caught during doc-sync).** `Contracts/IntegrationEvents/SubscriptionRenewedIntegrationEvent.cs` was dead code after Step 1 (its only dispatcher was deleted, and it never had a consumer to begin with) — deleted; `docs/DESIGN.md` reconciled.
+- [x] **API tests.** `SubscriptionTemplateTests.cs` rewritten (2 stale `Renew` facts removed, `Create` updated, 5 new for `MarkCurrentPeriodPaid`/`RevertLastPayment`); new `CreateSubscriptionTemplateHandlerTests.cs` (3 facts); new `GetActiveSubscriptionsHandlerTests.cs` (4 facts).
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. Test binaries run directly → **Subscriptions 42** (from 32), Ledger 31, Financing 151, Parties 32, Reporting 7, Architecture 15, Api 45 = **323** (was 313). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new/removed module edge.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): new `types/subscription-status.ts`; `subscriptions-page` Status column + `.status-badge` cell; two stale auto-charge copy lines fixed; `SubscriptionsService` needed no code change. `pnpm ng lint` clean, `pnpm ng test` **263/263** (from 262), `pnpm ng build --configuration production` clean (`subscriptions-routes` 18.19 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: register a subscription with a past/today anchor → shows Paid and counts toward this month's out-of-pocket; a future anchor → shows Upcoming, absent from out-of-pocket; a subscription left past its due date without being paid → shows Overdue, still absent from out-of-pocket, no extra charge posted (the scheduler is gone).
+
+### Completion notes
+
+Built one green-lit step at a time (6 steps — API production ×4, client, doc-sync). Nothing committed by this session — the user commits their own. **Design choice kept from the slice doc:** `Create()` drops its trailing paid-timestamp parameter rather than keeping a compatibility overload — no handler-level test predated this session to break, and it mirrors `Installment.MarkPaid` being called post-construction in Financing. **Doc-sync also served as a cleanup pass:** the dead `SubscriptionRenewedIntegrationEvent` from Step 1 was found and removed here, not in Step 1 itself — a fresh session should not expect to find it. Slices 2 (pay a period by hand), 3 (undo that payment) and 4 (Dashboard subscriptions block) remain — not started.
+
+---
+
+## Phase 39 — Subscriptions rework: pay a live period (Slice 2)
+
+**Goal:** Let the user settle a due or overdue subscription with one click — posts one real `X` charge dated today, marks the current period paid, advances the due date exactly one month. A subscription several periods behind settles one period per click, never a silent batch.
+
+**Traces to:** `docs/subscriptions-rework/slice-2-pay-live-period.md` (+ `00-overview.md`; second of four slices — Slice 3 undo that payment, Slice 4 a Dashboard subscriptions block). `docs/DESIGN.md` §5.1 scheduler note + §6 folder tree reconciled; `docs/PRD.md` §9 decision 15 records Slice 2 done.
+
+**Depends on:** Phase 38 (the `LastPaidPeriod`/`MarkCurrentPeriodPaid` status model this slice pays into).
+
+### Tasks
+- [x] **Command + handler.** `PaySubscriptionCommand(Guid SubscriptionId) : ICommand<Guid>` in Contracts. `PaySubscriptionHandler(SubscriptionsDbContext, ILedgerApi, TimeProvider)` — the key divergence from the `PayCreditorInstallmentHandler` blueprint the slice doc names: subscriptions post a real ledger charge at pay-time (creditor pay is display-only), so `ILedgerApi` is injected. Flow: load (404) → `!IsActive` → `SubscriptionNotActive` (409) → already paid this month → `SubscriptionAlreadyPaid` (409) → capture `paidPeriodAnchor = NextDueDate` before mutating → post `SubscriptionChargeCalculator.Build(...)` via `ledger.PostTransactionAsync` (failure leaves the aggregate untouched) → `MarkCurrentPeriodPaid(paidPeriodAnchor)` → save.
+- [x] **New error.** `SubscriptionErrors.SubscriptionAlreadyPaid` ("Subscriptions.SubscriptionAlreadyPaid") — needs no `ErrorHttpStatusHelper` entry, matches the existing `*AlreadyPaid` suffix rule (409).
+- [x] **Endpoint.** `POST /v1/subscriptions/{id:guid}/pay` — `ApiRoutes.Subscriptions.Pay`, `Endpoints/Subscriptions/PaySubscription.cs` (`TypedResults.Ok`, not `Created`), `PaySubscriptionResultDto(Guid SubscriptionId)`. `SubscriptionMappingExtensions` — grouped the pre-existing `ToSubscriptionResultDto(this Guid subscriptionId)` with the new `ToPaySubscriptionResultDto()` into one `extension(Guid subscriptionId) { … }` block (both now share that receiver, per the C# 14 extension-member rule).
+- [x] **API tests.** `tests/PersonalFinance.Subscriptions.Tests/PaySubscriptionHandlerTests.cs` — 6 facts (pay-an-overdue-period-settles-it, several-periods-behind-settle-one-at-a-time, already-paid-this-month-409, unknown-id-404, cancelled-subscription-409, ledger-post-failure-leaves-the-aggregate-untouched). `tests/PersonalFinance.Api.Tests/PaySubscriptionTests.cs` — 2 WAF facts (unknown id → 404 `Subscriptions.SubscriptionNotFound`; route advertised in OpenAPI under `Subscriptions` with 200/404/409) — added during doc-sync after the slice doc's own Testing section called for it and Step 2 had skipped it.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. Test binaries run directly → **Subscriptions 48** (from 42), **Api 47** (from 45), Ledger 31, Financing 151, Parties 32, Reporting 7, Architecture 15 = **331** (was 323). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new/removed module edge.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): new `types/pay-subscription-result.ts`; `SubscriptionsService.pay(id)`; per-row Pay button + `payStatus`/`payError` signal maps mirroring Cancel; shown only for `overdue`/`upcoming` rows. `pnpm ng lint` clean, `pnpm ng test` **268/268** (from 263), `pnpm ng build --configuration production` clean (`subscriptions-routes` 18.19 → 20.32 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: pay an overdue sub → flips to Paid, one `X` in this month's out-of-pocket, `NextDueDate` +1 month; pay a several-months-behind sub repeatedly → catches up one period per click, stays Overdue in between; retry-pay an already-paid sub → 409, no double charge.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, doc-sync). Nothing committed by this session — the user commits their own. **Caught during API-tests review (Step 2), fixed before doc-sync:** the slice doc's Testing section asked for an `PersonalFinance.Api.Tests` WAF fact (OpenAPI presence + 404 problem shape) that the session's Step 2 pass missed — added retroactively during Step 5 rather than silently leaving the gap, since nothing about it needed the hosted-service-stripped WAF's usual accrual-scheduler caveat (pay is a synchronous ledger post). Slices 3 (undo that payment) and 4 (Dashboard subscriptions block) remain — not started.
+
+---
+
+## Phase 40 — Subscriptions rework: undo a payment (Slice 3)
+
+**Goal:** Let a mis-clicked Pay be recovered — reverses the pay-time Ledger transaction (removing that `X` from out-of-pocket) and steps the current period back one month.
+
+**Traces to:** `docs/subscriptions-rework/slice-3-undo-payment.md` (+ `00-overview.md`; third of four slices — Slice 4 a Dashboard subscriptions block remains). `docs/DESIGN.md` §6 folder tree reconciled; `docs/PRD.md` §9 decision 15 records Slice 3 done.
+
+**Depends on:** Phase 39 (the `MarkCurrentPeriodPaid`/`PaySubscriptionHandler` this slice reverses).
+
+### Tasks
+- [x] **Mandatory fact-find (per the slice doc), before writing anything.** Confirmed `ILedgerApi.ReverseTransactionAsync(ReverseTransactionCommand)` is a dedicated reversal API, not a hand-rolled compensating posting; traced `ReverseTransactionHandler` to confirm a transaction with no `InstallmentReference`/`SplitReference` (a plain subscription charge) posts only a plain storno via `ReversalCalculator.Decide(false, null, false)` — no cross-module calls. Rejected the doc's suggested `FindAccrualTransactionIdsAsync`-by-reference lookup (hardcoded to `InstallmentReference`) in favor of the doc's own fallback: the aggregate remembers its own transaction id.
+- [x] **Domain add-back to `MarkCurrentPeriodPaid` (Slices 1–2).** `SubscriptionTemplate` gains `LastPaidTransactionId : Guid?`; `MarkCurrentPeriodPaid(DateOnly, Guid transactionId)` stores it; `RevertLastPayment()` nulls it. Both existing callers — `PaySubscriptionHandler` and `CreateSubscriptionTemplateHandler`'s "assume paid" registration charge — thread through the `posting.Value` transaction id they already had. Migration `AddSubscriptionLastPaidTransactionId` (nullable `Guid` column).
+- [x] **Command + handler.** `UnpaySubscriptionCommand(Guid SubscriptionId) : ICommand<Guid>` in Contracts. `UnpaySubscriptionHandler(SubscriptionsDbContext, ILedgerApi, TimeProvider)`. Flow: load (404) → `!IsActive` → `SubscriptionNotActive` (409) → not paid this calendar month → `SubscriptionNotPaid` (409, new — also rejects undoing a prior month's payment, by design) → `ledger.ReverseTransactionAsync(LastPaidTransactionId ?? Guid.Empty, now)` (failure leaves the aggregate untouched) → `RevertLastPayment()` → save.
+- [x] **New error.** `SubscriptionErrors.SubscriptionNotPaid` ("Subscriptions.SubscriptionNotPaid") — matches no suffix rule, explicit 409 line in `ErrorHttpStatusHelper.cs`.
+- [x] **Endpoint.** `POST /v1/subscriptions/{id:guid}/unpay` — `ApiRoutes.Subscriptions.Unpay`, `Endpoints/Subscriptions/UnpaySubscription.cs` (mirrors `PaySubscription.cs`, reuses `PaySubscriptionResultDto`).
+- [x] **API tests.** `tests/PersonalFinance.Subscriptions.Tests/UnpaySubscriptionHandlerTests.cs` — 6 facts (round-trip Pay→Undo reverses the exact posted transaction id + restores `NextDueDate`; rejects undo when never paid this month; rejects undo when the paid period is a prior month; unknown-id-404; cancelled-subscription-409; ledger-reversal-failure leaves the aggregate untouched) — `FakeLedgerApi` extended with `ReverseTransactionAsync` + `PostedTransactionIds`. `SubscriptionTemplateTests.cs` extended in place for `LastPaidTransactionId`'s lifecycle. `tests/PersonalFinance.Api.Tests/UnpaySubscriptionTests.cs` — 2 WAF facts (unknown id → 404; route advertised in OpenAPI with 200/404/409).
+
+### Definition of done
+- [x] `dotnet build -c Release` 0W/0E. Test binaries run directly → **Subscriptions 54** (from 48), **Api 49** (from 47), Ledger 31, Financing 151, Parties 32, Reporting 7, Architecture 15 = **341** (was 331). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new/removed module edge.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): `SubscriptionsService.unpay(id)`; per-row Undo button + `undoStatus`/`undoError` signal maps mirroring Pay/Cancel; shown only for `paid` rows. `pnpm ng lint` clean, `pnpm ng test` **273/273** (from 268), `pnpm ng build --configuration production` clean (`subscriptions-routes` 20.32 → 22.16 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: pay a sub → Paid, one `X` in this month's out-of-pocket; Undo → back to Overdue/Upcoming, the `X` gone from out-of-pocket, `NextDueDate` back one month; Undo again → 409.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, doc-sync). Nothing committed by this session — the user commits their own. **Spec gotcha caught and fixed during Step 4:** a first-draft client test for the Undo error asserted the rendered error text using the default `upcoming`-status fixture row, but the error `<p>` is nested inside the same `@if(status === 'paid')` block as the Undo button itself — the paragraph never rendered until the test was fixed to seed a `paid` row first. Slice 4 (Dashboard subscriptions block) remains — not started, which closes `docs/subscriptions-rework/`.

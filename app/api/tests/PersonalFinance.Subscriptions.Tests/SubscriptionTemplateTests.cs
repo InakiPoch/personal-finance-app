@@ -6,15 +6,13 @@ using Xunit;
 namespace PersonalFinance.Subscriptions.Tests;
 
 public class SubscriptionTemplateTests {
-    private static readonly DateTimeOffset FirstChargeOn = new(2026, 3, 15, 12, 0, 0, TimeSpan.Zero);
-
     [Fact]
-    public void Create_returns_an_active_template_stamped_with_the_first_charge_moment() {
+    public void Create_returns_an_active_template_with_no_period_paid_yet() {
         var template = CreateTemplate().Value;
 
         Assert.True(template.IsActive);
         Assert.Equal(new DateOnly(2026, 3, 15), template.NextDueDate);
-        Assert.Equal(FirstChargeOn, template.LastRenewalOnUtc);
+        Assert.Null(template.LastPaidPeriod);
     }
 
     [Fact]
@@ -76,27 +74,71 @@ public class SubscriptionTemplateTests {
     }
 
     [Fact]
-    public void Renew_advances_the_due_date_by_one_period_and_stamps_the_renewal_moment() {
+    public void MarkCurrentPeriodPaid_stamps_the_period_and_transaction_and_advances_the_due_date_by_one_period() {
         var template = CreateTemplate(anchorDay: 15).Value;
-        var renewedOn = new DateTimeOffset(2026, 3, 15, 6, 0, 0, TimeSpan.Zero);
+        var transactionId = Guid.CreateVersion7();
 
-        var result = template.Renew(renewedOn);
+        var result = template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), transactionId);
 
         Assert.True(result.IsSuccess);
+        Assert.Equal(new DateOnly(2026, 3, 15), template.LastPaidPeriod);
+        Assert.Equal(transactionId, template.LastPaidTransactionId);
         Assert.Equal(new DateOnly(2026, 4, 15), template.NextDueDate);
-        Assert.Equal(renewedOn, template.LastRenewalOnUtc);
     }
 
     [Fact]
-    public void Renew_after_cancellation_fails_and_leaves_the_due_date_untouched() {
+    public void MarkCurrentPeriodPaid_after_cancellation_fails_and_leaves_state_untouched() {
         var template = CreateTemplate(anchorDay: 15).Value;
         template.Cancel();
 
-        var result = template.Renew(new DateTimeOffset(2026, 4, 1, 0, 0, 0, TimeSpan.Zero));
+        var result = template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), Guid.CreateVersion7());
 
         Assert.True(result.IsFailure);
         Assert.Equal(SubscriptionErrors.SubscriptionNotActive, result.Error);
+        Assert.Null(template.LastPaidPeriod);
+        Assert.Null(template.LastPaidTransactionId);
         Assert.Equal(new DateOnly(2026, 3, 15), template.NextDueDate);
+    }
+
+    [Fact]
+    public void RevertLastPayment_steps_the_paid_period_and_due_date_back_one_month_and_clears_the_transaction_id() {
+        var template = CreateTemplate(anchorDay: 15).Value;
+        template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), Guid.CreateVersion7());
+
+        var result = template.RevertLastPayment();
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(new DateOnly(2026, 2, 15), template.LastPaidPeriod);
+        Assert.Null(template.LastPaidTransactionId);
+        Assert.Equal(new DateOnly(2026, 3, 15), template.NextDueDate);
+    }
+
+    [Fact]
+    public void RevertLastPayment_when_never_paid_leaves_last_paid_period_null_but_still_steps_the_due_date_back() {
+        var template = CreateTemplate(anchorDay: 15).Value;
+
+        var result = template.RevertLastPayment();
+
+        Assert.True(result.IsSuccess);
+        Assert.Null(template.LastPaidPeriod);
+        Assert.Null(template.LastPaidTransactionId);
+        Assert.Equal(new DateOnly(2026, 2, 15), template.NextDueDate);
+    }
+
+    [Fact]
+    public void RevertLastPayment_after_cancellation_fails_and_leaves_state_untouched() {
+        var template = CreateTemplate(anchorDay: 15).Value;
+        var transactionId = Guid.CreateVersion7();
+        template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), transactionId);
+        template.Cancel();
+
+        var result = template.RevertLastPayment();
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(SubscriptionErrors.SubscriptionNotActive, result.Error);
+        Assert.Equal(new DateOnly(2026, 3, 15), template.LastPaidPeriod);
+        Assert.Equal(transactionId, template.LastPaidTransactionId);
+        Assert.Equal(new DateOnly(2026, 4, 15), template.NextDueDate);
     }
 
     [Fact]
@@ -135,8 +177,7 @@ public class SubscriptionTemplateTests {
             fundingAccountId ?? Guid.CreateVersion7(),
             RecurrenceFrequency.Monthly,
             anchorDay,
-            new DateOnly(2026, 3, 15),
-            FirstChargeOn
+            new DateOnly(2026, 3, 15)
         );
     }
 }

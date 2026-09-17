@@ -8,10 +8,7 @@ using PersonalFinance.Subscriptions.Infrastructure.Persistence;
 
 namespace PersonalFinance.Subscriptions.Application.Commands.CreateSubscriptionTemplate;
 
-/// <summary>
-/// Defines a subscription and posts its first period immediately.
-/// </summary>
-internal sealed class CreateSubscriptionTemplateHandler(SubscriptionsDbContext context, ILedgerApi ledger) : ICommandHandler<CreateSubscriptionTemplateCommand, Guid> {
+internal sealed class CreateSubscriptionTemplateHandler(SubscriptionsDbContext context, ILedgerApi ledger, TimeProvider timeProvider) : ICommandHandler<CreateSubscriptionTemplateCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(CreateSubscriptionTemplateCommand command, CancellationToken cancellationToken) {
         var validation = CreateSubscriptionTemplateValidator.Validate(command);
         if(validation.IsFailure) {
@@ -28,8 +25,8 @@ internal sealed class CreateSubscriptionTemplateHandler(SubscriptionsDbContext c
         if(recurrence.IsFailure) {
             return recurrence.Error;
         }
-        var now = DateTimeOffset.UtcNow;
-        var today = DateOnly.FromDateTime(now.UtcDateTime);
+        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var currentAnchor = recurrence.Value.CurrentOccurrence(today);
         var amount = Money.FromMinorUnits(command.AmountMinorUnits, Currency.Reference);
         var template = SubscriptionTemplate.Create(
             name,
@@ -39,26 +36,32 @@ internal sealed class CreateSubscriptionTemplateHandler(SubscriptionsDbContext c
             command.FundingAccountId,
             command.Frequency,
             command.AnchorDay,
-            recurrence.Value.Next(today),
-            now
+            currentAnchor
         );
         if(template.IsFailure) {
             return template.Error;
         }
-        context.SubscriptionTemplates.Add(template.Value);
-        var posting = await ledger.PostTransactionAsync(
-            SubscriptionChargeCalculator.Build(
-                template.Value.ExpenseAccountId,
-                template.Value.FundingAccountId,
-                amount,
-                template.Value.Id,
-                now
-            ),
-            cancellationToken
-        );
-        if(posting.IsFailure) {
-            return posting.Error;
+        if(currentAnchor <= today) {
+            var postedOnUtc = new DateTimeOffset(currentAnchor.ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+            var posting = await ledger.PostTransactionAsync(
+                SubscriptionChargeCalculator.Build(
+                    template.Value.ExpenseAccountId,
+                    template.Value.FundingAccountId,
+                    amount,
+                    template.Value.Id,
+                    postedOnUtc
+                ),
+                cancellationToken
+            );
+            if(posting.IsFailure) {
+                return posting.Error;
+            }
+            var marked = template.Value.MarkCurrentPeriodPaid(currentAnchor, posting.Value);
+            if(marked.IsFailure) {
+                return marked.Error;
+            }
         }
+        context.SubscriptionTemplates.Add(template.Value);
         await context.SaveChangesAsync(cancellationToken);
         return template.Value.Id;
     }

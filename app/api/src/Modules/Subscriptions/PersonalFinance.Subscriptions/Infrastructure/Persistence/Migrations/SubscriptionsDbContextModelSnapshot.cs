@@ -104,7 +104,10 @@ namespace PersonalFinance.Subscriptions.Infrastructure.Persistence.Migrations
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(true);
 
-                    b.Property<DateTimeOffset?>("LastRenewalOnUtc")
+                    b.Property<DateOnly?>("LastPaidPeriod")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LastPaidTransactionId")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Name")

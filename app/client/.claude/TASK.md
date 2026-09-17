@@ -1278,6 +1278,81 @@ Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are th
 
 ---
 
+## Phase 37 — Subscriptions rework: explicit-pay foundation (Slice 1)
+
+**Goal:** Surface the new server-derived subscription status (`paid | overdue | upcoming`) as a badge on the Subscriptions page, and correct the page copy that still described the killed auto-charge model.
+
+**Traces to:** `docs/subscriptions-rework/slice-1-explicit-pay-foundation.md` (+ `00-overview.md`; first of four slices — Slice 2 pay a period by hand, Slice 3 undo that payment, Slice 4 a Dashboard subscriptions block). API half is `app/api` Phase 38 (kills the `RenewDueSubscriptions` auto-charge scheduler entirely — fixes the "N missed cycles = N·X" out-of-pocket bug — and `GET /v1/subscriptions/active` now derives `Status` per row). No client route, nav, or endpoint-shape change — same endpoint, one new field. `docs/DESIGN.md` / `docs/PRD.md` have no client-side entries for this slice (both docs are API-only in this repo); the API's own `docs/PRD.md` §9 decision 15 records the rework.
+
+**Depends on:** nothing client-side — `subscriptions-page` and `SubscriptionsService` already existed from earlier phases.
+
+### Tasks
+- [x] `features/subscriptions/types/subscription-status.ts` — `export type SubscriptionStatus = 'paid' | 'overdue' | 'upcoming';`.
+- [x] `features/subscriptions/types/active-subscription.ts` — `ActiveSubscription` gains `status: SubscriptionStatus`.
+- [x] `subscriptions-service.ts` — no code change needed; `status` is already a lowercase literal from the API's `statusFor(...)` helper (unlike `frequency`, a serialized enum needing `.toLowerCase()`), so it survives the existing `...row` spread in `listActive()` untouched.
+- [x] `pages/subscriptions-page/subscriptions-page.html` — new "Status" column header + a `@switch(subscription.status)` cell: `paid` → the hairline `.status-badge` pill (`color: var(--ledger)`), `overdue` → `text-negative` small-caps, `upcoming` → `text-ink-faint` small-caps; two stale copy lines describing auto-charging (a header blurb and a form helper) corrected to describe explicit pay.
+- [x] `pages/subscriptions-page/subscriptions-page.css` — `.status-badge` class added (hairline pill, CSS copied from `creditor-purchases-table`'s status idiom).
+- [x] Specs — `subscriptions-service.spec.ts` fixture gains `status: 'paid'`; `subscriptions-page.spec.ts` fixture gains `status: 'upcoming'` + a new fact rendering `Paid`/`Overdue`/`Upcoming` across three fixture rows.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **263/263** (from 262); `pnpm ng build --configuration production` clean (`subscriptions-routes` lazy chunk 18.19 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: register a subscription with a past/today anchor → shows Paid; a future anchor → shows Upcoming; a subscription left past due without being paid → shows Overdue with no extra charge posted.
+
+### Completion notes
+
+Built one green-lit step at a time (this is the slice's one client step — steps 0–4 are the API's Phase 38, this is step 5, doc-sync is step 6). No type-mapping work needed on `status` — the deliberate choice in Phase 38 to derive a lowercase literal string server-side (rather than a serialized enum) paid off exactly as expected. Not committed by this session — the user commits their own. **Slices 2–4 remain — not started.**
+
+---
+
+## Phase 38 — Subscriptions rework: pay a live period (Slice 2)
+
+**Goal:** A per-row **Pay** button on the Subscriptions page that settles the next due/overdue period — real charge posted, status flips to Paid, no optimistic update.
+
+**Traces to:** `docs/subscriptions-rework/slice-2-pay-live-period.md` (+ `00-overview.md`; second of four slices — Slice 3 undo that payment, Slice 4 a Dashboard subscriptions block). API half is `app/api` Phase 39 (`POST /v1/subscriptions/{id}/pay` — posts one charge dated today via `ILedgerApi`, marks the period paid, advances `NextDueDate` one month; new 409 `Subscriptions.SubscriptionAlreadyPaid`). No client route or nav change — one new service method + a button on the existing page. `docs/DESIGN.md` / `docs/PRD.md` have no client-side entries for this slice (both docs are API-only in this repo); the API's own `docs/PRD.md` §9 decision 15 records Slice 2 done.
+
+**Depends on:** Phase 37 (the `status` field this slice's button gates on).
+
+### Tasks
+- [x] `features/subscriptions/types/pay-subscription-result.ts` — `{ subscriptionId: string }` (matches the API's actual camelCase DTO shape, not the planning doc's placeholder `{ id: string }`).
+- [x] `subscriptions-service.ts` — `pay(id): Observable<PaySubscriptionResult>` → `POST subscriptions/${id}/pay` with an empty `{}` body.
+- [x] `pages/subscriptions-page/subscriptions-page.ts` — new `RowPayStatus` type + `payStatus`/`payError` signal maps + `onPay`/`payStatusFor`/`payErrorFor`/`payErrorText`, field-for-field mirroring the existing Cancel machinery; `payErrorMessages` covers `SubscriptionAlreadyPaid`/`SubscriptionNotActive`/`SubscriptionNotFound` plus the generic HTTP codes.
+- [x] `pages/subscriptions-page/subscriptions-page.html` — a **Pay** button (`text-stamp` accent, the `creditor-purchases-table` per-row action idiom) above the existing Cancel button, rendered only when `status === 'overdue' || status === 'upcoming'`, disabled mid-request, with its own inline `role="alert"` error line; success re-fetches via `loadActive()` (no optimistic update, same as Cancel).
+- [x] Specs — `subscriptions-service.spec.ts` +2 (`pay()` POST URL + empty body + result; a 409 maps to `AppError`); `subscriptions-page.spec.ts` +3 (Pay renders only on overdue/upcoming rows; clicking Pay calls the service + re-fetches; a 409 renders the per-row alert) — new `buttonsByLabel(label)` spec helper, needed once a row has two action buttons.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **268/268** (from 263); `pnpm ng build --configuration production` clean (`subscriptions-routes` lazy chunk 18.19 → 20.32 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: pay an overdue sub → flips to Paid, one charge lands in this month's out-of-pocket, due date +1 month; pay a several-months-behind sub repeatedly → catches up one period per click, stays Overdue in between; retry-pay an already-paid sub → 409 surfaced inline, no double charge.
+
+### Completion notes
+
+Built one green-lit step at a time (this is the slice's one client step — API production + API tests are the API's Phase 39 steps 1–2, this is step 3, client specs step 4, doc-sync step 5). No optimistic UI anywhere in this slice, matching the existing Cancel precedent — every mutation re-fetches the list rather than guessing the new row shape locally. Not committed by this session — the user commits their own. **Slices 3–4 remain — not started.**
+
+---
+
+## Phase 39 — Subscriptions rework: undo a payment (Slice 3)
+
+**Goal:** A per-row **Undo** button on the Subscriptions page that recovers a mis-clicked Pay — reverses the real ledger charge, status flips back to Overdue/Upcoming, no optimistic update.
+
+**Traces to:** `docs/subscriptions-rework/slice-3-undo-payment.md` (+ `00-overview.md`; third of four slices — Slice 4 a Dashboard subscriptions block remains). API half is `app/api` Phase 40 (`POST /v1/subscriptions/{id}/unpay` — reverses the pay-time Ledger transaction via a dedicated `ILedgerApi.ReverseTransactionAsync` and steps `LastPaidPeriod`/`NextDueDate` back one month; new 409 `Subscriptions.SubscriptionNotPaid`). No client route or nav change — one new service method + a button on the existing page. `docs/DESIGN.md` / `docs/PRD.md` have no client-side entries for this slice (both docs are API-only in this repo); the API's own `docs/PRD.md` §9 decision 15 records Slice 3 done.
+
+**Depends on:** Phase 38 (the Pay machinery this slice mirrors for Undo).
+
+### Tasks
+- [x] `subscriptions-service.ts` — `unpay(id): Observable<PaySubscriptionResult>` → `POST subscriptions/${id}/unpay` with an empty `{}` body, reusing the existing `PaySubscriptionResult` type (no new type needed).
+- [x] `pages/subscriptions-page/subscriptions-page.ts` — new `RowUndoStatus` type + `undoStatus`/`undoError` signal maps + `onUndo`/`undoStatusFor`/`undoErrorFor`/`undoErrorText`, field-for-field mirroring the existing Pay/Cancel machinery; `undoErrorMessages` covers `SubscriptionNotFound`/`SubscriptionNotPaid`/`SubscriptionNotActive` plus the generic HTTP codes.
+- [x] `pages/subscriptions-page/subscriptions-page.html` — an **Undo** button (same `text-stamp` accent as Pay) rendered only when `status === 'paid'` (the inverse gating of Pay), disabled mid-request, with its own inline `role="alert"` error line; success re-fetches via `loadActive()` (no optimistic update).
+- [x] Specs — `subscriptions-service.spec.ts` +2 (`unpay()` POST URL + empty body + result; a 409 maps to `AppError`); `subscriptions-page.spec.ts` +3 (Undo renders only on the paid row; clicking Undo calls the service + re-fetches; a 409 renders the per-row alert) — **spec gotcha caught and fixed:** a first-draft error test used the default `upcoming`-status fixture row, but the Undo error `<p>` is nested inside the same `@if(status === 'paid')` block as the button — fixed by seeding a `paid` row first.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **273/273** (from 268); `pnpm ng build --configuration production` clean (`subscriptions-routes` lazy chunk 20.32 → 22.16 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: pay a sub → Paid, one charge in this month's out-of-pocket; Undo → back to Overdue/Upcoming, the charge gone from out-of-pocket, due date back one month; Undo again → 409 surfaced inline.
+
+### Completion notes
+
+Built one green-lit step at a time (this is the slice's one client step — API production + API tests are the API's Phase 40 steps 1–2, this is step 3, client specs step 4, doc-sync step 5). No optimistic UI anywhere in this slice, matching the existing Pay/Cancel precedent. Not committed by this session — the user commits their own. **Slice 4 remains — not started, which closes `docs/subscriptions-rework/`.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

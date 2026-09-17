@@ -2,10 +2,13 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
+import { formatArs } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
+import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
+import { ActiveSubscription } from '../../../subscriptions/types/active-subscription';
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
@@ -15,6 +18,8 @@ type DashboardView = {
   selectedMonth: () => string;
   monthlyStatus: () => 'loading' | 'ready' | 'error';
   cardDueStatus: () => 'loading' | 'ready' | 'error';
+  subscriptionsStatus: () => 'loading' | 'ready' | 'error';
+  activeSubscriptions: () => ActiveSubscription[];
   expensesByCategory: () => Array<{ label: string; totalMinorUnits: number }>;
   accruedByCard: () => Array<{ label: string; totalMinorUnits: number }>;
   futureByCard: () => Array<{ label: string; totalMinorUnits: number }>;
@@ -32,6 +37,7 @@ describe('DashboardPage', () => {
   let monthlyExpenses: jasmine.Spy<(month?: string) => Observable<MonthlyExpenseRow[]>>;
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
   let cardPurchases: jasmine.Spy<(cardId: string) => Observable<CardPurchaseRow[]>>;
+  let listActive: jasmine.Spy<() => Observable<ActiveSubscription[]>>;
 
   const money = (value: number): Money => value as Money;
 
@@ -48,6 +54,11 @@ describe('DashboardPage', () => {
   const purchaseRows: CardPurchaseRow[] = [
     { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01' }
   ];
+  const activeSubscriptions: ActiveSubscription[] = [
+    { subscriptionId: 's1', name: 'Netflix', amountMinorUnits: money(150000), category: 'Streaming', frequency: 'monthly', anchorDay: 5, nextDueDate: '2026-09-05', status: 'paid' },
+    { subscriptionId: 's2', name: 'Spotify', amountMinorUnits: money(80000), category: 'Streaming', frequency: 'monthly', anchorDay: 1, nextDueDate: '2026-09-01', status: 'overdue' },
+    { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', status: 'upcoming' }
+  ];
 
   function setup(): void {
     fixture = TestBed.createComponent(DashboardPage);
@@ -58,6 +69,7 @@ describe('DashboardPage', () => {
     monthlyExpenses = jasmine.createSpy('monthlyExpenses').and.returnValue(of(monthlyRows));
     cardDueByMonth = jasmine.createSpy('cardDueByMonth').and.returnValue(of(cardDueRows));
     cardPurchases = jasmine.createSpy('cardPurchases').and.returnValue(of(purchaseRows));
+    listActive = jasmine.createSpy('listActive').and.returnValue(of(activeSubscriptions));
 
     TestBed.configureTestingModule({
       imports: [DashboardPage],
@@ -65,7 +77,8 @@ describe('DashboardPage', () => {
         provideZonelessChangeDetection(),
         provideRouter([]),
         { provide: ReportsService, useValue: { monthlyExpenses, cardDueByMonth } },
-        { provide: FinancingService, useValue: { cardPurchases } }
+        { provide: FinancingService, useValue: { cardPurchases } },
+        { provide: SubscriptionsService, useValue: { listActive } }
       ],
     });
   });
@@ -186,5 +199,54 @@ describe('DashboardPage', () => {
     const buttons: HTMLButtonElement[] = Array.from((fixture.nativeElement as HTMLElement).querySelectorAll('button[aria-expanded]'));
     expect(buttons.some((button) => (button.textContent ?? '').includes('MercadoPago'))).toBeFalse();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('MercadoPago');
+  });
+  it('renders one row per active subscription with its badge, renewal date, and flat cost', () => {
+    setup();
+    fixture.detectChanges();
+    expect(view.activeSubscriptions()).toEqual(activeSubscriptions);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('Netflix');
+    expect(text).toContain('2026-09-05');
+    expect(text).toContain(formatArs(money(150000)));
+    expect(text).toContain('Paid');
+    expect(text).toContain('Spotify');
+    expect(text).toContain('Overdue');
+    expect(text).toContain('iCloud');
+    expect(text).toContain('Upcoming');
+  });
+  it('keeps the Out of pocket total independent of an overdue subscription', () => {
+    setup();
+    fixture.detectChanges();
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatArs(money(195000)));
+    expect(view.monthlyStatus()).toBe('ready');
+  });
+  it('shows a loading state for subscriptions, then the panel once ready', () => {
+    setup();
+    expect(view.subscriptionsStatus()).toBe('loading');
+    fixture.detectChanges();
+    expect(view.subscriptionsStatus()).toBe('ready');
+  });
+  it('shows an error state when the subscriptions feed fails, without affecting the other panels', () => {
+    const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
+    listActive.and.returnValue(throwError(() => appError));
+    setup();
+    fixture.detectChanges();
+    expect(view.subscriptionsStatus()).toBe('error');
+    expect(view.monthlyStatus()).toBe('ready');
+    expect(view.cardDueStatus()).toBe('ready');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Could not read subscriptions');
+  });
+  it('shows an empty state when there are no active subscriptions', () => {
+    listActive.and.returnValue(of([]));
+    setup();
+    fixture.detectChanges();
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('No subscriptions to track.');
+  });
+  it('links the subscriptions panel chevron to /subscriptions', () => {
+    setup();
+    fixture.detectChanges();
+    const link: HTMLAnchorElement | null = (fixture.nativeElement as HTMLElement).querySelector('a[href="/subscriptions"]');
+    expect(link).toBeTruthy();
   });
 });

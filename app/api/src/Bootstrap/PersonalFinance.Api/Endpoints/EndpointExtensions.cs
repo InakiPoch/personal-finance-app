@@ -189,6 +189,18 @@ internal static class EndpointExtensions {
                 .WithSummary("List active subscriptions.")
                 .WithDescription("Returns every subscription that is currently active.")
                 .Produces<ActiveSubscriptionsDto>(StatusCodes.Status200OK);
+            group.MapPost(ApiRoutes.Subscriptions.Pay, PaySubscription.Handle)
+                .WithSummary("Pay the next unpaid period.")
+                .WithDescription("Posts one period's charge dated today, marks it paid, and advances the due date by one month. A subscription several months behind stays overdue until paid again.")
+                .Produces<PaySubscriptionResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Subscriptions.Unpay, UnpaySubscription.Handle)
+                .WithSummary("Undo the current period's payment.")
+                .WithDescription("Reverses the pay-time Ledger transaction and steps the due date back one month. Fails if the current period was never paid.")
+                .Produces<PaySubscriptionResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
             return endpoints;
         }
 

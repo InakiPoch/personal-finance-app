@@ -127,12 +127,16 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
 
 ### 3.6 Subscriptions — US-5
 - **Shows:** list of active subscriptions (name, amount, category, frequency, anchor day, next due
-  date). Forms to create a subscription (charges the first period immediately) and to cancel one
-  (stops future renewals; past charges remain).
+  date, a `paid | overdue | upcoming` status badge). Forms to create a subscription and to cancel
+  one (stops future dues; past charges remain).
 - **Source:** `GET /v1/subscriptions/active`, `POST /v1/subscriptions`,
   `DELETE /v1/subscriptions/{id}`.
-- **Notes:** renewals are scheduler-driven server-side (API D6); the client cannot trigger them and
-  simply reflects the latest state on load.
+- **Notes:** **revised by `docs/subscriptions-rework/` (API Phase 38, client Phase 37, Slice 1 of
+  four).** The old scheduler-driven auto-charge model is gone — a subscription is no longer
+  renewed by a server clock; the client cannot trigger it and never could. A period is charged
+  only when the user pays it explicitly (Slice 2, not yet built) or when registration itself lands
+  on an already-elapsed anchor day (charged once, at creation). The status badge is the one new
+  surface this slice adds; Slice 4 will add a Dashboard subscriptions block.
 
 ### 3.7 Parties — list & detail — US-7
 - **List shows:** every registered party with net balance (positive = they owe you); a party with no

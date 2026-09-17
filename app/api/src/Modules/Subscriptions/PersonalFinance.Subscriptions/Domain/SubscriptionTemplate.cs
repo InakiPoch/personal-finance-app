@@ -4,9 +4,7 @@ using PersonalFinance.Subscriptions.Contracts;
 namespace PersonalFinance.Subscriptions.Domain;
 
 /// <summary>
-/// A recurring charge definition. Charged on subscribe;
-/// every subsequent period is advanced by the renewal scheduler. Cancelling stops future
-/// renewals and never touches charges already generated.
+/// A recurring charge definition.
 /// </summary>
 internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
     public string Name { get; }
@@ -18,7 +16,8 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
     public int AnchorDay { get; }
     public DateOnly NextDueDate { get; private set; }
     public bool IsActive { get; private set; }
-    public DateTimeOffset? LastRenewalOnUtc { get; private set; }
+    public DateOnly? LastPaidPeriod { get; private set; }
+    public Guid? LastPaidTransactionId { get; private set; }
     public RecurrenceRule Recurrence => new(Frequency, AnchorDay);
     public RenewalSchedule Schedule => new(NextDueDate, IsActive);
 
@@ -32,7 +31,8 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         RecurrenceFrequency frequency,
         int anchorDay,
         DateOnly nextDueDate,
-        DateTimeOffset? lastRenewalOnUtc) : base(id) {
+        DateOnly? lastPaidPeriod,
+        Guid? lastPaidTransactionId) : base(id) {
         Name = name;
         Amount = amount;
         Category = category;
@@ -42,7 +42,8 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         AnchorDay = anchorDay;
         NextDueDate = nextDueDate;
         IsActive = true;
-        LastRenewalOnUtc = lastRenewalOnUtc;
+        LastPaidPeriod = lastPaidPeriod;
+        LastPaidTransactionId = lastPaidTransactionId;
     }
 
     public static Result<SubscriptionTemplate> Create(
@@ -53,8 +54,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         Guid fundingAccountId,
         RecurrenceFrequency frequency,
         int anchorDay,
-        DateOnly nextDueDate,
-        DateTimeOffset firstChargeOnUtc) {
+        DateOnly nextDueDate) {
         if(string.IsNullOrWhiteSpace(name)) {
             return SubscriptionErrors.InvalidName;
         }
@@ -80,16 +80,28 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
             frequency,
             anchorDay,
             nextDueDate,
-            firstChargeOnUtc
+            null,
+            null
         );
     }
 
-    public Result Renew(DateTimeOffset renewedOnUtc) {
+    public Result MarkCurrentPeriodPaid(DateOnly paidPeriodAnchor, Guid transactionId) {
         if(!IsActive) {
             return Result.Failure(SubscriptionErrors.SubscriptionNotActive);
         }
+        LastPaidPeriod = paidPeriodAnchor;
+        LastPaidTransactionId = transactionId;
         NextDueDate = Recurrence.Next(NextDueDate);
-        LastRenewalOnUtc = renewedOnUtc;
+        return Result.Success();
+    }
+
+    public Result RevertLastPayment() {
+        if(!IsActive) {
+            return Result.Failure(SubscriptionErrors.SubscriptionNotActive);
+        }
+        LastPaidPeriod = LastPaidPeriod?.AddMonths(-1);
+        LastPaidTransactionId = null;
+        NextDueDate = NextDueDate.AddMonths(-1);
         return Result.Success();
     }
 

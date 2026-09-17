@@ -51,6 +51,8 @@ public sealed record ApiRoutes {
         public const string Create = "/";
         public const string Cancel = "/{id:guid}";
         public const string Active = "/active";
+        public const string Pay = "/{id:guid}/pay";
+        public const string Unpay = "/{id:guid}/unpay";
     }
 
     public sealed record Parties {

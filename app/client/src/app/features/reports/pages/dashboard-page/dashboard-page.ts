@@ -15,6 +15,8 @@ import { formatArs, fromMinorUnits } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
+import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
+import { ActiveSubscription } from '../../../subscriptions/types/active-subscription';
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
@@ -54,6 +56,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly selectedMonth: WritableSignal<string> = signal<string>(currentMonthKey());
   protected readonly monthlyStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly cardDueStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly subscriptionsStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly activeSubscriptions: WritableSignal<ActiveSubscription[]> = signal<ActiveSubscription[]>([]);
 
   protected readonly expensesByCategory: Signal<Grouping[]> = computed(() =>
     sumByLabel(this.monthlyRows(), (row: MonthlyExpenseRow) => row.category, (row: MonthlyExpenseRow) => row.amountMinorUnits)
@@ -131,6 +135,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   private readonly reports: ReportsService = inject(ReportsService);
   private readonly financing: FinancingService = inject(FinancingService);
+  private readonly subscriptions: SubscriptionsService = inject(SubscriptionsService);
   private readonly monthlyRows: WritableSignal<MonthlyExpenseRow[]> = signal<MonthlyExpenseRow[]>([]);
   private readonly cardDueRows: WritableSignal<CardDueRow[]> = signal<CardDueRow[]>([]);
   private readonly purchasesByCardId: Map<string, CardPurchaseRow[]> = new Map<string, CardPurchaseRow[]>();
@@ -213,9 +218,25 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
   }
 
+  private loadActiveSubscriptions(): void {
+    this.subscriptionsStatus.set('loading');
+    this.subscriptions
+      .listActive()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: ActiveSubscription[]) => {
+          this.activeSubscriptions.set(rows);
+          this.subscriptionsStatus.set('ready');
+        },
+        error: () => this.subscriptionsStatus.set('error')
+      }
+    );
+  }
+
   ngOnInit(): void {
     this.loadMonthlyExpenses();
     this.loadCardDue();
+    this.loadActiveSubscriptions();
   }
 
   ngOnDestroy(): void {

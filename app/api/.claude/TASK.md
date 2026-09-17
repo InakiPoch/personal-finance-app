@@ -1305,3 +1305,28 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 ### Completion notes
 
 Built one green-lit step at a time (6 steps — API production ×4, client, doc-sync). Nothing committed by this session — the user commits their own. **Design choice kept from the slice doc:** `Create()` drops its trailing paid-timestamp parameter rather than keeping a compatibility overload — no handler-level test predated this session to break, and it mirrors `Installment.MarkPaid` being called post-construction in Financing. **Doc-sync also served as a cleanup pass:** the dead `SubscriptionRenewedIntegrationEvent` from Step 1 was found and removed here, not in Step 1 itself — a fresh session should not expect to find it. Slices 2 (pay a period by hand), 3 (undo that payment) and 4 (Dashboard subscriptions block) remain — not started.
+
+---
+
+## Phase 39 — Subscriptions rework: pay a live period (Slice 2)
+
+**Goal:** Let the user settle a due or overdue subscription with one click — posts one real `X` charge dated today, marks the current period paid, advances the due date exactly one month. A subscription several periods behind settles one period per click, never a silent batch.
+
+**Traces to:** `docs/subscriptions-rework/slice-2-pay-live-period.md` (+ `00-overview.md`; second of four slices — Slice 3 undo that payment, Slice 4 a Dashboard subscriptions block). `docs/DESIGN.md` §5.1 scheduler note + §6 folder tree reconciled; `docs/PRD.md` §9 decision 15 records Slice 2 done.
+
+**Depends on:** Phase 38 (the `LastPaidPeriod`/`MarkCurrentPeriodPaid` status model this slice pays into).
+
+### Tasks
+- [x] **Command + handler.** `PaySubscriptionCommand(Guid SubscriptionId) : ICommand<Guid>` in Contracts. `PaySubscriptionHandler(SubscriptionsDbContext, ILedgerApi, TimeProvider)` — the key divergence from the `PayCreditorInstallmentHandler` blueprint the slice doc names: subscriptions post a real ledger charge at pay-time (creditor pay is display-only), so `ILedgerApi` is injected. Flow: load (404) → `!IsActive` → `SubscriptionNotActive` (409) → already paid this month → `SubscriptionAlreadyPaid` (409) → capture `paidPeriodAnchor = NextDueDate` before mutating → post `SubscriptionChargeCalculator.Build(...)` via `ledger.PostTransactionAsync` (failure leaves the aggregate untouched) → `MarkCurrentPeriodPaid(paidPeriodAnchor)` → save.
+- [x] **New error.** `SubscriptionErrors.SubscriptionAlreadyPaid` ("Subscriptions.SubscriptionAlreadyPaid") — needs no `ErrorHttpStatusHelper` entry, matches the existing `*AlreadyPaid` suffix rule (409).
+- [x] **Endpoint.** `POST /v1/subscriptions/{id:guid}/pay` — `ApiRoutes.Subscriptions.Pay`, `Endpoints/Subscriptions/PaySubscription.cs` (`TypedResults.Ok`, not `Created`), `PaySubscriptionResultDto(Guid SubscriptionId)`. `SubscriptionMappingExtensions` — grouped the pre-existing `ToSubscriptionResultDto(this Guid subscriptionId)` with the new `ToPaySubscriptionResultDto()` into one `extension(Guid subscriptionId) { … }` block (both now share that receiver, per the C# 14 extension-member rule).
+- [x] **API tests.** `tests/PersonalFinance.Subscriptions.Tests/PaySubscriptionHandlerTests.cs` — 6 facts (pay-an-overdue-period-settles-it, several-periods-behind-settle-one-at-a-time, already-paid-this-month-409, unknown-id-404, cancelled-subscription-409, ledger-post-failure-leaves-the-aggregate-untouched). `tests/PersonalFinance.Api.Tests/PaySubscriptionTests.cs` — 2 WAF facts (unknown id → 404 `Subscriptions.SubscriptionNotFound`; route advertised in OpenAPI under `Subscriptions` with 200/404/409) — added during doc-sync after the slice doc's own Testing section called for it and Step 2 had skipped it.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. Test binaries run directly → **Subscriptions 48** (from 42), **Api 47** (from 45), Ledger 31, Financing 151, Parties 32, Reporting 7, Architecture 15 = **331** (was 323). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new/removed module edge.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): new `types/pay-subscription-result.ts`; `SubscriptionsService.pay(id)`; per-row Pay button + `payStatus`/`payError` signal maps mirroring Cancel; shown only for `overdue`/`upcoming` rows. `pnpm ng lint` clean, `pnpm ng test` **268/268** (from 263), `pnpm ng build --configuration production` clean (`subscriptions-routes` 18.19 → 20.32 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: pay an overdue sub → flips to Paid, one `X` in this month's out-of-pocket, `NextDueDate` +1 month; pay a several-months-behind sub repeatedly → catches up one period per click, stays Overdue in between; retry-pay an already-paid sub → 409, no double charge.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, doc-sync). Nothing committed by this session — the user commits their own. **Caught during API-tests review (Step 2), fixed before doc-sync:** the slice doc's Testing section asked for an `PersonalFinance.Api.Tests` WAF fact (OpenAPI presence + 404 problem shape) that the session's Step 2 pass missed — added retroactively during Step 5 rather than silently leaving the gap, since nothing about it needed the hosted-service-stripped WAF's usual accrual-scheduler caveat (pay is a synchronous ledger post). Slices 3 (undo that payment) and 4 (Dashboard subscriptions block) remain — not started.

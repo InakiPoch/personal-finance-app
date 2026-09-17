@@ -102,7 +102,7 @@ El running balance se expone como una vista de línea de tiempo que reconstruye 
 
 El patrón Outbox resuelve el **dual-write disparado por una transacción**: persistir un cambio de dominio y publicar un evento de forma atómica. En este sistema, el único caso genuino es el split de RF-3 (D8): una transacción crea el plan y debe emitir un evento sin riesgo de perderlo.
 
-El **devengo de cuotas** (D2) no se dispara por una transacción, se dispara por un **reloj** (cierre de ciclo). Eso es un scheduler, no un Outbox. Confundirlos lleva a usar Outbox donde corresponde un cron. Se modela como `BackgroundService` (`AccrueInstallments`) que emite comandos; el Outbox Worker es otro `BackgroundService`, dedicado solo a drenar las tablas `*_outbox_messages`. **Suscripciones ya no usa este mecanismo** (ver RF-5, revisado por `docs/subscriptions-rework/`): el scheduler `RenewDueSubscriptions` que renovaba por reloj fue eliminado — el usuario paga cada período de forma explícita (Slice 2 de esa iniciativa), o el registro lo marca pagado si el ancla del ciclo actual ya venció (Slice 1).
+El **devengo de cuotas** (D2) no se dispara por una transacción, se dispara por un **reloj** (cierre de ciclo). Eso es un scheduler, no un Outbox. Confundirlos lleva a usar Outbox donde corresponde un cron. Se modela como `BackgroundService` (`AccrueInstallments`) que emite comandos; el Outbox Worker es otro `BackgroundService`, dedicado solo a drenar las tablas `*_outbox_messages`. **Suscripciones ya no usa este mecanismo** (ver RF-5, revisado por `docs/subscriptions-rework/`): el scheduler `RenewDueSubscriptions` que renovaba por reloj fue eliminado — el usuario paga cada período de forma explícita (`POST /v1/subscriptions/{id}/pay`, Slice 2), o el registro lo marca pagado si el ancla del ciclo actual ya venció (Slice 1).
 
 ### D7 — SQLite en WAL + busy_timeout
 
@@ -434,7 +434,8 @@ README.md
 │   │   │   │   ├── ISubscriptionsApi.cs
 │   │   │   │   ├── Commands/
 │   │   │   │   │   ├── CreateSubscriptionTemplateCommand.cs
-│   │   │   │   │   └── CancelSubscriptionCommand.cs
+│   │   │   │   │   ├── CancelSubscriptionCommand.cs
+│   │   │   │   │   └── PaySubscriptionCommand.cs
 │   │   │   │   └── Queries/GetActiveSubscriptionsQuery.cs
 │   │   │   └── PersonalFinance.Subscriptions/
 │   │   │       ├── PersonalFinance.Subscriptions.csproj
@@ -444,7 +445,8 @@ README.md
 │   │   │       ├── Application/
 │   │   │       │   ├── Commands/
 │   │   │       │   │   ├── CreateSubscriptionTemplate/CreateSubscriptionTemplateHandler.cs   # ► charge-if-due-else-upcoming (D6)
-│   │   │       │   │   └── CancelSubscription/CancelSubscriptionHandler.cs
+│   │   │       │   │   ├── CancelSubscription/CancelSubscriptionHandler.cs
+│   │   │       │   │   └── PaySubscription/PaySubscriptionHandler.cs   # ► pays the next unpaid period, dated today, one period at a time
 │   │   │       │   └── Queries/GetActiveSubscriptions/GetActiveSubscriptionsHandler.cs   # ► derives paid|overdue|upcoming
 │   │   │       ├── Infrastructure/
 │   │   │       │   ├── Persistence/

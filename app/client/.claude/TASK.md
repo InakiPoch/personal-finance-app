@@ -1304,6 +1304,31 @@ Built one green-lit step at a time (this is the slice's one client step — step
 
 ---
 
+## Phase 38 — Subscriptions rework: pay a live period (Slice 2)
+
+**Goal:** A per-row **Pay** button on the Subscriptions page that settles the next due/overdue period — real charge posted, status flips to Paid, no optimistic update.
+
+**Traces to:** `docs/subscriptions-rework/slice-2-pay-live-period.md` (+ `00-overview.md`; second of four slices — Slice 3 undo that payment, Slice 4 a Dashboard subscriptions block). API half is `app/api` Phase 39 (`POST /v1/subscriptions/{id}/pay` — posts one charge dated today via `ILedgerApi`, marks the period paid, advances `NextDueDate` one month; new 409 `Subscriptions.SubscriptionAlreadyPaid`). No client route or nav change — one new service method + a button on the existing page. `docs/DESIGN.md` / `docs/PRD.md` have no client-side entries for this slice (both docs are API-only in this repo); the API's own `docs/PRD.md` §9 decision 15 records Slice 2 done.
+
+**Depends on:** Phase 37 (the `status` field this slice's button gates on).
+
+### Tasks
+- [x] `features/subscriptions/types/pay-subscription-result.ts` — `{ subscriptionId: string }` (matches the API's actual camelCase DTO shape, not the planning doc's placeholder `{ id: string }`).
+- [x] `subscriptions-service.ts` — `pay(id): Observable<PaySubscriptionResult>` → `POST subscriptions/${id}/pay` with an empty `{}` body.
+- [x] `pages/subscriptions-page/subscriptions-page.ts` — new `RowPayStatus` type + `payStatus`/`payError` signal maps + `onPay`/`payStatusFor`/`payErrorFor`/`payErrorText`, field-for-field mirroring the existing Cancel machinery; `payErrorMessages` covers `SubscriptionAlreadyPaid`/`SubscriptionNotActive`/`SubscriptionNotFound` plus the generic HTTP codes.
+- [x] `pages/subscriptions-page/subscriptions-page.html` — a **Pay** button (`text-stamp` accent, the `creditor-purchases-table` per-row action idiom) above the existing Cancel button, rendered only when `status === 'overdue' || status === 'upcoming'`, disabled mid-request, with its own inline `role="alert"` error line; success re-fetches via `loadActive()` (no optimistic update, same as Cancel).
+- [x] Specs — `subscriptions-service.spec.ts` +2 (`pay()` POST URL + empty body + result; a 409 maps to `AppError`); `subscriptions-page.spec.ts` +3 (Pay renders only on overdue/upcoming rows; clicking Pay calls the service + re-fetches; a 409 renders the per-row alert) — new `buttonsByLabel(label)` spec helper, needed once a row has two action buttons.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **268/268** (from 263); `pnpm ng build --configuration production` clean (`subscriptions-routes` lazy chunk 18.19 → 20.32 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: pay an overdue sub → flips to Paid, one charge lands in this month's out-of-pocket, due date +1 month; pay a several-months-behind sub repeatedly → catches up one period per click, stays Overdue in between; retry-pay an already-paid sub → 409 surfaced inline, no double charge.
+
+### Completion notes
+
+Built one green-lit step at a time (this is the slice's one client step — API production + API tests are the API's Phase 39 steps 1–2, this is step 3, client specs step 4, doc-sync step 5). No optimistic UI anywhere in this slice, matching the existing Cancel precedent — every mutation re-fetches the list rather than guessing the new row shape locally. Not committed by this session — the user commits their own. **Slices 3–4 remain — not started.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

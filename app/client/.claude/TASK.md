@@ -1329,6 +1329,30 @@ Built one green-lit step at a time (this is the slice's one client step — API 
 
 ---
 
+## Phase 39 — Subscriptions rework: undo a payment (Slice 3)
+
+**Goal:** A per-row **Undo** button on the Subscriptions page that recovers a mis-clicked Pay — reverses the real ledger charge, status flips back to Overdue/Upcoming, no optimistic update.
+
+**Traces to:** `docs/subscriptions-rework/slice-3-undo-payment.md` (+ `00-overview.md`; third of four slices — Slice 4 a Dashboard subscriptions block remains). API half is `app/api` Phase 40 (`POST /v1/subscriptions/{id}/unpay` — reverses the pay-time Ledger transaction via a dedicated `ILedgerApi.ReverseTransactionAsync` and steps `LastPaidPeriod`/`NextDueDate` back one month; new 409 `Subscriptions.SubscriptionNotPaid`). No client route or nav change — one new service method + a button on the existing page. `docs/DESIGN.md` / `docs/PRD.md` have no client-side entries for this slice (both docs are API-only in this repo); the API's own `docs/PRD.md` §9 decision 15 records Slice 3 done.
+
+**Depends on:** Phase 38 (the Pay machinery this slice mirrors for Undo).
+
+### Tasks
+- [x] `subscriptions-service.ts` — `unpay(id): Observable<PaySubscriptionResult>` → `POST subscriptions/${id}/unpay` with an empty `{}` body, reusing the existing `PaySubscriptionResult` type (no new type needed).
+- [x] `pages/subscriptions-page/subscriptions-page.ts` — new `RowUndoStatus` type + `undoStatus`/`undoError` signal maps + `onUndo`/`undoStatusFor`/`undoErrorFor`/`undoErrorText`, field-for-field mirroring the existing Pay/Cancel machinery; `undoErrorMessages` covers `SubscriptionNotFound`/`SubscriptionNotPaid`/`SubscriptionNotActive` plus the generic HTTP codes.
+- [x] `pages/subscriptions-page/subscriptions-page.html` — an **Undo** button (same `text-stamp` accent as Pay) rendered only when `status === 'paid'` (the inverse gating of Pay), disabled mid-request, with its own inline `role="alert"` error line; success re-fetches via `loadActive()` (no optimistic update).
+- [x] Specs — `subscriptions-service.spec.ts` +2 (`unpay()` POST URL + empty body + result; a 409 maps to `AppError`); `subscriptions-page.spec.ts` +3 (Undo renders only on the paid row; clicking Undo calls the service + re-fetches; a 409 renders the per-row alert) — **spec gotcha caught and fixed:** a first-draft error test used the default `upcoming`-status fixture row, but the Undo error `<p>` is nested inside the same `@if(status === 'paid')` block as the button — fixed by seeding a `paid` row first.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **273/273** (from 268); `pnpm ng build --configuration production` clean (`subscriptions-routes` lazy chunk 20.32 → 22.16 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: pay a sub → Paid, one charge in this month's out-of-pocket; Undo → back to Overdue/Upcoming, the charge gone from out-of-pocket, due date back one month; Undo again → 409 surfaced inline.
+
+### Completion notes
+
+Built one green-lit step at a time (this is the slice's one client step — API production + API tests are the API's Phase 40 steps 1–2, this is step 3, client specs step 4, doc-sync step 5). No optimistic UI anywhere in this slice, matching the existing Pay/Cancel precedent. Not committed by this session — the user commits their own. **Slice 4 remains — not started, which closes `docs/subscriptions-rework/`.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

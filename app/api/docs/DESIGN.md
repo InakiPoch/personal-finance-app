@@ -435,18 +435,20 @@ README.md
 │   │   │   │   ├── Commands/
 │   │   │   │   │   ├── CreateSubscriptionTemplateCommand.cs
 │   │   │   │   │   ├── CancelSubscriptionCommand.cs
-│   │   │   │   │   └── PaySubscriptionCommand.cs
+│   │   │   │   │   ├── PaySubscriptionCommand.cs
+│   │   │   │   │   └── UnpaySubscriptionCommand.cs
 │   │   │   │   └── Queries/GetActiveSubscriptionsQuery.cs
 │   │   │   └── PersonalFinance.Subscriptions/
 │   │   │       ├── PersonalFinance.Subscriptions.csproj
 │   │   │       ├── Domain/
-│   │   │       │   ├── SubscriptionTemplate.cs   # LastPaidPeriod · MarkCurrentPeriodPaid · RevertLastPayment
+│   │   │       │   ├── SubscriptionTemplate.cs   # LastPaidPeriod · LastPaidTransactionId · MarkCurrentPeriodPaid · RevertLastPayment
 │   │   │       │   └── RecurrenceRule.cs · RenewalSchedule.cs
 │   │   │       ├── Application/
 │   │   │       │   ├── Commands/
 │   │   │       │   │   ├── CreateSubscriptionTemplate/CreateSubscriptionTemplateHandler.cs   # ► charge-if-due-else-upcoming (D6)
 │   │   │       │   │   ├── CancelSubscription/CancelSubscriptionHandler.cs
-│   │   │       │   │   └── PaySubscription/PaySubscriptionHandler.cs   # ► pays the next unpaid period, dated today, one period at a time
+│   │   │       │   │   ├── PaySubscription/PaySubscriptionHandler.cs   # ► pays the next unpaid period, dated today, one period at a time
+│   │   │       │   │   └── UnpaySubscription/UnpaySubscriptionHandler.cs   # ► reverses the pay-time Ledger transaction (ILedgerApi.ReverseTransactionAsync) + steps the period back
 │   │   │       │   └── Queries/GetActiveSubscriptions/GetActiveSubscriptionsHandler.cs   # ► derives paid|overdue|upcoming
 │   │   │       ├── Infrastructure/
 │   │   │       │   ├── Persistence/

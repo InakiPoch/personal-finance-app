@@ -1330,3 +1330,30 @@ Built one green-lit step at a time (6 steps — API production ×4, client, doc-
 ### Completion notes
 
 Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, doc-sync). Nothing committed by this session — the user commits their own. **Caught during API-tests review (Step 2), fixed before doc-sync:** the slice doc's Testing section asked for an `PersonalFinance.Api.Tests` WAF fact (OpenAPI presence + 404 problem shape) that the session's Step 2 pass missed — added retroactively during Step 5 rather than silently leaving the gap, since nothing about it needed the hosted-service-stripped WAF's usual accrual-scheduler caveat (pay is a synchronous ledger post). Slices 3 (undo that payment) and 4 (Dashboard subscriptions block) remain — not started.
+
+---
+
+## Phase 40 — Subscriptions rework: undo a payment (Slice 3)
+
+**Goal:** Let a mis-clicked Pay be recovered — reverses the pay-time Ledger transaction (removing that `X` from out-of-pocket) and steps the current period back one month.
+
+**Traces to:** `docs/subscriptions-rework/slice-3-undo-payment.md` (+ `00-overview.md`; third of four slices — Slice 4 a Dashboard subscriptions block remains). `docs/DESIGN.md` §6 folder tree reconciled; `docs/PRD.md` §9 decision 15 records Slice 3 done.
+
+**Depends on:** Phase 39 (the `MarkCurrentPeriodPaid`/`PaySubscriptionHandler` this slice reverses).
+
+### Tasks
+- [x] **Mandatory fact-find (per the slice doc), before writing anything.** Confirmed `ILedgerApi.ReverseTransactionAsync(ReverseTransactionCommand)` is a dedicated reversal API, not a hand-rolled compensating posting; traced `ReverseTransactionHandler` to confirm a transaction with no `InstallmentReference`/`SplitReference` (a plain subscription charge) posts only a plain storno via `ReversalCalculator.Decide(false, null, false)` — no cross-module calls. Rejected the doc's suggested `FindAccrualTransactionIdsAsync`-by-reference lookup (hardcoded to `InstallmentReference`) in favor of the doc's own fallback: the aggregate remembers its own transaction id.
+- [x] **Domain add-back to `MarkCurrentPeriodPaid` (Slices 1–2).** `SubscriptionTemplate` gains `LastPaidTransactionId : Guid?`; `MarkCurrentPeriodPaid(DateOnly, Guid transactionId)` stores it; `RevertLastPayment()` nulls it. Both existing callers — `PaySubscriptionHandler` and `CreateSubscriptionTemplateHandler`'s "assume paid" registration charge — thread through the `posting.Value` transaction id they already had. Migration `AddSubscriptionLastPaidTransactionId` (nullable `Guid` column).
+- [x] **Command + handler.** `UnpaySubscriptionCommand(Guid SubscriptionId) : ICommand<Guid>` in Contracts. `UnpaySubscriptionHandler(SubscriptionsDbContext, ILedgerApi, TimeProvider)`. Flow: load (404) → `!IsActive` → `SubscriptionNotActive` (409) → not paid this calendar month → `SubscriptionNotPaid` (409, new — also rejects undoing a prior month's payment, by design) → `ledger.ReverseTransactionAsync(LastPaidTransactionId ?? Guid.Empty, now)` (failure leaves the aggregate untouched) → `RevertLastPayment()` → save.
+- [x] **New error.** `SubscriptionErrors.SubscriptionNotPaid` ("Subscriptions.SubscriptionNotPaid") — matches no suffix rule, explicit 409 line in `ErrorHttpStatusHelper.cs`.
+- [x] **Endpoint.** `POST /v1/subscriptions/{id:guid}/unpay` — `ApiRoutes.Subscriptions.Unpay`, `Endpoints/Subscriptions/UnpaySubscription.cs` (mirrors `PaySubscription.cs`, reuses `PaySubscriptionResultDto`).
+- [x] **API tests.** `tests/PersonalFinance.Subscriptions.Tests/UnpaySubscriptionHandlerTests.cs` — 6 facts (round-trip Pay→Undo reverses the exact posted transaction id + restores `NextDueDate`; rejects undo when never paid this month; rejects undo when the paid period is a prior month; unknown-id-404; cancelled-subscription-409; ledger-reversal-failure leaves the aggregate untouched) — `FakeLedgerApi` extended with `ReverseTransactionAsync` + `PostedTransactionIds`. `SubscriptionTemplateTests.cs` extended in place for `LastPaidTransactionId`'s lifecycle. `tests/PersonalFinance.Api.Tests/UnpaySubscriptionTests.cs` — 2 WAF facts (unknown id → 404; route advertised in OpenAPI with 200/404/409).
+
+### Definition of done
+- [x] `dotnet build -c Release` 0W/0E. Test binaries run directly → **Subscriptions 54** (from 48), **Api 49** (from 47), Ledger 31, Financing 151, Parties 32, Reporting 7, Architecture 15 = **341** (was 331). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new/removed module edge.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): `SubscriptionsService.unpay(id)`; per-row Undo button + `undoStatus`/`undoError` signal maps mirroring Pay/Cancel; shown only for `paid` rows. `pnpm ng lint` clean, `pnpm ng test` **273/273** (from 268), `pnpm ng build --configuration production` clean (`subscriptions-routes` 20.32 → 22.16 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: pay a sub → Paid, one `X` in this month's out-of-pocket; Undo → back to Overdue/Upcoming, the `X` gone from out-of-pocket, `NextDueDate` back one month; Undo again → 409.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, doc-sync). Nothing committed by this session — the user commits their own. **Spec gotcha caught and fixed during Step 4:** a first-draft client test for the Undo error asserted the rendered error text using the default `upcoming`-status fixture row, but the error `<p>` is nested inside the same `@if(status === 'paid')` block as the Undo button itself — the paragraph never rendered until the test was fixed to seed a `paid` row first. Slice 4 (Dashboard subscriptions block) remains — not started, which closes `docs/subscriptions-rework/`.

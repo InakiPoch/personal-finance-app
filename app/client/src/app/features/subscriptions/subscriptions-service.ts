@@ -37,4 +37,8 @@ export class SubscriptionsService {
   pay(id: string): Observable<PaySubscriptionResult> {
     return this.http.post<PaySubscriptionResult>(`subscriptions/${id}/pay`, {});
   }
+
+  unpay(id: string): Observable<PaySubscriptionResult> {
+    return this.http.post<PaySubscriptionResult>(`subscriptions/${id}/unpay`, {});
+  }
 }

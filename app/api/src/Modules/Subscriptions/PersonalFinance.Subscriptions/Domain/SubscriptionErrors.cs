@@ -42,4 +42,9 @@ internal static class SubscriptionErrors {
         "Subscriptions.SubscriptionAlreadyPaid",
         "The current period has already been paid."
     );
+
+    public static readonly Error SubscriptionNotPaid = new(
+        "Subscriptions.SubscriptionNotPaid",
+        "The current period has not been paid, so there is nothing to undo."
+    );
 }

@@ -35,7 +35,7 @@ internal sealed class PaySubscriptionHandler(SubscriptionsDbContext context, ILe
         if(posting.IsFailure) {
             return posting.Error;
         }
-        var marked = template.MarkCurrentPeriodPaid(paidPeriodAnchor);
+        var marked = template.MarkCurrentPeriodPaid(paidPeriodAnchor, posting.Value);
         if(marked.IsFailure) {
             return marked.Error;
         }

@@ -131,6 +131,37 @@ describe('SubscriptionsService', () => {
     });
   });
 
+  it('POSTs the unpay request and returns the result', () => {
+    let result: PaySubscriptionResult | undefined;
+    service.unpay('sub-1').subscribe((unpaid: PaySubscriptionResult) => (result = unpaid));
+    const req = httpMock.expectOne(`${collectionUrl}/sub-1/unpay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ subscriptionId: 'sub-1' });
+    expect(result).toEqual({ subscriptionId: 'sub-1' });
+  });
+
+  it('maps a 409 on unpay to an AppError keyed off code', () => {
+    let error: AppError | undefined;
+    service.unpay('sub-1').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
+    httpMock.expectOne(`${collectionUrl}/sub-1/unpay`).flush(
+      {
+        title: 'Conflict',
+        status: 409,
+        detail: 'not paid',
+        code: 'Subscriptions.SubscriptionNotPaid',
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+    expect(error).toEqual({
+      code: 'Subscriptions.SubscriptionNotPaid',
+      title: 'Conflict',
+      detail: 'not paid',
+      status: 409,
+      metadata: {}
+    });
+  });
+
   it('maps a 422 on create to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service

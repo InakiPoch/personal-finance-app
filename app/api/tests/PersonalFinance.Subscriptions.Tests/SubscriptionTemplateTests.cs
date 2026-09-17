@@ -74,13 +74,15 @@ public class SubscriptionTemplateTests {
     }
 
     [Fact]
-    public void MarkCurrentPeriodPaid_stamps_the_period_and_advances_the_due_date_by_one_period() {
+    public void MarkCurrentPeriodPaid_stamps_the_period_and_transaction_and_advances_the_due_date_by_one_period() {
         var template = CreateTemplate(anchorDay: 15).Value;
+        var transactionId = Guid.CreateVersion7();
 
-        var result = template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15));
+        var result = template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), transactionId);
 
         Assert.True(result.IsSuccess);
         Assert.Equal(new DateOnly(2026, 3, 15), template.LastPaidPeriod);
+        Assert.Equal(transactionId, template.LastPaidTransactionId);
         Assert.Equal(new DateOnly(2026, 4, 15), template.NextDueDate);
     }
 
@@ -89,23 +91,25 @@ public class SubscriptionTemplateTests {
         var template = CreateTemplate(anchorDay: 15).Value;
         template.Cancel();
 
-        var result = template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15));
+        var result = template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), Guid.CreateVersion7());
 
         Assert.True(result.IsFailure);
         Assert.Equal(SubscriptionErrors.SubscriptionNotActive, result.Error);
         Assert.Null(template.LastPaidPeriod);
+        Assert.Null(template.LastPaidTransactionId);
         Assert.Equal(new DateOnly(2026, 3, 15), template.NextDueDate);
     }
 
     [Fact]
-    public void RevertLastPayment_steps_the_paid_period_and_due_date_back_one_month() {
+    public void RevertLastPayment_steps_the_paid_period_and_due_date_back_one_month_and_clears_the_transaction_id() {
         var template = CreateTemplate(anchorDay: 15).Value;
-        template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15));
+        template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), Guid.CreateVersion7());
 
         var result = template.RevertLastPayment();
 
         Assert.True(result.IsSuccess);
         Assert.Equal(new DateOnly(2026, 2, 15), template.LastPaidPeriod);
+        Assert.Null(template.LastPaidTransactionId);
         Assert.Equal(new DateOnly(2026, 3, 15), template.NextDueDate);
     }
 
@@ -117,13 +121,15 @@ public class SubscriptionTemplateTests {
 
         Assert.True(result.IsSuccess);
         Assert.Null(template.LastPaidPeriod);
+        Assert.Null(template.LastPaidTransactionId);
         Assert.Equal(new DateOnly(2026, 2, 15), template.NextDueDate);
     }
 
     [Fact]
     public void RevertLastPayment_after_cancellation_fails_and_leaves_state_untouched() {
         var template = CreateTemplate(anchorDay: 15).Value;
-        template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15));
+        var transactionId = Guid.CreateVersion7();
+        template.MarkCurrentPeriodPaid(new DateOnly(2026, 3, 15), transactionId);
         template.Cancel();
 
         var result = template.RevertLastPayment();
@@ -131,6 +137,7 @@ public class SubscriptionTemplateTests {
         Assert.True(result.IsFailure);
         Assert.Equal(SubscriptionErrors.SubscriptionNotActive, result.Error);
         Assert.Equal(new DateOnly(2026, 3, 15), template.LastPaidPeriod);
+        Assert.Equal(transactionId, template.LastPaidTransactionId);
         Assert.Equal(new DateOnly(2026, 4, 15), template.NextDueDate);
     }
 

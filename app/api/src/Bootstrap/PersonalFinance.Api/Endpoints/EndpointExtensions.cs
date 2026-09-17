@@ -195,6 +195,12 @@ internal static class EndpointExtensions {
                 .Produces<PaySubscriptionResultDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Subscriptions.Unpay, UnpaySubscription.Handle)
+                .WithSummary("Undo the current period's payment.")
+                .WithDescription("Reverses the pay-time Ledger transaction and steps the due date back one month. Fails if the current period was never paid.")
+                .Produces<PaySubscriptionResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
             return endpoints;
         }
 

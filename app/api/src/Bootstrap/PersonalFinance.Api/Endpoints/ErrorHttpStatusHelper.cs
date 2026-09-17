@@ -26,6 +26,7 @@ internal static class ErrorHttpStatusHelper {
             "Financing.InstallmentNotAccrued" => StatusCodes.Status409Conflict,
             "Financing.NotACreditorInstallment" => StatusCodes.Status409Conflict,
             "Subscriptions.SubscriptionNotActive" => StatusCodes.Status409Conflict,
+            "Subscriptions.SubscriptionNotPaid" => StatusCodes.Status409Conflict,
             "Parties.SettlementExceedsBalance" => StatusCodes.Status409Conflict,
 
             // 422 — well-formed request that violates a domain rule the caller could in principle fix

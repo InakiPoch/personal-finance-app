@@ -88,7 +88,7 @@ public sealed class GetActiveSubscriptionsHandlerTests : IDisposable {
             nextDueDate
         ).Value;
         if(markPaidOn is { } paidOn) {
-            template.MarkCurrentPeriodPaid(paidOn);
+            template.MarkCurrentPeriodPaid(paidOn, Guid.CreateVersion7());
         }
         context.SubscriptionTemplates.Add(template);
         await context.SaveChangesAsync(cancellationToken);

@@ -34,6 +34,9 @@ type SubscriptionsView = {
   onPay: (id: string) => void;
   payStatusFor: (id: string) => 'idle' | 'paying' | 'error';
   payErrorFor: (id: string) => AppError | null;
+  onUndo: (id: string) => void;
+  undoStatusFor: (id: string) => 'idle' | 'undoing' | 'error';
+  undoErrorFor: (id: string) => AppError | null;
 };
 
 const activeRow: ActiveSubscription = {
@@ -59,6 +62,7 @@ describe('SubscriptionsPage', () => {
   let create: jasmine.Spy<(body: CreateSubscription) => Observable<SubscriptionResult>>;
   let cancel: jasmine.Spy<(id: string) => Observable<void>>;
   let pay: jasmine.Spy<(id: string) => Observable<PaySubscriptionResult>>;
+  let unpay: jasmine.Spy<(id: string) => Observable<PaySubscriptionResult>>;
 
   function setup(): void {
     fixture = TestBed.createComponent(SubscriptionsPage);
@@ -85,11 +89,14 @@ describe('SubscriptionsPage', () => {
     pay = jasmine
       .createSpy('pay')
       .and.returnValue(of<PaySubscriptionResult>({ subscriptionId: 'sub-1' }));
+    unpay = jasmine
+      .createSpy('unpay')
+      .and.returnValue(of<PaySubscriptionResult>({ subscriptionId: 'sub-1' }));
     TestBed.configureTestingModule({
       imports: [SubscriptionsPage],
       providers: [
         provideZonelessChangeDetection(),
-        { provide: SubscriptionsService, useValue: { listActive, create, cancel, pay } },
+        { provide: SubscriptionsService, useValue: { listActive, create, cancel, pay, unpay } },
         {
           provide: InstrumentsService,
           useValue: { list: () => of<Instrument[]>(instruments) }
@@ -252,5 +259,42 @@ describe('SubscriptionsPage', () => {
     expect(view.payStatusFor('sub-1')).toBe('error');
     expect(view.payErrorFor('sub-1')).toEqual(appError);
     expect(text()).toContain('This period was already paid — the list was refreshed.');
+  });
+  it('shows the Undo button only for paid rows, never for overdue or upcoming', () => {
+    listActive.and.returnValue(
+      of<ActiveSubscription[]>([
+        { ...activeRow, subscriptionId: 'sub-paid', status: 'paid' },
+        { ...activeRow, subscriptionId: 'sub-overdue', status: 'overdue' },
+        { ...activeRow, subscriptionId: 'sub-upcoming', status: 'upcoming' },
+      ]),
+    );
+    setup();
+    expect(buttonsByLabel('Undo').length).toBe(1);
+  });
+  it('undoes a row via the service and reflects the re-fetched list (no optimistic update)', () => {
+    setup();
+    listActive.calls.reset();
+    listActive.and.returnValue(of<ActiveSubscription[]>([{ ...activeRow, status: 'overdue' }]));
+    view.onUndo('sub-1');
+    expect(unpay).toHaveBeenCalledWith('sub-1');
+    expect(listActive).toHaveBeenCalledTimes(1);
+    expect(view.active()).toEqual([{ ...activeRow, status: 'overdue' }]);
+  });
+  it('renders a per-row undo error keyed off the AppError code on a 409', () => {
+    const appError: AppError = {
+      code: 'Subscriptions.SubscriptionNotPaid',
+      title: 'Conflict',
+      detail: 'x',
+      status: 409,
+      metadata: {}
+    };
+    unpay.and.returnValue(throwError(() => appError));
+    listActive.and.returnValue(of<ActiveSubscription[]>([{ ...activeRow, status: 'paid' }]));
+    setup();
+    view.onUndo('sub-1');
+    fixture.detectChanges();
+    expect(view.undoStatusFor('sub-1')).toBe('error');
+    expect(view.undoErrorFor('sub-1')).toEqual(appError);
+    expect(text()).toContain('This period is no longer paid — the list was refreshed.');
   });
 });

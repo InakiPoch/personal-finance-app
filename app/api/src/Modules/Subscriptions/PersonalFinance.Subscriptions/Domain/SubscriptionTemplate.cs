@@ -17,6 +17,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
     public DateOnly NextDueDate { get; private set; }
     public bool IsActive { get; private set; }
     public DateOnly? LastPaidPeriod { get; private set; }
+    public Guid? LastPaidTransactionId { get; private set; }
     public RecurrenceRule Recurrence => new(Frequency, AnchorDay);
     public RenewalSchedule Schedule => new(NextDueDate, IsActive);
 
@@ -30,7 +31,8 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         RecurrenceFrequency frequency,
         int anchorDay,
         DateOnly nextDueDate,
-        DateOnly? lastPaidPeriod) : base(id) {
+        DateOnly? lastPaidPeriod,
+        Guid? lastPaidTransactionId) : base(id) {
         Name = name;
         Amount = amount;
         Category = category;
@@ -41,6 +43,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         NextDueDate = nextDueDate;
         IsActive = true;
         LastPaidPeriod = lastPaidPeriod;
+        LastPaidTransactionId = lastPaidTransactionId;
     }
 
     public static Result<SubscriptionTemplate> Create(
@@ -77,15 +80,17 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
             frequency,
             anchorDay,
             nextDueDate,
+            null,
             null
         );
     }
 
-    public Result MarkCurrentPeriodPaid(DateOnly paidPeriodAnchor) {
+    public Result MarkCurrentPeriodPaid(DateOnly paidPeriodAnchor, Guid transactionId) {
         if(!IsActive) {
             return Result.Failure(SubscriptionErrors.SubscriptionNotActive);
         }
         LastPaidPeriod = paidPeriodAnchor;
+        LastPaidTransactionId = transactionId;
         NextDueDate = Recurrence.Next(NextDueDate);
         return Result.Success();
     }
@@ -95,6 +100,7 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
             return Result.Failure(SubscriptionErrors.SubscriptionNotActive);
         }
         LastPaidPeriod = LastPaidPeriod?.AddMonths(-1);
+        LastPaidTransactionId = null;
         NextDueDate = NextDueDate.AddMonths(-1);
         return Result.Success();
     }

@@ -303,6 +303,24 @@
                           </p>
                         }
                       }
+                      @if(subscription.status === 'paid') {
+                        <button
+                          type="button"
+                          [disabled]="undoStatusFor(subscription.subscriptionId) === 'undoing'"
+                          (click)="onUndo(subscription.subscriptionId)"
+                          class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                        >
+                          {{ undoStatusFor(subscription.subscriptionId) === 'undoing' ? 'Undoing…' : 'Undo' }}
+                        </button>
+                        @if(undoErrorFor(subscription.subscriptionId); as error) {
+                          <p
+                            class="max-w-[28ch] text-right text-[0.6875rem] leading-relaxed text-negative text-pretty"
+                            role="alert"
+                          >
+                            {{ undoErrorText(error) }}
+                          </p>
+                        }
+                      }
                       <button
                         type="button"
                         [disabled]="cancelStatusFor(subscription.subscriptionId) === 'cancelling'"

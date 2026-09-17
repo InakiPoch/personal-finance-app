@@ -9,6 +9,7 @@ import { Money } from '../../core/types/money';
 import { environment } from '../../environments/environment';
 import { ActiveSubscription } from './types/active-subscription';
 import { CreateSubscription } from './types/create-subscription';
+import { PaySubscriptionResult } from './types/pay-subscription-result';
 import { SubscriptionResult } from './types/subscription-result';
 import { SubscriptionsService } from './subscriptions-service';
 
@@ -97,6 +98,37 @@ describe('SubscriptionsService', () => {
     req.flush(null, { status: 204, statusText: 'No Content' });
     expect(result).toBeNull();
     expect(completed).toBeTrue();
+  });
+
+  it('POSTs the pay request and returns the result', () => {
+    let result: PaySubscriptionResult | undefined;
+    service.pay('sub-1').subscribe((paid: PaySubscriptionResult) => (result = paid));
+    const req = httpMock.expectOne(`${collectionUrl}/sub-1/pay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({});
+    req.flush({ subscriptionId: 'sub-1' });
+    expect(result).toEqual({ subscriptionId: 'sub-1' });
+  });
+
+  it('maps a 409 on pay to an AppError keyed off code', () => {
+    let error: AppError | undefined;
+    service.pay('sub-1').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
+    httpMock.expectOne(`${collectionUrl}/sub-1/pay`).flush(
+      {
+        title: 'Conflict',
+        status: 409,
+        detail: 'already paid',
+        code: 'Subscriptions.SubscriptionAlreadyPaid',
+      },
+      { status: 409, statusText: 'Conflict' }
+    );
+    expect(error).toEqual({
+      code: 'Subscriptions.SubscriptionAlreadyPaid',
+      title: 'Conflict',
+      detail: 'already paid',
+      status: 409,
+      metadata: {}
+    });
   });
 
   it('maps a 422 on create to an AppError keyed off code', () => {

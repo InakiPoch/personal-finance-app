@@ -37,4 +37,9 @@ internal static class SubscriptionErrors {
         "Subscriptions.SubscriptionNotActive",
         "The subscription is no longer active."
     );
+
+    public static readonly Error SubscriptionAlreadyPaid = new(
+        "Subscriptions.SubscriptionAlreadyPaid",
+        "The current period has already been paid."
+    );
 }

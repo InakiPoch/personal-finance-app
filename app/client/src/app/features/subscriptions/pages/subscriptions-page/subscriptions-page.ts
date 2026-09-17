@@ -25,6 +25,7 @@ import { atMostTwoDecimals, dayOfMonth, positiveAmount } from '../../validation-
 type ListStatus = 'loading' | 'ready' | 'error';
 type SubmitStatus = 'idle' | 'submitting' | 'error';
 type RowCancelStatus = 'idle' | 'cancelling' | 'error';
+type RowPayStatus = 'idle' | 'paying' | 'error';
 
 type SubscriptionForm = FormGroup<{
   name: FormControl<string>;
@@ -58,6 +59,12 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
   protected readonly cancelError: WritableSignal<Record<string, AppError>> = signal<
     Record<string, AppError>
   >({});
+  protected readonly payStatus: WritableSignal<Record<string, RowPayStatus>> = signal<
+    Record<string, RowPayStatus>
+  >({});
+  protected readonly payError: WritableSignal<Record<string, AppError>> = signal<
+    Record<string, AppError>
+  >({});
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
     positiveAmount: 'Enter an amount greater than zero.',
@@ -85,6 +92,15 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
     'Subscriptions.SubscriptionNotActive': 'That subscription was already cancelled.',
     'Http.NotFound': 'That subscription no longer exists — the list was refreshed.',
     'Http.Conflict': 'That subscription was already cancelled.',
+    'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
+    'Http.NetworkError': 'Could not reach the server. Check your connection.'
+  };
+  private readonly payErrorMessages: Record<string, string> = {
+    'Subscriptions.SubscriptionNotFound': 'That subscription no longer exists — the list was refreshed.',
+    'Subscriptions.SubscriptionAlreadyPaid': 'This period was already paid — the list was refreshed.',
+    'Subscriptions.SubscriptionNotActive': 'That subscription was cancelled.',
+    'Http.NotFound': 'That subscription no longer exists — the list was refreshed.',
+    'Http.Conflict': 'This period was already paid — the list was refreshed.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };
@@ -156,6 +172,25 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
     );
   }
 
+  protected onPay(subscriptionId: string): void {
+    this.setPayStatus(subscriptionId, 'paying');
+    this.clearPayError(subscriptionId);
+    this.subscriptions
+      .pay(subscriptionId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => this.loadActive(),
+        error: (error: AppError) => {
+          this.setPayStatus(subscriptionId, 'error');
+          this.payError.update((map: Record<string, AppError>) => ({
+            ...map,
+            [subscriptionId]: error,
+          }));
+        }
+      }
+    );
+  }
+
   protected cancelStatusFor(subscriptionId: string): RowCancelStatus {
     return this.cancelStatus()[subscriptionId] ?? 'idle';
   }
@@ -164,12 +199,24 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
     return this.cancelError()[subscriptionId] ?? null;
   }
 
+  protected payStatusFor(subscriptionId: string): RowPayStatus {
+    return this.payStatus()[subscriptionId] ?? 'idle';
+  }
+
+  protected payErrorFor(subscriptionId: string): AppError | null {
+    return this.payError()[subscriptionId] ?? null;
+  }
+
   protected submitErrorText(error: AppError): string {
     return this.submitErrorMessages[error.code] ?? 'The subscription could not be created.';
   }
 
   protected cancelErrorText(error: AppError): string {
     return this.cancelErrorMessages[error.code] ?? 'The subscription could not be cancelled.';
+  }
+
+  protected payErrorText(error: AppError): string {
+    return this.payErrorMessages[error.code] ?? 'The period could not be paid.';
   }
 
   private loadInstruments(): void {
@@ -203,6 +250,21 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
 
   private clearCancelError(subscriptionId: string): void {
     this.cancelError.update((map: Record<string, AppError>) => {
+      const next: Record<string, AppError> = { ...map };
+      delete next[subscriptionId];
+      return next;
+    });
+  }
+
+  private setPayStatus(subscriptionId: string, status: RowPayStatus): void {
+    this.payStatus.update((map: Record<string, RowPayStatus>) => ({
+      ...map,
+      [subscriptionId]: status
+    }));
+  }
+
+  private clearPayError(subscriptionId: string): void {
+    this.payError.update((map: Record<string, AppError>) => {
       const next: Record<string, AppError> = { ...map };
       delete next[subscriptionId];
       return next;

@@ -10,6 +10,7 @@ import { SubscriptionsService } from '../../subscriptions-service';
 import { ActiveSubscription } from '../../types/active-subscription';
 import { CreateSubscription } from '../../types/create-subscription';
 import { Frequency } from '../../types/frequency';
+import { PaySubscriptionResult } from '../../types/pay-subscription-result';
 import { SubscriptionResult } from '../../types/subscription-result';
 import { SubscriptionsPage } from './subscriptions-page';
 
@@ -30,6 +31,9 @@ type SubscriptionsView = {
   onCancel: (id: string) => void;
   cancelStatusFor: (id: string) => 'idle' | 'cancelling' | 'error';
   cancelErrorFor: (id: string) => AppError | null;
+  onPay: (id: string) => void;
+  payStatusFor: (id: string) => 'idle' | 'paying' | 'error';
+  payErrorFor: (id: string) => AppError | null;
 };
 
 const activeRow: ActiveSubscription = {
@@ -54,6 +58,7 @@ describe('SubscriptionsPage', () => {
   let listActive: jasmine.Spy<() => Observable<ActiveSubscription[]>>;
   let create: jasmine.Spy<(body: CreateSubscription) => Observable<SubscriptionResult>>;
   let cancel: jasmine.Spy<(id: string) => Observable<void>>;
+  let pay: jasmine.Spy<(id: string) => Observable<PaySubscriptionResult>>;
 
   function setup(): void {
     fixture = TestBed.createComponent(SubscriptionsPage);
@@ -65,17 +70,26 @@ describe('SubscriptionsPage', () => {
     return (fixture.nativeElement as HTMLElement).textContent ?? '';
   }
 
+  function buttonsByLabel(label: string): HTMLButtonElement[] {
+    const buttons: NodeListOf<HTMLButtonElement> = (fixture.nativeElement as HTMLElement)
+      .querySelectorAll<HTMLButtonElement>('button');
+    return Array.from(buttons).filter((button: HTMLButtonElement) => button.textContent?.trim() === label);
+  }
+
   beforeEach(() => {
     listActive = jasmine
       .createSpy('listActive')
       .and.returnValue(of<ActiveSubscription[]>([activeRow]));
     create = jasmine.createSpy('create').and.returnValue(of<SubscriptionResult>({ id: 'sub-9' }));
     cancel = jasmine.createSpy('cancel').and.returnValue(of<void>(undefined));
+    pay = jasmine
+      .createSpy('pay')
+      .and.returnValue(of<PaySubscriptionResult>({ subscriptionId: 'sub-1' }));
     TestBed.configureTestingModule({
       imports: [SubscriptionsPage],
       providers: [
         provideZonelessChangeDetection(),
-        { provide: SubscriptionsService, useValue: { listActive, create, cancel } },
+        { provide: SubscriptionsService, useValue: { listActive, create, cancel, pay } },
         {
           provide: InstrumentsService,
           useValue: { list: () => of<Instrument[]>(instruments) }
@@ -202,5 +216,41 @@ describe('SubscriptionsPage', () => {
     expect(view.cancelStatusFor('sub-1')).toBe('error');
     expect(view.cancelErrorFor('sub-1')).toEqual(appError);
     expect(text()).toContain('That subscription was already cancelled.');
+  });
+  it('shows the Pay button only for overdue and upcoming rows, never for paid', () => {
+    listActive.and.returnValue(
+      of<ActiveSubscription[]>([
+        { ...activeRow, subscriptionId: 'sub-paid', status: 'paid' },
+        { ...activeRow, subscriptionId: 'sub-overdue', status: 'overdue' },
+        { ...activeRow, subscriptionId: 'sub-upcoming', status: 'upcoming' },
+      ]),
+    );
+    setup();
+    expect(buttonsByLabel('Pay').length).toBe(2);
+  });
+  it('pays a row via the service and reflects the re-fetched list (no optimistic update)', () => {
+    setup();
+    listActive.calls.reset();
+    listActive.and.returnValue(of<ActiveSubscription[]>([{ ...activeRow, status: 'paid' }]));
+    view.onPay('sub-1');
+    expect(pay).toHaveBeenCalledWith('sub-1');
+    expect(listActive).toHaveBeenCalledTimes(1);
+    expect(view.active()).toEqual([{ ...activeRow, status: 'paid' }]);
+  });
+  it('renders a per-row pay error keyed off the AppError code on a 409', () => {
+    const appError: AppError = {
+      code: 'Subscriptions.SubscriptionAlreadyPaid',
+      title: 'Conflict',
+      detail: 'x',
+      status: 409,
+      metadata: {}
+    };
+    pay.and.returnValue(throwError(() => appError));
+    setup();
+    view.onPay('sub-1');
+    fixture.detectChanges();
+    expect(view.payStatusFor('sub-1')).toBe('error');
+    expect(view.payErrorFor('sub-1')).toEqual(appError);
+    expect(text()).toContain('This period was already paid — the list was refreshed.');
   });
 });

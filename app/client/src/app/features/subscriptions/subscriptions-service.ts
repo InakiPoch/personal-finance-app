@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { ActiveSubscription } from './types/active-subscription';
 import { CreateSubscription } from './types/create-subscription';
 import { Frequency } from './types/frequency';
+import { PaySubscriptionResult } from './types/pay-subscription-result';
 import { SubscriptionResult } from './types/subscription-result';
 
 type RowsEnvelope<T> = { rows: T[] };
@@ -31,5 +32,9 @@ export class SubscriptionsService {
 
   cancel(id: string): Observable<void> {
     return this.http.delete<void>(`subscriptions/${id}`);
+  }
+
+  pay(id: string): Observable<PaySubscriptionResult> {
+    return this.http.post<PaySubscriptionResult>(`subscriptions/${id}/pay`, {});
   }
 }

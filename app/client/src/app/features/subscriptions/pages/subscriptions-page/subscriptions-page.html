@@ -285,6 +285,24 @@
                   </td>
                   <td class="py-2.5 pl-4 text-right">
                     <div class="inline-flex flex-col items-end gap-1">
+                      @if(subscription.status === 'overdue' || subscription.status === 'upcoming') {
+                        <button
+                          type="button"
+                          [disabled]="payStatusFor(subscription.subscriptionId) === 'paying'"
+                          (click)="onPay(subscription.subscriptionId)"
+                          class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                        >
+                          {{ payStatusFor(subscription.subscriptionId) === 'paying' ? 'Paying…' : 'Pay' }}
+                        </button>
+                        @if(payErrorFor(subscription.subscriptionId); as error) {
+                          <p
+                            class="max-w-[28ch] text-right text-[0.6875rem] leading-relaxed text-negative text-pretty"
+                            role="alert"
+                          >
+                            {{ payErrorText(error) }}
+                          </p>
+                        }
+                      }
                       <button
                         type="button"
                         [disabled]="cancelStatusFor(subscription.subscriptionId) === 'cancelling'"

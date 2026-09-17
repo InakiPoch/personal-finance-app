@@ -17,10 +17,6 @@ internal static class SubscriptionMappingExtensions {
         );
     }
 
-    public static SubscriptionResultDto ToSubscriptionResultDto(this Guid subscriptionId) {
-        return new SubscriptionResultDto(subscriptionId);
-    }
-
     public static ActiveSubscriptionsDto ToActiveSubscriptionsDto(this ActiveSubscriptionsResponse response) {
         var rows = response.Rows
             .Select(row => new ActiveSubscriptionRowDto(
@@ -35,5 +31,15 @@ internal static class SubscriptionMappingExtensions {
             )
             .ToList();
         return new ActiveSubscriptionsDto(rows);
+    }
+
+    extension(Guid subscriptionId) {
+        public SubscriptionResultDto ToSubscriptionResultDto() {
+            return new SubscriptionResultDto(subscriptionId);
+        }
+
+        public PaySubscriptionResultDto ToPaySubscriptionResultDto() {
+            return new PaySubscriptionResultDto(subscriptionId);
+        }
     }
 }

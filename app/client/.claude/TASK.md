@@ -1278,6 +1278,32 @@ Built one green-lit step at a time (steps 3–4 of the slice; steps 1–2 are th
 
 ---
 
+## Phase 37 — Subscriptions rework: explicit-pay foundation (Slice 1)
+
+**Goal:** Surface the new server-derived subscription status (`paid | overdue | upcoming`) as a badge on the Subscriptions page, and correct the page copy that still described the killed auto-charge model.
+
+**Traces to:** `docs/subscriptions-rework/slice-1-explicit-pay-foundation.md` (+ `00-overview.md`; first of four slices — Slice 2 pay a period by hand, Slice 3 undo that payment, Slice 4 a Dashboard subscriptions block). API half is `app/api` Phase 38 (kills the `RenewDueSubscriptions` auto-charge scheduler entirely — fixes the "N missed cycles = N·X" out-of-pocket bug — and `GET /v1/subscriptions/active` now derives `Status` per row). No client route, nav, or endpoint-shape change — same endpoint, one new field. `docs/DESIGN.md` / `docs/PRD.md` have no client-side entries for this slice (both docs are API-only in this repo); the API's own `docs/PRD.md` §9 decision 15 records the rework.
+
+**Depends on:** nothing client-side — `subscriptions-page` and `SubscriptionsService` already existed from earlier phases.
+
+### Tasks
+- [x] `features/subscriptions/types/subscription-status.ts` — `export type SubscriptionStatus = 'paid' | 'overdue' | 'upcoming';`.
+- [x] `features/subscriptions/types/active-subscription.ts` — `ActiveSubscription` gains `status: SubscriptionStatus`.
+- [x] `subscriptions-service.ts` — no code change needed; `status` is already a lowercase literal from the API's `statusFor(...)` helper (unlike `frequency`, a serialized enum needing `.toLowerCase()`), so it survives the existing `...row` spread in `listActive()` untouched.
+- [x] `pages/subscriptions-page/subscriptions-page.html` — new "Status" column header + a `@switch(subscription.status)` cell: `paid` → the hairline `.status-badge` pill (`color: var(--ledger)`), `overdue` → `text-negative` small-caps, `upcoming` → `text-ink-faint` small-caps; two stale copy lines describing auto-charging (a header blurb and a form helper) corrected to describe explicit pay.
+- [x] `pages/subscriptions-page/subscriptions-page.css` — `.status-badge` class added (hairline pill, CSS copied from `creditor-purchases-table`'s status idiom).
+- [x] Specs — `subscriptions-service.spec.ts` fixture gains `status: 'paid'`; `subscriptions-page.spec.ts` fixture gains `status: 'upcoming'` + a new fact rendering `Paid`/`Overdue`/`Upcoming` across three fixture rows.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **263/263** (from 262); `pnpm ng build --configuration production` clean (`subscriptions-routes` lazy chunk 18.19 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: register a subscription with a past/today anchor → shows Paid; a future anchor → shows Upcoming; a subscription left past due without being paid → shows Overdue with no extra charge posted.
+
+### Completion notes
+
+Built one green-lit step at a time (this is the slice's one client step — steps 0–4 are the API's Phase 38, this is step 5, doc-sync is step 6). No type-mapping work needed on `status` — the deliberate choice in Phase 38 to derive a lowercase literal string server-side (rather than a serialized enum) paid off exactly as expected. Not committed by this session — the user commits their own. **Slices 2–4 remain — not started.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

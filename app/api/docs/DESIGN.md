@@ -102,7 +102,7 @@ El running balance se expone como una vista de línea de tiempo que reconstruye 
 
 El patrón Outbox resuelve el **dual-write disparado por una transacción**: persistir un cambio de dominio y publicar un evento de forma atómica. En este sistema, el único caso genuino es el split de RF-3 (D8): una transacción crea el plan y debe emitir un evento sin riesgo de perderlo.
 
-El **devengo de cuotas** (D2) y la **renovación de suscripciones** (RF-5) no se disparan por una transacción, se disparan por un **reloj** (cierre de ciclo, fecha de renovación). Eso es un scheduler, no un Outbox. Confundirlos lleva a usar Outbox donde corresponde un cron. Se modelan como `BackgroundService` separados (`AccrueInstallments`, `RenewDueSubscriptions`) que emiten comandos; el Outbox Worker es otro `BackgroundService`, dedicado solo a drenar las tablas `*_outbox_messages`.
+El **devengo de cuotas** (D2) no se dispara por una transacción, se dispara por un **reloj** (cierre de ciclo). Eso es un scheduler, no un Outbox. Confundirlos lleva a usar Outbox donde corresponde un cron. Se modela como `BackgroundService` (`AccrueInstallments`) que emite comandos; el Outbox Worker es otro `BackgroundService`, dedicado solo a drenar las tablas `*_outbox_messages`. **Suscripciones ya no usa este mecanismo** (ver RF-5, revisado por `docs/subscriptions-rework/`): el scheduler `RenewDueSubscriptions` que renovaba por reloj fue eliminado — el usuario paga cada período de forma explícita (Slice 2 de esa iniciativa), o el registro lo marca pagado si el ancla del ciclo actual ya venció (Slice 1).
 
 ### D7 — SQLite en WAL + busy_timeout
 
@@ -184,7 +184,7 @@ Por ahora la API es de consumo puro (Swagger/Postman), sin autenticación más a
 | RF-2 | Cuánto pagar por mes agrupado por tarjeta | Query | Reporting (D11) | Cubierto (clave por tarjeta compartida vía `OwnerReferenceId`) |
 | RF-3 | Ingresar gasto (crédito, cuotas, deudor, split N) | Command + Event | Financing + Parties + Ledger | Cubierto (D8) |
 | RF-4 | Pagar cuotas del mes (resumen de tarjeta) | Command + Scheduler + Query | Financing + Ledger | Cubierto (D2; detalle pre-pago vía `GET /v1/financing/statements/{id}`) |
-| RF-5 | Pagar y autorrenovar suscripciones | Command + Scheduler | Subscriptions | Cubierto |
+| RF-5 | Pagar suscripciones (pago explícito, sin autorrenovación) | Command + Query | Subscriptions | Cubierto (revisado — ver `docs/subscriptions-rework/`, D6) |
 | RF-6 | Revertir montos (asiento inverso, completo, con cascada) | Command | Ledger + Financing + Parties | Cubierto (D3, D12) |
 | RF-7 | Cuentas corrientes con terceros + liquidación | Command + Query | Parties + Ledger | Cubierto (D1, D4) |
 
@@ -220,7 +220,6 @@ Por ahora la API es de consumo puro (Swagger/Postman), sin autenticación más a
 | Evento (productor) | Consumidor | Reacción |
 |---|---|---|
 | `InstallmentAccrued` (Financing) | Ledger | Devenga el pasivo de tarjeta (D2, D11) |
-| `SubscriptionRenewed` (Subscriptions) | Ledger | Genera el cargo del período renovado (RF-5) |
 | `ExpenseSplitSettled` (Parties) | Ledger | Cancela el activo por cobrar al liquidar (D4) — no asienta ingreso |
 | `PaymentPlanCreated` (Financing) | Parties | Registra el split y solicita el asiento de por-cobrar (D8) |
 | `TransactionPosted` (Ledger) | Reporting | No es suscripción directa: Reporting lee `vw_*` |
@@ -244,7 +243,7 @@ flowchart LR
 
     QBus --> Rep["Reporting — SQL sobre vw_*"]
 
-    Sched["Schedulers (reloj)<br/>AccrueInstallments · RenewDueSubscriptions"] --> CBus
+    Sched["Scheduler (reloj)<br/>AccrueInstallments"] --> CBus
 
     DB[("SQLite WAL")]
     LC --> DB
@@ -256,7 +255,6 @@ flowchart LR
     DB -.->|poll outbox| Worker["Outbox Worker (dual-write)"]
     Worker --> Disp["Integration Event Dispatcher"]
     Disp -.->|PaymentPlanCreated| PC
-    Disp -.->|SubscriptionRenewed| LC
     Disp -.->|ExpenseSplitSettled| LC
 ```
 
@@ -436,18 +434,18 @@ README.md
 │   │   │   │   ├── ISubscriptionsApi.cs
 │   │   │   │   ├── Commands/
 │   │   │   │   │   ├── CreateSubscriptionTemplateCommand.cs
-│   │   │   │   │   └── RenewSubscriptionCommand.cs
-│   │   │   │   └── IntegrationEvents/SubscriptionRenewedIntegrationEvent.cs
+│   │   │   │   │   └── CancelSubscriptionCommand.cs
+│   │   │   │   └── Queries/GetActiveSubscriptionsQuery.cs
 │   │   │   └── PersonalFinance.Subscriptions/
 │   │   │       ├── PersonalFinance.Subscriptions.csproj
 │   │   │       ├── Domain/
-│   │   │       │   ├── SubscriptionTemplate.cs
+│   │   │       │   ├── SubscriptionTemplate.cs   # LastPaidPeriod · MarkCurrentPeriodPaid · RevertLastPayment
 │   │   │       │   └── RecurrenceRule.cs · RenewalSchedule.cs
 │   │   │       ├── Application/
 │   │   │       │   ├── Commands/
-│   │   │       │   │   ├── CreateSubscriptionTemplate/CreateSubscriptionTemplateHandler.cs
-│   │   │       │   │   └── RenewSubscription/RenewSubscriptionHandler.cs
-│   │   │       │   └── Scheduling/RenewDueSubscriptions.cs   # ► Scheduler (reloj) · RF-5 (D6)
+│   │   │       │   │   ├── CreateSubscriptionTemplate/CreateSubscriptionTemplateHandler.cs   # ► charge-if-due-else-upcoming (D6)
+│   │   │       │   │   └── CancelSubscription/CancelSubscriptionHandler.cs
+│   │   │       │   └── Queries/GetActiveSubscriptions/GetActiveSubscriptionsHandler.cs   # ► derives paid|overdue|upcoming
 │   │   │       ├── Infrastructure/
 │   │   │       │   ├── Persistence/
 │   │   │       │   │   ├── SubscriptionsDbContext.cs

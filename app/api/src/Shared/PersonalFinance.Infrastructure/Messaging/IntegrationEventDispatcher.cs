@@ -13,8 +13,8 @@ namespace PersonalFinance.Infrastructure.Messaging;
 ///     calls this per row.
 ///   </item>
 ///   <item>
-///     <b>Direct</b> — a scheduler (<c>AccrueInstallments</c>, <c>RenewDueSubscriptions</c>)
-///     calls this synchronously right after its own transaction commits.
+///     <b>Direct</b> — a scheduler (<c>AccrueInstallments</c>) calls this synchronously right
+///     after its own transaction commits.
 ///   </item>
 /// </list>
 /// </summary>

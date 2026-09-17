@@ -64,7 +64,7 @@ src/app/
     subscriptions/
       subscriptions-service.ts
       types/  (create-subscription.ts, frequency.ts, subscription-result.ts,
-               active-subscription.ts)
+               active-subscription.ts, subscription-status.ts)
       pages/  subscriptions-page/
       subscriptions.routes.ts
     parties/
@@ -177,7 +177,12 @@ no `I-` prefix.
   fundingAccountId: string; frequency: Frequency; anchorDay: number }`
 - `SubscriptionResult = { id: string }`
 - `ActiveSubscription = { subscriptionId: string; name: string; amountMinorUnits: Money;
-  category: string; frequency: Frequency; anchorDay: number; nextDueDate: IsoDate }`
+  category: string; frequency: Frequency; anchorDay: number; nextDueDate: IsoDate;
+  status: SubscriptionStatus }`
+- `SubscriptionStatus = 'paid' | 'overdue' | 'upcoming'` (`docs/subscriptions-rework/` Slice 1,
+  `app/api` Phase 38) — a server-derived read-model field, already lowercase (no enum
+  serialization involved, unlike `Frequency` below), rendered as a badge on the Subscriptions
+  page.
 - **Reconciliation (client D12, Phase 2):** the API's `RecurrenceFrequency` enum currently
   implements `Monthly` only, and `GET /v1/subscriptions/active` serialises it PascalCase as
   `"Monthly"`. The wider `Frequency` union above is aspirational. As shipped, the client types

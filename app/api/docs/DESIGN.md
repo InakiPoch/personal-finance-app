@@ -174,6 +174,16 @@ Por ahora la API es de consumo puro (Swagger/Postman), sin autenticación más a
 
 **Registro de instrumentos de pago como una sola acción.** El PRD (§6, prerrequisito transversal) modela el alta de un banco/tarjeta como una única acción del usuario, donde se elige el tipo (débito, crédito, efectivo). Técnicamente, débito/efectivo son `Account` (Ledger) y crédito es `CreditCard` (Financing) — dos agregados en dos módulos distintos. Para no romper el aislamiento de módulos ni inventar un agregado compartido, la solución es un endpoint único a nivel Bootstrap — `POST /instruments` — que no tiene lógica de dominio propia: solo enruta al comando correcto (`CreateAccountCommand` vía `ILedgerApi`, o `CreateCreditCardCommand` vía `IFinancingApi`) según el `type` recibido. El Bootstrap host ya depende de los `.Contracts` de todos los módulos para exponer sus endpoints, así que este enrutamiento no agrega una dependencia nueva entre módulos.
 
+### D14 — Soporte multi-moneda sin conversión (no-FX)
+
+`docs/dollar-support/` agrega USD como segunda moneda soportada. La decisión de diseño, tomada antes de escribir código (`00-overview.md`): **nunca convertir entre monedas**. No hay tasa de cambio en ningún lado del sistema — ni fija ni consultada a un servicio externo. Cada operación que hoy asume ARS implícitamente debe, en cambio, **particionar por moneda primero** y nunca sumar montos de monedas distintas entre sí.
+
+- **La moneda vive en el registro, no en la cuenta.** `Money` ya cargaba una `Currency` (con `ensureSameCurrency` guardando cada operación aritmética — el candado a nivel de dominio). La Fase 41 lo hace real en persistencia: `Entry` (la fila atómica de plata de todo el sistema) ahora persiste su propia `CurrencyCode`, no la hereda de la cuenta.
+- **Las cuentas son poli-moneda.** Una `Account` (banco, efectivo, categoría de gasto) puede tener `Entry`s en ARS y en USD simultáneamente — no existe "la moneda de la cuenta". `GetAccountBalanceQuery` refleja esto devolviendo una lista de `Money` (una por moneda con movimientos), no un escalar.
+- **Conjunto cerrado.** `Currency.FromCode(string)` solo reconoce `"ARS"` (alias `Reference`) y `"USD"` — cualquier otro código lanza. Agregar una tercera moneda es una decisión de diseño explícita, no un string libre.
+- **Toda agregación cross-currency debe agrupar por moneda antes de sumar.** Las vistas de solo-lectura que antes hardcodeaban `'ARS' AS CurrencyCode` (`vw_ledger_balances`, `vw_ledger_monthly_expenses`) ahora seleccionan la columna real y la agregan al `GROUP BY` — el mismo criterio que D9/RF-1 ya aplicaba para excluir `CardPurchases`, extendido a moneda.
+- **Alcance de la Fase 41 (Slice 1 de 4):** solo el camino débito/efectivo (`RecordDebitExpense`) postea en USD elegido por el usuario; tarjetas, suscripciones y terceros (Parties) siguen asumiendo ARS hasta sus propias slices — documentado explícitamente para no asumir que el soporte USD ya es transversal.
+
 ---
 
 ## 3. Requisitos funcionales

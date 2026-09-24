@@ -31,13 +31,14 @@ src/app/
       problem-details.interceptor.ts -> problemDetailsInterceptor
     types/
       money.ts             -> Money            (branded minor-units)
-      currency-code.ts     -> CurrencyCode     ('ARS')
+      currency-code.ts     -> CurrencyCode     ('ARS' | 'USD')
       iso-instant.ts       -> IsoInstant       (ISO-8601 UTC string)
       iso-date.ts          -> IsoDate          (date-only 'YYYY-MM-DD' string)
       problem-details.ts   -> ProblemDetails   (wire error envelope)
       app-error.ts         -> AppError         (domain error the app handles)
     money/
-      money.ts             -> fromMinorUnits / toMinorUnits / formatArs (pure fns)
+      money.ts             -> fromMinorUnits / toMinorUnits / formatMoney / formatArs (pure fns;
+                                formatArs is a thin ARS-only shim over formatMoney)
     health/
       health-service.ts    -> HealthService
   features/
@@ -100,7 +101,11 @@ no `I-` prefix.
 
 **Core value types** (`core/types/`)
 - `Money = number & { readonly __brand: 'Money' }` — minor units; never floated.
-- `CurrencyCode = 'ARS'`.
+- `CurrencyCode = 'ARS' | 'USD'` — a closed set, mirroring the API's `Currency.FromCode`. No FX
+  conversion exists anywhere in the client (or the API): currency lives on the record, never the
+  account, and any total over rows spanning currencies must group by `currencyCode` before summing
+  — never blend two currencies into one figure (`docs/dollar-support/00-overview.md`, `app/api/docs/DESIGN.md`
+  D14).
 - `IsoInstant = string` (ISO-8601 UTC), `IsoDate = string` (`YYYY-MM-DD`).
 
 **Instruments** (`PostInstrumentDto` / `InstrumentCreatedDto`)
@@ -121,7 +126,9 @@ no `I-` prefix.
   formatted: string }`
 - `DebitExpenseParticipant = { partyId: string; weight: number }`
 - `RecordDebitExpense = { amountMinorUnits: Money; sourceInstrumentId: string; categoryName: string;
-  purchaseDate: IsoDate; description: string; split?: DebitExpenseParticipant[] }`
+  purchaseDate: IsoDate; description: string; currencyCode: CurrencyCode;
+  split?: DebitExpenseParticipant[] }` (`currencyCode` added in `docs/dollar-support/slice-1-…` —
+  the user picks ARS or USD on Load Expense's debit mode)
 - `RecordDebitExpenseResult = { id: string }`
 - `listExpenseCategories` returns a bare `string[]` — the service `map`-unwraps the
   `{ rows: [{ name }] }` envelope to category names

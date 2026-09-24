@@ -60,6 +60,7 @@ internal static class ErrorHttpStatusHelper {
             "Subscriptions.NonPositiveAmount" => StatusCodes.Status422UnprocessableEntity,
             "Subscriptions.InvalidAnchorDay" => StatusCodes.Status422UnprocessableEntity,
             "Subscriptions.InvalidFundingAccount" => StatusCodes.Status422UnprocessableEntity,
+            "Subscriptions.InvalidCurrencyCode" => StatusCodes.Status422UnprocessableEntity,
             "Parties.InvalidName" => StatusCodes.Status422UnprocessableEntity,
             "Parties.InvalidParticipants" => StatusCodes.Status422UnprocessableEntity,
             "Parties.NonPositiveAmount" => StatusCodes.Status422UnprocessableEntity,

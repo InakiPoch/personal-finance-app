@@ -3,7 +3,7 @@ SELECT
     Id              AS SubscriptionId,
     Name            AS Name,
     AmountMinorUnits AS AmountMinorUnits,
-    'ARS'           AS CurrencyCode,
+    CurrencyCode    AS CurrencyCode,
     Category        AS Category,
     Frequency       AS Frequency,
     AnchorDay       AS AnchorDay,

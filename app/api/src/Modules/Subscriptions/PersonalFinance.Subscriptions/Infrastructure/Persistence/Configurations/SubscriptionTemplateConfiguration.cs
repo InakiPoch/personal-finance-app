@@ -24,12 +24,12 @@ internal sealed class SubscriptionTemplateConfiguration : IEntityTypeConfigurati
             .IsRequired();
         builder.Property(template => template.LastPaidPeriod);
         builder.Property(template => template.LastPaidTransactionId);
-        builder.Property(template => template.Amount)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("AmountMinorUnits")
+        builder.Property(template => template.AmountMinorUnits).HasColumnName("AmountMinorUnits").IsRequired();
+        builder.Property(template => template.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
             .IsRequired();
+        builder.Ignore(template => template.Amount);
         builder.Ignore(template => template.DomainEvents);
         builder.Ignore(template => template.Recurrence);
         builder.Ignore(template => template.Schedule);

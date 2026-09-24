@@ -27,7 +27,7 @@ internal sealed class CreateSubscriptionTemplateHandler(SubscriptionsDbContext c
         }
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var currentAnchor = recurrence.Value.CurrentOccurrence(today);
-        var amount = Money.FromMinorUnits(command.AmountMinorUnits, Currency.Reference);
+        var amount = Money.FromMinorUnits(command.AmountMinorUnits, Currency.FromCode(command.CurrencyCode));
         var template = SubscriptionTemplate.Create(
             name,
             amount,

@@ -10,7 +10,8 @@ public sealed record ActiveSubscriptionRow(
     RecurrenceFrequency Frequency,
     int AnchorDay,
     DateOnly NextDueDate,
-    string Status
+    string Status,
+    string CurrencyCode
 );
 
 /// <summary>

@@ -13,5 +13,6 @@ public sealed record CreateSubscriptionTemplateCommand(
     string Category,
     Guid FundingAccountId,
     RecurrenceFrequency Frequency,
-    int AnchorDay
+    int AnchorDay,
+    string CurrencyCode = "ARS"
 ) : ICommand<Guid>;

@@ -70,4 +70,9 @@ internal static class LedgerErrors {
         "Ledger.SourceAccountNotSpendable",
         "The source of a debit or cash expense must be a debit or cash account."
     );
+
+    public static readonly Error InvalidCurrencyCode = new(
+        "Ledger.InvalidCurrencyCode",
+        "The currency code must be one of: ARS, USD."
+    );
 }

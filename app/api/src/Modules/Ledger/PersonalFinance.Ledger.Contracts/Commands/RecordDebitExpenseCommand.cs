@@ -18,5 +18,6 @@ public sealed record RecordDebitExpenseCommand(
     string CategoryName,
     DateOnly PurchaseDate,
     string Description,
-    IReadOnlyList<RecordDebitExpenseParticipant>? Split = null
+    IReadOnlyList<RecordDebitExpenseParticipant>? Split = null,
+    string CurrencyCode = "ARS"
 ) : ICommand<Guid>;

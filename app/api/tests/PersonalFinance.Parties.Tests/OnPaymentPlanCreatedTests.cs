@@ -146,7 +146,7 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
             throw new NotSupportedException();
         }
 
-        public Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
+        public Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
 

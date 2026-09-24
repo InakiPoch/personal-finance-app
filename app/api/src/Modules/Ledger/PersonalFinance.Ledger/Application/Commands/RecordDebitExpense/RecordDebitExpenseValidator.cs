@@ -18,6 +18,9 @@ internal static class RecordDebitExpenseValidator {
         if(command.SourceAccountId == Guid.Empty) {
             return Result.Failure(LedgerErrors.AccountNotFound);
         }
+        if(command.CurrencyCode is not ("ARS" or "USD")) {
+            return Result.Failure(LedgerErrors.InvalidCurrencyCode);
+        }
         if(command.Split is null) {
             return Result.Success();
         }

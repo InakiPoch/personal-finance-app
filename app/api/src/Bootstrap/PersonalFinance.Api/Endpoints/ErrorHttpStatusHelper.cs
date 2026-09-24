@@ -40,6 +40,7 @@ internal static class ErrorHttpStatusHelper {
             "Ledger.InvalidExpenseDescription" => StatusCodes.Status422UnprocessableEntity,
             "Ledger.InvalidExpenseSplit" => StatusCodes.Status422UnprocessableEntity,
             "Ledger.SourceAccountNotSpendable" => StatusCodes.Status422UnprocessableEntity,
+            "Ledger.InvalidCurrencyCode" => StatusCodes.Status422UnprocessableEntity,
             "Financing.InvalidCardName" => StatusCodes.Status422UnprocessableEntity,
             "Financing.InvalidCutoffDay" => StatusCodes.Status422UnprocessableEntity,
             "Financing.NonPositivePlanAmount" => StatusCodes.Status422UnprocessableEntity,

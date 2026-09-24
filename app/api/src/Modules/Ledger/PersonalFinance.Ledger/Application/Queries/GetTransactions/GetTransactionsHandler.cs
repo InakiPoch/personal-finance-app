@@ -29,6 +29,7 @@ internal sealed class GetTransactionsHandler(LedgerDbContext context) : IQueryHa
                 transaction.PostedOnUtc,
                 describe(transaction),
                 sumDebitMinorUnits(transaction),
+                currencyCodeOf(transaction),
                 transaction.IsReversal,
                 reversedIds.Contains(transaction.Id),
                 transaction.InstallmentReference?.Value,
@@ -41,6 +42,10 @@ internal sealed class GetTransactionsHandler(LedgerDbContext context) : IQueryHa
         return transaction.Entries
             .Where(entry => entry.Direction == DebitOrCredit.Debit)
         .Sum(entry => entry.Amount.MinorUnits);
+    }
+
+    private static string currencyCodeOf(Transaction transaction) {
+        return transaction.Entries.First().Amount.Currency.Code;
     }
 
     private static string describe(Transaction transaction) {

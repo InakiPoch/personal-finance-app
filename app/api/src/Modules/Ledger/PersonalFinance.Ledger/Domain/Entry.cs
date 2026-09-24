@@ -9,11 +9,15 @@ namespace PersonalFinance.Ledger.Domain;
 internal sealed class Entry : Entity<Guid> {
     public Guid AccountId { get; }
     public DebitOrCredit Direction { get; }
-    public Money Amount { get; }
+    public Money Amount => Money.FromMinorUnits(AmountMinorUnits, Currency);
 
-    internal Entry(Guid id, Guid accountId, DebitOrCredit direction, Money amount) : base(id) {
+    internal long AmountMinorUnits { get; }
+    internal Currency Currency { get; }
+
+    internal Entry(Guid id, Guid accountId, DebitOrCredit direction, long amountMinorUnits, Currency currency) : base(id) {
         AccountId = accountId;
         Direction = direction;
-        Amount = amount;
+        AmountMinorUnits = amountMinorUnits;
+        Currency = currency;
     }
 }

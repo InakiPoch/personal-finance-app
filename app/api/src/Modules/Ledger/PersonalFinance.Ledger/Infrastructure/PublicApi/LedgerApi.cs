@@ -31,7 +31,7 @@ internal sealed class LedgerApi(ICommandBus commandBus, IQueryBus queryBus) : IL
         return queryBus.AskAsync(query, ct);
     }
 
-    public Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
+    public Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }
 

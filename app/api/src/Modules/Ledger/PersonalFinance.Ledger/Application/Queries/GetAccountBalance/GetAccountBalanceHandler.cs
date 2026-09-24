@@ -8,21 +8,26 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Ledger.Application.Queries.GetAccountBalance;
 
-internal sealed class GetAccountBalanceHandler(LedgerDbContext context) : IQueryHandler<GetAccountBalanceQuery, Money> {
-    public async Task<Money> HandleAsync(GetAccountBalanceQuery query, CancellationToken cancellationToken) {
+internal sealed class GetAccountBalanceHandler(LedgerDbContext context) : IQueryHandler<GetAccountBalanceQuery, IReadOnlyList<Money>> {
+    public async Task<IReadOnlyList<Money>> HandleAsync(GetAccountBalanceQuery query, CancellationToken cancellationToken) {
         var account = await context.Accounts
             .FirstOrDefaultAsync(candidate => candidate.Id == query.AccountId, cancellationToken);
         if(account is null) {
-            return Money.Zero(Currency.Reference);
+            return [];
         }
         var entries = await context.Set<Entry>()
             .Where(entry => entry.AccountId == query.AccountId)
             .Select(entry => new { entry.Direction, entry.Amount })
             .ToListAsync(cancellationToken);
-        var debitPositive = entries.Sum(entry =>
-            entry.Direction == DebitOrCredit.Debit ? entry.Amount.MinorUnits : -entry.Amount.MinorUnits);
-        var signed = isDebitPositive(account.Type) ? debitPositive : -debitPositive;
-        return Money.FromMinorUnits(signed, Currency.Reference);
+        return entries
+            .GroupBy(entry => entry.Amount.Currency)
+            .Select(group => {
+                var debitPositive = group.Sum(entry =>
+                    entry.Direction == DebitOrCredit.Debit ? entry.Amount.MinorUnits : -entry.Amount.MinorUnits);
+                var signed = isDebitPositive(account.Type) ? debitPositive : -debitPositive;
+                return Money.FromMinorUnits(signed, group.Key);
+            })
+            .ToList();
     }
 
     private static bool isDebitPositive(AccountType type) {

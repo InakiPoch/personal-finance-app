@@ -49,7 +49,8 @@ describe('SubscriptionsService', () => {
           frequency: 'Monthly',
           anchorDay: 15,
           nextDueDate: '2026-10-15',
-          status: 'paid'
+          status: 'paid',
+          currencyCode: 'ARS'
         }
       ]
     });
@@ -62,7 +63,8 @@ describe('SubscriptionsService', () => {
         frequency: 'monthly',
         anchorDay: 15,
         nextDueDate: '2026-10-15',
-        status: 'paid'
+        status: 'paid',
+        currencyCode: 'ARS'
       }
     ]);
   });
@@ -74,7 +76,8 @@ describe('SubscriptionsService', () => {
       category: 'Music',
       fundingAccountId: 'acc-1',
       frequency: 'monthly',
-      anchorDay: 1
+      anchorDay: 1,
+      currencyCode: 'ARS'
     };
     let result: SubscriptionResult | undefined;
     service.create(body).subscribe((created: SubscriptionResult) => (result = created));
@@ -171,7 +174,8 @@ describe('SubscriptionsService', () => {
         category: 'Music',
         fundingAccountId: 'acc-1',
         frequency: 'monthly',
-        anchorDay: 1
+        anchorDay: 1,
+        currencyCode: 'ARS'
       })
       .subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
     httpMock.expectOne(collectionUrl).flush(

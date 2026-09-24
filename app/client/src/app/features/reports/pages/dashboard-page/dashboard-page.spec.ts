@@ -56,9 +56,9 @@ describe('DashboardPage', () => {
     { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01' }
   ];
   const activeSubscriptions: ActiveSubscription[] = [
-    { subscriptionId: 's1', name: 'Netflix', amountMinorUnits: money(150000), category: 'Streaming', frequency: 'monthly', anchorDay: 5, nextDueDate: '2026-09-05', status: 'paid' },
-    { subscriptionId: 's2', name: 'Spotify', amountMinorUnits: money(80000), category: 'Streaming', frequency: 'monthly', anchorDay: 1, nextDueDate: '2026-09-01', status: 'overdue' },
-    { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', status: 'upcoming' }
+    { subscriptionId: 's1', name: 'Netflix', amountMinorUnits: money(150000), category: 'Streaming', frequency: 'monthly', anchorDay: 5, nextDueDate: '2026-09-05', status: 'paid', currencyCode: 'ARS' },
+    { subscriptionId: 's2', name: 'Spotify', amountMinorUnits: money(80000), category: 'Streaming', frequency: 'monthly', anchorDay: 1, nextDueDate: '2026-09-01', status: 'overdue', currencyCode: 'ARS' },
+    { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', status: 'upcoming', currencyCode: 'ARS' }
   ];
 
   function setup(): void {
@@ -254,6 +254,15 @@ describe('DashboardPage', () => {
     expect(usd?.totalMinorUnits).toBe(5000);
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain(formatArs(money(120000)));
+  });
+  it('renders a USD subscription through the currency-driven formatter, not the hardcoded ARS one', () => {
+    listActive.and.returnValue(of([
+      { ...activeSubscriptions[0], subscriptionId: 's-usd', name: 'GitHub', amountMinorUnits: money(1200), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatMoney(money(1200), 'USD'));
   });
   it('shows a loading state for subscriptions, then the panel once ready', () => {
     setup();

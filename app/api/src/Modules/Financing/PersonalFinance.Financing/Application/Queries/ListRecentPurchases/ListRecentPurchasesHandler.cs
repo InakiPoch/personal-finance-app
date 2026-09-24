@@ -63,7 +63,8 @@ internal sealed class ListRecentPurchasesHandler(FinancingDbContext context) : I
                     paidInstallmentCount,
                     nextDue?.Year,
                     nextDue?.Month,
-                    pendingAmountMinorUnits
+                    pendingAmountMinorUnits,
+                    plan.Total.Currency.Code
                 );
             })
             .ToList();

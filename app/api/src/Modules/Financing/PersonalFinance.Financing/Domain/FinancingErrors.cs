@@ -63,6 +63,11 @@ internal static class FinancingErrors {
         "The installment's split receivable has already been accrued to the ledger."
     );
 
+    public static readonly Error InvalidCurrencyCode = new(
+        "Financing.InvalidCurrencyCode",
+        "The currency code must be either ARS or USD."
+    );
+
     public static readonly Error InstallmentAlreadyPaid = new(
         "Financing.InstallmentAlreadyPaid",
         "The installment has already been paid."

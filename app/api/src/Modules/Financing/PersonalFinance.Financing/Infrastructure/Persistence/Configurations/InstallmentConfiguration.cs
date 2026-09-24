@@ -21,12 +21,12 @@ internal sealed class InstallmentConfiguration : IEntityTypeConfiguration<Instal
         builder.Property(installment => installment.IsReversed)
             .HasDefaultValue(false)
             .IsRequired();
-        builder.Property(installment => installment.Amount)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("AmountMinorUnits")
+        builder.Property(installment => installment.AmountMinorUnits).HasColumnName("AmountMinorUnits").IsRequired();
+        builder.Property(installment => installment.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
             .IsRequired();
+        builder.Ignore(installment => installment.Amount);
         builder.HasOne<MonthlyStatement>()
             .WithMany()
             .HasForeignKey(installment => installment.StatementId)

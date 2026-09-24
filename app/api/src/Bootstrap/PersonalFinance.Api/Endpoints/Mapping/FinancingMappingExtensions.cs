@@ -19,7 +19,8 @@ internal static class FinancingMappingExtensions {
             split,
             dto.CreditorId,
             dto.CreditorAccountId,
-            dto.BankAccountId
+            dto.BankAccountId,
+            dto.CurrencyCode
         );
     }
 
@@ -77,7 +78,8 @@ internal static class FinancingMappingExtensions {
                 row.CycleMonth,
                 row.AmountDueMinorUnits,
                 row.IsPaid,
-                row.PaidOnUtc)
+                row.PaidOnUtc,
+                row.CurrencyCode)
             )
             .ToList();
         return new CardStatementsDto(cardId, rows);
@@ -110,7 +112,8 @@ internal static class FinancingMappingExtensions {
                 row.PaidInstallmentCount,
                 row.NextDueYear,
                 row.NextDueMonth,
-                row.PendingAmountMinorUnits)
+                row.PendingAmountMinorUnits,
+                row.CurrencyCode)
             )
             .ToList();
         return new RecentPurchasesDto(rows);
@@ -178,7 +181,8 @@ internal static class FinancingMappingExtensions {
                 row.IsReversed,
                 row.ReversalTransactionId,
                 row.IsPaid,
-                row.PaidOnUtc)
+                row.PaidOnUtc,
+                row.CurrencyCode)
             )
             .ToList();
         return new MonthlyStatementDetailDto(
@@ -190,7 +194,8 @@ internal static class FinancingMappingExtensions {
             response.AmountDueMinorUnits,
             response.IsPaid,
             response.PaidOnUtc,
-            installments
+            installments,
+            response.CurrencyCode
         );
     }
 }

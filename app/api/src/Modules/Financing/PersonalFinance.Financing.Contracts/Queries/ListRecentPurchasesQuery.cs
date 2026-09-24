@@ -11,9 +11,10 @@ public sealed record RecentPurchaseRow(
     int InstallmentCount, 
     bool IsCreditorPayment, 
     int PaidInstallmentCount, 
-    int? NextDueYear, 
-    int? NextDueMonth, 
-    long PendingAmountMinorUnits
+    int? NextDueYear,
+    int? NextDueMonth,
+    long PendingAmountMinorUnits,
+    string CurrencyCode
 );
 
 /// <summary>

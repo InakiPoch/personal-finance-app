@@ -5,7 +5,7 @@ namespace PersonalFinance.Financing.Domain;
 
 internal sealed class PaymentPlan : AggregateRoot<Guid> {
     public Guid? CardId { get; }
-    public Money Total { get; }
+    public Money Total => Money.FromMinorUnits(TotalMinorUnits, Currency);
     public DateOnly PurchaseDate { get; }
     public int InstallmentCount { get; }
     public string Description { get; private set; } = string.Empty;
@@ -18,12 +18,16 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
 
     internal const int CreditorCutoffDay = 26;
 
+    internal long TotalMinorUnits { get; }
+    internal Currency Currency { get; }
+
     private readonly List<Installment> installments = [];
     private readonly List<PaymentPlanSplitParticipant> splitParticipants = [];
 
-    private PaymentPlan(Guid id, Guid? cardId, Money total, DateOnly purchaseDate, int installmentCount) : base(id) {
+    private PaymentPlan(Guid id, Guid? cardId, long totalMinorUnits, Currency currency, DateOnly purchaseDate, int installmentCount) : base(id) {
         CardId = cardId;
-        Total = total;
+        TotalMinorUnits = totalMinorUnits;
+        Currency = currency;
         PurchaseDate = purchaseDate;
         InstallmentCount = installmentCount;
     }
@@ -54,7 +58,7 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         if(cardId is null && creditorAccountId is null) {
             return FinancingErrors.CreditorAccountRequired;
         }
-        var plan = new PaymentPlan(Guid.CreateVersion7(), cardId, total, purchaseDate, installmentCount) {
+        var plan = new PaymentPlan(Guid.CreateVersion7(), cardId, total.MinorUnits, total.Currency, purchaseDate, installmentCount) {
             Description = description.Trim(),
             CreditorId = creditorId,
             CreditorAccountId = creditorAccountId

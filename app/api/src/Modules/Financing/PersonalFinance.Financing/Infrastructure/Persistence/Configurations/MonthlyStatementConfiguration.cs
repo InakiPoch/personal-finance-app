@@ -14,13 +14,13 @@ internal sealed class MonthlyStatementConfiguration : IEntityTypeConfiguration<M
         builder.Property(statement => statement.CycleYear).IsRequired();
         builder.Property(statement => statement.CycleMonth).IsRequired();
         builder.Property(statement => statement.PaidOnUtc);
-        builder.Property(statement => statement.AmountDue)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("AmountDueMinorUnits")
+        builder.Property(statement => statement.AmountDueMinorUnits).HasColumnName("AmountDueMinorUnits").IsRequired();
+        builder.Property(statement => statement.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
             .IsRequired();
-        builder.HasIndex(statement => new { statement.CardId, statement.CycleYear, statement.CycleMonth }).IsUnique();
+        builder.HasIndex(statement => new { statement.CardId, statement.CycleYear, statement.CycleMonth, statement.Currency }).IsUnique();
+        builder.Ignore(statement => statement.AmountDue);
         builder.Ignore(statement => statement.IsPaid);
         builder.Ignore(statement => statement.Cycle);
         builder.Ignore(statement => statement.DomainEvents);

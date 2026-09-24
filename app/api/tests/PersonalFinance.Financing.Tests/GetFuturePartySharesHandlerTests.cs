@@ -104,7 +104,7 @@ public sealed class GetFuturePartySharesHandlerTests : IDisposable {
         var partyId = Guid.CreateVersion7();
         var cardId = await SeedCardAsync(15, cancellationToken);
         var plan = CardSplitPlan(cardId, 15, new DateOnly(2026, 1, 10), 3, 9_000, (partyId, 1L));
-        var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle);
+        var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle, Currency.Reference);
         plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
         plan.Installments[0].MarkSplitAccrued(DateTimeOffset.UtcNow);
         plan.Installments[1].MarkReversed();

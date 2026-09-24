@@ -223,7 +223,7 @@ public sealed class PayInstallmentHandlerTests : IDisposable {
             cutoffDay: cutoffDay,
             allocator: new PhantomPennyAllocator()
         ).Value;
-        var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle);
+        var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle, Currency.Reference);
         for(var index = 0; index < accrueCount; index++) {
             plan.Installments[index].MarkAccrued(DateTimeOffset.UtcNow, statement);
             statement.Accrue(plan.Installments[index]);

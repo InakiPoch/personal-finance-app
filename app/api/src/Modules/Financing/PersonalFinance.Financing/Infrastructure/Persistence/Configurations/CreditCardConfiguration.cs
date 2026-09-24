@@ -15,12 +15,12 @@ internal sealed class CreditCardConfiguration : IEntityTypeConfiguration<CreditC
         builder.Property(card => card.LiabilityAccountId).IsRequired();
         builder.Property(card => card.ExpenseAccountId).IsRequired();
         builder.Property(card => card.CreditAccountId).IsRequired();
-        builder.Property(card => card.CarriedCreditBalance)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("CarriedCreditBalanceMinorUnits")
+        builder.Property(card => card.CarriedCreditBalanceMinorUnits).HasColumnName("CarriedCreditBalanceMinorUnits").IsRequired();
+        builder.Property(card => card.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
             .IsRequired();
+        builder.Ignore(card => card.CarriedCreditBalance);
         builder.Ignore(card => card.DomainEvents);
     }
 }

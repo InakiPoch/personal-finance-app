@@ -32,5 +32,6 @@ public sealed record CreatePaymentPlanCommand(
     PaymentPlanSplitPayload? Split = null,
     Guid? CreditorId = null,
     Guid? CreditorAccountId = null,
-    Guid? BankAccountId = null
+    Guid? BankAccountId = null,
+    string CurrencyCode = "ARS"
 ) : ICommand<Guid>;

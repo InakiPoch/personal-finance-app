@@ -8,7 +8,7 @@ SELECT
     CASE WHEN i.CycleMonth = 12 THEN 1 ELSE i.CycleMonth + 1 END          AS CycleMonth,
     i.AmountMinorUnits AS AmountMinorUnits,
     c.Name             AS CardName,
-    'ARS'              AS CurrencyCode
+    i.CurrencyCode     AS CurrencyCode
 FROM financing_installments i
 JOIN financing_payment_plans p ON p.Id = i.PaymentPlanId
 JOIN financing_credit_cards  c ON c.Id = p.CardId

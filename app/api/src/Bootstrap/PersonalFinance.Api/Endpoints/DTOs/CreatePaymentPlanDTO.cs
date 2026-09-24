@@ -11,7 +11,8 @@ public sealed record CreatePaymentPlanDto(
     IReadOnlyList<SplitParticipantDto>? Split = null,
     Guid? CreditorId = null,
     Guid? CreditorAccountId = null,
-    Guid? BankAccountId = null
+    Guid? BankAccountId = null,
+    string CurrencyCode = "ARS"
 );
 
 public sealed record CreatePaymentPlanResultDto(Guid PaymentPlanId);

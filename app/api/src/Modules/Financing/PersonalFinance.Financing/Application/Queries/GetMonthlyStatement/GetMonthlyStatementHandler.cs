@@ -22,7 +22,7 @@ internal sealed class GetMonthlyStatementHandler(FinancingDbContext context, ILe
             })
             .FirstOrDefaultAsync(cancellationToken);
         if(statement is null) {
-            return new MonthlyStatementDetailResponse(false, query.StatementId, Guid.Empty, "", 0, 0, 0, false, null, []);
+            return new MonthlyStatementDetailResponse(false, query.StatementId, Guid.Empty, "", 0, 0, 0, false, null, [], "ARS");
         }
         var cardName = await context.CreditCards
             .Where(card => card.Id == statement.CardId)
@@ -63,7 +63,8 @@ internal sealed class GetMonthlyStatementHandler(FinancingDbContext context, ILe
                 row.IsReversed,
                 accrualTransactionIds.ByInstallmentReferenceId.TryGetValue(row.Id, out var transactionId) ? transactionId : null,
                 row.PaidOnUtc is not null,
-                row.PaidOnUtc))
+                row.PaidOnUtc,
+                row.Amount.Currency.Code))
             .ToList();
         return new MonthlyStatementDetailResponse(
             true,
@@ -75,7 +76,8 @@ internal sealed class GetMonthlyStatementHandler(FinancingDbContext context, ILe
             statement.AmountDue.MinorUnits,
             statement.PaidOnUtc is not null,
             statement.PaidOnUtc,
-            installments
+            installments,
+            statement.AmountDue.Currency.Code
         );
     }
 }

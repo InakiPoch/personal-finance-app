@@ -47,6 +47,15 @@
             formControlName="amount"
             class="w-full bg-transparent pb-1 font-serif text-[1.75rem] leading-none text-ink outline-none [font-variant-numeric:tabular-nums_lining-nums] placeholder:text-ink-faint"
           />
+          <select
+            id="currency"
+            formControlName="currency"
+            aria-label="Currency"
+            class="appearance-none border-b border-rule bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors focus-visible:border-stamp"
+          >
+            <option value="ARS">ARS</option>
+            <option value="USD">USD</option>
+          </select>
         </div>
         <div class="mt-2 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
         @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {

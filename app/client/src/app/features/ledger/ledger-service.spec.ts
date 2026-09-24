@@ -61,6 +61,7 @@ describe('LedgerService', () => {
       postedOnUtc: '2026-09-15T10:30:00Z',
       description: 'Manual entry',
       amountMinorUnits: money(50000),
+      currencyCode: 'ARS',
       isReversal: false,
       isReversed: false,
       installmentReferenceId: null,
@@ -128,7 +129,8 @@ describe('LedgerService', () => {
       sourceInstrumentId: 'acct-debit',
       categoryName: 'Groceries',
       purchaseDate: '2026-03-10',
-      description: 'Weekly shop'
+      description: 'Weekly shop',
+      currencyCode: 'ARS'
     };
     let result: string | undefined;
     service.recordDebitExpense(body).subscribe((r: RecordDebitExpenseResult) => (result = r.id));
@@ -146,6 +148,7 @@ describe('LedgerService', () => {
       categoryName: 'Dining',
       purchaseDate: '2026-03-10',
       description: 'Dinner',
+      currencyCode: 'ARS',
       split: [{ partyId: 'p1', weight: 1 }]
     };
     service.recordDebitExpense(body).subscribe();

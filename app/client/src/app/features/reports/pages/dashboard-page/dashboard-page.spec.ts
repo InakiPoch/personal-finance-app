@@ -20,9 +20,10 @@ type DashboardView = {
   cardDueStatus: () => 'loading' | 'ready' | 'error';
   subscriptionsStatus: () => 'loading' | 'ready' | 'error';
   activeSubscriptions: () => ActiveSubscription[];
-  expensesByCategory: () => Array<{ label: string; totalMinorUnits: number }>;
-  accruedByCard: () => Array<{ label: string; totalMinorUnits: number }>;
-  futureByCard: () => Array<{ label: string; totalMinorUnits: number }>;
+  expensesByCategory: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
+  accruedByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
+  futureByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
+  monthlyTotalsByCurrency: () => Array<{ currencyCode: string; totalMinorUnits: number }>;
   cycleByCard: () => Array<{ card: string; cardId: string | null; accrued: number; future: number; total: number }>;
   onMonthChange: (month: string) => void;
   expandedCardId: () => string | null;
@@ -99,17 +100,17 @@ describe('DashboardPage', () => {
     setup();
     fixture.detectChanges();
     expect(view.expensesByCategory()).toEqual([
-      { label: 'Groceries', totalMinorUnits: 150000 },
-      { label: 'Transport', totalMinorUnits: 45000 }
+      { label: 'Groceries', currencyCode: 'ARS', totalMinorUnits: 150000 },
+      { label: 'Transport', currencyCode: 'ARS', totalMinorUnits: 45000 }
     ]);
   });
   it('splits card dues into Accrued and Future, grouped by card', () => {
     setup();
     fixture.detectChanges();
-    expect(view.accruedByCard()).toEqual([{ label: 'Visa', totalMinorUnits: 500000 }]);
+    expect(view.accruedByCard()).toEqual([{ label: 'Visa', currencyCode: 'ARS', totalMinorUnits: 500000 }]);
     expect(view.futureByCard()).toEqual([
-      { label: 'Visa', totalMinorUnits: 500000 },
-      { label: 'Amex', totalMinorUnits: 250000 }
+      { label: 'Visa', currencyCode: 'ARS', totalMinorUnits: 500000 },
+      { label: 'Amex', currencyCode: 'ARS', totalMinorUnits: 250000 }
     ]);
   });
   it('refetches only monthly expenses when the month changes', () => {
@@ -220,6 +221,22 @@ describe('DashboardPage', () => {
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain(formatArs(money(195000)));
     expect(view.monthlyStatus()).toBe('ready');
+  });
+  it('keeps mixed ARS and USD monthly expenses as two separated totals, never blended', () => {
+    monthlyExpenses.and.returnValue(of([
+      { month: '2026-09', category: 'Groceries', amountMinorUnits: money(120000), currencyCode: 'ARS' },
+      { month: '2026-09', category: 'Software', amountMinorUnits: money(5000), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const totals = view.monthlyTotalsByCurrency();
+    expect(totals.length).toBe(2);
+    const ars = totals.find((total) => total.currencyCode === 'ARS');
+    const usd = totals.find((total) => total.currencyCode === 'USD');
+    expect(ars?.totalMinorUnits).toBe(120000);
+    expect(usd?.totalMinorUnits).toBe(5000);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatArs(money(120000)));
   });
   it('shows a loading state for subscriptions, then the panel once ready', () => {
     setup();

@@ -13,6 +13,7 @@ describe('TransactionsTable', () => {
       postedOnUtc: '2026-09-15T10:30:00Z',
       description: 'Manual entry',
       amountMinorUnits: money(500000),
+      currencyCode: 'ARS',
       isReversal: false,
       isReversed: false,
       installmentReferenceId: null,
@@ -22,6 +23,7 @@ describe('TransactionsTable', () => {
       postedOnUtc: '2026-09-16T09:00:00Z',
       description: 'Reversal',
       amountMinorUnits: money(500000),
+      currencyCode: 'ARS',
       isReversal: true,
       isReversed: false,
       installmentReferenceId: null,
@@ -62,6 +64,24 @@ describe('TransactionsTable', () => {
     const button: HTMLButtonElement = fixture.nativeElement.querySelector('tbody tr button');
     button.click();
     expect(emitted).toBe('tx-1');
+  });
+  it('formats a USD row with the USD formatter, independent of ARS rows', () => {
+    const usdRow: TransactionRow = {
+      transactionId: 'tx-3',
+      postedOnUtc: '2026-09-17T09:00:00Z',
+      description: 'Subscription',
+      amountMinorUnits: money(5000),
+      currencyCode: 'USD',
+      isReversal: false,
+      isReversed: false,
+      installmentReferenceId: null,
+      splitReferenceId: null
+    };
+    fixture.componentRef.setInput('transactions', [usdRow]);
+    fixture.detectChanges();
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toMatch(/US\$|\$/);
+    expect(text).toContain('50.00');
   });
   it('shows an empty note when there are no transactions', () => {
     fixture.componentRef.setInput('transactions', []);

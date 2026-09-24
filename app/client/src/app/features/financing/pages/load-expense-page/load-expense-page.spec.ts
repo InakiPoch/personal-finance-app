@@ -25,6 +25,7 @@ type SplitRow = FormGroup<{ partyId: FormControl<string>; weight: FormControl<nu
 type LoadExpenseView = {
   form: FormGroup<{
     amount: FormControl<number | null>;
+    currency: FormControl<'ARS' | 'USD'>;
     cardId: FormControl<string>;
     installmentCount: FormControl<number | null>;
     purchaseDate: FormControl<string>;
@@ -455,6 +456,19 @@ describe('LoadExpensePage', () => {
     expect(view.submitStatus()).toBe('confirmed');
     expect(view.confirmedPlanId()).toBe('expense-1');
     expect(view.confirmedKind()).toBe('expense');
+  });
+  it('defaults the debit payload currency to ARS', () => {
+    fillValidDebitForm();
+    view.onSubmit();
+    const body: RecordDebitExpense = recordDebitExpense.calls.mostRecent().args[0];
+    expect(body.currencyCode).toBe('ARS');
+  });
+  it('sends currencyCode USD in the debit payload when USD is selected', () => {
+    fillValidDebitForm();
+    view.form.controls.currency.setValue('USD');
+    view.onSubmit();
+    const body: RecordDebitExpense = recordDebitExpense.calls.mostRecent().args[0];
+    expect(body.currencyCode).toBe('USD');
   });
   it('trims the typed category before submitting', () => {
     fillValidDebitForm();

@@ -6,7 +6,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { formatArs } from '../../../../core/money/money';
+import { formatMoney } from '../../../../core/money/money';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { TransactionRow } from '../../types/transaction-row';
 
@@ -21,7 +22,7 @@ export class TransactionsTable {
   readonly transactions: InputSignal<TransactionRow[]> = input.required<TransactionRow[]>();
   readonly reverseTransaction: OutputEmitterRef<string> = output<string>();
 
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
 
   protected datePart(row: TransactionRow): string {
     return row.postedOnUtc.slice(0, 10);

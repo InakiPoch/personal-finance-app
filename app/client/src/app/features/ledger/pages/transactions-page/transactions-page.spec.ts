@@ -43,6 +43,7 @@ describe('TransactionsPage', () => {
     postedOnUtc: '2026-09-15T10:30:00Z',
     description: 'Manual entry',
     amountMinorUnits: money(500000),
+    currencyCode: 'ARS',
     isReversal: false,
     isReversed: false,
     installmentReferenceId: null,

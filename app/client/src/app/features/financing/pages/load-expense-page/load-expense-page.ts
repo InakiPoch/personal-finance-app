@@ -14,6 +14,7 @@ import { Observable, Subject, map, merge, switchMap, takeUntil } from 'rxjs';
 import { pollUntil } from '../../../../core/http/poll-until';
 import { formatArs, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
@@ -59,6 +60,7 @@ type SplitRow = FormGroup<{
 
 type LoadExpenseForm = FormGroup<{
   amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
   cardId: FormControl<string>;
   installmentCount: FormControl<number | null>;
   purchaseDate: FormControl<string>;
@@ -182,7 +184,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
               categoryName: raw.categoryName.trim(),
               purchaseDate: raw.purchaseDate,
               description,
-              ...split,
+              currencyCode: raw.currency,
+              ...split
             })
             .pipe(map((result: RecordDebitExpenseResult) => result.id))
         : this.financingService
@@ -197,7 +200,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
                     ...(raw.bankAccountId ? { bankAccountId: raw.bankAccountId } : {}),
                   }
                 : { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId }),
-              ...split,
+              ...split
             })
             .pipe(map((result: CreatePaymentPlanResult) => result.paymentPlanId));
     this.submitError.set(null);
@@ -385,6 +388,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       amount: this.fb.control<number | null>(null, {
         validators: [positiveAmount, atMostTwoDecimals],
       }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       cardId: this.fb.nonNullable.control('', { validators: Validators.required }),
       installmentCount: this.fb.control<number | null>(1, { validators: positiveInteger }),
       purchaseDate: this.fb.nonNullable.control('', { validators: [isoDate, notFuture] }),

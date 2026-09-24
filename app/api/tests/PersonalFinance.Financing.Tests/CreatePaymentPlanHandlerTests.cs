@@ -14,6 +14,7 @@ using PersonalFinance.Infrastructure.Persistence;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.Parties.Contracts;
+using PersonalFinance.SharedKernel;
 using Xunit;
 
 namespace PersonalFinance.Financing.Tests;
@@ -145,6 +146,54 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         await using var verifyContext = NewContext();
         var plan = await verifyContext.PaymentPlans.SingleAsync(p => p.Id == planId, cancellationToken);
         Assert.Equal("New laptop", plan.Description);
+    }
+
+    [Fact]
+    public async Task Handle_usd_card_plan_threads_the_currency_through_installments_and_the_accrued_statement() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync(cancellationToken);
+        var bankAccountId = Guid.CreateVersion7();
+        var command = new CreatePaymentPlanCommand(
+            300_000, cardId, 3, new DateOnly(2026, 6, 15), Description: "USD laptop",
+            BankAccountId: bankAccountId, CurrencyCode: "USD");
+        Guid planId;
+        await using(var context = NewContext()) {
+            var result = await HandlerAsOf(context, septemberSeventh).HandleAsync(command, cancellationToken);
+            Assert.True(result.IsSuccess);
+            planId = result.Value;
+        }
+        var plan = await LoadPlanAsync(planId, cancellationToken);
+        Assert.Equal(Currency.Usd, plan.Total.Currency);
+        Assert.All(plan.Installments, installment => Assert.Equal(Currency.Usd, installment.Amount.Currency));
+        await using var verify = NewContext();
+        var statements = await verify.MonthlyStatements.Where(statement => statement.CardId == cardId).ToListAsync(cancellationToken);
+        Assert.NotEmpty(statements);
+        Assert.All(statements, statement => Assert.Equal(Currency.Usd, statement.AmountDue.Currency));
+    }
+
+    [Fact]
+    public async Task Handle_splits_the_same_amount_into_identical_minor_units_regardless_of_currency() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync(cancellationToken);
+        var arsCommand = new CreatePaymentPlanCommand(10_001, cardId, 3, new DateOnly(2026, 9, 5), Description: "ARS purchase");
+        var usdCommand = new CreatePaymentPlanCommand(10_001, cardId, 3, new DateOnly(2026, 9, 5), Description: "USD purchase", CurrencyCode: "USD");
+        Guid arsPlanId;
+        Guid usdPlanId;
+        await using(var context = NewContext()) {
+            arsPlanId = (await HandlerAsOf(context, septemberSeventh).HandleAsync(arsCommand, cancellationToken)).Value;
+        }
+        await using(var context = NewContext()) {
+            usdPlanId = (await HandlerAsOf(context, septemberSeventh).HandleAsync(usdCommand, cancellationToken)).Value;
+        }
+        var arsMinorUnits = (await LoadPlanAsync(arsPlanId, cancellationToken)).Installments
+            .OrderBy(installment => installment.Sequence)
+            .Select(installment => installment.Amount.MinorUnits)
+            .ToArray();
+        var usdMinorUnits = (await LoadPlanAsync(usdPlanId, cancellationToken)).Installments
+            .OrderBy(installment => installment.Sequence)
+            .Select(installment => installment.Amount.MinorUnits)
+            .ToArray();
+        Assert.Equal(arsMinorUnits, usdMinorUnits);
     }
 
     [Fact]

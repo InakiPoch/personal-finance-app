@@ -32,9 +32,20 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
         Assert.NotEmpty(accrued);
         Assert.NotEmpty(future);
         Assert.Equal(12_000, accrued.Sum(row => row.AmountMinorUnits));
-        Assert.Equal(300_000, future.Sum(row => row.AmountMinorUnits));
+        Assert.Equal(300_000, future.Where(row => row.CurrencyCode == "ARS").Sum(row => row.AmountMinorUnits));
         Assert.All(accrued, row => Assert.Null(row.CycleYear));
         Assert.All(future, row => Assert.NotNull(row.CycleYear));
+    }
+
+    [Fact]
+    public async Task CardDueByMonth_partitions_future_rows_by_currency_instead_of_blending_them() {
+        var response = await AskAsync(new CardDueByMonthQuery());
+        var future = response.Rows.Where(row => row.Bucket == "Future" && row.CardId == fixture.ReportingCardId.ToString()).ToList();
+        Assert.Contains(future, row => row.CurrencyCode == "USD");
+        Assert.Contains(future, row => row.CurrencyCode == "ARS");
+        Assert.DoesNotContain(future, row => row.CurrencyCode is not ("ARS" or "USD"));
+        Assert.Equal(60_000, future.Where(row => row.CurrencyCode == "USD").Sum(row => row.AmountMinorUnits));
+        Assert.Equal(300_000, future.Where(row => row.CurrencyCode == "ARS").Sum(row => row.AmountMinorUnits));
     }
 
     [Fact]

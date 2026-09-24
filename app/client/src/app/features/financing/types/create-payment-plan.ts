@@ -1,3 +1,4 @@
+import { CurrencyCode } from '../../../core/types/currency-code';
 import { IsoDate } from '../../../core/types/iso-date';
 import { Money } from '../../../core/types/money';
 import { SplitParticipant } from './split-participant';
@@ -12,4 +13,5 @@ export type CreatePaymentPlan = {
   creditorId?: string;
   creditorAccountId?: string;
   bankAccountId?: string;
+  currencyCode?: CurrencyCode;
 };

@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { formatMoney } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { RecentPurchaseRow } from '../../types/recent-purchase-row';
 import { RecentPurchasesTable } from './recent-purchases-table';
@@ -19,7 +20,8 @@ describe('RecentPurchasesTable', () => {
       paidInstallmentCount: 1,
       nextDueYear: 2026,
       nextDueMonth: 11,
-      pendingAmountMinorUnits: money(800000)
+      pendingAmountMinorUnits: money(800000),
+      currencyCode: 'ARS'
     },{
       planId: 'plan-2',
       description: 'Rent',
@@ -31,7 +33,8 @@ describe('RecentPurchasesTable', () => {
       paidInstallmentCount: 1,
       nextDueYear: null,
       nextDueMonth: null,
-      pendingAmountMinorUnits: money(0)
+      pendingAmountMinorUnits: money(0),
+      currencyCode: 'ARS'
   }];
 
   beforeEach(() => {
@@ -83,5 +86,13 @@ describe('RecentPurchasesTable', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('No purchases loaded yet.');
     expect(fixture.nativeElement.querySelector('table')).toBeNull();
+  });
+  it('renders a USD row amount in dollar formatting, not peso formatting', () => {
+    const usdRow: RecentPurchaseRow = { ...rows[0], planId: 'plan-3', currencyCode: 'USD' };
+    fixture.componentRef.setInput('purchases', [usdRow]);
+    fixture.detectChanges();
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain(formatMoney(usdRow.totalMinorUnits, 'USD'));
+    expect(text).not.toContain(formatMoney(usdRow.totalMinorUnits, 'ARS'));
   });
 });

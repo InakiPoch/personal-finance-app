@@ -1,3 +1,4 @@
+import { CurrencyCode } from '../../../core/types/currency-code';
 import { IsoDate } from '../../../core/types/iso-date';
 import { Money } from '../../../core/types/money';
 
@@ -13,4 +14,5 @@ export type RecentPurchaseRow = {
   nextDueYear: number | null;
   nextDueMonth: number | null;
   pendingAmountMinorUnits: Money;
+  currencyCode: CurrencyCode;
 };

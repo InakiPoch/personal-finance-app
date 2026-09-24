@@ -6,7 +6,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { formatArs } from '../../../../core/money/money';
+import { formatMoney } from '../../../../core/money/money';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { MonthlyStatementInstallment } from '../../types/monthly-statement-installment';
 
@@ -24,7 +25,7 @@ export class InstallmentsTable {
   readonly payClick: OutputEmitterRef<string> = output<string>();
   readonly reverseClick: OutputEmitterRef<string> = output<string>();
 
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
 
   protected canPay(installment: MonthlyStatementInstallment): boolean {
     return !installment.isPaid && !installment.isReversed;

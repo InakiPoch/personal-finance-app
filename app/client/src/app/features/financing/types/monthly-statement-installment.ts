@@ -1,3 +1,4 @@
+import { CurrencyCode } from '../../../core/types/currency-code';
 import { IsoDate } from '../../../core/types/iso-date';
 import { IsoInstant } from '../../../core/types/iso-instant';
 import { Money } from '../../../core/types/money';
@@ -15,4 +16,5 @@ export type MonthlyStatementInstallment = {
   reversalTransactionId: string | null;
   isPaid: boolean;
   paidOnUtc: IsoInstant | null;
+  currencyCode: CurrencyCode;
 };

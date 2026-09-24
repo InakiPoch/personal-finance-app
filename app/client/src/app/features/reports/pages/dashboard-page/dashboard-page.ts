@@ -25,7 +25,14 @@ import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
 type LoadStatus = 'loading' | 'ready' | 'error';
 type Grouping = { label: string; currencyCode: CurrencyCode; totalMinorUnits: Money };
 type CurrencyTotal = { currencyCode: CurrencyCode; totalMinorUnits: Money };
-type CardCycle = { card: string; cardId: string | null; accrued: Money; future: Money; total: Money };
+type CardCycle = {
+  card: string;
+  cardId: string | null;
+  currencyCode: CurrencyCode;
+  accrued: Money;
+  future: Money;
+  total: Money;
+};
 
 function currentMonthKey(): string {
   const now: Date = new Date();
@@ -119,15 +126,17 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly cycleByCard: Signal<CardCycle[]> = computed(() => {
     const order: string[] = [];
     const cardIdByKey: Map<string, string | null> = new Map<string, string | null>();
+    const currencyByKey: Map<string, CurrencyCode> = new Map<string, CurrencyCode>();
     const labelByKey: Map<string, string> = new Map<string, string>();
     const accrued: Map<string, number> = new Map<string, number>();
     const future: Map<string, number> = new Map<string, number>();
-    const keyOf = (row: CardDueRow): string => row.cardId ?? `label:${row.card}`;
+    const keyOf = (row: CardDueRow): string => `${row.cardId ?? `label:${row.card}`}|${row.currencyCode}`;
 
     for(const row of this.cardDueRows()) {
       const key: string = keyOf(row);
       if(!cardIdByKey.has(key)) {
         cardIdByKey.set(key, row.cardId);
+        currencyByKey.set(key, row.currencyCode);
       }
       if(row.bucket === 'Accrued' || !labelByKey.has(key)) {
         labelByKey.set(key, row.card);
@@ -161,6 +170,7 @@ export class DashboardPage implements OnInit, OnDestroy {
       return {
         card: labelByKey.get(key) ?? key,
         cardId: cardIdByKey.get(key) ?? null,
+        currencyCode: currencyByKey.get(key) ?? 'ARS',
         accrued: fromMinorUnits(accruedMinor),
         future: fromMinorUnits(futureMinor),
         total: fromMinorUnits(accruedMinor + futureMinor)

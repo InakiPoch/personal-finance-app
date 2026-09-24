@@ -180,6 +180,19 @@ describe('LoadExpensePage', () => {
     expect(view.submitStatus()).toBe('confirmed');
     expect(view.confirmedPlanId()).toBe('plan-1');
   });
+  it('defaults the card payload currency to ARS', () => {
+    fillValidForm();
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect(body.currencyCode).toBe('ARS');
+  });
+  it('sends currencyCode USD in the card payload when USD is selected', () => {
+    fillValidForm();
+    view.form.controls.currency.setValue('USD');
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect(body.currencyCode).toBe('USD');
+  });
   it('rejects a whitespace-only description', () => {
     fillValidForm();
     view.form.controls.description.setValue('   ');

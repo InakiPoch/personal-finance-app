@@ -43,7 +43,7 @@
             {{ installment.purchaseDate }}
           </td>
           <td class="py-2.5 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-            {{ formatArs(installment.amountMinorUnits) }}
+            {{ formatMoney(installment.amountMinorUnits, installment.currencyCode) }}
           </td>
           <td class="py-2.5 text-right">
             @if(installment.isReversed) {

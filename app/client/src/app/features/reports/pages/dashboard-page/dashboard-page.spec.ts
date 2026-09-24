@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { formatArs } from '../../../../core/money/money';
+import { formatArs, formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
@@ -24,7 +24,7 @@ type DashboardView = {
   accruedByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
   futureByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
   monthlyTotalsByCurrency: () => Array<{ currencyCode: string; totalMinorUnits: number }>;
-  cycleByCard: () => Array<{ card: string; cardId: string | null; accrued: number; future: number; total: number }>;
+  cycleByCard: () => Array<{ card: string; cardId: string | null; currencyCode: string; accrued: number; future: number; total: number }>;
   onMonthChange: (month: string) => void;
   expandedCardId: () => string | null;
   purchasesStatus: () => 'loading' | 'ready' | 'error';
@@ -170,6 +170,23 @@ describe('DashboardPage', () => {
     const card = view.cycleByCard().find((row) => row.cardId === 'c9');
     expect(card?.card).toBe('Naranja');
     expect(card?.future).toBe(90000);
+  });
+  it('keeps a card with both ARS and USD accrued rows as two separated cycle entries, never blended', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Accrued', card: 'Visa', cycleYear: null, cycleMonth: null, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
+      { bucket: 'Accrued', card: 'Visa', cycleYear: null, cycleMonth: null, amountMinorUnits: money(5000), currencyCode: 'USD', cardId: 'c1' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const cards = view.cycleByCard().filter((card) => card.cardId === 'c1');
+    expect(cards.length).toBe(2);
+    const ars = cards.find((card) => card.currencyCode === 'ARS');
+    const usd = cards.find((card) => card.currencyCode === 'USD');
+    expect(ars?.total).toBe(500000);
+    expect(usd?.total).toBe(5000);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatMoney(money(500000), 'ARS'));
+    expect(text).toContain(formatMoney(money(5000), 'USD'));
   });
   it('collapses on a second toggle without calling the service again', () => {
     setup();

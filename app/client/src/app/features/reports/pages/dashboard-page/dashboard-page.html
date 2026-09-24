@@ -85,7 +85,7 @@
         </span>
       </div>
       <ul class="mt-5 flex flex-col gap-5">
-        @for(card of cycleByCard(); track card.cardId ?? card.card) {
+        @for(card of cycleByCard(); track (card.cardId ?? card.card) + '|' + card.currencyCode) {
           <li>
             @if(card.cardId; as cardId) {
               <button
@@ -98,16 +98,20 @@
                 <span class="flex items-center gap-1.5 text-sm text-ink">
                   <span aria-hidden="true" class="text-ink-faint">{{ expandedCardId() === cardId ? '▾' : '▸' }}</span>
                   {{ card.card }}
+                  <span class="text-[0.625rem] uppercase tracking-[0.1em] text-ink-faint">{{ card.currencyCode }}</span>
                 </span>
                 <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-                  {{ formatMoney(card.total, 'ARS') }}
+                  {{ formatMoney(card.total, card.currencyCode) }}
                 </span>
               </button>
             } @else {
               <div class="flex items-baseline justify-between gap-4">
-                <span class="text-sm text-ink">{{ card.card }}</span>
+                <span class="text-sm text-ink">
+                  {{ card.card }}
+                  <span class="text-[0.625rem] uppercase tracking-[0.1em] text-ink-faint">{{ card.currencyCode }}</span>
+                </span>
                 <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-                  {{ formatMoney(card.total, 'ARS') }}
+                  {{ formatMoney(card.total, card.currencyCode) }}
                 </span>
               </div>
             }
@@ -116,8 +120,8 @@
               <span class="cycle-future" [style.width.%]="segmentWidth(card.future, card.total)"></span>
             </div>
             <div class="mt-1.5 flex justify-between text-[0.6875rem] text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]">
-              <span>Accrued {{ formatMoney(card.accrued, 'ARS') }}</span>
-              <span>Future {{ formatMoney(card.future, 'ARS') }}</span>
+              <span>Accrued {{ formatMoney(card.accrued, card.currencyCode) }}</span>
+              <span>Future {{ formatMoney(card.future, card.currencyCode) }}</span>
             </div>
             @if(card.cardId; as cardId) {
               @if(expandedCardId() === cardId) {

@@ -12,8 +12,9 @@ import {
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { formatArs } from '../../../../core/money/money';
+import { formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { IsoInstant } from '../../../../core/types/iso-instant';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
@@ -42,7 +43,7 @@ type PayForm = FormGroup<{
 })
 export class StatementPage implements OnInit, OnDestroy {
   protected form!: PayForm;
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
   protected readonly statement: WritableSignal<MonthlyStatement | null> =
     signal<MonthlyStatement | null>(null);
   protected readonly loadStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');

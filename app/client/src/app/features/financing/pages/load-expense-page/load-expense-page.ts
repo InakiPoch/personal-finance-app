@@ -194,6 +194,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
               installmentCount: raw.installmentCount as number,
               purchaseDate: raw.purchaseDate,
               description,
+              currencyCode: raw.currency,
               ...(raw.mode === 'card'
                 ? {
                     cardId: raw.cardId,

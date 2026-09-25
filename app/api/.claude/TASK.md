@@ -1357,3 +1357,31 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 ### Completion notes
 
 Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, doc-sync). Nothing committed by this session — the user commits their own. **Spec gotcha caught and fixed during Step 4:** a first-draft client test for the Undo error asserted the rendered error text using the default `upcoming`-status fixture row, but the error `<p>` is nested inside the same `@if(status === 'paid')` block as the Undo button itself — the paragraph never rendered until the test was fixed to seed a `paid` row first. Slice 4 (Dashboard subscriptions block) remains — not started, which closes `docs/subscriptions-rework/`.
+
+---
+
+## Phase 45 — Incomes support: record an income + Dashboard toggle (Slice 1)
+
+**Goal:** Register real money arriving in a Bank/Cash account — the tracer bullet for "money in" — and show its monthly total next to Out of pocket on the Dashboard via a toggle on the existing tile. Carries the `Transaction.Description` fix, since an income's description is its only label and Slice 2's Money Flow table depends on it.
+
+**Traces to:** `docs/incomes-support/slice-1-record-income-and-dashboard-toggle.md` (+ `00-overview.md`; first of three slices — Slice 2 the Money Flow table, Slice 3 undo an income). `docs/DESIGN.md` D15 + `docs/PRD.md` §9 decision 17 record the income decision.
+
+**Depends on:** Phase 2 (the Ledger module — `Account`/`Transaction`/`PostTransactionCommand`, and the already-unused `AccountType.Income`/`AccountKind.Income` pair this slice finally provisions).
+
+### Tasks
+- [x] **`Transaction.Description` (repairs a verified gap).** `Post`/`Reverse`/`build` thread an optional `description`; `Reverse` copies the original's onto the storno. `TransactionConfiguration.Property(t => t.Description).HasMaxLength(200)`. Migration `AddTransactionDescription`. `PostTransactionHandler` passes `command.Description?.Trim()` — repairs split expenses and settlements too, which already sent a description that `PostTransactionHandler` silently dropped. `RecordDebitExpenseHandler`'s non-split branch passes `command.Description.Trim()`.
+- [x] **Income account.** `IncomeAccountProvisioning.GetOrCreateAsync` — single lazily-created `Account.Create("Income", AccountType.Income, AccountKind.Income)`; no migration (both enum values already existed, unused).
+- [x] **`RecordIncomeCommand`.** Validator (amount, description, account, currency) + `RecordIncomeHandler(LedgerDbContext, TransactionWriter, TimeProvider)` — future-date guard, Bank/Cash-only target, `Dr target / Cr Income`. Two new `LedgerErrors` (`InvalidIncomeDescription`, `IncomeDateInFuture`), both explicit 422 in `ErrorHttpStatusHelper`. Command-bus only — not added to `ILedgerApi`.
+- [x] **Host endpoint.** `POST /v1/ledger/incomes` (`RecordIncome.cs`, `RecordIncomeDto`/`RecordIncomeResultDto`, `ApiRoutes.Ledger.Incomes`).
+- [x] **Monthly incomes view + report.** `vw_ledger_monthly_incomes` (credit-positive mirror of `vw_ledger_monthly_expenses`) + migration `AddMonthlyIncomesView`; `monthly_incomes.sql` + `MonthlyIncomesQuery`/`Handler` (Reporting) + `GET /v1/reports/monthly-incomes?month=`.
+- [x] **API tests.** `RecordIncomeHandlerTests.cs` (13 facts); `RecordDebitExpenseHandlerTests` +1; new `PostTransactionHandlerTests.cs` (1, the split/settlement path); `PersonalFinance.Reporting.Tests` +3 (fixture gains income+reversal seeding via `ICommandBus`); `PersonalFinance.Api.Tests/RecordIncomeTests.cs` (4 WAF facts). **Migration-ordering gotcha caught and fixed:** `AddTransactionDescription` resequenced to `20260924180000` (before `RebuildCardLiabilityAccruedView`) — `SubscriptionCurrencyFlipMigrationTests` pins Ledger to that exact migration to seed pre-flip data through the live `PostTransactionCommand`, and EF's compiled model unconditionally writes every mapped column on `INSERT` regardless of which migrations are physically applied; safe, since neither new migration had reached the dev `personalfinance.db` yet.
+- [x] **Client.** New types, `LedgerService.recordIncome()`, `ReportsService.monthlyIncomes()`, `features/ledger/validation-helpers.ts`; **Record income page** at `/ledger/incomes/new`; **Dashboard toggle** (`Out of pocket | Income` segmented control, reuses the existing `sumByCurrency` helper); "Record income" quick action.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. All seven test binaries run directly → **Ledger 59** (from 44), **Reporting 11** (from 8), **Api 58** (from 54), Financing 155, Subscriptions 59, Parties 33, Architecture 15 = **390** (was 368). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): `pnpm ng lint` clean, `pnpm ng test` **322/322** (from 303), `pnpm ng build --configuration production` clean (`ledger-routes` 24.98 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: record an ARS income and a USD income into a bank account, plus a back-dated one into last month; toggle the Dashboard to Income and confirm the current month shows two separated per-currency totals and last month shows the back-dated one; record a debit expense with a description and check `ledger_transactions.Description` in `personalfinance.db`; confirm the Out of pocket side is unchanged.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Nothing committed by this session — the user commits their own. **Migration-id resequencing (see Step 2 above) is the one non-obvious thing a fresh session should know about**: `AddTransactionDescription`'s migration id no longer matches its scaffold timestamp — this is deliberate and safe (verified against `__EFMigrationsHistory_Ledger`, neither new migration had been applied), not a mistake to "fix" by renaming it back. Slices 2 (Money Flow table) and 3 (undo an income) remain — not started.

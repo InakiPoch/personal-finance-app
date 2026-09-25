@@ -1353,6 +1353,32 @@ Built one green-lit step at a time (this is the slice's one client step — API 
 
 ---
 
+## Phase 40 — Incomes support: record income + Dashboard toggle (Slice 1)
+
+**Goal:** A form to record real money arriving in a Bank/Cash account, and a Dashboard toggle showing its monthly total next to Out of pocket.
+
+**Traces to:** `docs/incomes-support/slice-1-record-income-and-dashboard-toggle.md` (+ `00-overview.md`; first of three slices — Slice 2 the Money Flow table, Slice 3 undo an income). API half is `app/api` Phase 45 (`POST /v1/ledger/incomes`, `GET /v1/reports/monthly-incomes`, plus a `Transaction.Description` persistence fix pulled forward from a verified bug). `docs/DESIGN.md` §9 gains the two new endpoint rows; `docs/PRD.md` §3.12 records the view; the API's own `docs/PRD.md` §9 decision 17 records the slice.
+
+**Depends on:** Phase 12 (`InstrumentsService.list()`, reused for the "Received in" Bank/Cash picker) and the `reports`/`ledger` features' existing shape.
+
+### Tasks
+- [x] Types — `features/ledger/types/record-income.ts`, `record-income-result.ts`; `features/reports/types/monthly-income-row.ts`.
+- [x] `LedgerService.recordIncome(body)` → `POST ledger/incomes`; `ReportsService.monthlyIncomes(month?)` → `GET reports/monthly-incomes`.
+- [x] New `features/ledger/validation-helpers.ts` (per-feature duplication, the established convention — not a shared module).
+- [x] `pages/record-income-page/` routed `incomes/new` in `ledger.routes.ts` (`/ledger/incomes/new`) — amount+currency, "Received in" (Bank/Cash only), date (`max`=today, `notFuture`), required description; submits and navigates to `/reports`.
+- [x] `dashboard-page.{ts,html}` — `flowSide` signal + two `aria-pressed` toggle buttons, `incomeTotalsByCurrency` (reuses the existing `sumByCurrency` helper), category list hidden on the Income side, `onMonthChange` refetches both series, "Record income" quick action.
+- [x] Specs — `ledger-service.spec.ts` +1, `reports-service.spec.ts` +2; new `record-income-page.spec.ts` (9 facts); `dashboard-page.spec.ts` widened month-change fact + 4 new facts (default side, Income switch, $0 fallback, quick-action link).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **322/322** (from 303); `pnpm ng build --configuration production` clean (`ledger-routes` lazy chunk 24.98 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: record an ARS income and a USD income; toggle the Dashboard to Income and confirm two separated per-currency totals for the current month, and the back-dated one on last month; confirm Out of pocket is unchanged.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. Slices 2 (Money Flow table) and 3 (undo an income) remain — not started.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

@@ -390,6 +390,8 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 32 | POST | `/v1/financing/creditor-installments/{id}/pay` | `FinancingService.payCreditorInstallment` | Creditor detail — per-cuota **Pay** (display-only `PaidOnUtc` stamp, empty `{}` body; card installment → 409 `Financing.NotACreditorInstallment`) |
 | 33 | POST | `/v1/financing/creditor-installments/{id}/unpay` | `FinancingService.unpayCreditorInstallment` | Creditor detail — per-cuota **Undo** (clears the stamp, empty `{}` body; already-unpaid → no-op success) |
 | 34 | POST | `/v1/financing/creditor-payables/{creditorId}/pay-full` | `FinancingService.payCreditorFullDebt` | Creditor detail — **Pay full debt** (stamps every unpaid, non-reversed cuota across the creditor's purchases, empty `{}` body; returns `{ settledCount }`; zero settleable → `0`; unknown creditor → 404) |
+| 35 | POST | `/v1/ledger/incomes` | `LedgerService.recordIncome` | Record income (§3.12) |
+| 36 | GET | `/v1/reports/monthly-incomes` | `ReportsService.monthlyIncomes` | Dashboard — Income side of the `Out of pocket \| Income` toggle (§3.12) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

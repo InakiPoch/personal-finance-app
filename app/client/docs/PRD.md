@@ -46,6 +46,10 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   "Card Debt by Cycle" row for a card expands into the individual outstanding purchases behind its
   total, each with its description (§3.3), current-cycle purchases sorted first. **Source:**
   `GET /v1/financing/cards/{id}/purchases`.
+- **`Out of pocket | Income` toggle (`docs/incomes-support/slice-1-record-income-and-dashboard-toggle.md`,
+  now built):** a segmented control on the Out-of-pocket tile switches it to show this month's
+  **income** instead — per-currency totals only, no category breakdown (there are none). Defaults
+  to Out of pocket, not remembered, shares the same month picker. See §3.12.
 - **States:** loading, empty (no movements yet), error.
 
 ### 3.2 Instruments setup — prerequisite
@@ -236,6 +240,19 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   get-or-created by name (trim + case-insensitive) so the monthly breakdown groups cleanly; credit
   and creditor modes keep no category (D7). Subscription expense accounts also carry `Kind=Expense`
   and so appear in the category list — an accepted tradeoff.
+
+### 3.12 Record income + Dashboard toggle (new — extends §3.1, now built)
+- **Shows:** a form at `/ledger/incomes/new` to record real money arriving in a Bank/Cash
+  account — amount + currency, a "Received in" account picker (Bank/Cash instruments only),
+  a date (no future, back-dating allowed), and a required free-text description. Submitting
+  navigates straight to the Dashboard — there is nothing to reconcile, unlike Load Expense.
+- **Source:** `POST /v1/ledger/incomes` (write); `GET /v1/reports/monthly-incomes` (the
+  Dashboard toggle's Income side, §3.1).
+- **Notes:** traces to `docs/incomes-support/slice-1-record-income-and-dashboard-toggle.md`,
+  the first of three slices (Slice 2 a "Money Flow" table, Slice 3 undo an income). An income
+  is only real money into a Bank/Cash account — never a card refund (already covered by
+  reversals) or a third party paying back a receivable (a settlement, not a gain). No
+  categories, no recurrence — a manual, one-off entry every time.
 
 ## 4. Cross-cutting client requirements
 

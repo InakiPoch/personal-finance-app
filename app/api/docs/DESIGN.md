@@ -187,6 +187,18 @@ Por ahora la API es de consumo puro (Swagger/Postman), sin autenticación más a
 
 ---
 
+### D15 — Ingreso de dinero: `Dr Bank/Cash / Cr Income`, una sola cuenta, sin categorías
+
+`docs/incomes-support/` agrega la primera forma de registrar dinero **entrante**. Hasta ahora el Ledger solo modelaba salidas de plata (gastos) y movimientos entre cuentas propias/terceros; un ingreso real (sueldo, reintegro, regalo) no tenía dónde asentarse.
+
+- **Un ingreso es plata real a una cuenta Bank/Cash.** No es un reembolso de tarjeta (las reversiones ya lo cubren) ni el pago de un tercero (`SettleCurrentAccountCommand` liquida una deuda, no es una ganancia) — la decisión de producto distingue explícitamente estos tres casos para que "ingreso" siga significando *plata que gané*.
+- **Asiento simple, sin devengo.** `Dr` la cuenta Bank/Cash elegida `/ Cr` una única cuenta `Income` (`AccountType.Income` + `AccountKind.Income`, ambos ya existían sin uso desde el diseño original) — creada perezosamente en el primer ingreso (`IncomeAccountProvisioning`, el mismo patrón get-or-create que `ExpenseCategoryProvisioning`, pero sin categorías: no hay `IncomeAccountName`, siempre es la misma cuenta).
+- **Sin categorías, sin recurrencia.** YAGNI explícito — si algún día se quiere un desglose "por fuente", es una decisión de diseño futura, no una que este slice anticipe. Cada ingreso es una carga manual, puntual; no hay scheduler (el de Suscripciones se acaba de eliminar por el bug de auto-cobro, ver decisión 15 del PRD — no hay apetito por reintroducir ese patrón acá).
+- **Fecha no futura, back-dating permitido.** Mismo criterio que `RecordDebitExpense` (`Financing.FuturePurchaseDate`), pero como código propio de Ledger (`Ledger.IncomeDateInFuture`) porque el validador estático no tiene reloj — el guard vive en el handler, inyectando `TimeProvider`.
+- **La reversión de un ingreso ya funciona sin cambios.** Es un asiento balanceado común; `Transaction.Reverse` lo revierte como cualquier otro. Slice 3 (`docs/incomes-support/slice-3-undo-income.md`) agrega el guard de doble reversión y el botón en el cliente — no un mecanismo nuevo.
+- **`Transaction.Description` persiste por primera vez (arregla un bug verificado, no es parte del alcance de "ingresos" en sí).** `RecordDebitExpenseHandler` (rama sin split) y `PostTransactionHandler` recibían una descripción y la descartaban silenciosamente — `RegisterSharedExpenseHandler` (split) y `SettleCurrentAccountHandler` ya la enviaban, sin efecto. Como la descripción de un ingreso es su única etiqueta legible y la tabla "Money Flow" de la Slice 2 depende de ella, el fix se adelantó a este slice en lugar de esperar una iniciativa propia. Las filas históricas no se pueden recuperar — el dato nunca se guardó.
+- **Vista de solo lectura, espejo de `vw_ledger_monthly_expenses`.** `vw_ledger_monthly_incomes` sigue el mismo criterio D9/RF-1 (agrupar por `AccountKind` correcto, particionar por moneda) pero en sentido crédito-positivo; una reversión anula su propio mes automáticamente porque el storno debita `Income`, igual que Out of pocket.
+
 ## 3. Requisitos funcionales
 
 | # | Caso de uso | Tipo | Módulo(s) | Estado |

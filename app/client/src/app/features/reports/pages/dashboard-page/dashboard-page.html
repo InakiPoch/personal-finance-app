@@ -27,8 +27,9 @@
       <p role="alert" class="mt-6 text-sm text-negative">Could not total this month. Try again.</p>
     } @else {
       @for(currencyTotal of monthlyTotalsByCurrency(); track currencyTotal.currencyCode) {
-        <p class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]">
+        <p class="mt-4 flex items-baseline gap-2 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]">
           {{ formatMoney(currencyTotal.totalMinorUnits, currencyTotal.currencyCode) }}
+          <span class="font-sans text-xs font-normal uppercase tracking-widest text-ink-faint">{{ currencyTotal.currencyCode }}</span>
         </p>
       }
       <div class="mt-3 h-0.5 w-28 rounded-full bg-stamp-soft"></div>
@@ -48,8 +49,9 @@
                 [style.width.%]="barWidth(row.totalMinorUnits)"
               ></span>
               <span class="text-sm text-ink-soft">{{ row.label }}</span>
-              <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+              <span class="flex items-baseline gap-1.5 text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
                 {{ formatMoney(row.totalMinorUnits, row.currencyCode) }}
+                <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ row.currencyCode }}</span>
               </span>
             </li>
           }
@@ -98,7 +100,7 @@
                 <span class="flex items-center gap-1.5 text-sm text-ink">
                   <span aria-hidden="true" class="text-ink-faint">{{ expandedCardId() === cardId ? '▾' : '▸' }}</span>
                   {{ card.card }}
-                  <span class="text-[0.625rem] uppercase tracking-[0.1em] text-ink-faint">{{ card.currencyCode }}</span>
+                  <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ card.currencyCode }}</span>
                 </span>
                 <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
                   {{ formatMoney(card.total, card.currencyCode) }}
@@ -108,7 +110,7 @@
               <div class="flex items-baseline justify-between gap-4">
                 <span class="text-sm text-ink">
                   {{ card.card }}
-                  <span class="text-[0.625rem] uppercase tracking-[0.1em] text-ink-faint">{{ card.currencyCode }}</span>
+                  <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ card.currencyCode }}</span>
                 </span>
                 <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
                   {{ formatMoney(card.total, card.currencyCode) }}
@@ -184,8 +186,9 @@
               </span>
             </div>
             <div class="flex flex-col items-end gap-0.5">
-              <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+              <span class="flex items-baseline gap-1.5 text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
                 {{ formatMoney(subscription.amountMinorUnits, subscription.currencyCode) }}
+                <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ subscription.currencyCode }}</span>
               </span>
               @switch(subscription.status) {
                 @case('paid') {

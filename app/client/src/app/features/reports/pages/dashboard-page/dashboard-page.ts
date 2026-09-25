@@ -115,9 +115,14 @@ export class DashboardPage implements OnInit, OnDestroy {
     )
   );
 
-  protected readonly monthlyTotalsByCurrency: Signal<CurrencyTotal[]> = computed(() =>
-    sumByCurrency(this.monthlyRows(), (row: MonthlyExpenseRow) => row.currencyCode, (row: MonthlyExpenseRow) => row.amountMinorUnits)
-  );
+  protected readonly monthlyTotalsByCurrency: Signal<CurrencyTotal[]> = computed(() => {
+    const totals: CurrencyTotal[] = sumByCurrency(
+      this.monthlyRows(),
+      (row: MonthlyExpenseRow) => row.currencyCode,
+      (row: MonthlyExpenseRow) => row.amountMinorUnits
+    );
+    return totals.length > 0 ? totals : [{ currencyCode: 'ARS', totalMinorUnits: fromMinorUnits(0) }];
+  });
 
   protected readonly maxCategoryAmount: Signal<number> = computed(() =>
     this.expensesByCategory().reduce((max: number, group: Grouping) => Math.max(max, group.totalMinorUnits), 0)

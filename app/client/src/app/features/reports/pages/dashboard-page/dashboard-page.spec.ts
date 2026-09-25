@@ -255,6 +255,35 @@ describe('DashboardPage', () => {
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain(formatArs(money(120000)));
   });
+  it('shows a $0 ARS total when no money moved this month', () => {
+    monthlyExpenses.and.returnValue(of([]));
+    setup();
+    fixture.detectChanges();
+    const totals = view.monthlyTotalsByCurrency();
+    expect(totals).toEqual([{ currencyCode: 'ARS', totalMinorUnits: 0 }]);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatArs(money(0)));
+  });
+  it('labels the out-of-pocket total with an explicit USD tag, not just punctuation', () => {
+    monthlyExpenses.and.returnValue(of([
+      { month: '2026-09', category: 'Software', amountMinorUnits: money(5000), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('USD');
+  });
+  it('labels a USD category row with an explicit currency tag', () => {
+    monthlyExpenses.and.returnValue(of([
+      { month: '2026-09', category: 'Groceries', amountMinorUnits: money(120000), currencyCode: 'ARS' },
+      { month: '2026-09', category: 'Software', amountMinorUnits: money(5000), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const rows: NodeListOf<HTMLLIElement> = (fixture.nativeElement as HTMLElement).querySelectorAll('.cat-row');
+    const softwareRow: HTMLLIElement | undefined = Array.from(rows).find((row) => (row.textContent ?? '').includes('Software'));
+    expect(softwareRow?.textContent ?? '').toContain('USD');
+  });
   it('renders a USD subscription through the currency-driven formatter, not the hardcoded ARS one', () => {
     listActive.and.returnValue(of([
       { ...activeSubscriptions[0], subscriptionId: 's-usd', name: 'GitHub', amountMinorUnits: money(1200), currencyCode: 'USD' }
@@ -263,6 +292,7 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain(formatMoney(money(1200), 'USD'));
+    expect(text).toContain('USD');
   });
   it('shows a loading state for subscriptions, then the panel once ready', () => {
     setup();

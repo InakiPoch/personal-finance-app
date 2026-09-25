@@ -7,6 +7,8 @@ import { PostTransaction } from './types/post-transaction';
 import { PostTransactionResult } from './types/post-transaction-result';
 import { RecordDebitExpense } from './types/record-debit-expense';
 import { RecordDebitExpenseResult } from './types/record-debit-expense-result';
+import { RecordIncome } from './types/record-income';
+import { RecordIncomeResult } from './types/record-income-result';
 import { ReverseTransactionResult } from './types/reverse-transaction-result';
 import { TransactionRow } from './types/transaction-row';
 
@@ -22,6 +24,10 @@ export class LedgerService {
 
   recordDebitExpense(body: RecordDebitExpense): Observable<RecordDebitExpenseResult> {
     return this.http.post<RecordDebitExpenseResult>('ledger/expenses', body);
+  }
+
+  recordIncome(body: RecordIncome): Observable<RecordIncomeResult> {
+    return this.http.post<RecordIncomeResult>('ledger/incomes', body);
   }
 
   listExpenseCategories(): Observable<string[]> {

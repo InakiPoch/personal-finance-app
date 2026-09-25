@@ -12,6 +12,8 @@ import { PostTransaction } from './types/post-transaction';
 import { PostTransactionResult } from './types/post-transaction-result';
 import { RecordDebitExpense } from './types/record-debit-expense';
 import { RecordDebitExpenseResult } from './types/record-debit-expense-result';
+import { RecordIncome } from './types/record-income';
+import { RecordIncomeResult } from './types/record-income-result';
 import { ReverseTransactionResult } from './types/reverse-transaction-result';
 import { TransactionRow } from './types/transaction-row';
 import { LedgerService } from './ledger-service';
@@ -164,6 +166,23 @@ describe('LedgerService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ rows: [{ name: 'Groceries' }, { name: 'Transport' }] });
     expect(result).toEqual(['Groceries', 'Transport']);
+  });
+
+  it('POSTs an income and returns the recorded id', () => {
+    const body: RecordIncome = {
+      amountMinorUnits: money(50000),
+      targetAccountId: 'acct-bank',
+      receivedOn: '2026-03-10',
+      description: 'Salary',
+      currencyCode: 'ARS'
+    };
+    let result: string | undefined;
+    service.recordIncome(body).subscribe((r: RecordIncomeResult) => (result = r.id));
+    const req = httpMock.expectOne(`${base}/ledger/incomes`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ id: 'income-1' });
+    expect(result).toBe('income-1');
   });
 
   it('maps a 409 CannotReverseAReversal to an AppError keyed off code', () => {

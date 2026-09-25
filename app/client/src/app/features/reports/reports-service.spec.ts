@@ -9,6 +9,7 @@ import { Money } from '../../core/types/money';
 import { environment } from '../../environments/environment';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
+import { MonthlyIncomeRow } from './types/monthly-income-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
 import { ReportsService } from './reports-service';
@@ -18,6 +19,7 @@ describe('ReportsService', () => {
   let httpMock: HttpTestingController;
 
   const monthlyUrl: string = `${environment.apiUrl}/reports/monthly-expenses`;
+  const monthlyIncomesUrl: string = `${environment.apiUrl}/reports/monthly-incomes`;
   const cardDueUrl: string = `${environment.apiUrl}/reports/card-due-by-month`;
   const debtSummaryUrl: string = `${environment.apiUrl}/reports/parties/debt-summary`;
   const money = (value: number): Money => value as Money;
@@ -61,6 +63,24 @@ describe('ReportsService', () => {
   it('passes the month as a query param when provided', () => {
     service.monthlyExpenses('2026-09').subscribe();
     const req = httpMock.expectOne((r) => r.url === monthlyUrl);
+    expect(req.request.params.get('month')).toBe('2026-09');
+    req.flush({ rows: [] });
+  });
+  it('GETs monthly incomes without a month param and unwraps { rows }', () => {
+    const incomeRows: MonthlyIncomeRow[] = [
+      { month: '2026-09', amountMinorUnits: money(50000), currencyCode: 'ARS' }
+    ];
+    let result: MonthlyIncomeRow[] | undefined;
+    service.monthlyIncomes().subscribe((rows: MonthlyIncomeRow[]) => (result = rows));
+    const req = httpMock.expectOne(monthlyIncomesUrl);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.has('month')).toBe(false);
+    req.flush({ rows: incomeRows });
+    expect(result).toEqual(incomeRows);
+  });
+  it('passes the month as a query param to monthly incomes when provided', () => {
+    service.monthlyIncomes('2026-09').subscribe();
+    const req = httpMock.expectOne((r) => r.url === monthlyIncomesUrl);
     expect(req.request.params.get('month')).toBe('2026-09');
     req.flush({ rows: [] });
   });

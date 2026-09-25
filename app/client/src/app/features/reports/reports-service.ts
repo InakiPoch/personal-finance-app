@@ -3,6 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
+import { MonthlyIncomeRow } from './types/monthly-income-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
 
@@ -20,6 +21,14 @@ export class ReportsService {
     return this.http.get<RowsEnvelope<MonthlyExpenseRow>>('reports/monthly-expenses', { params }).pipe(map((envelope: RowsEnvelope<MonthlyExpenseRow>) => envelope.rows));
   }
 
+  monthlyIncomes(month?: string): Observable<MonthlyIncomeRow[]> {
+    let params: HttpParams = new HttpParams();
+    if(month !== undefined) {
+      params = params.set('month', month);
+    }
+    return this.http.get<RowsEnvelope<MonthlyIncomeRow>>('reports/monthly-incomes', { params }).pipe(map((envelope: RowsEnvelope<MonthlyIncomeRow>) => envelope.rows));
+  }
+
   cardDueByMonth(): Observable<CardDueRow[]> {
     return this.http.get<RowsEnvelope<CardDueRow>>('reports/card-due-by-month').pipe(map((envelope: RowsEnvelope<CardDueRow>) => envelope.rows));
   }
@@ -33,6 +42,6 @@ export class ReportsService {
   partyTimeline(partyId: string): Observable<PartyTimelineRow[]> {
     return this.http
       .get<RowsEnvelope<PartyTimelineRow>>(`reports/parties/${partyId}/timeline`)
-      .pipe(map((envelope: RowsEnvelope<PartyTimelineRow>) => envelope.rows));
+    .pipe(map((envelope: RowsEnvelope<PartyTimelineRow>) => envelope.rows));
   }
 }

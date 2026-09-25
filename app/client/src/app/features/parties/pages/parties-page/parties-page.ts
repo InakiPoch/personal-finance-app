@@ -12,8 +12,9 @@ import {
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { Subject, forkJoin, takeUntil } from 'rxjs';
-import { formatArs, fromMinorUnits } from '../../../../core/money/money';
+import { formatMoney, fromMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
@@ -30,15 +31,16 @@ type PartyForm = FormGroup<{
   name: FormControl<string>;
 }>;
 
-/**
- * Every registered party (roster from `list()`) merged with its balance from `debtSummary()` — zero when
- * the party has no movements yet — and its count of not-yet-accrued scheduled installment shares from
- * `pendingShares()`, so a $0-now party with a schedule reads differently from a truly settled one.
- */
+/** One party's net position in one currency. */
+type PartyCurrencyNet = {
+  currencyCode: CurrencyCode;
+  netBalanceMinorUnits: Money;
+};
+
 type PartyListRow = {
   partyId: string;
   partyName: string;
-  netBalanceMinorUnits: Money;
+  balances: PartyCurrencyNet[];
   scheduledCount: number;
 };
 
@@ -51,26 +53,26 @@ type PartyListRow = {
 })
 export class PartiesPage implements OnInit, OnDestroy {
   protected form!: PartyForm;
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
+  protected readonly zeroMinorUnits: Money = fromMinorUnits(0);
   protected readonly listStatus: WritableSignal<ListStatus> = signal<ListStatus>('loading');
   protected readonly parties: WritableSignal<PartyListRow[]> = signal<PartyListRow[]>([]);
-  protected readonly totalReceivable: Signal<Money> = computed(() =>
-    fromMinorUnits(
-      this.parties().reduce(
-        (sum: number, row: PartyListRow) =>
-          row.netBalanceMinorUnits > 0 ? sum + row.netBalanceMinorUnits : sum,
-        0
-      )
-    )
+  protected readonly receivableTotals: Signal<PartyCurrencyNet[]> = computed(() =>
+    this.sumByCurrency((net: number) => net > 0)
   );
-  protected readonly totalPayable: Signal<Money> = computed(() =>
-    fromMinorUnits(
-      this.parties().reduce((sum: number, row: PartyListRow) => row.netBalanceMinorUnits < 0 ? sum - row.netBalanceMinorUnits : sum, 0)
-    )
+  protected readonly payableTotals: Signal<PartyCurrencyNet[]> = computed(() =>
+    this.sumByCurrency((net: number) => net < 0).map((total: PartyCurrencyNet) => ({
+      ...total,
+      netBalanceMinorUnits: fromMinorUnits(-total.netBalanceMinorUnits)
+    }))
   );
   protected readonly maxMagnitude: Signal<number> = computed(() =>
     this.parties().reduce(
-      (max: number, row: PartyListRow) => Math.max(max, Math.abs(row.netBalanceMinorUnits)),
+      (max: number, row: PartyListRow) =>
+        row.balances.reduce(
+          (rowMax: number, balance: PartyCurrencyNet) => Math.max(rowMax, Math.abs(balance.netBalanceMinorUnits)),
+          max
+        ),
       0
     )
   );
@@ -120,14 +122,21 @@ export class PartiesPage implements OnInit, OnDestroy {
   }
 
   protected balanceHint(row: PartyListRow): string {
-    if(row.netBalanceMinorUnits > 0) {
+    if(row.balances.length === 0) {
+      return row.scheduledCount > 0 ? `Nothing owed yet · ${row.scheduledCount} scheduled` : 'Settled up';
+    }
+    const hints: string[] = Array.from(
+      new Set(row.balances.map((balance: PartyCurrencyNet) => this.currencyHint(balance)))
+    );
+    return hints.join(' · ');
+  }
+
+  protected currencyHint(balance: PartyCurrencyNet): string {
+    if(balance.netBalanceMinorUnits > 0) {
       return 'They owe you';
     }
-    if(row.netBalanceMinorUnits < 0) {
+    if(balance.netBalanceMinorUnits < 0) {
       return 'You owe them';
-    }
-    if(row.scheduledCount > 0) {
-      return `Nothing owed yet · ${row.scheduledCount} scheduled`;
     }
     return 'Settled up';
   }
@@ -136,10 +145,17 @@ export class PartiesPage implements OnInit, OnDestroy {
     return this.submitErrorMessages[error.code] ?? 'The party could not be created.';
   }
 
-  /** Width (%) of the magnitude tick behind a party row, relative to the largest |net balance|. */
+  /** Width (%) of the magnitude tick behind a party row, relative to the largest |net balance| across every currency. */
   protected tickWidth(row: PartyListRow): number {
     const max: number = this.maxMagnitude();
-    return max === 0 ? 0 : Math.round((Math.abs(row.netBalanceMinorUnits) / max) * 100);
+    if(max === 0 || row.balances.length === 0) {
+      return 0;
+    }
+    const rowMax: number = row.balances.reduce(
+      (running: number, balance: PartyCurrencyNet) => Math.max(running, Math.abs(balance.netBalanceMinorUnits)),
+      0
+    );
+    return Math.round((rowMax / max) * 100);
   }
 
   private loadParties(): void {
@@ -152,9 +168,12 @@ export class PartiesPage implements OnInit, OnDestroy {
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: ({ roster, debts, pending }: { roster: Party[]; debts: PartyDebtRow[]; pending: PendingSharesByPartyRow[] }) => {
-          const balanceByPartyId: Map<string, Money> = new Map(
-            debts.map((row: PartyDebtRow) => [row.partyId, row.netBalanceMinorUnits])
-          );
+          const balancesByPartyId: Map<string, PartyCurrencyNet[]> = new Map();
+          for(const row of debts) {
+            const existing: PartyCurrencyNet[] = balancesByPartyId.get(row.partyId) ?? [];
+            existing.push({ currencyCode: row.currencyCode, netBalanceMinorUnits: row.netBalanceMinorUnits });
+            balancesByPartyId.set(row.partyId, existing);
+          }
           const scheduledCountByPartyId: Map<string, number> = new Map(
             pending.map((row: PendingSharesByPartyRow) => [row.partyId, row.scheduledCount])
           );
@@ -162,7 +181,7 @@ export class PartiesPage implements OnInit, OnDestroy {
             roster.map((party: Party) => ({
               partyId: party.id,
               partyName: party.name,
-              netBalanceMinorUnits: balanceByPartyId.get(party.id) ?? fromMinorUnits(0),
+              balances: balancesByPartyId.get(party.id) ?? [],
               scheduledCount: scheduledCountByPartyId.get(party.id) ?? 0
             }))
           );
@@ -171,6 +190,23 @@ export class PartiesPage implements OnInit, OnDestroy {
         error: () => this.listStatus.set('error')
       }
     );
+  }
+
+  /** Sums every party's currency balances matching `matches`, one total per currency. */
+  private sumByCurrency(matches: (net: number) => boolean): PartyCurrencyNet[] {
+    const totals: Map<CurrencyCode, number> = new Map();
+    for(const party of this.parties()) {
+      for(const balance of party.balances) {
+        if(!matches(balance.netBalanceMinorUnits)) {
+          continue;
+        }
+        totals.set(balance.currencyCode, (totals.get(balance.currencyCode) ?? 0) + balance.netBalanceMinorUnits);
+      }
+    }
+    return Array.from(totals.entries()).map(([currencyCode, netBalanceMinorUnits]) => ({
+      currencyCode,
+      netBalanceMinorUnits: fromMinorUnits(netBalanceMinorUnits)
+    }));
   }
 
   private initPartyForm(): void {

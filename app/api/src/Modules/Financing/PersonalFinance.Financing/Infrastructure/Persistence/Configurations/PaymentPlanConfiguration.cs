@@ -20,12 +20,12 @@ internal sealed class PaymentPlanConfiguration : IEntityTypeConfiguration<Paymen
         builder.Property(plan => plan.CreditorId);
         builder.Property(plan => plan.CreditorAccountId);
         builder.Property(plan => plan.CreditorPayableAccountId);
-        builder.Property(plan => plan.Total)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("TotalMinorUnits")
+        builder.Property(plan => plan.TotalMinorUnits).HasColumnName("TotalMinorUnits").IsRequired();
+        builder.Property(plan => plan.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
             .IsRequired();
+        builder.Ignore(plan => plan.Total);
         builder.HasMany(plan => plan.Installments)
             .WithOne()
             .HasForeignKey("PaymentPlanId")

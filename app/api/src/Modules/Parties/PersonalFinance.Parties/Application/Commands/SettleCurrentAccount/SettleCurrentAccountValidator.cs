@@ -9,6 +9,9 @@ internal static class SettleCurrentAccountValidator {
         if(command.AmountMinorUnits <= 0) {
             return Result.Failure(PartiesErrors.NonPositiveAmount);
         }
+        if(command.CurrencyCode is not ("ARS" or "USD")) {
+            return Result.Failure(PartiesErrors.InvalidCurrencyCode);
+        }
         if(command.PartyId == Guid.Empty) {
             return Result.Failure(PartiesErrors.PartyNotFound);
         }

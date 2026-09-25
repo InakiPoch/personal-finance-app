@@ -29,7 +29,8 @@ describe('RecentPurchasesPage', () => {
     paidInstallmentCount: 0,
     nextDueYear: 2026,
     nextDueMonth: 10,
-    pendingAmountMinorUnits: money(1200000)
+    pendingAmountMinorUnits: money(1200000),
+    currencyCode: 'ARS'
   }];
 
   function setup(): void {

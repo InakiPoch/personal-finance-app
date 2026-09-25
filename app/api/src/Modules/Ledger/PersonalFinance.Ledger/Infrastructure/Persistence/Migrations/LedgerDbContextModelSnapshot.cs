@@ -106,9 +106,14 @@ namespace PersonalFinance.Ledger.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("AccountId")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("Amount")
+                    b.Property<long>("AmountMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("AmountMinorUnits");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
 
                     b.Property<string>("Direction")
                         .IsRequired()

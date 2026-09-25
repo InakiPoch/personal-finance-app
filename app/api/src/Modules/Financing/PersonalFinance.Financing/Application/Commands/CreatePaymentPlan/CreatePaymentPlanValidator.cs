@@ -16,6 +16,9 @@ internal static class CreatePaymentPlanValidator {
         if(command.PurchaseDate > today) {
             return Result.Failure(FinancingErrors.FuturePurchaseDate);
         }
+        if(command.CurrencyCode is not ("ARS" or "USD")) {
+            return Result.Failure(FinancingErrors.InvalidCurrencyCode);
+        }
         if(command.CardId is null && command.CreditorId is null) {
             return Result.Failure(FinancingErrors.PlanNeedsCardOrCreditor);
         }

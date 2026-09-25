@@ -1,9 +1,16 @@
+import { CurrencyCode } from '../types/currency-code';
 import { Money } from '../types/money';
 
 const arsFormatter: Intl.NumberFormat = new Intl.NumberFormat('es-AR', {
   style: 'currency',
   currency: 'ARS',
-  minimumFractionDigits: 2,
+  minimumFractionDigits: 2
+});
+
+const usdFormatter: Intl.NumberFormat = new Intl.NumberFormat('en-US', {
+  style: 'currency',
+  currency: 'USD',
+  minimumFractionDigits: 2
 });
 
 /** Wrap an integer count of minor units (cents) as `Money`. */
@@ -34,6 +41,10 @@ export function toMinorUnits(major: number): Money {
   return (sign * minor) as Money;
 }
 
+export function formatMoney(value: Money, code: CurrencyCode): string {
+  return code === 'USD' ? usdFormatter.format(value / 100) : arsFormatter.format(value / 100);
+}
+
 export function formatArs(value: Money): string {
-  return arsFormatter.format(value / 100);
+  return formatMoney(value, 'ARS');
 }

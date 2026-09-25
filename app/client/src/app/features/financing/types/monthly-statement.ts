@@ -1,3 +1,4 @@
+import { CurrencyCode } from '../../../core/types/currency-code';
 import { IsoInstant } from '../../../core/types/iso-instant';
 import { Money } from '../../../core/types/money';
 import { MonthlyStatementInstallment } from './monthly-statement-installment';
@@ -16,4 +17,5 @@ export type MonthlyStatement = {
   isPaid: boolean;
   paidOnUtc: IsoInstant | null;
   installments: MonthlyStatementInstallment[];
+  currencyCode: CurrencyCode;
 };

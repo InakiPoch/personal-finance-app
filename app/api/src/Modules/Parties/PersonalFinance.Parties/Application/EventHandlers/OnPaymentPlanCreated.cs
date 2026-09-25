@@ -44,7 +44,7 @@ internal sealed class OnPaymentPlanCreated(
             context.Parties.Add(placeholder);
             receivables.Add(new PartyReceivable(placeholder.Id, account.Value));
         }
-        var currency = Currency.Reference;
+        var currency = Currency.FromCode(integrationEvent.CurrencyCode);
         var weights = integrationEvent.Participants.Select(participant => participant.Weight).ToList();
         var shares = SplitAllocationCalculator.AllocateWhole(integrationEvent.TotalMinorUnits, weights);
         var holderShare = Money.FromMinorUnits(shares.HolderShare, currency);

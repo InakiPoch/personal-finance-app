@@ -78,7 +78,7 @@ namespace PersonalFinance.Subscriptions.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("Amount")
+                    b.Property<long>("AmountMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("AmountMinorUnits");
 
@@ -88,6 +88,11 @@ namespace PersonalFinance.Subscriptions.Infrastructure.Persistence.Migrations
                     b.Property<string>("Category")
                         .IsRequired()
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
 
                     b.Property<Guid>("ExpenseAccountId")
                         .HasColumnType("TEXT");

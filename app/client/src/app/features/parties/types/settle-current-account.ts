@@ -1,3 +1,4 @@
+import { CurrencyCode } from '../../../core/types/currency-code';
 import { IsoInstant } from '../../../core/types/iso-instant';
 import { Money } from '../../../core/types/money';
 
@@ -6,4 +7,5 @@ export type SettleCurrentAccount = {
   amountMinorUnits: Money;
   bankAccountId: string;
   settledOnUtc: IsoInstant;
+  currencyCode: CurrencyCode;
 };

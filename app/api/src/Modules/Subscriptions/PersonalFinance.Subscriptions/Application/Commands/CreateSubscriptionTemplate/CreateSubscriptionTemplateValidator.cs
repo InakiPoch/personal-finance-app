@@ -18,6 +18,9 @@ internal static class CreateSubscriptionTemplateValidator {
         if(command.AnchorDay is < 1 or > 31) {
             return Result.Failure(SubscriptionErrors.InvalidAnchorDay);
         }
+        if(command.CurrencyCode is not ("ARS" or "USD")) {
+            return Result.Failure(SubscriptionErrors.InvalidCurrencyCode);
+        }
         return command.FundingAccountId == Guid.Empty
             ? Result.Failure(SubscriptionErrors.InvalidFundingAccount)
         : Result.Success();

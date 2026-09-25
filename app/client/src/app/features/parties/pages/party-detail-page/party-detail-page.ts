@@ -12,8 +12,9 @@ import {
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { formatArs, toMinorUnits } from '../../../../core/money/money';
+import { formatMoney, fromMinorUnits, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { IsoInstant } from '../../../../core/types/iso-instant';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
@@ -22,6 +23,7 @@ import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
+import { PartyCurrencyBalance } from '../../types/party-currency-balance';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
 import { atMostTwoDecimals, positiveAmount } from '../../validation-helpers';
@@ -36,6 +38,7 @@ const MONTH_LABELS: readonly string[] = [
 
 type SettlementForm = FormGroup<{
   amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
   bankAccountId: FormControl<string>;
   settledOnUtc: FormControl<string>;
 }>;
@@ -49,7 +52,8 @@ type SettlementForm = FormGroup<{
 })
 export class PartyDetailPage implements OnInit, OnDestroy {
   protected form!: SettlementForm;
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
+  protected readonly zeroMinorUnits: Money = fromMinorUnits(0);
   protected readonly balance: WritableSignal<CurrentAccountBalance | null> =
     signal<CurrentAccountBalance | null>(null);
   protected readonly timeline: WritableSignal<PartyTimelineRow[]> = signal<PartyTimelineRow[]>([]);
@@ -63,6 +67,12 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
   );
+  protected readonly owedCurrencies: Signal<CurrencyCode[]> = computed(() => {
+    const owed: CurrencyCode[] = (this.balance()?.balances ?? [])
+      .filter((row: PartyCurrencyBalance) => row.balanceMinorUnits > 0)
+      .map((row: PartyCurrencyBalance) => row.currencyCode);
+    return owed.length > 0 ? owed : ['ARS'];
+  });
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
     positiveAmount: 'Enter an amount greater than zero.',
@@ -81,6 +91,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     'Parties.UnknownFundingAccount': 'Choose a debit account registered with the API.',
     'Parties.PartyNotFound': 'This party no longer exists.',
     'Parties.SettlementExceedsBalance': 'The amount is more than what this party owes.',
+    'Parties.InvalidCurrencyCode': 'Choose ARS or USD.',
     'Http.BadRequest': 'The settlement could not be recorded — check the values and try again.',
     'Http.UnprocessableEntity': 'The API rejected the settlement — check the amount and account.',
     'Http.Conflict': 'The amount is more than what this party owes.',
@@ -95,10 +106,15 @@ export class PartyDetailPage implements OnInit, OnDestroy {
       this.form.markAllAsTouched();
       return;
     }
-    const raw: { amount: number | null; bankAccountId: string; settledOnUtc: string } =
-      this.form.getRawValue();
+    const raw: {
+      amount: number | null;
+      currency: CurrencyCode;
+      bankAccountId: string;
+      settledOnUtc: string;
+    } = this.form.getRawValue();
     const body: SettleCurrentAccount = {
       amountMinorUnits: toMinorUnits(raw.amount as number),
+      currencyCode: raw.currency,
       bankAccountId: raw.bankAccountId,
       settledOnUtc: new Date(raw.settledOnUtc).toISOString() as IsoInstant
     };
@@ -110,7 +126,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
       .subscribe({
         next: () => {
           this.settleStatus.set('settled');
-          this.form.reset({ amount: null, bankAccountId: '', settledOnUtc: '' });
+          this.form.reset({ amount: null, currency: 'ARS', bankAccountId: '', settledOnUtc: '' });
           this.loadBalance(id);
           this.loadTimeline(id);
         },
@@ -191,6 +207,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
       amount: this.fb.control<number | null>(null, {
         validators: [positiveAmount, atMostTwoDecimals],
       }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       bankAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
       settledOnUtc: this.fb.nonNullable.control('', { validators: Validators.required })
     });

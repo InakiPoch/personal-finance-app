@@ -45,7 +45,8 @@ internal static class LedgerMappingExtensions {
             dto.CategoryName,
             DateOnly.Parse(dto.PurchaseDate, CultureInfo.InvariantCulture),
             dto.Description,
-            split
+            split,
+            dto.CurrencyCode
         );
     }
 
@@ -65,8 +66,11 @@ internal static class LedgerMappingExtensions {
         return new CreateAccountResultDto(accountId);
     }
 
-    public static AccountBalanceDto ToAccountBalanceDto(this Money balance, Guid accountId) {
-        return new AccountBalanceDto(accountId, balance.MinorUnits, balance.Currency.Code, balance.ToString());
+    public static AccountBalanceDto ToAccountBalanceDto(this IReadOnlyList<Money> balances, Guid accountId) {
+        var rows = balances
+            .Select(balance => new AccountBalanceRowDto(balance.MinorUnits, balance.Currency.Code, balance.ToString()))
+            .ToList();
+        return new AccountBalanceDto(accountId, rows);
     }
 
     public static GetTransactionsQuery ToGetTransactionsQuery(this Guid? accountId, string? from, string? to) {
@@ -80,6 +84,7 @@ internal static class LedgerMappingExtensions {
                 row.PostedOnUtc,
                 row.Description,
                 row.AmountMinorUnits,
+                row.CurrencyCode,
                 row.IsReversal,
                 row.IsReversed,
                 row.InstallmentReferenceId,

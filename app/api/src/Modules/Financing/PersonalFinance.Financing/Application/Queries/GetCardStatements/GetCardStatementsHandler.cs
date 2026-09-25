@@ -33,7 +33,8 @@ internal sealed class GetCardStatementsHandler(FinancingDbContext context) : IQu
                 statement.CycleMonth,
                 statement.AmountDue.MinorUnits,
                 statement.PaidOnUtc is not null,
-                statement.PaidOnUtc))
+                statement.PaidOnUtc,
+                statement.AmountDue.Currency.Code))
             .ToList();
         return new CardStatementsResponse(rows);
     }

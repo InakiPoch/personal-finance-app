@@ -60,11 +60,12 @@ internal sealed class AccrueInstallments(
             var statement = await context.MonthlyStatements.FirstOrDefaultAsync(
                 candidate => candidate.CardId == card.Id
                     && candidate.CycleYear == installment.CycleYear
-                    && candidate.CycleMonth == installment.CycleMonth,
+                    && candidate.CycleMonth == installment.CycleMonth
+                    && candidate.Currency == installment.Amount.Currency,
                 cancellationToken
             );
             if(statement is null) {
-                statement = MonthlyStatement.Open(card.Id, installment.Cycle);
+                statement = MonthlyStatement.Open(card.Id, installment.Cycle, installment.Amount.Currency);
                 context.MonthlyStatements.Add(statement);
             }
             var lines = new List<PostTransactionLine> {

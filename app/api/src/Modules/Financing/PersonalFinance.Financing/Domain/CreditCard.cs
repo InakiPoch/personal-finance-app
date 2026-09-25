@@ -8,15 +8,19 @@ internal sealed class CreditCard : AggregateRoot<Guid> {
     public Guid LiabilityAccountId { get; }
     public Guid ExpenseAccountId { get; }
     public Guid CreditAccountId { get; }
-    public Money CarriedCreditBalance { get; private set; }
+    public Money CarriedCreditBalance => Money.FromMinorUnits(CarriedCreditBalanceMinorUnits, Currency);
 
-    private CreditCard(Guid id, string name, int cutoffDay, Guid liabilityAccountId, Guid expenseAccountId, Guid creditAccountId) : base(id) {
+    internal long CarriedCreditBalanceMinorUnits { get; private set; }
+    internal Currency Currency { get; private set; }
+
+    private CreditCard(Guid id, string name, int cutoffDay, Guid liabilityAccountId, Guid expenseAccountId, Guid creditAccountId, long carriedCreditBalanceMinorUnits, Currency currency) : base(id) {
         Name = name;
         CutoffDay = cutoffDay;
         LiabilityAccountId = liabilityAccountId;
         ExpenseAccountId = expenseAccountId;
         CreditAccountId = creditAccountId;
-        CarriedCreditBalance = Money.Zero(Currency.Reference);
+        CarriedCreditBalanceMinorUnits = carriedCreditBalanceMinorUnits;
+        Currency = currency;
     }
 
     public static Result<CreditCard> Create(Guid id, string name, int cutoffDay, Guid liabilityAccountId, Guid expenseAccountId, Guid creditAccountId) {
@@ -26,14 +30,14 @@ internal sealed class CreditCard : AggregateRoot<Guid> {
         if(cutoffDay is < 1 or > 31) {
             return FinancingErrors.InvalidCutoffDay;
         }
-        return new CreditCard(id, name.Trim(), cutoffDay, liabilityAccountId, expenseAccountId, creditAccountId);
+        return new CreditCard(id, name.Trim(), cutoffDay, liabilityAccountId, expenseAccountId, creditAccountId, 0, Currency.Reference);
     }
 
     public Result ApplyCredit(Money amount) {
         if(amount.MinorUnits <= 0) {
             return Result.Failure(FinancingErrors.NonPositiveCreditAmount);
         }
-        CarriedCreditBalance += amount;
+        CarriedCreditBalanceMinorUnits = (CarriedCreditBalance + amount).MinorUnits;
         return Result.Success();
     }
 
@@ -42,7 +46,7 @@ internal sealed class CreditCard : AggregateRoot<Guid> {
             return Result.Failure(FinancingErrors.NonPositiveCreditAmount);
         }
         var reduced = CarriedCreditBalance - amount;
-        CarriedCreditBalance = reduced.MinorUnits < 0 ? Money.Zero(Currency.Reference) : reduced;
+        CarriedCreditBalanceMinorUnits = Math.Max(reduced.MinorUnits, 0);
         return Result.Success();
     }
 }

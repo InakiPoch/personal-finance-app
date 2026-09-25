@@ -58,6 +58,23 @@ public sealed class UnpaySubscriptionHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_reverses_the_exact_usd_transaction_the_pay_posted() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var id = await SeedTemplateAsync("Netflix", anchorDay: 15, nextDueDate: new DateOnly(2026, 6, 15), lastPaidPeriod: null, cancellationToken, currency: Currency.Usd);
+        var ledger = new FakeLedgerApi();
+        var paid = await new PaySubscriptionHandler(NewContext(), ledger, new FixedTimeProvider(fixedNow)).HandleAsync(new PaySubscriptionCommand(id), cancellationToken);
+        Assert.True(paid.IsSuccess);
+        var postedTransaction = Assert.Single(ledger.PostedTransactions);
+        Assert.All(postedTransaction.Lines, line => Assert.Equal(Currency.Usd, line.Amount.Currency));
+        var paidTransactionId = Assert.Single(ledger.PostedTransactionIds);
+
+        var result = await new UnpaySubscriptionHandler(NewContext(), ledger, new FixedTimeProvider(fixedNow)).HandleAsync(new UnpaySubscriptionCommand(id), cancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(paidTransactionId, Assert.Single(ledger.ReversedTransactionIds));
+    }
+
+    [Fact]
     public async Task Handle_rejects_undo_when_the_current_period_was_never_paid() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var id = await SeedTemplateAsync("Netflix", anchorDay: 15, nextDueDate: new DateOnly(2026, 6, 15), lastPaidPeriod: null, cancellationToken);
@@ -128,11 +145,11 @@ public sealed class UnpaySubscriptionHandlerTests : IDisposable {
         Assert.Equal(before.NextDueDate, after.NextDueDate);
     }
 
-    private async Task<Guid> SeedTemplateAsync(string name, int anchorDay, DateOnly nextDueDate, DateOnly? lastPaidPeriod, CancellationToken cancellationToken, long amountMinorUnits = 1_500) {
+    private async Task<Guid> SeedTemplateAsync(string name, int anchorDay, DateOnly nextDueDate, DateOnly? lastPaidPeriod, CancellationToken cancellationToken, long amountMinorUnits = 1_500, Currency? currency = null) {
         await using var context = NewContext();
         var template = SubscriptionTemplate.Create(
             name,
-            Money.FromMinorUnits(amountMinorUnits, Currency.Reference),
+            Money.FromMinorUnits(amountMinorUnits, currency ?? Currency.Reference),
             "Streaming",
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
@@ -223,11 +240,11 @@ public sealed class UnpaySubscriptionHandlerTests : IDisposable {
             throw new NotSupportedException();
         }
 
-        public Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
+        public Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
 
-        public Task<Money> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
+        public Task<IReadOnlyList<Money>> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
 

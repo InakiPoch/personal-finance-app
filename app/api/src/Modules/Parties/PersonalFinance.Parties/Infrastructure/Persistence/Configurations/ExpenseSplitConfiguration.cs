@@ -15,29 +15,13 @@ internal sealed class ExpenseSplitConfiguration : IEntityTypeConfiguration<Expen
             .HasConversion<string>()
             .IsRequired();
         builder.Property(split => split.SourceReferenceId).IsRequired();
-        builder.Property(split => split.Total)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("TotalMinorUnits")
-            .IsRequired();
-        builder.Property(split => split.HolderShare)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("HolderShareMinorUnits")
-            .IsRequired();
-        builder.Property(split => split.AccruedReceivable)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("AccruedReceivableMinorUnits")
-            .IsRequired();
-        builder.Property(split => split.ReversedReceivable)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("ReversedReceivableMinorUnits")
+        builder.Property(split => split.TotalMinorUnits).HasColumnName("TotalMinorUnits").IsRequired();
+        builder.Property(split => split.HolderShareMinorUnits).HasColumnName("HolderShareMinorUnits").IsRequired();
+        builder.Property(split => split.AccruedReceivableMinorUnits).HasColumnName("AccruedReceivableMinorUnits").IsRequired();
+        builder.Property(split => split.ReversedReceivableMinorUnits).HasColumnName("ReversedReceivableMinorUnits").IsRequired();
+        builder.Property(split => split.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
             .IsRequired();
         builder.HasMany(split => split.Participants)
             .WithOne()
@@ -49,5 +33,9 @@ internal sealed class ExpenseSplitConfiguration : IEntityTypeConfiguration<Expen
             .UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Ignore(split => split.DomainEvents);
         builder.Ignore(split => split.PartyReceivableTotal);
+        builder.Ignore(split => split.Total);
+        builder.Ignore(split => split.HolderShare);
+        builder.Ignore(split => split.AccruedReceivable);
+        builder.Ignore(split => split.ReversedReceivable);
     }
 }

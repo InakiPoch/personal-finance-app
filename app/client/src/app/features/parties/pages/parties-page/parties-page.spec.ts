@@ -3,7 +3,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
+import { formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyDebtRow } from '../../../reports/types/party-debt-row';
@@ -14,10 +16,15 @@ import { PendingSharesByPartyRow } from '../../types/pending-shares-by-party-row
 import { PartiesService } from '../../parties-service';
 import { PartiesPage } from './parties-page';
 
+type PartyCurrencyNet = {
+  currencyCode: CurrencyCode;
+  netBalanceMinorUnits: Money;
+};
+
 type PartyListRow = {
   partyId: string;
   partyName: string;
-  netBalanceMinorUnits: Money;
+  balances: PartyCurrencyNet[];
   scheduledCount: number;
 };
 
@@ -85,8 +92,13 @@ describe('PartiesPage', () => {
     expect(pendingShares).toHaveBeenCalledTimes(1);
     expect(view.listStatus()).toBe('ready');
     expect(view.parties()).toEqual([
-      { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: 250000 as Money, scheduledCount: 0 },
-      { partyId: 'p2', partyName: 'Bob', netBalanceMinorUnits: 0 as Money, scheduledCount: 0 }
+      {
+        partyId: 'p1',
+        partyName: 'Alice',
+        balances: [{ currencyCode: 'ARS', netBalanceMinorUnits: 250000 as Money }],
+        scheduledCount: 0
+      },
+      { partyId: 'p2', partyName: 'Bob', balances: [], scheduledCount: 0 }
     ]);
     expect(text()).toContain('Alice');
     expect(text()).toContain('Bob');
@@ -94,7 +106,7 @@ describe('PartiesPage', () => {
   it('renders a party with no balance and no schedule as settled at zero', () => {
     setup();
     const bob = view.parties().find((row) => row.partyId === 'p2') as PartyListRow;
-    expect(bob.netBalanceMinorUnits).toBe(0 as Money);
+    expect(bob.balances.length).toBe(0);
     expect(bob.scheduledCount).toBe(0);
     expect(view.balanceHint(bob)).toBe('Settled up');
   });
@@ -106,10 +118,38 @@ describe('PartiesPage', () => {
     );
     setup();
     const bob = view.parties().find((row) => row.partyId === 'p2') as PartyListRow;
-    expect(bob.netBalanceMinorUnits).toBe(0 as Money);
+    expect(bob.balances.length).toBe(0);
     expect(bob.scheduledCount).toBe(3);
     expect(view.balanceHint(bob)).toBe('Nothing owed yet · 3 scheduled');
     expect(text()).toContain('3 scheduled');
+  });
+  it('renders a two-currency party with both balances separated, never blended', () => {
+    debtSummary.and.returnValue(
+      of<PartyDebtRow[]>([
+        { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: 250000 as Money, currencyCode: 'ARS' },
+        { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: 5000 as Money, currencyCode: 'USD' }
+      ])
+    );
+    setup();
+    const alice = view.parties().find((row) => row.partyId === 'p1') as PartyListRow;
+    expect(alice.balances).toEqual([
+      { currencyCode: 'ARS', netBalanceMinorUnits: 250000 as Money },
+      { currencyCode: 'USD', netBalanceMinorUnits: 5000 as Money }
+    ]);
+    expect(text()).toContain(formatMoney(250000 as Money, 'ARS'));
+    expect(text()).toContain(formatMoney(5000 as Money, 'USD'));
+  });
+  it('keeps the "Owed to you" totals separated per currency instead of summing across currencies', () => {
+    debtSummary.and.returnValue(
+      of<PartyDebtRow[]>([
+        { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: 250000 as Money, currencyCode: 'ARS' },
+        { partyId: 'p2', partyName: 'Bob', netBalanceMinorUnits: 5000 as Money, currencyCode: 'USD' }
+      ])
+    );
+    setup();
+    expect(text()).toContain(formatMoney(250000 as Money, 'ARS'));
+    expect(text()).toContain(formatMoney(5000 as Money, 'USD'));
+    expect(text()).not.toContain(formatMoney(255000 as Money, 'ARS'));
   });
   it('keeps a party with a real posted balance on its owe hint even when installments are scheduled', () => {
     pendingShares.and.returnValue(

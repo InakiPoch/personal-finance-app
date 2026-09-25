@@ -132,6 +132,41 @@ public sealed class RecordDebitExpenseHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task An_expense_recorded_in_usd_posts_both_legs_in_usd() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var bankId = await SeedAccountAsync("Checking", AccountType.Asset, AccountKind.Bank, cancellationToken);
+        var result = await Handle(
+            new RecordDebitExpenseCommand(50_00, bankId, "Software", new DateOnly(2026, 3, 10), "Subscription", CurrencyCode: "USD"),
+            cancellationToken);
+        Assert.True(result.IsSuccess);
+        await using var context = NewContext();
+        var transaction = await context.Transactions.Include(t => t.Entries).SingleAsync(cancellationToken);
+        Assert.All(transaction.Entries, entry => Assert.Equal(Currency.Usd, entry.Amount.Currency));
+    }
+
+    [Fact]
+    public async Task An_expense_with_no_currency_code_defaults_to_ars() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var bankId = await SeedAccountAsync("Checking", AccountType.Asset, AccountKind.Bank, cancellationToken);
+        var result = await Handle(new RecordDebitExpenseCommand(50_00, bankId, "Groceries", new DateOnly(2026, 3, 10), "Shop"), cancellationToken);
+        Assert.True(result.IsSuccess);
+        await using var context = NewContext();
+        var transaction = await context.Transactions.Include(t => t.Entries).SingleAsync(cancellationToken);
+        Assert.All(transaction.Entries, entry => Assert.Equal(Currency.Reference, entry.Amount.Currency));
+    }
+
+    [Fact]
+    public async Task Rejects_an_unsupported_currency_code() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var bankId = await SeedAccountAsync("Checking", AccountType.Asset, AccountKind.Bank, cancellationToken);
+        var result = await Handle(
+            new RecordDebitExpenseCommand(100_00, bankId, "Groceries", new DateOnly(2026, 3, 10), "Shop", CurrencyCode: "EUR"),
+            cancellationToken);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Ledger.InvalidCurrencyCode", result.Error.Code);
+    }
+
+    [Fact]
     public async Task Rejects_a_split_with_a_non_positive_weight() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var bankId = await SeedAccountAsync("Checking", AccountType.Asset, AccountKind.Bank, cancellationToken);

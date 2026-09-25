@@ -11,8 +11,9 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
-import { formatArs, toMinorUnits } from '../../../../core/money/money';
+import { formatMoney, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
@@ -31,6 +32,7 @@ type RowUndoStatus = 'idle' | 'undoing' | 'error';
 type SubscriptionForm = FormGroup<{
   name: FormControl<string>;
   amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
   category: FormControl<string>;
   fundingAccountId: FormControl<string>;
   frequency: FormControl<Frequency>;
@@ -46,7 +48,7 @@ type SubscriptionForm = FormGroup<{
 })
 export class SubscriptionsPage implements OnInit, OnDestroy {
   protected form!: SubscriptionForm;
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
   protected readonly fundingAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments()
   );
@@ -130,6 +132,7 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
     const raw: {
       name: string;
       amount: number | null;
+      currency: CurrencyCode;
       category: string;
       fundingAccountId: string;
       frequency: Frequency;
@@ -141,7 +144,8 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
       category: raw.category.trim(),
       fundingAccountId: raw.fundingAccountId,
       frequency: raw.frequency,
-      anchorDay: raw.anchorDay as number
+      anchorDay: raw.anchorDay as number,
+      currencyCode: raw.currency
     };
     this.submitError.set(null);
     this.submitStatus.set('submitting');
@@ -153,6 +157,7 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
           this.form.reset({
             name: '',
             amount: null,
+            currency: 'ARS',
             category: '',
             fundingAccountId: '',
             frequency: 'monthly',
@@ -339,6 +344,7 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
       amount: this.fb.control<number | null>(null, {
         validators: [positiveAmount, atMostTwoDecimals],
       }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       category: this.fb.nonNullable.control('', { validators: Validators.required }),
       fundingAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
       frequency: this.fb.nonNullable.control<Frequency>({ value: 'monthly', disabled: true }),

@@ -21,6 +21,7 @@ import { ActivatedRoute, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { IsoInstant } from '../../../../core/types/iso-instant';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
@@ -43,6 +44,7 @@ type ParticipantRow = FormGroup<{
 type SharedExpenseForm = FormGroup<{
   description: FormControl<string>;
   total: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
   expenseAccountId: FormControl<string>;
   fundingAccountId: FormControl<string>;
   incurredOnUtc: FormControl<string>;
@@ -85,6 +87,7 @@ export class SharedExpensePage implements OnInit, OnDestroy {
     'Parties.InvalidParticipants': 'Add at least one participant with a positive weight.',
     'Parties.UnknownFundingAccount': 'Choose a funding account registered with the API.',
     'Parties.PartyNotFound': 'One of the chosen parties no longer exists.',
+    'Parties.InvalidCurrencyCode': 'Choose ARS or USD.',
     'Http.BadRequest': 'The shared expense could not be registered — check the values and try again.',
     'Http.UnprocessableEntity':
       'The API rejected the shared expense — check the total and participants.',
@@ -113,6 +116,7 @@ export class SharedExpensePage implements OnInit, OnDestroy {
     const raw: {
       description: string;
       total: number | null;
+      currency: CurrencyCode;
       expenseAccountId: string;
       fundingAccountId: string;
       incurredOnUtc: string;
@@ -125,6 +129,7 @@ export class SharedExpensePage implements OnInit, OnDestroy {
     const body: RegisterSharedExpense = {
       description: raw.description.trim(),
       totalMinorUnits: toMinorUnits(raw.total as number),
+      currencyCode: raw.currency,
       expenseAccountId: raw.expenseAccountId.trim(),
       fundingAccountId: raw.fundingAccountId,
       incurredOnUtc: new Date(raw.incurredOnUtc).toISOString() as IsoInstant,
@@ -184,6 +189,7 @@ export class SharedExpensePage implements OnInit, OnDestroy {
       total: this.fb.control<number | null>(null, {
         validators: [positiveAmount, atMostTwoDecimals]
       }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       expenseAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
       fundingAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
       incurredOnUtc: this.fb.nonNullable.control('', { validators: Validators.required }),

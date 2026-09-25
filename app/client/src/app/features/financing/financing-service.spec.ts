@@ -88,6 +88,7 @@ describe('FinancingService', () => {
       amountDueMinorUnits: money(400000),
       isPaid: false,
       paidOnUtc: null,
+      currencyCode: 'ARS',
       installments: [{
         planId: 'plan-1',
         installmentId: 'inst-1',
@@ -100,7 +101,8 @@ describe('FinancingService', () => {
         isReversed: false,
         reversalTransactionId: 'tx-acc-1',
         isPaid: false,
-        paidOnUtc: null
+        paidOnUtc: null,
+        currencyCode: 'ARS'
       }]
     };
     let result: MonthlyStatement | undefined;
@@ -174,7 +176,8 @@ describe('FinancingService', () => {
       cycleMonth: 9,
       amountDueMinorUnits: money(400000),
       isPaid: false,
-      paidOnUtc: null
+      paidOnUtc: null,
+      currencyCode: 'ARS'
     }];
     let result: MonthlyStatementSummary[] | undefined;
     service.listStatements('card-1').subscribe((r: MonthlyStatementSummary[]) => (result = r));
@@ -195,7 +198,8 @@ describe('FinancingService', () => {
       paidInstallmentCount: 0,
       nextDueYear: null,
       nextDueMonth: null,
-      pendingAmountMinorUnits: money(0)
+      pendingAmountMinorUnits: money(0),
+      currencyCode: 'ARS'
     }];
     let result: RecentPurchaseRow[] | undefined;
     service.recentPurchases().subscribe((r: RecentPurchaseRow[]) => (result = r));

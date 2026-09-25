@@ -7,6 +7,7 @@ public sealed record TransactionFeedRow(
     DateTimeOffset PostedOnUtc,
     string Description,
     long AmountMinorUnits,
+    string CurrencyCode,
     bool IsReversal,
     bool IsReversed,
     Guid? InstallmentReferenceId,

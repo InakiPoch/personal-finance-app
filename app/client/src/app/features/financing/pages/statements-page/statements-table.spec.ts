@@ -1,5 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { formatMoney } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { MonthlyStatementSummary } from '../../types/monthly-statement-summary';
 import { StatementsTable } from './statements-table';
@@ -16,7 +17,8 @@ describe('StatementsTable', () => {
       cycleMonth: 9,
       amountDueMinorUnits: money(400000),
       isPaid: false,
-      paidOnUtc: null
+      paidOnUtc: null,
+      currencyCode: 'ARS'
     },{
       statementId: 'st-2',
       cardId: 'card-1',
@@ -25,7 +27,8 @@ describe('StatementsTable', () => {
       cycleMonth: 10,
       amountDueMinorUnits: money(250000),
       isPaid: true,
-      paidOnUtc: '2026-10-20T12:00:00Z'
+      paidOnUtc: '2026-10-20T12:00:00Z',
+      currencyCode: 'ARS'
   }];
 
   beforeEach(() => {
@@ -66,5 +69,13 @@ describe('StatementsTable', () => {
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('.statements__empty')).toBeTruthy();
     expect(fixture.nativeElement.querySelector('table')).toBeNull();
+  });
+  it('renders a USD statement amount in dollar formatting, not peso formatting', () => {
+    const usdRow: MonthlyStatementSummary = { ...rows[0], statementId: 'st-3', currencyCode: 'USD' };
+    fixture.componentRef.setInput('statements', [usdRow]);
+    fixture.detectChanges();
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain(formatMoney(usdRow.amountDueMinorUnits, 'USD'));
+    expect(text).not.toContain(formatMoney(usdRow.amountDueMinorUnits, 'ARS'));
   });
 });

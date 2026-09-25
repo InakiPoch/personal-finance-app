@@ -20,16 +20,20 @@ internal static class PartyMappingExtensions {
             dto.ExpenseAccountId,
             dto.FundingAccountId,
             dto.IncurredOnUtc,
-            participants
+            participants,
+            dto.CurrencyCode
         );
     }
 
     public static SettleCurrentAccountCommand ToSettleCurrentAccountCommand(this SettleCurrentAccountDto dto, Guid partyId) {
-        return new SettleCurrentAccountCommand(partyId, dto.AmountMinorUnits, dto.BankAccountId, dto.SettledOnUtc);
+        return new SettleCurrentAccountCommand(partyId, dto.AmountMinorUnits, dto.BankAccountId, dto.SettledOnUtc, dto.CurrencyCode);
     }
 
     public static CurrentAccountBalanceDto ToCurrentAccountBalanceDto(this CurrentAccountBalanceResponse response) {
-        return new CurrentAccountBalanceDto(response.PartyId, response.Name, response.BalanceMinorUnits);
+        var balances = response.Balances
+            .Select(balance => new PartyCurrencyBalanceDto(balance.CurrencyCode, balance.BalanceMinorUnits))
+            .ToList();
+        return new CurrentAccountBalanceDto(response.PartyId, response.Name, balances);
     }
 
     public static CurrentAccountTimelineDto ToCurrentAccountTimelineDto(this CurrentAccountTimelineResponse response) {
@@ -39,7 +43,8 @@ internal static class PartyMappingExtensions {
                 row.MovementOnUtc,
                 row.Description,
                 row.DeltaMinorUnits,
-                row.RunningBalanceMinorUnits))
+                row.RunningBalanceMinorUnits,
+                row.CurrencyCode))
             .ToList();
         return new CurrentAccountTimelineDto(rows);
     }

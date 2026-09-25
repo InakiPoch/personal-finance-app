@@ -8,6 +8,7 @@ using PersonalFinance.SharedKernel;
 using PersonalFinance.Subscriptions.Application.Commands.CreateSubscriptionTemplate;
 using PersonalFinance.Subscriptions.Contracts;
 using PersonalFinance.Subscriptions.Contracts.Commands;
+using PersonalFinance.Subscriptions.Domain;
 using PersonalFinance.Subscriptions.Infrastructure.Persistence;
 using Xunit;
 
@@ -65,6 +66,35 @@ public sealed class CreateSubscriptionTemplateHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_builds_a_usd_amount_and_posts_a_usd_charge_when_currency_code_is_usd() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var fixedNow = new DateTimeOffset(2026, 3, 5, 0, 0, 0, TimeSpan.Zero);
+        var ledger = new FakeLedgerApi();
+        var command = new CreateSubscriptionTemplateCommand("Netflix", 1_500, "Streaming", Guid.CreateVersion7(), RecurrenceFrequency.Monthly, 5, "USD");
+
+        var result = await new CreateSubscriptionTemplateHandler(NewContext(), ledger, new FixedTimeProvider(fixedNow)).HandleAsync(command, cancellationToken);
+
+        Assert.True(result.IsSuccess);
+        var posted = Assert.Single(ledger.PostedTransactions);
+        Assert.All(posted.Lines, line => Assert.Equal(Currency.Usd, line.Amount.Currency));
+        var currency = await LoadCurrencyAsync(result.Value, cancellationToken);
+        Assert.Equal(Currency.Usd, currency);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_an_unsupported_currency_code() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var ledger = new FakeLedgerApi();
+        var command = new CreateSubscriptionTemplateCommand("Netflix", 1_500, "Streaming", Guid.CreateVersion7(), RecurrenceFrequency.Monthly, 5, "EUR");
+
+        var result = await new CreateSubscriptionTemplateHandler(NewContext(), ledger, new FixedTimeProvider(new DateTimeOffset(2026, 3, 5, 0, 0, 0, TimeSpan.Zero))).HandleAsync(command, cancellationToken);
+
+        Assert.True(result.IsFailure);
+        Assert.Equal(SubscriptionErrors.InvalidCurrencyCode.Code, result.Error.Code);
+        Assert.Empty(ledger.PostedTransactions);
+    }
+
+    [Fact]
     public async Task Handle_posts_nothing_and_leaves_the_period_upcoming_when_the_anchor_is_still_ahead_this_month() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var fixedNow = new DateTimeOffset(2026, 3, 16, 0, 0, 0, TimeSpan.Zero);
@@ -88,6 +118,12 @@ public sealed class CreateSubscriptionTemplateHandlerTests : IDisposable {
         await using var context = NewContext();
         var template = await context.SubscriptionTemplates.SingleAsync(candidate => candidate.Id == id, cancellationToken);
         return new SubscriptionTemplateSnapshot(template.LastPaidPeriod, template.NextDueDate);
+    }
+
+    private async Task<Currency> LoadCurrencyAsync(Guid id, CancellationToken cancellationToken) {
+        await using var context = NewContext();
+        var template = await context.SubscriptionTemplates.SingleAsync(candidate => candidate.Id == id, cancellationToken);
+        return template.Amount.Currency;
     }
 
     private sealed record SubscriptionTemplateSnapshot(DateOnly? LastPaidPeriod, DateOnly NextDueDate);
@@ -134,11 +170,11 @@ public sealed class CreateSubscriptionTemplateHandlerTests : IDisposable {
             throw new NotSupportedException();
         }
 
-        public Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
+        public Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
 
-        public Task<Money> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
+        public Task<IReadOnlyList<Money>> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
 

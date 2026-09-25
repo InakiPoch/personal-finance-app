@@ -22,7 +22,7 @@ internal sealed class RegisterSharedExpenseHandler(PartiesDbContext context, ILe
         if(parties.Count != partyIds.Count) {
             return PartiesErrors.PartyNotFound;
         }
-        var currency = Currency.Reference;
+        var currency = Currency.FromCode(command.CurrencyCode);
         var weights = command.Participants.Select(participant => participant.Weight).ToList();
         var shares = SplitAllocationCalculator.AllocateWhole(command.TotalMinorUnits, weights);
         var holderShare = Money.FromMinorUnits(shares.HolderShare, currency);

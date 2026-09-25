@@ -78,15 +78,20 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("AccruedReceivable")
+                    b.Property<long>("AccruedReceivableMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("AccruedReceivableMinorUnits");
 
-                    b.Property<long>("HolderShare")
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
+
+                    b.Property<long>("HolderShareMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("HolderShareMinorUnits");
 
-                    b.Property<long>("ReversedReceivable")
+                    b.Property<long>("ReversedReceivableMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("ReversedReceivableMinorUnits");
 
@@ -97,7 +102,7 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("SourceReferenceId")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("Total")
+                    b.Property<long>("TotalMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("TotalMinorUnits");
 
@@ -111,13 +116,18 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
+
                     b.Property<Guid>("ExpenseSplitId")
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("PartyId")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("Share")
+                    b.Property<long>("ShareMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("ShareMinorUnits");
 

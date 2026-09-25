@@ -13,5 +13,6 @@ public sealed record PaymentPlanCreatedIntegrationEvent(
     Guid? CardId,
     long TotalMinorUnits,
     DateOnly PurchaseDate,
-    IReadOnlyList<SplitParticipant> Participants
+    IReadOnlyList<SplitParticipant> Participants,
+    string CurrencyCode = "ARS"
 ) : IIntegrationEvent;

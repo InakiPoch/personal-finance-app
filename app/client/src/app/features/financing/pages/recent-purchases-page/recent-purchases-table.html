@@ -54,7 +54,7 @@
             {{ purchase.purchaseDate }}
           </td>
           <td class="py-2.5 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-            {{ formatArs(purchase.totalMinorUnits) }}
+            {{ formatMoney(purchase.totalMinorUnits, purchase.currencyCode) }}
           </td>
         </tr>
       }

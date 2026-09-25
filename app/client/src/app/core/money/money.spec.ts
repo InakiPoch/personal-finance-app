@@ -1,5 +1,5 @@
 import { Money } from '../types/money';
-import { formatArs, fromMinorUnits, toMinorUnits } from './money';
+import { formatArs, formatMoney, fromMinorUnits, toMinorUnits } from './money';
 
 /** Strip every non-digit so currency-string assertions survive locale/ICU differences. */
 function digitsOf(value: string): string {
@@ -69,6 +69,26 @@ describe('money', () => {
     });
     it('always shows two fraction digits', () => {
       expect(digitsOf(formatArs(500 as Money))).toBe('500');
+    });
+  });
+
+  describe('formatMoney', () => {
+    it('formats USD with the dollar amount and a US$/$ symbol', () => {
+      const formatted: string = formatMoney(123456789 as Money, 'USD');
+      expect(typeof formatted).toBe('string');
+      expect(digitsOf(formatted)).toBe('123456789');
+      expect(formatted).toMatch(/\$/);
+    });
+    it('keeps a minus sign for a negative USD amount', () => {
+      const formatted: string = formatMoney(-1234 as Money, 'USD');
+      expect(digitsOf(formatted)).toBe('1234');
+      expect(formatted).toContain('-');
+    });
+    it('always shows two fraction digits for USD', () => {
+      expect(digitsOf(formatMoney(500 as Money, 'USD'))).toBe('500');
+    });
+    it('routes ARS through the same output as formatArs', () => {
+      expect(formatMoney(123456 as Money, 'ARS')).toBe(formatArs(123456 as Money));
     });
   });
 });

@@ -32,7 +32,8 @@ internal sealed class GetActiveSubscriptionsHandler(SubscriptionsDbContext conte
                 template.Frequency,
                 template.AnchorDay,
                 template.NextDueDate,
-                statusFor(template.LastPaidPeriod, template.NextDueDate, today))
+                statusFor(template.LastPaidPeriod, template.NextDueDate, today),
+                template.Amount.Currency.Code)
             )
             .ToList();
         return new ActiveSubscriptionsResponse(rows);

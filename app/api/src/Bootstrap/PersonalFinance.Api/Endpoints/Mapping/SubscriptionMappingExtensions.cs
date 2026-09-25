@@ -13,7 +13,8 @@ internal static class SubscriptionMappingExtensions {
             dto.Category,
             dto.FundingAccountId,
             Enum.Parse<RecurrenceFrequency>(dto.Frequency, ignoreCase: true),
-            dto.AnchorDay
+            dto.AnchorDay,
+            dto.CurrencyCode
         );
     }
 
@@ -27,7 +28,8 @@ internal static class SubscriptionMappingExtensions {
                 row.Frequency.ToString(),
                 row.AnchorDay,
                 row.NextDueDate,
-                row.Status)
+                row.Status,
+                row.CurrencyCode)
             )
             .ToList();
         return new ActiveSubscriptionsDto(rows);

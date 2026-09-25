@@ -60,7 +60,7 @@ internal sealed class Transaction : AggregateRoot<Guid> {
             SubscriptionReference = subscriptionReference
         };
         foreach(var line in lines) {
-            transaction.entries.Add(new Entry(Guid.CreateVersion7(), line.AccountId, line.Direction, line.Amount));
+            transaction.entries.Add(new Entry(Guid.CreateVersion7(), line.AccountId, line.Direction, line.Amount.MinorUnits, line.Amount.Currency));
         }
         transaction.RaiseDomainEvent(new TransactionPosted(transaction.Id, postedOnUtc, originalTransactionId is not null));
         return transaction;

@@ -12,8 +12,9 @@ import {
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Observable, Subject, map, merge, switchMap, takeUntil } from 'rxjs';
 import { pollUntil } from '../../../../core/http/poll-until';
-import { formatArs, toMinorUnits } from '../../../../core/money/money';
+import { formatArs, fromMinorUnits, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
@@ -23,6 +24,7 @@ import { LedgerService } from '../../../ledger/ledger-service';
 import { RecordDebitExpenseResult } from '../../../ledger/types/record-debit-expense-result';
 import { CurrentAccountBalance } from '../../../parties/types/current-account-balance';
 import { Party } from '../../../parties/types/party';
+import { PartyCurrencyBalance } from '../../../parties/types/party-currency-balance';
 import { PartiesService } from '../../../parties/parties-service';
 import { FinancingService } from '../../financing-service';
 import { CreatePaymentPlanResult } from '../../types/create-payment-plan-result';
@@ -59,6 +61,7 @@ type SplitRow = FormGroup<{
 
 type LoadExpenseForm = FormGroup<{
   amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
   cardId: FormControl<string>;
   installmentCount: FormControl<number | null>;
   purchaseDate: FormControl<string>;
@@ -182,7 +185,8 @@ export class LoadExpensePage implements OnInit, OnDestroy {
               categoryName: raw.categoryName.trim(),
               purchaseDate: raw.purchaseDate,
               description,
-              ...split,
+              currencyCode: raw.currency,
+              ...split
             })
             .pipe(map((result: RecordDebitExpenseResult) => result.id))
         : this.financingService
@@ -191,13 +195,14 @@ export class LoadExpensePage implements OnInit, OnDestroy {
               installmentCount: raw.installmentCount as number,
               purchaseDate: raw.purchaseDate,
               description,
+              currencyCode: raw.currency,
               ...(raw.mode === 'card'
                 ? {
                     cardId: raw.cardId,
                     ...(raw.bankAccountId ? { bankAccountId: raw.bankAccountId } : {}),
                   }
                 : { creditorId: raw.creditorId, creditorAccountId: raw.creditorAccountId }),
-              ...split,
+              ...split
             })
             .pipe(map((result: CreatePaymentPlanResult) => result.paymentPlanId));
     this.submitError.set(null);
@@ -212,7 +217,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         this.confirmedDescription.set(description);
         this.submitStatus.set('confirmed');
         if(participants.length > 0) {
-          this.reconcile(participants, raw.mode);
+          this.reconcile(participants, raw.mode, raw.currency);
         }
       },
       error: (error: AppError) => {
@@ -222,7 +227,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     });
   }
 
-  private reconcile(participants: SplitParticipant[], mode?: LoadExpenseMode): void {
+  private reconcile(participants: SplitParticipant[], mode?: LoadExpenseMode, currencyCode: CurrencyCode = 'ARS'): void {
     this.reconciliations.set(
       participants.map((participant: SplitParticipant) => ({
         partyId: participant.partyId,
@@ -241,11 +246,11 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       this.partiesService
         .getBalance(participant.partyId)
         .pipe(
-          map((snapshot: CurrentAccountBalance) => snapshot.balanceMinorUnits),
+          map((snapshot: CurrentAccountBalance) => this.balanceFor(snapshot, currencyCode)),
           switchMap((prior: Money) =>
             pollUntil(
               () => this.partiesService.getBalance(participant.partyId),
-              (balance: CurrentAccountBalance) => balance.balanceMinorUnits !== prior,
+              (balance: CurrentAccountBalance) => this.balanceFor(balance, currencyCode) !== prior,
               { intervalMs: 800, maxAttempts: 5 },
             ),
           ),
@@ -253,11 +258,18 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         )
         .subscribe({
           next: (balance: CurrentAccountBalance) =>
-            this.updateReconciliation(participant.partyId, 'reconciled', balance.balanceMinorUnits),
+            this.updateReconciliation(participant.partyId, 'reconciled', this.balanceFor(balance, currencyCode)),
           error: () => this.updateReconciliation(participant.partyId, 'stalled', null)
         }
       );
     }
+  }
+
+  private balanceFor(snapshot: CurrentAccountBalance, currencyCode: CurrencyCode): Money {
+    return (
+      snapshot.balances.find((row: PartyCurrencyBalance) => row.currencyCode === currencyCode)
+        ?.balanceMinorUnits ?? fromMinorUnits(0)
+    );
   }
 
   private updateReconciliation(partyId: string, status: ReconciliationStatus, balanceMinorUnits: Money | null): void {
@@ -385,6 +397,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       amount: this.fb.control<number | null>(null, {
         validators: [positiveAmount, atMostTwoDecimals],
       }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       cardId: this.fb.nonNullable.control('', { validators: Validators.required }),
       installmentCount: this.fb.control<number | null>(1, { validators: positiveInteger }),
       purchaseDate: this.fb.nonNullable.control('', { validators: [isoDate, notFuture] }),

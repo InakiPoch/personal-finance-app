@@ -35,7 +35,7 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
         var cardId = await SeedCardAsync(15, cancellationToken);
         await using(var context = NewContext()) {
             var plan = CreatePlan(cardId, 15, new DateOnly(2026, 1, 10), 1);
-            var statement = MonthlyStatement.Open(cardId, BillingCycleCalculator.ResolveCycle(plan.PurchaseDate, 15));
+            var statement = MonthlyStatement.Open(cardId, BillingCycleCalculator.ResolveCycle(plan.PurchaseDate, 15), Currency.Reference);
             plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
             statement.MarkPaid(DateTimeOffset.UtcNow);
             context.PaymentPlans.Add(plan);
@@ -71,7 +71,7 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
         await using(var context = NewContext()) {
             var plan = CreatePlan(cardId, 15, new DateOnly(2026, 1, 10), 1);
             planId = plan.Id;
-            var statement = MonthlyStatement.Open(cardId, BillingCycleCalculator.ResolveCycle(plan.PurchaseDate, 15));
+            var statement = MonthlyStatement.Open(cardId, BillingCycleCalculator.ResolveCycle(plan.PurchaseDate, 15), Currency.Reference);
             plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
             context.PaymentPlans.Add(plan);
             context.MonthlyStatements.Add(statement);

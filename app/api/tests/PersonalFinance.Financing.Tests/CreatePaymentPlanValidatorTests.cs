@@ -74,6 +74,22 @@ public class CreatePaymentPlanValidatorTests {
     }
 
     [Fact]
+    public void Validate_rejects_an_unsupported_currency_code() {
+        var command = new CreatePaymentPlanCommand(10000, Guid.CreateVersion7(), 3, new DateOnly(2026, 1, 10), "New laptop", CurrencyCode: "EUR");
+        var result = CreatePaymentPlanValidator.Validate(command, today);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Financing.InvalidCurrencyCode", result.Error.Code);
+    }
+
+    [Fact]
+    public void Validate_accepts_a_usd_currency_code() {
+        var command = new CreatePaymentPlanCommand(
+            10000, Guid.CreateVersion7(), 3, new DateOnly(2026, 1, 10), "New laptop", CurrencyCode: "USD");
+        var result = CreatePaymentPlanValidator.Validate(command, today);
+        Assert.True(result.IsSuccess);
+    }
+
+    [Fact]
     public void Validate_rejects_a_creditor_plan_with_no_account_to_pay() {
         var command = new CreatePaymentPlanCommand(
             10000, CardId: null, 3, new DateOnly(2026, 1, 10), "New laptop",

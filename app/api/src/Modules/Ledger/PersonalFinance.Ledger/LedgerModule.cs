@@ -44,8 +44,8 @@ public sealed class LedgerModule : IModule {
         services.AddScoped<ICommandHandler<CreateAccountCommand, Guid>, CreateAccountHandler>();
         services.AddScoped<ICommandHandler<GetOrCreateExpenseCategoryCommand, Guid>, GetOrCreateExpenseCategoryHandler>();
         services.AddScoped<ICommandHandler<RecordDebitExpenseCommand, Guid>, RecordDebitExpenseHandler>();
-        services.AddScoped<IQueryHandler<GetAccountBalanceQuery, Money>, GetAccountBalanceHandler>();
-        services.AddScoped<IQueryHandler<GetCardLiabilityQuery, Money>, GetCardLiabilityHandler>();
+        services.AddScoped<IQueryHandler<GetAccountBalanceQuery, IReadOnlyList<Money>>, GetAccountBalanceHandler>();
+        services.AddScoped<IQueryHandler<GetCardLiabilityQuery, IReadOnlyList<Money>>, GetCardLiabilityHandler>();
         services.AddScoped<IQueryHandler<ListExpenseCategoriesQuery, ExpenseCategoriesResponse>, ListExpenseCategoriesHandler>();
         services.AddScoped<IQueryHandler<ListInstrumentAccountsQuery, InstrumentAccountsResponse>, ListInstrumentAccountsHandler>();
         services.AddScoped<IQueryHandler<GetTransactionsQuery, TransactionFeedResponse>, GetTransactionsHandler>();

@@ -2,7 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
-import { formatArs } from '../../../../core/money/money';
+import { formatArs, formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
@@ -20,10 +20,11 @@ type DashboardView = {
   cardDueStatus: () => 'loading' | 'ready' | 'error';
   subscriptionsStatus: () => 'loading' | 'ready' | 'error';
   activeSubscriptions: () => ActiveSubscription[];
-  expensesByCategory: () => Array<{ label: string; totalMinorUnits: number }>;
-  accruedByCard: () => Array<{ label: string; totalMinorUnits: number }>;
-  futureByCard: () => Array<{ label: string; totalMinorUnits: number }>;
-  cycleByCard: () => Array<{ card: string; cardId: string | null; accrued: number; future: number; total: number }>;
+  expensesByCategory: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
+  accruedByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
+  futureByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
+  monthlyTotalsByCurrency: () => Array<{ currencyCode: string; totalMinorUnits: number }>;
+  cycleByCard: () => Array<{ card: string; cardId: string | null; currencyCode: string; accrued: number; future: number; total: number }>;
   onMonthChange: (month: string) => void;
   expandedCardId: () => string | null;
   purchasesStatus: () => 'loading' | 'ready' | 'error';
@@ -55,9 +56,9 @@ describe('DashboardPage', () => {
     { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01' }
   ];
   const activeSubscriptions: ActiveSubscription[] = [
-    { subscriptionId: 's1', name: 'Netflix', amountMinorUnits: money(150000), category: 'Streaming', frequency: 'monthly', anchorDay: 5, nextDueDate: '2026-09-05', status: 'paid' },
-    { subscriptionId: 's2', name: 'Spotify', amountMinorUnits: money(80000), category: 'Streaming', frequency: 'monthly', anchorDay: 1, nextDueDate: '2026-09-01', status: 'overdue' },
-    { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', status: 'upcoming' }
+    { subscriptionId: 's1', name: 'Netflix', amountMinorUnits: money(150000), category: 'Streaming', frequency: 'monthly', anchorDay: 5, nextDueDate: '2026-09-05', status: 'paid', currencyCode: 'ARS' },
+    { subscriptionId: 's2', name: 'Spotify', amountMinorUnits: money(80000), category: 'Streaming', frequency: 'monthly', anchorDay: 1, nextDueDate: '2026-09-01', status: 'overdue', currencyCode: 'ARS' },
+    { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', status: 'upcoming', currencyCode: 'ARS' }
   ];
 
   function setup(): void {
@@ -99,17 +100,17 @@ describe('DashboardPage', () => {
     setup();
     fixture.detectChanges();
     expect(view.expensesByCategory()).toEqual([
-      { label: 'Groceries', totalMinorUnits: 150000 },
-      { label: 'Transport', totalMinorUnits: 45000 }
+      { label: 'Groceries', currencyCode: 'ARS', totalMinorUnits: 150000 },
+      { label: 'Transport', currencyCode: 'ARS', totalMinorUnits: 45000 }
     ]);
   });
   it('splits card dues into Accrued and Future, grouped by card', () => {
     setup();
     fixture.detectChanges();
-    expect(view.accruedByCard()).toEqual([{ label: 'Visa', totalMinorUnits: 500000 }]);
+    expect(view.accruedByCard()).toEqual([{ label: 'Visa', currencyCode: 'ARS', totalMinorUnits: 500000 }]);
     expect(view.futureByCard()).toEqual([
-      { label: 'Visa', totalMinorUnits: 500000 },
-      { label: 'Amex', totalMinorUnits: 250000 }
+      { label: 'Visa', currencyCode: 'ARS', totalMinorUnits: 500000 },
+      { label: 'Amex', currencyCode: 'ARS', totalMinorUnits: 250000 }
     ]);
   });
   it('refetches only monthly expenses when the month changes', () => {
@@ -170,6 +171,23 @@ describe('DashboardPage', () => {
     expect(card?.card).toBe('Naranja');
     expect(card?.future).toBe(90000);
   });
+  it('keeps a card with both ARS and USD accrued rows as two separated cycle entries, never blended', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Accrued', card: 'Visa', cycleYear: null, cycleMonth: null, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
+      { bucket: 'Accrued', card: 'Visa', cycleYear: null, cycleMonth: null, amountMinorUnits: money(5000), currencyCode: 'USD', cardId: 'c1' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const cards = view.cycleByCard().filter((card) => card.cardId === 'c1');
+    expect(cards.length).toBe(2);
+    const ars = cards.find((card) => card.currencyCode === 'ARS');
+    const usd = cards.find((card) => card.currencyCode === 'USD');
+    expect(ars?.total).toBe(500000);
+    expect(usd?.total).toBe(5000);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatMoney(money(500000), 'ARS'));
+    expect(text).toContain(formatMoney(money(5000), 'USD'));
+  });
   it('collapses on a second toggle without calling the service again', () => {
     setup();
     fixture.detectChanges();
@@ -220,6 +238,61 @@ describe('DashboardPage', () => {
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain(formatArs(money(195000)));
     expect(view.monthlyStatus()).toBe('ready');
+  });
+  it('keeps mixed ARS and USD monthly expenses as two separated totals, never blended', () => {
+    monthlyExpenses.and.returnValue(of([
+      { month: '2026-09', category: 'Groceries', amountMinorUnits: money(120000), currencyCode: 'ARS' },
+      { month: '2026-09', category: 'Software', amountMinorUnits: money(5000), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const totals = view.monthlyTotalsByCurrency();
+    expect(totals.length).toBe(2);
+    const ars = totals.find((total) => total.currencyCode === 'ARS');
+    const usd = totals.find((total) => total.currencyCode === 'USD');
+    expect(ars?.totalMinorUnits).toBe(120000);
+    expect(usd?.totalMinorUnits).toBe(5000);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatArs(money(120000)));
+  });
+  it('shows a $0 ARS total when no money moved this month', () => {
+    monthlyExpenses.and.returnValue(of([]));
+    setup();
+    fixture.detectChanges();
+    const totals = view.monthlyTotalsByCurrency();
+    expect(totals).toEqual([{ currencyCode: 'ARS', totalMinorUnits: 0 }]);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatArs(money(0)));
+  });
+  it('labels the out-of-pocket total with an explicit USD tag, not just punctuation', () => {
+    monthlyExpenses.and.returnValue(of([
+      { month: '2026-09', category: 'Software', amountMinorUnits: money(5000), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain('USD');
+  });
+  it('labels a USD category row with an explicit currency tag', () => {
+    monthlyExpenses.and.returnValue(of([
+      { month: '2026-09', category: 'Groceries', amountMinorUnits: money(120000), currencyCode: 'ARS' },
+      { month: '2026-09', category: 'Software', amountMinorUnits: money(5000), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const rows: NodeListOf<HTMLLIElement> = (fixture.nativeElement as HTMLElement).querySelectorAll('.cat-row');
+    const softwareRow: HTMLLIElement | undefined = Array.from(rows).find((row) => (row.textContent ?? '').includes('Software'));
+    expect(softwareRow?.textContent ?? '').toContain('USD');
+  });
+  it('renders a USD subscription through the currency-driven formatter, not the hardcoded ARS one', () => {
+    listActive.and.returnValue(of([
+      { ...activeSubscriptions[0], subscriptionId: 's-usd', name: 'GitHub', amountMinorUnits: money(1200), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatMoney(money(1200), 'USD'));
+    expect(text).toContain('USD');
   });
   it('shows a loading state for subscriptions, then the panel once ready', () => {
     setup();

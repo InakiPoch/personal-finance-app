@@ -8,7 +8,8 @@ public sealed record RecordDebitExpenseDto(
     string CategoryName,
     string PurchaseDate,
     string Description,
-    IReadOnlyList<DebitExpenseParticipantDto>? Split = null
+    IReadOnlyList<DebitExpenseParticipantDto>? Split = null,
+    string CurrencyCode = "ARS"
 );
 
 public sealed record RecordDebitExpenseResultDto(Guid Id);

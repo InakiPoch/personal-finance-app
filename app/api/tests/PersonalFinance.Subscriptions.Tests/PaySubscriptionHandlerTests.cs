@@ -81,6 +81,19 @@ public sealed class PaySubscriptionHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_posts_the_charge_in_the_templates_currency_when_it_is_usd() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var id = await SeedTemplateAsync("Netflix", anchorDay: 15, nextDueDate: new DateOnly(2026, 6, 15), lastPaidPeriod: null, cancellationToken, currency: Currency.Usd);
+        var ledger = new FakeLedgerApi();
+
+        var result = await new PaySubscriptionHandler(NewContext(), ledger, new FixedTimeProvider(fixedNow)).HandleAsync(new PaySubscriptionCommand(id), cancellationToken);
+
+        Assert.True(result.IsSuccess);
+        var posted = Assert.Single(ledger.PostedTransactions);
+        Assert.All(posted.Lines, line => Assert.Equal(Currency.Usd, line.Amount.Currency));
+    }
+
+    [Fact]
     public async Task Handle_rejects_a_second_pay_for_a_period_already_paid_this_month() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var id = await SeedTemplateAsync("Netflix", anchorDay: 10, nextDueDate: new DateOnly(2026, 7, 10), lastPaidPeriod: new DateOnly(2026, 6, 10), cancellationToken);
@@ -134,11 +147,11 @@ public sealed class PaySubscriptionHandlerTests : IDisposable {
         Assert.Equal(before.NextDueDate, after.NextDueDate);
     }
 
-    private async Task<Guid> SeedTemplateAsync(string name, int anchorDay, DateOnly nextDueDate, DateOnly? lastPaidPeriod, CancellationToken cancellationToken, long amountMinorUnits = 1_500) {
+    private async Task<Guid> SeedTemplateAsync(string name, int anchorDay, DateOnly nextDueDate, DateOnly? lastPaidPeriod, CancellationToken cancellationToken, long amountMinorUnits = 1_500, Currency? currency = null) {
         await using var context = NewContext();
         var template = SubscriptionTemplate.Create(
             name,
-            Money.FromMinorUnits(amountMinorUnits, Currency.Reference),
+            Money.FromMinorUnits(amountMinorUnits, currency ?? Currency.Reference),
             "Streaming",
             Guid.CreateVersion7(),
             Guid.CreateVersion7(),
@@ -224,11 +237,11 @@ public sealed class PaySubscriptionHandlerTests : IDisposable {
             throw new NotSupportedException();
         }
 
-        public Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
+        public Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
 
-        public Task<Money> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
+        public Task<IReadOnlyList<Money>> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }
 

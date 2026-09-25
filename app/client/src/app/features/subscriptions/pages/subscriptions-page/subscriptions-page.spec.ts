@@ -3,6 +3,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { Observable, of, throwError } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
@@ -18,6 +19,7 @@ type SubscriptionsView = {
   form: FormGroup<{
     name: FormControl<string>;
     amount: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
     category: FormControl<string>;
     fundingAccountId: FormControl<string>;
     frequency: FormControl<Frequency>;
@@ -47,7 +49,8 @@ const activeRow: ActiveSubscription = {
   frequency: 'monthly',
   anchorDay: 15,
   nextDueDate: '2026-10-15',
-  status: 'upcoming'
+  status: 'upcoming',
+  currencyCode: 'ARS'
 };
 
 const instruments: Instrument[] = [
@@ -143,6 +146,7 @@ describe('SubscriptionsPage', () => {
     view.form.setValue({
       name: '',
       amount: null,
+      currency: 'ARS',
       category: '',
       fundingAccountId: '',
       frequency: 'monthly',
@@ -158,6 +162,7 @@ describe('SubscriptionsPage', () => {
     view.form.setValue({
       name: '  Spotify  ',
       amount: 3000,
+      currency: 'ARS',
       category: '  Music  ',
       fundingAccountId: 'acc-1',
       frequency: 'monthly',
@@ -171,9 +176,29 @@ describe('SubscriptionsPage', () => {
       fundingAccountId: 'acc-1',
       frequency: 'monthly',
       anchorDay: 1,
+      currencyCode: 'ARS',
     });
     expect(listActive).toHaveBeenCalledTimes(1);
     expect(view.submitStatus()).toBe('idle');
+  });
+  it('sends the selected USD currency code on submit', () => {
+    setup();
+    view.form.setValue({
+      name: 'Netflix',
+      amount: 15,
+      currency: 'USD',
+      category: 'Entertainment',
+      fundingAccountId: 'acc-1',
+      frequency: 'monthly',
+      anchorDay: 1
+    });
+    view.onSubmit();
+    expect(create).toHaveBeenCalledWith(jasmine.objectContaining({ currencyCode: 'USD' }));
+  });
+  it('renders a USD subscription amount in dollar formatting', () => {
+    listActive.and.returnValue(of<ActiveSubscription[]>([{ ...activeRow, currencyCode: 'USD' }]));
+    setup();
+    expect(text()).toContain('$5,000.00');
   });
   it('renders submitErrorText keyed off the AppError code on a 422', () => {
     const appError: AppError = {
@@ -188,6 +213,7 @@ describe('SubscriptionsPage', () => {
     view.form.setValue({
       name: 'Spotify',
       amount: 3000,
+      currency: 'ARS',
       category: 'Music',
       fundingAccountId: 'acc-1',
       frequency: 'monthly',

@@ -47,6 +47,7 @@ describe('StatementPage', () => {
     amountDueMinorUnits: money(450000),
     isPaid: false,
     paidOnUtc: null,
+    currencyCode: 'ARS',
     installments: [{
       planId: 'pl1',
       installmentId: 'i1',
@@ -59,7 +60,8 @@ describe('StatementPage', () => {
       isReversed: false,
       reversalTransactionId: 'tx-acc-1',
       isPaid: false,
-      paidOnUtc: null
+      paidOnUtc: null,
+      currencyCode: 'ARS'
     }]
   };
   const paidStatement: MonthlyStatement = {

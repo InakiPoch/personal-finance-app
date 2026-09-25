@@ -20,7 +20,8 @@ describe('InstallmentsTable', () => {
       isReversed: false,
       reversalTransactionId: 'tx-1',
       isPaid: false,
-      paidOnUtc: null
+      paidOnUtc: null,
+      currencyCode: 'ARS'
     }, {
       planId: 'pl1',
       installmentId: 'i2',
@@ -33,7 +34,8 @@ describe('InstallmentsTable', () => {
       isReversed: true,
       reversalTransactionId: 'tx-2',
       isPaid: false,
-      paidOnUtc: null
+      paidOnUtc: null,
+      currencyCode: 'ARS'
     }, {
       planId: 'pl1',
       installmentId: 'i3',
@@ -46,7 +48,8 @@ describe('InstallmentsTable', () => {
       isReversed: false,
       reversalTransactionId: null,
       isPaid: false,
-      paidOnUtc: null
+      paidOnUtc: null,
+      currencyCode: 'ARS'
   }];
 
   const buttonsByLabel = (label: string): HTMLButtonElement[] => {

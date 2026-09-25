@@ -114,9 +114,8 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await PostAsync("Rent", At(5, 1), rent, bank, 30_000);
         await PostAsync("Snacks", At(5, 12), snacks, cash, 2_000);
         await PostAsync("Card accrual", At(5, 20), cardPurchases, cardLiability, 12_000);
-        // A fresh (today-dated) purchase: no cycle has closed, so all three installments stay in the
-        // "Future" bucket and none are auto-settled at creation (back-dated card settlement, slice 1).
         await CreatePaymentPlanAsync(300_000, ReportingCardId, 3, DateOnly.FromDateTime(DateTime.UtcNow));
+        await CreatePaymentPlanAsync(60_000, ReportingCardId, 3, DateOnly.FromDateTime(DateTime.UtcNow), "USD");
         AliceId = await CreatePartyAsync("Alice Reporting");
         await RegisterSharedExpenseAsync("Alice dinner", 10_000, sharedDining, bank, At(5, 25), AliceId);
         AliceOwed = await GetPartyBalanceAsync(AliceId);
@@ -163,11 +162,11 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         return result.Value;
     }
 
-    private async Task CreatePaymentPlanAsync(long amountMinorUnits, Guid cardId, int installmentCount, DateOnly purchaseDate) {
+    private async Task CreatePaymentPlanAsync(long amountMinorUnits, Guid cardId, int installmentCount, DateOnly purchaseDate, string currencyCode = "ARS") {
         await using var scope = host!.Services.CreateAsyncScope();
         var financing = scope.ServiceProvider.GetRequiredService<IFinancingApi>();
         var result = await financing.CreatePaymentPlanAsync(
-            new CreatePaymentPlanCommand(amountMinorUnits, cardId, installmentCount, purchaseDate, "Reporting fixture purchase"),
+            new CreatePaymentPlanCommand(amountMinorUnits, cardId, installmentCount, purchaseDate, "Reporting fixture purchase", CurrencyCode: currencyCode),
             CancellationToken.None);
         Assert.True(result.IsSuccess, $"CreatePaymentPlan failed: {result.Error}");
     }
@@ -199,7 +198,7 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await using var scope = host!.Services.CreateAsyncScope();
         var parties = scope.ServiceProvider.GetRequiredService<IPartiesApi>();
         var response = await parties.GetCurrentAccountBalanceAsync(new GetCurrentAccountBalanceQuery(partyId), CancellationToken.None);
-        return response.BalanceMinorUnits;
+        return response.Balances.FirstOrDefault(balance => balance.CurrencyCode == "ARS")?.BalanceMinorUnits ?? 0;
     }
 
     private async Task SettleAsync(Guid partyId, long amountMinorUnits, Guid bankAccountId, DateTimeOffset settledOnUtc) {
@@ -207,7 +206,8 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         var parties = scope.ServiceProvider.GetRequiredService<IPartiesApi>();
         var result = await parties.SettleCurrentAccountAsync(
             new SettleCurrentAccountCommand(partyId, amountMinorUnits, bankAccountId, settledOnUtc),
-            CancellationToken.None);
+            CancellationToken.None
+        );
         Assert.True(result.IsSuccess, $"Settle failed: {result.Error}");
     }
 }

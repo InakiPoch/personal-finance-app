@@ -44,7 +44,7 @@ public sealed class GetCardStatementsHandlerTests : IDisposable {
                 cutoffDay: 15,
                 allocator: new PhantomPennyAllocator()
             ).Value;
-            var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle);
+            var statement = MonthlyStatement.Open(cardId, plan.Installments[0].Cycle, Currency.Reference);
             plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
             statement.Accrue(plan.Installments[0]);
             seed.CreditCards.Add(card);

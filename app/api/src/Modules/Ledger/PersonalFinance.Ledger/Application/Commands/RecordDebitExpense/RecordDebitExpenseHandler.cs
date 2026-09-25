@@ -34,7 +34,7 @@ internal sealed class RecordDebitExpenseHandler(LedgerDbContext context, Transac
         if(category.IsFailure) {
             return category.Error;
         }
-        var total = Money.FromMinorUnits(command.AmountMinorUnits, Currency.Reference);
+        var total = Money.FromMinorUnits(command.AmountMinorUnits, Currency.FromCode(command.CurrencyCode));
         var postedOnUtc = command.PurchaseDate.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc);
         if(command.Split is { Count: > 0 }) {
             var participants = command.Split

@@ -28,6 +28,11 @@ internal static class SubscriptionErrors {
         "A subscription requires a valid funding account."
     );
 
+    public static readonly Error InvalidCurrencyCode = new(
+        "Subscriptions.InvalidCurrencyCode",
+        "The currency code must be either ARS or USD."
+    );
+
     public static readonly Error SubscriptionNotFound = new(
         "Subscriptions.SubscriptionNotFound",
         "The referenced subscription was not found."

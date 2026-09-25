@@ -22,12 +22,17 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("CarriedCreditBalance")
+                    b.Property<long>("CarriedCreditBalanceMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("CarriedCreditBalanceMinorUnits");
 
                     b.Property<Guid>("CreditAccountId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
 
                     b.Property<int>("CutoffDay")
                         .HasColumnType("INTEGER");
@@ -91,9 +96,14 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("AccruedOnUtc")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("Amount")
+                    b.Property<long>("AmountMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("AmountMinorUnits");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
 
                     b.Property<int>("CycleMonth")
                         .HasColumnType("INTEGER");
@@ -135,12 +145,17 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("AmountDue")
+                    b.Property<long>("AmountDueMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("AmountDueMinorUnits");
 
                     b.Property<Guid>("CardId")
                         .HasColumnType("TEXT");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
 
                     b.Property<int>("CycleMonth")
                         .HasColumnType("INTEGER");
@@ -153,7 +168,7 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
 
                     b.HasKey("Id");
 
-                    b.HasIndex("CardId", "CycleYear", "CycleMonth")
+                    b.HasIndex("CardId", "CycleYear", "CycleMonth", "Currency")
                         .IsUnique();
 
                     b.ToTable("financing_monthly_statements", (string)null);
@@ -176,6 +191,11 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("CreditorPayableAccountId")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
+
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -189,7 +209,7 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("SplitReferenceId")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("Total")
+                    b.Property<long>("TotalMinorUnits")
                         .HasColumnType("INTEGER")
                         .HasColumnName("TotalMinorUnits");
 

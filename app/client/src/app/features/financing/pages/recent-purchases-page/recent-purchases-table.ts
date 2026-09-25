@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, InputSignal, input } from '@angular/core';
-import { formatArs } from '../../../../core/money/money';
+import { formatMoney } from '../../../../core/money/money';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { RecentPurchaseRow } from '../../types/recent-purchase-row';
 
@@ -17,7 +18,7 @@ const MONTH_LABELS: readonly string[] = [
 export class RecentPurchasesTable {
   readonly purchases: InputSignal<RecentPurchaseRow[]> = input.required<RecentPurchaseRow[]>();
 
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
 
   protected paidLabel(purchase: RecentPurchaseRow): string {
     return `${purchase.paidInstallmentCount}/${purchase.installmentCount} paid`;
@@ -28,7 +29,7 @@ export class RecentPurchasesTable {
   }
 
   protected pendingLabel(purchase: RecentPurchaseRow): string {
-    return `${formatArs(purchase.pendingAmountMinorUnits)} pending`;
+    return `${formatMoney(purchase.pendingAmountMinorUnits, purchase.currencyCode)} pending`;
   }
 
   protected nextPaymentLabel(purchase: RecentPurchaseRow): string {

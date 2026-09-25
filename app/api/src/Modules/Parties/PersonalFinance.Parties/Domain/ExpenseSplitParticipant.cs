@@ -8,15 +8,19 @@ namespace PersonalFinance.Parties.Domain;
 internal sealed class ExpenseSplitParticipant : Entity<Guid> {
     public Guid ExpenseSplitId { get; }
     public Guid PartyId { get; }
-    public Money Share { get; }
+    public Money Share => Money.FromMinorUnits(ShareMinorUnits, Currency);
 
-    private ExpenseSplitParticipant(Guid id, Guid expenseSplitId, Guid partyId, Money share) : base(id) {
+    internal long ShareMinorUnits { get; }
+    internal Currency Currency { get; }
+
+    private ExpenseSplitParticipant(Guid id, Guid expenseSplitId, Guid partyId, long shareMinorUnits, Currency currency) : base(id) {
         ExpenseSplitId = expenseSplitId;
         PartyId = partyId;
-        Share = share;
+        ShareMinorUnits = shareMinorUnits;
+        Currency = currency;
     }
 
     internal static ExpenseSplitParticipant For(Guid expenseSplitId, Guid partyId, Money share) {
-        return new ExpenseSplitParticipant(Guid.CreateVersion7(), expenseSplitId, partyId, share);
+        return new ExpenseSplitParticipant(Guid.CreateVersion7(), expenseSplitId, partyId, share.MinorUnits, share.Currency);
     }
 }

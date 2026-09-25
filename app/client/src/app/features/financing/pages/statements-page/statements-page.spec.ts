@@ -38,7 +38,8 @@ describe('StatementsPage', () => {
     cycleMonth: 9,
     amountDueMinorUnits: money(400000),
     isPaid: false,
-    paidOnUtc: null
+    paidOnUtc: null,
+    currencyCode: 'ARS'
   }];
 
   beforeEach(() => {

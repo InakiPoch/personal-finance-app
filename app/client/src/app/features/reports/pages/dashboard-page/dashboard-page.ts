@@ -11,7 +11,8 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { formatArs, fromMinorUnits } from '../../../../core/money/money';
+import { formatMoney, fromMinorUnits } from '../../../../core/money/money';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
@@ -22,23 +23,53 @@ import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
-type Grouping = { label: string; totalMinorUnits: Money };
-type CardCycle = { card: string; cardId: string | null; accrued: Money; future: Money; total: Money };
+type Grouping = { label: string; currencyCode: CurrencyCode; totalMinorUnits: Money };
+type CurrencyTotal = { currencyCode: CurrencyCode; totalMinorUnits: Money };
+type CardCycle = {
+  card: string;
+  cardId: string | null;
+  currencyCode: CurrencyCode;
+  accrued: Money;
+  future: Money;
+  total: Money;
+};
 
 function currentMonthKey(): string {
   const now: Date = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
 }
 
-/** Sum minor-unit amounts by a string label, preserving first-seen order. */
-function sumByLabel<T>(rows: T[], labelOf: (row: T) => string, amountOf: (row: T) => number): Grouping[] {
-  const totals: Map<string, number> = new Map<string, number>();
+/** Sum minor-unit amounts by label + currency, preserving first-seen order. */
+function sumByLabel<T>(
+  rows: T[],
+  labelOf: (row: T) => string,
+  currencyOf: (row: T) => CurrencyCode,
+  amountOf: (row: T) => number
+): Grouping[] {
+  const totals: Map<string, { label: string; currencyCode: CurrencyCode; total: number }> = new Map();
   for(const row of rows) {
     const label: string = labelOf(row);
-    totals.set(label, (totals.get(label) ?? 0) + amountOf(row));
+    const currencyCode: CurrencyCode = currencyOf(row);
+    const key: string = `${label}|${currencyCode}`;
+    const existing = totals.get(key);
+    totals.set(key, { label, currencyCode, total: (existing?.total ?? 0) + amountOf(row) });
   }
-  return Array.from(totals, ([label, total]: [string, number]) => ({
+  return Array.from(totals.values(), ({ label, currencyCode, total }) => ({
     label,
+    currencyCode,
+    totalMinorUnits: fromMinorUnits(total)
+  }));
+}
+
+/** Sum minor-unit amounts by currency alone, preserving first-seen order. */
+function sumByCurrency<T>(rows: T[], currencyOf: (row: T) => CurrencyCode, amountOf: (row: T) => number): CurrencyTotal[] {
+  const totals: Map<CurrencyCode, number> = new Map<CurrencyCode, number>();
+  for(const row of rows) {
+    const currencyCode: CurrencyCode = currencyOf(row);
+    totals.set(currencyCode, (totals.get(currencyCode) ?? 0) + amountOf(row));
+  }
+  return Array.from(totals, ([currencyCode, total]: [CurrencyCode, number]) => ({
+    currencyCode,
     totalMinorUnits: fromMinorUnits(total)
   }));
 }
@@ -51,7 +82,7 @@ function sumByLabel<T>(rows: T[], labelOf: (row: T) => string, amountOf: (row: T
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class DashboardPage implements OnInit, OnDestroy {
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
 
   protected readonly selectedMonth: WritableSignal<string> = signal<string>(currentMonthKey());
   protected readonly monthlyStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
@@ -60,18 +91,38 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly activeSubscriptions: WritableSignal<ActiveSubscription[]> = signal<ActiveSubscription[]>([]);
 
   protected readonly expensesByCategory: Signal<Grouping[]> = computed(() =>
-    sumByLabel(this.monthlyRows(), (row: MonthlyExpenseRow) => row.category, (row: MonthlyExpenseRow) => row.amountMinorUnits)
+    sumByLabel(
+      this.monthlyRows(),
+      (row: MonthlyExpenseRow) => row.category,
+      (row: MonthlyExpenseRow) => row.currencyCode,
+      (row: MonthlyExpenseRow) => row.amountMinorUnits
+    )
   );
   protected readonly accruedByCard: Signal<Grouping[]> = computed(() =>
-    sumByLabel(this.cardDueRows().filter((row: CardDueRow) => row.bucket === 'Accrued'), (row: CardDueRow) => row.card, (row: CardDueRow) => row.amountMinorUnits)
+    sumByLabel(
+      this.cardDueRows().filter((row: CardDueRow) => row.bucket === 'Accrued'),
+      (row: CardDueRow) => row.card,
+      (row: CardDueRow) => row.currencyCode,
+      (row: CardDueRow) => row.amountMinorUnits
+    )
   );
   protected readonly futureByCard: Signal<Grouping[]> = computed(() =>
-    sumByLabel(this.cardDueRows().filter((row: CardDueRow) => row.bucket === 'Future'), (row: CardDueRow) => row.card, (row: CardDueRow) => row.amountMinorUnits)
+    sumByLabel(
+      this.cardDueRows().filter((row: CardDueRow) => row.bucket === 'Future'),
+      (row: CardDueRow) => row.card,
+      (row: CardDueRow) => row.currencyCode,
+      (row: CardDueRow) => row.amountMinorUnits
+    )
   );
 
-  protected readonly monthlyTotal: Signal<Money> = computed(() =>
-    fromMinorUnits(this.expensesByCategory().reduce((sum: number, group: Grouping) => sum + group.totalMinorUnits, 0))
-  );
+  protected readonly monthlyTotalsByCurrency: Signal<CurrencyTotal[]> = computed(() => {
+    const totals: CurrencyTotal[] = sumByCurrency(
+      this.monthlyRows(),
+      (row: MonthlyExpenseRow) => row.currencyCode,
+      (row: MonthlyExpenseRow) => row.amountMinorUnits
+    );
+    return totals.length > 0 ? totals : [{ currencyCode: 'ARS', totalMinorUnits: fromMinorUnits(0) }];
+  });
 
   protected readonly maxCategoryAmount: Signal<number> = computed(() =>
     this.expensesByCategory().reduce((max: number, group: Grouping) => Math.max(max, group.totalMinorUnits), 0)
@@ -80,15 +131,17 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly cycleByCard: Signal<CardCycle[]> = computed(() => {
     const order: string[] = [];
     const cardIdByKey: Map<string, string | null> = new Map<string, string | null>();
+    const currencyByKey: Map<string, CurrencyCode> = new Map<string, CurrencyCode>();
     const labelByKey: Map<string, string> = new Map<string, string>();
     const accrued: Map<string, number> = new Map<string, number>();
     const future: Map<string, number> = new Map<string, number>();
-    const keyOf = (row: CardDueRow): string => row.cardId ?? `label:${row.card}`;
+    const keyOf = (row: CardDueRow): string => `${row.cardId ?? `label:${row.card}`}|${row.currencyCode}`;
 
     for(const row of this.cardDueRows()) {
       const key: string = keyOf(row);
       if(!cardIdByKey.has(key)) {
         cardIdByKey.set(key, row.cardId);
+        currencyByKey.set(key, row.currencyCode);
       }
       if(row.bucket === 'Accrued' || !labelByKey.has(key)) {
         labelByKey.set(key, row.card);
@@ -122,6 +175,7 @@ export class DashboardPage implements OnInit, OnDestroy {
       return {
         card: labelByKey.get(key) ?? key,
         cardId: cardIdByKey.get(key) ?? null,
+        currencyCode: currencyByKey.get(key) ?? 'ARS',
         accrued: fromMinorUnits(accruedMinor),
         future: fromMinorUnits(futureMinor),
         total: fromMinorUnits(accruedMinor + futureMinor)

@@ -16,11 +16,11 @@ internal sealed class EntryConfiguration : IEntityTypeConfiguration<Entry> {
             .HasForeignKey(entry => entry.AccountId)
             .OnDelete(DeleteBehavior.Restrict);
         builder.Property(entry => entry.Direction).HasConversion<string>().IsRequired();
-        builder.Property(entry => entry.Amount)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("AmountMinorUnits")
-        .IsRequired();
+        builder.Property(entry => entry.AmountMinorUnits).HasColumnName("AmountMinorUnits").IsRequired();
+        builder.Property(entry => entry.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
+            .IsRequired();
+        builder.Ignore(entry => entry.Amount);
     }
 }

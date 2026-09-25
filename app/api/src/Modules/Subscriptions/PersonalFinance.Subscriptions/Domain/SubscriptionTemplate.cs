@@ -8,7 +8,7 @@ namespace PersonalFinance.Subscriptions.Domain;
 /// </summary>
 internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
     public string Name { get; }
-    public Money Amount { get; }
+    public Money Amount => Money.FromMinorUnits(AmountMinorUnits, Currency);
     public string Category { get; }
     public Guid ExpenseAccountId { get; }
     public Guid FundingAccountId { get; }
@@ -21,10 +21,14 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
     public RecurrenceRule Recurrence => new(Frequency, AnchorDay);
     public RenewalSchedule Schedule => new(NextDueDate, IsActive);
 
+    internal long AmountMinorUnits { get; }
+    internal Currency Currency { get; }
+
     private SubscriptionTemplate(
         Guid id,
         string name,
-        Money amount,
+        long amountMinorUnits,
+        Currency currency,
         string category,
         Guid expenseAccountId,
         Guid fundingAccountId,
@@ -34,7 +38,8 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         DateOnly? lastPaidPeriod,
         Guid? lastPaidTransactionId) : base(id) {
         Name = name;
-        Amount = amount;
+        AmountMinorUnits = amountMinorUnits;
+        Currency = currency;
         Category = category;
         ExpenseAccountId = expenseAccountId;
         FundingAccountId = fundingAccountId;
@@ -73,7 +78,8 @@ internal sealed class SubscriptionTemplate : AggregateRoot<Guid> {
         return new SubscriptionTemplate(
             Guid.CreateVersion7(),
             name.Trim(),
-            amount,
+            amount.MinorUnits,
+            amount.Currency,
             category.Trim(),
             expenseAccountId,
             fundingAccountId,

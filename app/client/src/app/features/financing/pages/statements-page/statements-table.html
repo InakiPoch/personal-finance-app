@@ -39,7 +39,7 @@
             [class.font-medium]="!statement.isPaid"
             [class.text-ink-faint]="statement.isPaid"
           >
-            {{ formatArs(statement.amountDueMinorUnits) }}
+            {{ formatMoney(statement.amountDueMinorUnits, statement.currencyCode) }}
           </td>
           <td class="py-2.5 text-right">
             @if(statement.isPaid) {

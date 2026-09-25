@@ -50,7 +50,7 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
         }
         var plan = PaymentPlan.Create(
             command.CardId,
-            Money.FromMinorUnits(command.AmountMinorUnits, Currency.Reference),
+            Money.FromMinorUnits(command.AmountMinorUnits, Currency.FromCode(command.CurrencyCode)),
             command.InstallmentCount,
             command.PurchaseDate,
             command.Description,
@@ -87,7 +87,8 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
                 command.CardId,
                 plan.Value.Total.MinorUnits,
                 plan.Value.PurchaseDate,
-                command.Split.Participants)
+                command.Split.Participants,
+                plan.Value.Total.Currency.Code)
             );
         }
         await context.SaveChangesAsync(cancellationToken);
@@ -134,11 +135,12 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             var statement = await context.MonthlyStatements.FirstOrDefaultAsync(
                 candidate => candidate.CardId == card.Id
                     && candidate.CycleYear == closeCycle.Year
-                    && candidate.CycleMonth == closeCycle.Month,
+                    && candidate.CycleMonth == closeCycle.Month
+                    && candidate.Currency == installment.Amount.Currency,
                 cancellationToken
             );
             if(statement is null) {
-                statement = MonthlyStatement.Open(card.Id, closeCycle);
+                statement = MonthlyStatement.Open(card.Id, closeCycle, installment.Amount.Currency);
                 context.MonthlyStatements.Add(statement);
             }
             var accrualLines = new List<PostTransactionLine> {

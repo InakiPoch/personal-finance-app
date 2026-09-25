@@ -46,11 +46,11 @@ internal sealed class FakeLedgerApi : ILedgerApi {
         throw new NotSupportedException();
     }
 
-    public Task<Money> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
+    public Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
         throw new NotSupportedException();
     }
 
-    public Task<Money> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
+    public Task<IReadOnlyList<Money>> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default) {
         throw new NotSupportedException();
     }
 

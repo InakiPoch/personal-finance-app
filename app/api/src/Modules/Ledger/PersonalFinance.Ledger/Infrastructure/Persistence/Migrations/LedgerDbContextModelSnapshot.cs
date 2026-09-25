@@ -136,6 +136,10 @@ namespace PersonalFinance.Ledger.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Description")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid?>("InstallmentReference")
                         .HasColumnType("TEXT")
                         .HasColumnName("InstallmentReferenceId");

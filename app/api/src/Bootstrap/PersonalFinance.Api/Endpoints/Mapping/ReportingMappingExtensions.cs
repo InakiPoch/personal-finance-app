@@ -12,6 +12,13 @@ internal static class ReportingMappingExtensions {
         return new MonthlyExpensesDto(rows);
     }
 
+    public static MonthlyIncomesDto ToMonthlyIncomesDto(this MonthlyIncomesResponse response) {
+        var rows = response.Rows
+            .Select(row => new MonthlyIncomeRowDto(row.Month, row.AmountMinorUnits, row.CurrencyCode))
+            .ToList();
+        return new MonthlyIncomesDto(rows);
+    }
+
     public static CardDueByMonthDto ToCardDueByMonthDto(this CardDueByMonthResponse response) {
         var rows = response.Rows
             .Select(row => new CardDueRowDto(
@@ -44,5 +51,19 @@ internal static class ReportingMappingExtensions {
             .Select(row => new PartyDebtRowDto(row.PartyId, row.PartyName, row.NetBalanceMinorUnits, row.CurrencyCode))
             .ToList();
         return new DebtByPartyDto(rows);
+    }
+
+    public static MoneyFlowDto ToMoneyFlowDto(this MoneyFlowResponse response) {
+        var rows = response.Rows
+            .Select(row => new MoneyFlowRowDto(
+                row.TransactionId,
+                row.Date,
+                row.Description,
+                row.AccountName,
+                row.Kind,
+                row.AmountMinorUnits,
+                row.CurrencyCode))
+            .ToList();
+        return new MoneyFlowDto(rows);
     }
 }

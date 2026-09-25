@@ -26,6 +26,11 @@ internal static class LedgerErrors {
         "A reversal transaction cannot itself be reversed."
     );
 
+    public static readonly Error TransactionAlreadyReversed = new(
+        "Ledger.TransactionAlreadyReversed",
+        "This transaction has already been reversed."
+    );
+
     public static readonly Error OriginalTransactionNotFound = new(
         "Ledger.OriginalTransactionNotFound",
         "The transaction to reverse was not found."
@@ -74,5 +79,15 @@ internal static class LedgerErrors {
     public static readonly Error InvalidCurrencyCode = new(
         "Ledger.InvalidCurrencyCode",
         "The currency code must be one of: ARS, USD."
+    );
+
+    public static readonly Error InvalidIncomeDescription = new(
+        "Ledger.InvalidIncomeDescription",
+        "An income requires a description."
+    );
+
+    public static readonly Error IncomeDateInFuture = new(
+        "Ledger.IncomeDateInFuture",
+        "An income cannot be dated in the future."
     );
 }

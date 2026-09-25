@@ -4,6 +4,10 @@ public sealed record MonthlyExpenseRowDto(string Month, string Category, long Am
 
 public sealed record MonthlyExpensesDto(IReadOnlyList<MonthlyExpenseRowDto> Rows);
 
+public sealed record MonthlyIncomeRowDto(string Month, long AmountMinorUnits, string CurrencyCode);
+
+public sealed record MonthlyIncomesDto(IReadOnlyList<MonthlyIncomeRowDto> Rows);
+
 public sealed record CardDueRowDto(
     string Bucket,
     string Card,
@@ -30,3 +34,15 @@ public sealed record PartyTimelineDto(IReadOnlyList<PartyTimelineRowDto> Rows);
 public sealed record PartyDebtRowDto(Guid PartyId, string PartyName, long NetBalanceMinorUnits, string CurrencyCode);
 
 public sealed record DebtByPartyDto(IReadOnlyList<PartyDebtRowDto> Rows);
+
+public sealed record MoneyFlowRowDto(
+    Guid TransactionId,
+    DateOnly Date,
+    string Description,
+    string AccountName,
+    string Kind,
+    long AmountMinorUnits,
+    string CurrencyCode
+);
+
+public sealed record MoneyFlowDto(IReadOnlyList<MoneyFlowRowDto> Rows);

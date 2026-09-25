@@ -21,8 +21,10 @@ import { ActiveSubscription } from '../../../subscriptions/types/active-subscrip
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
+import { MonthlyIncomeRow } from '../../types/monthly-income-row';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
+type FlowSide = 'out' | 'in';
 type Grouping = { label: string; currencyCode: CurrencyCode; totalMinorUnits: Money };
 type CurrencyTotal = { currencyCode: CurrencyCode; totalMinorUnits: Money };
 type CardCycle = {
@@ -85,7 +87,9 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
 
   protected readonly selectedMonth: WritableSignal<string> = signal<string>(currentMonthKey());
+  protected readonly flowSide: WritableSignal<FlowSide> = signal<FlowSide>('out');
   protected readonly monthlyStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly incomeStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly cardDueStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly subscriptionsStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly activeSubscriptions: WritableSignal<ActiveSubscription[]> = signal<ActiveSubscription[]>([]);
@@ -120,6 +124,15 @@ export class DashboardPage implements OnInit, OnDestroy {
       this.monthlyRows(),
       (row: MonthlyExpenseRow) => row.currencyCode,
       (row: MonthlyExpenseRow) => row.amountMinorUnits
+    );
+    return totals.length > 0 ? totals : [{ currencyCode: 'ARS', totalMinorUnits: fromMinorUnits(0) }];
+  });
+
+  protected readonly incomeTotalsByCurrency: Signal<CurrencyTotal[]> = computed(() => {
+    const totals: CurrencyTotal[] = sumByCurrency(
+      this.incomeRows(),
+      (row: MonthlyIncomeRow) => row.currencyCode,
+      (row: MonthlyIncomeRow) => row.amountMinorUnits
     );
     return totals.length > 0 ? totals : [{ currencyCode: 'ARS', totalMinorUnits: fromMinorUnits(0) }];
   });
@@ -191,6 +204,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   private readonly financing: FinancingService = inject(FinancingService);
   private readonly subscriptions: SubscriptionsService = inject(SubscriptionsService);
   private readonly monthlyRows: WritableSignal<MonthlyExpenseRow[]> = signal<MonthlyExpenseRow[]>([]);
+  private readonly incomeRows: WritableSignal<MonthlyIncomeRow[]> = signal<MonthlyIncomeRow[]>([]);
   private readonly cardDueRows: WritableSignal<CardDueRow[]> = signal<CardDueRow[]>([]);
   private readonly purchasesByCardId: Map<string, CardPurchaseRow[]> = new Map<string, CardPurchaseRow[]>();
   private readonly destroy$: Subject<void> = new Subject<void>();
@@ -198,6 +212,11 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected onMonthChange(month: string): void {
     this.selectedMonth.set(month);
     this.loadMonthlyExpenses();
+    this.loadMonthlyIncomes();
+  }
+
+  protected setFlowSide(side: FlowSide): void {
+    this.flowSide.set(side);
   }
 
   /** Width (%) of the proportion rule behind a category row, relative to the largest. */
@@ -257,6 +276,21 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
   }
 
+  private loadMonthlyIncomes(): void {
+    this.incomeStatus.set('loading');
+    this.reports
+      .monthlyIncomes(this.selectedMonth())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: MonthlyIncomeRow[]) => {
+          this.incomeRows.set(rows);
+          this.incomeStatus.set('ready');
+        },
+        error: () => this.incomeStatus.set('error')
+      }
+    );
+  }
+
   private loadCardDue(): void {
     this.cardDueStatus.set('loading');
     this.reports
@@ -289,6 +323,7 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.loadMonthlyExpenses();
+    this.loadMonthlyIncomes();
     this.loadCardDue();
     this.loadActiveSubscriptions();
   }

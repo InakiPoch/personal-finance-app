@@ -42,7 +42,9 @@ export function toMinorUnits(major: number): Money {
 }
 
 export function formatMoney(value: Money, code: CurrencyCode): string {
-  return code === 'USD' ? usdFormatter.format(value / 100) : arsFormatter.format(value / 100);
+  return code === 'USD'
+    ? usdFormatter.format(value / 100).replace('$', '$ ')
+    : arsFormatter.format(value / 100);
 }
 
 export function formatArs(value: Money): string {

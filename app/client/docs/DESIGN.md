@@ -235,6 +235,16 @@ no `I-` prefix.
   currencyCode: CurrencyCode }`
 - `PartyTimelineRow = { movementOnUtc: IsoInstant; description: string; deltaMinorUnits: Money;
   runningBalanceMinorUnits: Money; currencyCode: CurrencyCode }`
+- `MonthlyIncomeRow = { month: string; amountMinorUnits: Money; currencyCode: CurrencyCode }`
+  (`GET /v1/reports/monthly-incomes`, `docs/incomes-support/slice-1-…` — missing from this list
+  since that slice, added here alongside `MoneyFlowRow` below)
+- `MoneyFlowRow = { transactionId: string; date: string; description: string; accountName: string;
+  kind: 'Income' | 'Outcome'; amountMinorUnits: Money; currencyCode: CurrencyCode }`
+  (`GET /v1/reports/money-flow?month=`, `docs/incomes-support/slice-2-money-flow-table.md`) —
+  `transactionId` rode on the row unused by Slice 2's own view, exactly so Slice 3's Undo button
+  (`slice-3-undo-income.md`, now built) could target `LedgerService.reverse(transactionId)`
+  without a second read; `kind`/`amountMinorUnits` are already resolved server-side (never both
+  a non-zero income and outcome on the same row)
 
 ## 4. Services
 
@@ -359,7 +369,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 1 | POST | `/v1/instruments` | `InstrumentsService.create` | Instruments setup |
 | 2 | GET | `/v1/instruments` | `InstrumentsService.list` | Instruments setup + every card/funding `<select>` (Load expense, Statement pay, Subscriptions, Party settlement, Shared expense) |
 | 3 | POST | `/v1/ledger/transactions` | `LedgerService.postTransaction` | (low-level; internal) |
-| 4 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement |
+| 4 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement; Money Flow's per-row Undo (income rows only, `docs/incomes-support/slice-3-undo-income.md`) |
 | 5 | GET | `/v1/ledger/accounts/{id}/balance` | `LedgerService.getAccountBalance` | (detail widgets) |
 | 6 | GET | `/v1/ledger/transactions` | `LedgerService.listTransactions` | Transactions feed (account + date filter → row → Reverse movement) |
 | 7 | POST | `/v1/financing/payment-plans` | `FinancingService.createPaymentPlan` | Load expense |
@@ -390,6 +400,9 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 32 | POST | `/v1/financing/creditor-installments/{id}/pay` | `FinancingService.payCreditorInstallment` | Creditor detail — per-cuota **Pay** (display-only `PaidOnUtc` stamp, empty `{}` body; card installment → 409 `Financing.NotACreditorInstallment`) |
 | 33 | POST | `/v1/financing/creditor-installments/{id}/unpay` | `FinancingService.unpayCreditorInstallment` | Creditor detail — per-cuota **Undo** (clears the stamp, empty `{}` body; already-unpaid → no-op success) |
 | 34 | POST | `/v1/financing/creditor-payables/{creditorId}/pay-full` | `FinancingService.payCreditorFullDebt` | Creditor detail — **Pay full debt** (stamps every unpaid, non-reversed cuota across the creditor's purchases, empty `{}` body; returns `{ settledCount }`; zero settleable → `0`; unknown creditor → 404) |
+| 35 | POST | `/v1/ledger/incomes` | `LedgerService.recordIncome` | Record income (§3.12) |
+| 36 | GET | `/v1/reports/monthly-incomes` | `ReportsService.monthlyIncomes` | Dashboard — Income side of the `Out of pocket \| Income` toggle (§3.12) |
+| 37 | GET | `/v1/reports/money-flow` | `ReportsService.moneyFlow` | Money Flow table (§3.13; required `month` param, one row per money movement, `kind`-driven signed rendering) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

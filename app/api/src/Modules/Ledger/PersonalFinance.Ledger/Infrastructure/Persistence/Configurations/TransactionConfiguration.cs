@@ -13,6 +13,7 @@ internal sealed class TransactionConfiguration : IEntityTypeConfiguration<Transa
         builder.Property(transaction => transaction.PostedOnUtc).IsRequired();
         builder.Property(transaction => transaction.OriginalTransactionId);
         builder.HasIndex(transaction => transaction.OriginalTransactionId);
+        builder.Property(transaction => transaction.Description).HasMaxLength(200);
         builder.Property(transaction => transaction.SplitReference)
             .HasConversion(
                 reference => reference == null ? (Guid?)null : reference.Value,

@@ -198,7 +198,7 @@ describe('SubscriptionsPage', () => {
   it('renders a USD subscription amount in dollar formatting', () => {
     listActive.and.returnValue(of<ActiveSubscription[]>([{ ...activeRow, currencyCode: 'USD' }]));
     setup();
-    expect(text()).toContain('$5,000.00');
+    expect(text()).toContain('$ 5,000.00');
   });
   it('renders submitErrorText keyed off the AppError code on a 422', () => {
     const appError: AppError = {

@@ -12,11 +12,14 @@ import { ActiveSubscription } from '../../../subscriptions/types/active-subscrip
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
+import { MonthlyIncomeRow } from '../../types/monthly-income-row';
 import { DashboardPage } from './dashboard-page';
 
 type DashboardView = {
   selectedMonth: () => string;
+  flowSide: () => 'out' | 'in';
   monthlyStatus: () => 'loading' | 'ready' | 'error';
+  incomeStatus: () => 'loading' | 'ready' | 'error';
   cardDueStatus: () => 'loading' | 'ready' | 'error';
   subscriptionsStatus: () => 'loading' | 'ready' | 'error';
   activeSubscriptions: () => ActiveSubscription[];
@@ -24,8 +27,10 @@ type DashboardView = {
   accruedByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
   futureByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
   monthlyTotalsByCurrency: () => Array<{ currencyCode: string; totalMinorUnits: number }>;
+  incomeTotalsByCurrency: () => Array<{ currencyCode: string; totalMinorUnits: number }>;
   cycleByCard: () => Array<{ card: string; cardId: string | null; currencyCode: string; accrued: number; future: number; total: number }>;
   onMonthChange: (month: string) => void;
+  setFlowSide: (side: 'out' | 'in') => void;
   expandedCardId: () => string | null;
   purchasesStatus: () => 'loading' | 'ready' | 'error';
   expandedPurchases: () => CardPurchaseRow[];
@@ -36,6 +41,7 @@ describe('DashboardPage', () => {
   let fixture: ComponentFixture<DashboardPage>;
   let view: DashboardView;
   let monthlyExpenses: jasmine.Spy<(month?: string) => Observable<MonthlyExpenseRow[]>>;
+  let monthlyIncomes: jasmine.Spy<(month?: string) => Observable<MonthlyIncomeRow[]>>;
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
   let cardPurchases: jasmine.Spy<(cardId: string) => Observable<CardPurchaseRow[]>>;
   let listActive: jasmine.Spy<() => Observable<ActiveSubscription[]>>;
@@ -51,6 +57,9 @@ describe('DashboardPage', () => {
     { bucket: 'Accrued', card: 'Visa', cycleYear: 2026, cycleMonth: 9, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
     { bucket: 'Future', card: 'Visa', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
     { bucket: 'Future', card: 'Amex', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(250000), currencyCode: 'ARS', cardId: 'c2' }
+  ];
+  const incomeRows: MonthlyIncomeRow[] = [
+    { month: '2026-09', amountMinorUnits: money(500000), currencyCode: 'ARS' }
   ];
   const purchaseRows: CardPurchaseRow[] = [
     { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01' }
@@ -68,6 +77,7 @@ describe('DashboardPage', () => {
 
   beforeEach(() => {
     monthlyExpenses = jasmine.createSpy('monthlyExpenses').and.returnValue(of(monthlyRows));
+    monthlyIncomes = jasmine.createSpy('monthlyIncomes').and.returnValue(of(incomeRows));
     cardDueByMonth = jasmine.createSpy('cardDueByMonth').and.returnValue(of(cardDueRows));
     cardPurchases = jasmine.createSpy('cardPurchases').and.returnValue(of(purchaseRows));
     listActive = jasmine.createSpy('listActive').and.returnValue(of(activeSubscriptions));
@@ -77,7 +87,7 @@ describe('DashboardPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: ReportsService, useValue: { monthlyExpenses, cardDueByMonth } },
+        { provide: ReportsService, useValue: { monthlyExpenses, monthlyIncomes, cardDueByMonth } },
         { provide: FinancingService, useValue: { cardPurchases } },
         { provide: SubscriptionsService, useValue: { listActive } }
       ],
@@ -113,14 +123,17 @@ describe('DashboardPage', () => {
       { label: 'Amex', currencyCode: 'ARS', totalMinorUnits: 250000 }
     ]);
   });
-  it('refetches only monthly expenses when the month changes', () => {
+  it('refetches monthly expenses and incomes, but not card dues, when the month changes', () => {
     setup();
     fixture.detectChanges();
     expect(monthlyExpenses).toHaveBeenCalledTimes(1);
+    expect(monthlyIncomes).toHaveBeenCalledTimes(1);
     view.onMonthChange('2026-01');
     expect(view.selectedMonth()).toBe('2026-01');
     expect(monthlyExpenses).toHaveBeenCalledTimes(2);
     expect(monthlyExpenses.calls.mostRecent().args).toEqual(['2026-01']);
+    expect(monthlyIncomes).toHaveBeenCalledTimes(2);
+    expect(monthlyIncomes.calls.mostRecent().args).toEqual(['2026-01']);
     expect(cardDueByMonth).toHaveBeenCalledTimes(1);
   });
   it('shows an error state when the monthly feed fails', () => {
@@ -320,6 +333,51 @@ describe('DashboardPage', () => {
     setup();
     fixture.detectChanges();
     const link: HTMLAnchorElement | null = (fixture.nativeElement as HTMLElement).querySelector('a[href="/subscriptions"]');
+    expect(link).toBeTruthy();
+  });
+  it('defaults to the Out of pocket side, showing its total and category list', () => {
+    setup();
+    fixture.detectChanges();
+    expect(view.flowSide()).toBe('out');
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatArs(money(195000)));
+    expect(text).toContain('Groceries');
+  });
+  it('switches to the Income side on click, showing per-currency totals and hiding the category list', () => {
+    monthlyIncomes.and.returnValue(of([
+      { month: '2026-09', amountMinorUnits: money(500000), currencyCode: 'ARS' },
+      { month: '2026-09', amountMinorUnits: money(20000), currencyCode: 'USD' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    view.setFlowSide('in');
+    fixture.detectChanges();
+    expect(view.flowSide()).toBe('in');
+    const totals = view.incomeTotalsByCurrency();
+    expect(totals.length).toBe(2);
+    const ars = totals.find((total) => total.currencyCode === 'ARS');
+    const usd = totals.find((total) => total.currencyCode === 'USD');
+    expect(ars?.totalMinorUnits).toBe(500000);
+    expect(usd?.totalMinorUnits).toBe(20000);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatMoney(money(500000), 'ARS'));
+    expect(text).toContain(formatMoney(money(20000), 'USD'));
+    expect(text).not.toContain('Groceries');
+  });
+  it('shows a $0 ARS income total when no income was recorded this month', () => {
+    monthlyIncomes.and.returnValue(of([]));
+    setup();
+    fixture.detectChanges();
+    view.setFlowSide('in');
+    fixture.detectChanges();
+    expect(view.incomeTotalsByCurrency()).toEqual([{ currencyCode: 'ARS', totalMinorUnits: 0 }]);
+    const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
+    expect(text).toContain(formatArs(money(0)));
+  });
+  it('links the Record income quick action to /ledger/incomes/new', () => {
+    setup();
+    fixture.detectChanges();
+    const link: HTMLAnchorElement | null = (fixture.nativeElement as HTMLElement).querySelector('a[href="/ledger/incomes/new"]');
     expect(link).toBeTruthy();
   });
 });

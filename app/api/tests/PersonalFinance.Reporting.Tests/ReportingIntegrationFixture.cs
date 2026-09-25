@@ -7,6 +7,7 @@ using PersonalFinance.Financing;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Financing.Contracts.Commands;
 using PersonalFinance.Infrastructure.DependencyInjection;
+using PersonalFinance.Infrastructure.Messaging;
 using PersonalFinance.Ledger;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
@@ -125,6 +126,22 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await RegisterSharedExpenseAsync("Bob concert", 8_000, sharedDining, bank, At(5, 27), BobId);
         BobOwed = await GetPartyBalanceAsync(BobId);
         Assert.True(BobOwed > 0, $"Expected Bob to owe a positive amount, got {BobOwed}.");
+
+        await RecordIncomeAsync(15_000, bank, new DateOnly(2026, 5, 15), "May salary");
+        await RecordIncomeAsync(200_00, bank, new DateOnly(2026, 5, 16), "May freelance", "USD");
+        await RecordIncomeAsync(9_000, bank, new DateOnly(2026, 4, 20), "April refund");
+        var reversibleIncomeId = await RecordIncomeAsync(4_000, bank, new DateOnly(2026, 7, 10), "July gift");
+        await ReverseAsync(reversibleIncomeId, At(7, 11));
+
+        var streaming = await CreateAccountAsync("Streaming", AccountType.Expense, AccountKind.Expense);
+        await PostAsync("June groceries", At(6, 5), groceries, bank, 6_000);
+        await PostAsync("June USD dinner", At(6, 6), rent, bank, 4_000, "USD");
+        await PostAsync("Streaming subscription", At(6, 7), streaming, bank, 3_000);
+        var juneReversibleId = await PostAsync("June reversible expense", At(6, 10), groceries, bank, 1_000);
+        await ReverseAsync(juneReversibleId, At(6, 11));
+        await PostWithNoDescriptionAsync(At(6, 12), groceries, bank, 700);
+        await PostAsync("June card accrual", At(6, 15), cardPurchases, cardLiability, 8_000);
+        await PostAsync("June statement payment", At(6, 16), cardLiability, bank, 8_000);
     }
 
     private static DateTimeOffset At(int month, int day) {
@@ -139,10 +156,10 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         return result.Value;
     }
 
-    private async Task PostAsync(string description, DateTimeOffset postedOnUtc, Guid debitAccountId, Guid creditAccountId, long amountMinorUnits) {
+    private async Task<Guid> PostAsync(string description, DateTimeOffset postedOnUtc, Guid debitAccountId, Guid creditAccountId, long amountMinorUnits, string currencyCode = "ARS") {
         await using var scope = host!.Services.CreateAsyncScope();
         var ledger = scope.ServiceProvider.GetRequiredService<ILedgerApi>();
-        var amount = new Money(amountMinorUnits, Currency.Reference);
+        var amount = new Money(amountMinorUnits, Currency.FromCode(currencyCode));
         var command = new PostTransactionCommand(
             [
                 new PostTransactionLine(debitAccountId, DebitOrCredit.Debit, amount),
@@ -152,6 +169,21 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
             Description: description);
         var result = await ledger.PostTransactionAsync(command, CancellationToken.None);
         Assert.True(result.IsSuccess, $"PostTransaction '{description}' failed: {result.Error}");
+        return result.Value;
+    }
+
+    private async Task PostWithNoDescriptionAsync(DateTimeOffset postedOnUtc, Guid debitAccountId, Guid creditAccountId, long amountMinorUnits) {
+        await using var scope = host!.Services.CreateAsyncScope();
+        var ledger = scope.ServiceProvider.GetRequiredService<ILedgerApi>();
+        var amount = new Money(amountMinorUnits, Currency.Reference);
+        var command = new PostTransactionCommand(
+            [
+                new PostTransactionLine(debitAccountId, DebitOrCredit.Debit, amount),
+                new PostTransactionLine(creditAccountId, DebitOrCredit.Credit, amount)
+            ],
+            postedOnUtc);
+        var result = await ledger.PostTransactionAsync(command, CancellationToken.None);
+        Assert.True(result.IsSuccess, $"PostTransaction (no description) failed: {result.Error}");
     }
 
     private async Task<Guid> CreateCreditCardAsync(string name, int cutoffDate) {
@@ -192,6 +224,23 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         );
         var result = await parties.RegisterSharedExpenseAsync(command, CancellationToken.None);
         Assert.True(result.IsSuccess, $"RegisterSharedExpense '{description}' failed: {result.Error}");
+    }
+
+    private async Task<Guid> RecordIncomeAsync(long amountMinorUnits, Guid targetAccountId, DateOnly receivedOn, string description, string currencyCode = "ARS") {
+        await using var scope = host!.Services.CreateAsyncScope();
+        var commandBus = scope.ServiceProvider.GetRequiredService<ICommandBus>();
+        var result = await commandBus.SendAsync<Guid>(
+            new RecordIncomeCommand(amountMinorUnits, targetAccountId, receivedOn, description, currencyCode),
+            CancellationToken.None);
+        Assert.True(result.IsSuccess, $"RecordIncome '{description}' failed: {result.Error}");
+        return result.Value;
+    }
+
+    private async Task ReverseAsync(Guid transactionId, DateTimeOffset reversedOnUtc) {
+        await using var scope = host!.Services.CreateAsyncScope();
+        var ledger = scope.ServiceProvider.GetRequiredService<ILedgerApi>();
+        var result = await ledger.ReverseTransactionAsync(new ReverseTransactionCommand(transactionId, reversedOnUtc), CancellationToken.None);
+        Assert.True(result.IsSuccess, $"Reverse '{transactionId}' failed: {result.Error}");
     }
 
     private async Task<long> GetPartyBalanceAsync(Guid partyId) {

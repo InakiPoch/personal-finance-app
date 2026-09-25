@@ -9,6 +9,7 @@ internal sealed class Transaction : AggregateRoot<Guid> {
     public DateTimeOffset PostedOnUtc { get; }
     public Guid? OriginalTransactionId { get; }
     public bool IsReversal => OriginalTransactionId is not null;
+    public string? Description { get; private set; }
     public SplitReference? SplitReference { get; private set; }
     public InstallmentReference? InstallmentReference { get; private set; }
     public SubscriptionReference? SubscriptionReference { get; private set; }
@@ -25,12 +26,13 @@ internal sealed class Transaction : AggregateRoot<Guid> {
         DateTimeOffset postedOnUtc,
         SplitReference? splitReference = null,
         InstallmentReference? installmentReference = null,
-        SubscriptionReference? subscriptionReference = null) {
+        SubscriptionReference? subscriptionReference = null,
+        string? description = null) {
         var check = DoubleEntryMustBalance.Check(lines);
         if(check.IsFailure) {
             return check.Error;
         }
-        return build(lines, postedOnUtc, originalTransactionId: null, splitReference, installmentReference, subscriptionReference);
+        return build(lines, postedOnUtc, originalTransactionId: null, splitReference, installmentReference, subscriptionReference, description);
     }
 
     public static Result<Transaction> Reverse(Transaction original, DateTimeOffset reversedOnUtc) {
@@ -44,7 +46,7 @@ internal sealed class Transaction : AggregateRoot<Guid> {
         if(check.IsFailure) {
             return check.Error;
         }
-        return build(mirrored, reversedOnUtc, original.Id, original.SplitReference, original.InstallmentReference, original.SubscriptionReference);
+        return build(mirrored, reversedOnUtc, original.Id, original.SplitReference, original.InstallmentReference, original.SubscriptionReference, original.Description);
     }
 
     private static Transaction build(
@@ -53,8 +55,10 @@ internal sealed class Transaction : AggregateRoot<Guid> {
         Guid? originalTransactionId,
         SplitReference? splitReference,
         InstallmentReference? installmentReference,
-        SubscriptionReference? subscriptionReference) {
+        SubscriptionReference? subscriptionReference,
+        string? description) {
         var transaction = new Transaction(Guid.CreateVersion7(), postedOnUtc, originalTransactionId) {
+            Description = description,
             SplitReference = splitReference,
             InstallmentReference = installmentReference,
             SubscriptionReference = subscriptionReference

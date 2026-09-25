@@ -42,6 +42,12 @@ internal static class EndpointExtensions {
                 .Produces<RecordDebitExpenseResultDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapPost(ApiRoutes.Ledger.Incomes, RecordIncome.Handle)
+                .WithSummary("Record an income.")
+                .WithDescription("Posts one balanced Ledger transaction for real money arriving in a Bank or Cash account, against the single lazily-created Income account. Never accepts a future date.")
+                .Produces<RecordIncomeResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             var environment = endpoints.ServiceProvider.GetRequiredService<IHostEnvironment>();
             if(environment.IsDevelopment()) {
                 group.MapPost(ApiRoutes.Ledger.DevAccounts, PostDevAccount.Handle)
@@ -257,6 +263,15 @@ internal static class EndpointExtensions {
                 .WithSummary("Get monthly debit/cash expenses.")
                 .WithDescription("Cross-module dashboard over the Ledger monthly-expenses view, optionally filtered to one month.")
                 .Produces<MonthlyExpensesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Reporting.MonthlyIncomes, GetMonthlyIncomes.Handle)
+                .WithSummary("Get monthly incomes.")
+                .WithDescription("Cross-module dashboard over the Ledger monthly-incomes view, optionally filtered to one month.")
+                .Produces<MonthlyIncomesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Reporting.MoneyFlow, GetMoneyFlow.Handle)
+                .WithSummary("Get the Money Flow table for one month.")
+                .WithDescription("Accounting-style monthly rows over the Ledger money-flow view — an income credit or an out-of-pocket debit (my share only), reversed pairs hidden. The month query parameter is required.")
+                .Produces<MoneyFlowDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapGet(ApiRoutes.Reporting.CardDueByMonth, GetCardDueByMonth.Handle)
                 .WithSummary("Get card liability due by month.")
                 .WithDescription("Combines already-accrued card liability with the not-yet-accrued future installment schedule.")

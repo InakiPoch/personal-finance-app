@@ -1353,6 +1353,83 @@ Built one green-lit step at a time (this is the slice's one client step — API 
 
 ---
 
+## Phase 40 — Incomes support: record income + Dashboard toggle (Slice 1)
+
+**Goal:** A form to record real money arriving in a Bank/Cash account, and a Dashboard toggle showing its monthly total next to Out of pocket.
+
+**Traces to:** `docs/incomes-support/slice-1-record-income-and-dashboard-toggle.md` (+ `00-overview.md`; first of three slices — Slice 2 the Money Flow table, Slice 3 undo an income). API half is `app/api` Phase 45 (`POST /v1/ledger/incomes`, `GET /v1/reports/monthly-incomes`, plus a `Transaction.Description` persistence fix pulled forward from a verified bug). `docs/DESIGN.md` §9 gains the two new endpoint rows; `docs/PRD.md` §3.12 records the view; the API's own `docs/PRD.md` §9 decision 17 records the slice.
+
+**Depends on:** Phase 12 (`InstrumentsService.list()`, reused for the "Received in" Bank/Cash picker) and the `reports`/`ledger` features' existing shape.
+
+### Tasks
+- [x] Types — `features/ledger/types/record-income.ts`, `record-income-result.ts`; `features/reports/types/monthly-income-row.ts`.
+- [x] `LedgerService.recordIncome(body)` → `POST ledger/incomes`; `ReportsService.monthlyIncomes(month?)` → `GET reports/monthly-incomes`.
+- [x] New `features/ledger/validation-helpers.ts` (per-feature duplication, the established convention — not a shared module).
+- [x] `pages/record-income-page/` routed `incomes/new` in `ledger.routes.ts` (`/ledger/incomes/new`) — amount+currency, "Received in" (Bank/Cash only), date (`max`=today, `notFuture`), required description; submits and navigates to `/reports`.
+- [x] `dashboard-page.{ts,html}` — `flowSide` signal + two `aria-pressed` toggle buttons, `incomeTotalsByCurrency` (reuses the existing `sumByCurrency` helper), category list hidden on the Income side, `onMonthChange` refetches both series, "Record income" quick action.
+- [x] Specs — `ledger-service.spec.ts` +1, `reports-service.spec.ts` +2; new `record-income-page.spec.ts` (9 facts); `dashboard-page.spec.ts` widened month-change fact + 4 new facts (default side, Income switch, $0 fallback, quick-action link).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **322/322** (from 303); `pnpm ng build --configuration production` clean (`ledger-routes` lazy chunk 24.98 kB, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: record an ARS income and a USD income; toggle the Dashboard to Income and confirm two separated per-currency totals for the current month, and the back-dated one on last month; confirm Out of pocket is unchanged.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. Slices 2 (Money Flow table) and 3 (undo an income) remain — not started.
+
+---
+
+## Phase 41 — Incomes support: the Money Flow table (Slice 2)
+
+**Goal:** An accounting-style monthly view where every row is one movement of the user's own money — income in green, outcome in red — reusing the Dashboard's existing Out-of-pocket and Income filters rather than a new one.
+
+**Traces to:** `docs/incomes-support/slice-2-money-flow-table.md` (+ `00-overview.md`; second of three slices — Slice 3 undo an income remains). API half is `app/api` Phase 46 (`GET /v1/reports/money-flow?month=`). `docs/DESIGN.md` §3/§9 gain the type + endpoint row; `docs/PRD.md` §3.13 records the view; the API's own `docs/DESIGN.md` D16 + `docs/PRD.md` §9 decision 17 record the view semantics.
+
+**Depends on:** Phase 40 (the `ledger` feature's `record-income-page`, `ledger.routes.ts`) and Phase 1 (`ReportsService`, the `dashboard-page.ts` month-input idiom).
+
+### Tasks
+- [x] Type — `features/ledger/types/money-flow-row.ts`.
+- [x] `ReportsService.moneyFlow(month)` → `GET reports/money-flow` (required `month` param).
+- [x] `pages/money-flow-page/` (container, routed `money-flow` in `ledger.routes.ts` → `/ledger/money-flow`) — month picker defaulting to the current month, `loadStatus`, `footerTotals` computed per currency, "Record income" link.
+- [x] `money-flow-table.{ts,html,css}` (presentational) — signed `+`/`−` (U+2212 minus) Income/Outcome cells, muted `—` for the empty side, `<tfoot>` per-currency totals, staggered row-in animation.
+- [x] Nav entry `{ label: 'Money Flow', path: '/ledger/money-flow' }` in `app.ts`.
+- [x] Record income page — success navigation retargeted from `/reports` to `/ledger/money-flow`.
+- [x] `docs/SYSTEM.md` — "Signed amounts" rule.
+- [x] Specs — `reports-service.spec.ts` +1; new `money-flow-table.spec.ts` (5 facts); new `money-flow-page.spec.ts` (5 facts); `record-income-page.spec.ts` navigation fact retargeted.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **333/333** (from 322); `pnpm ng build --configuration production` clean (`ledger-routes` lazy chunk 24.98 → 31.47 kB).
+- [ ] Manual (no browser here) — handed to the user: in one month, an income, a plain debit expense, a split debit expense, a USD expense, a card purchase and a statement payment; confirm Money Flow shows the income (green) and the three debit expenses (red, split at the holder's share) but no card rows, ARS and USD totals separated in the footer; reverse an expense from Transactions and confirm it disappears from Money Flow.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. Slice 3 (undo an income) remains — not started, which will close `docs/incomes-support/`.
+
+---
+
+## Phase 42 — Incomes support: undo an income (Slice 3, closes the initiative)
+
+**Goal:** Let a mistakenly recorded income be undone from Money Flow — no new mechanism, just the existing ledger reversal call surfaced as a per-row Undo button on income rows.
+
+**Traces to:** `docs/incomes-support/slice-3-undo-income.md` (+ `00-overview.md`; third and final slice). API half is `app/api` Phase 47 (a global double-reversal guard, `Ledger.TransactionAlreadyReversed`, 409). `docs/DESIGN.md` §3 (the `MoneyFlowRow.transactionId` note) + §9 (the reversal endpoint row) updated; `docs/PRD.md` §3.13 records the slice.
+
+**Depends on:** Phase 41 (the Money Flow page/table, `MoneyFlowRow.transactionId`) and Phase 1 (`LedgerService.reverse`, already used by `reverse-movement-page`).
+
+### Tasks
+- [x] `money-flow-table` — `undo: OutputEmitterRef<string>` + `undoing: InputSignal<boolean>`; an Undo button renders on income rows only (`kind === 'Income'`), disabled while `undoing()`; new sr-only "Actions" column, footer `colspan` bumped 3 → 4.
+- [x] `money-flow-page` — injects `LedgerService`; `onUndo(transactionId)` does `window.confirm(...)`, tracks the in-flight id in `undoingTransactionId`, calls `ledger.reverse(...)`; on success refetches the month; on 409 refetches **and** shows an inline message; on any other error shows the inline message without refetching. No new dialog component (native `confirm`, YAGNI).
+- [x] Specs — `money-flow-table.spec.ts` +3 (Undo renders on income rows only, click emits the row's `transactionId`, disabled by `undoing()`); `money-flow-page.spec.ts` +5 (confirmed undo reverses + refetches; cancelled confirm makes no call; button disabled mid-flight; a 409 refetches + shows the message; any other error shows the message and does not refetch).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **341/341** (from 333); `pnpm ng build --configuration production` clean (`ledger-routes` lazy chunk 31.47 → 33.48 kB).
+- [ ] Manual (no browser here) — handed to the user: record an income, undo it from Money Flow → the row disappears and the Dashboard's Income side for that month drops by that amount; open two tabs and undo the same income in both → the second shows the conflict message and the income is not counted negative; confirm outcome rows never show an Undo button; confirm the reverse-movement page still reverses expenses and a second attempt is rejected with 409.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. **This closes `docs/incomes-support/` — the initiative is complete.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

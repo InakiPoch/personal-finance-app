@@ -19,6 +19,7 @@ internal static class ErrorHttpStatusHelper {
 
             // 409 — the resource exists but is in a state that forbids the transition
             "Ledger.CannotReverseAReversal" => StatusCodes.Status409Conflict,
+            "Ledger.TransactionAlreadyReversed" => StatusCodes.Status409Conflict,
             "Financing.StatementAlreadyPaid" => StatusCodes.Status409Conflict,
             "Financing.InstallmentAlreadyAccrued" => StatusCodes.Status409Conflict,
             "Financing.InstallmentAlreadyReversed" => StatusCodes.Status409Conflict,
@@ -41,6 +42,8 @@ internal static class ErrorHttpStatusHelper {
             "Ledger.InvalidExpenseSplit" => StatusCodes.Status422UnprocessableEntity,
             "Ledger.SourceAccountNotSpendable" => StatusCodes.Status422UnprocessableEntity,
             "Ledger.InvalidCurrencyCode" => StatusCodes.Status422UnprocessableEntity,
+            "Ledger.InvalidIncomeDescription" => StatusCodes.Status422UnprocessableEntity,
+            "Ledger.IncomeDateInFuture" => StatusCodes.Status422UnprocessableEntity,
             "Financing.InvalidCardName" => StatusCodes.Status422UnprocessableEntity,
             "Financing.InvalidCutoffDay" => StatusCodes.Status422UnprocessableEntity,
             "Financing.NonPositivePlanAmount" => StatusCodes.Status422UnprocessableEntity,

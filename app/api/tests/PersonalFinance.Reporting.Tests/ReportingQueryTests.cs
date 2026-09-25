@@ -25,6 +25,29 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
+    public async Task MonthlyIncomes_returns_one_row_per_currency_for_the_selected_month() {
+        var response = await AskAsync(new MonthlyIncomesQuery("2026-05"));
+        Assert.Equal(2, response.Rows.Count);
+        Assert.Equal(15_000, response.Rows.Single(row => row.CurrencyCode == "ARS").AmountMinorUnits);
+        Assert.Equal(200_00, response.Rows.Single(row => row.CurrencyCode == "USD").AmountMinorUnits);
+        Assert.All(response.Rows, row => Assert.Equal("2026-05", row.Month));
+    }
+
+    [Fact]
+    public async Task MonthlyIncomes_month_filter_excludes_incomes_from_other_months() {
+        var response = await AskAsync(new MonthlyIncomesQuery("2026-04"));
+        var row = Assert.Single(response.Rows);
+        Assert.Equal(9_000, row.AmountMinorUnits);
+        Assert.Equal("2026-04", row.Month);
+    }
+
+    [Fact]
+    public async Task MonthlyIncomes_an_income_and_its_reversal_net_to_zero() {
+        var response = await AskAsync(new MonthlyIncomesQuery("2026-07"));
+        Assert.Equal(0, response.Rows.Sum(row => row.AmountMinorUnits));
+    }
+
+    [Fact]
     public async Task CardDueByMonth_separates_accrued_liability_from_future_installments() {
         var response = await AskAsync(new CardDueByMonthQuery());
         var accrued = response.Rows.Where(row => row.Bucket == "Accrued").ToList();

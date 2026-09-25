@@ -7,8 +7,10 @@ import { problemDetailsInterceptor } from '../../core/http/problem-details.inter
 import { AppError } from '../../core/types/app-error';
 import { Money } from '../../core/types/money';
 import { environment } from '../../environments/environment';
+import { MoneyFlowRow } from '../ledger/types/money-flow-row';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
+import { MonthlyIncomeRow } from './types/monthly-income-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
 import { ReportsService } from './reports-service';
@@ -18,7 +20,9 @@ describe('ReportsService', () => {
   let httpMock: HttpTestingController;
 
   const monthlyUrl: string = `${environment.apiUrl}/reports/monthly-expenses`;
+  const monthlyIncomesUrl: string = `${environment.apiUrl}/reports/monthly-incomes`;
   const cardDueUrl: string = `${environment.apiUrl}/reports/card-due-by-month`;
+  const moneyFlowUrl: string = `${environment.apiUrl}/reports/money-flow`;
   const debtSummaryUrl: string = `${environment.apiUrl}/reports/parties/debt-summary`;
   const money = (value: number): Money => value as Money;
 
@@ -63,6 +67,42 @@ describe('ReportsService', () => {
     const req = httpMock.expectOne((r) => r.url === monthlyUrl);
     expect(req.request.params.get('month')).toBe('2026-09');
     req.flush({ rows: [] });
+  });
+  it('GETs monthly incomes without a month param and unwraps { rows }', () => {
+    const incomeRows: MonthlyIncomeRow[] = [
+      { month: '2026-09', amountMinorUnits: money(50000), currencyCode: 'ARS' }
+    ];
+    let result: MonthlyIncomeRow[] | undefined;
+    service.monthlyIncomes().subscribe((rows: MonthlyIncomeRow[]) => (result = rows));
+    const req = httpMock.expectOne(monthlyIncomesUrl);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.has('month')).toBe(false);
+    req.flush({ rows: incomeRows });
+    expect(result).toEqual(incomeRows);
+  });
+  it('passes the month as a query param to monthly incomes when provided', () => {
+    service.monthlyIncomes('2026-09').subscribe();
+    const req = httpMock.expectOne((r) => r.url === monthlyIncomesUrl);
+    expect(req.request.params.get('month')).toBe('2026-09');
+    req.flush({ rows: [] });
+  });
+  it('GETs money-flow with the month param and unwraps { rows }', () => {
+    const flowRows: MoneyFlowRow[] = [{
+      transactionId: 'tx-1',
+      date: '2026-09-24',
+      description: 'Salary September',
+      accountName: 'Galicia',
+      kind: 'Income',
+      amountMinorUnits: money(85000000),
+      currencyCode: 'ARS'
+    }];
+    let result: MoneyFlowRow[] | undefined;
+    service.moneyFlow('2026-09').subscribe((rows: MoneyFlowRow[]) => (result = rows));
+    const req = httpMock.expectOne((r) => r.url === moneyFlowUrl);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('month')).toBe('2026-09');
+    req.flush({ rows: flowRows });
+    expect(result).toEqual(flowRows);
   });
   it('GETs card-due-by-month and unwraps { rows }', () => {
     let result: CardDueRow[] | undefined;

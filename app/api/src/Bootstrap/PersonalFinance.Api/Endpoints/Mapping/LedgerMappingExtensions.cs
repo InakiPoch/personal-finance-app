@@ -57,6 +57,20 @@ internal static class LedgerMappingExtensions {
     public static RecordDebitExpenseResultDto ToRecordDebitExpenseResultDto(this Guid id) {
         return new RecordDebitExpenseResultDto(id);
     }
+
+    public static RecordIncomeCommand ToRecordIncomeCommand(this RecordIncomeDto dto) {
+        return new RecordIncomeCommand(
+            dto.AmountMinorUnits,
+            dto.TargetAccountId,
+            DateOnly.Parse(dto.ReceivedOn, CultureInfo.InvariantCulture),
+            dto.Description,
+            dto.CurrencyCode
+        );
+    }
+
+    public static RecordIncomeResultDto ToRecordIncomeResultDto(this Guid id) {
+        return new RecordIncomeResultDto(id);
+    }
     
     public static ReverseTransactionResultDto ToReverseTransactionResultDto(this ReverseTransactionResult result, Guid originalTransactionId) {
         return new ReverseTransactionResultDto(result.ReversalTransactionId, originalTransactionId, result.CompensatingEntryPosted);

@@ -26,6 +26,11 @@ internal static class LedgerErrors {
         "A reversal transaction cannot itself be reversed."
     );
 
+    public static readonly Error TransactionAlreadyReversed = new(
+        "Ledger.TransactionAlreadyReversed",
+        "This transaction has already been reversed."
+    );
+
     public static readonly Error OriginalTransactionNotFound = new(
         "Ledger.OriginalTransactionNotFound",
         "The transaction to reverse was not found."

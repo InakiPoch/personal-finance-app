@@ -31,6 +31,10 @@ internal sealed class ReverseTransactionHandler(
         if(original is null) {
             return LedgerErrors.OriginalTransactionNotFound;
         }
+        var alreadyReversed = await context.Transactions.AnyAsync(transaction => transaction.OriginalTransactionId == original.Id, cancellationToken);
+        if(alreadyReversed) {
+            return LedgerErrors.TransactionAlreadyReversed;
+        }
         var reversal = Transaction.Reverse(original, command.ReversedOnUtc);
         if(reversal.IsFailure) {
             return reversal.Error;

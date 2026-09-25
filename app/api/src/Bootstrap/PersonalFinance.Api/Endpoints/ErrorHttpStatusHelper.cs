@@ -19,6 +19,7 @@ internal static class ErrorHttpStatusHelper {
 
             // 409 — the resource exists but is in a state that forbids the transition
             "Ledger.CannotReverseAReversal" => StatusCodes.Status409Conflict,
+            "Ledger.TransactionAlreadyReversed" => StatusCodes.Status409Conflict,
             "Financing.StatementAlreadyPaid" => StatusCodes.Status409Conflict,
             "Financing.InstallmentAlreadyAccrued" => StatusCodes.Status409Conflict,
             "Financing.InstallmentAlreadyReversed" => StatusCodes.Status409Conflict,

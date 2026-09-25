@@ -9,6 +9,7 @@ public sealed record ApiRoutes {
         public const string Reversal = "/transactions/{id:guid}/reversal";
         public const string AccountBalance = "/accounts/{id:guid}/balance";
         public const string Expenses = "/expenses";
+        public const string Incomes = "/incomes";
         public const string DevAccounts = "/accounts";
     }
 
@@ -70,6 +71,7 @@ public sealed record ApiRoutes {
     public sealed record Reporting {
         public const string Base = V1 + "/reports";
         public const string MonthlyExpenses = "/monthly-expenses";
+        public const string MonthlyIncomes = "/monthly-incomes";
         public const string CardDueByMonth = "/card-due-by-month";
         public const string PartyTimeline = "/parties/{id:guid}/timeline";
         public const string DebtSummary = "/parties/debt-summary";

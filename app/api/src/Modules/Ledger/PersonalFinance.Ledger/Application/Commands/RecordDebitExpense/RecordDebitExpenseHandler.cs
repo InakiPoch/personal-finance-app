@@ -47,15 +47,19 @@ internal sealed class RecordDebitExpenseHandler(LedgerDbContext context, Transac
                     category.Value,
                     source.Id,
                     postedOnUtc,
-                    participants),
-                cancellationToken);
+                    participants
+                ),
+                cancellationToken
+            );
         }
         var transaction = Transaction.Post(
             [
                 new EntryDraft(category.Value, DebitOrCredit.Debit, total),
                 new EntryDraft(source.Id, DebitOrCredit.Credit, total)
             ],
-            postedOnUtc);
+            postedOnUtc,
+            description: command.Description.Trim()
+        );
         if(transaction.IsFailure) {
             return transaction.Error;
         }

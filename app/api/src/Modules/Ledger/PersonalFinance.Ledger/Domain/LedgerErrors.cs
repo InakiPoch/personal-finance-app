@@ -75,4 +75,14 @@ internal static class LedgerErrors {
         "Ledger.InvalidCurrencyCode",
         "The currency code must be one of: ARS, USD."
     );
+
+    public static readonly Error InvalidIncomeDescription = new(
+        "Ledger.InvalidIncomeDescription",
+        "An income requires a description."
+    );
+
+    public static readonly Error IncomeDateInFuture = new(
+        "Ledger.IncomeDateInFuture",
+        "An income cannot be dated in the future."
+    );
 }

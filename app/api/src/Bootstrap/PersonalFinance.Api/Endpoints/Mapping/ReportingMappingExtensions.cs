@@ -12,6 +12,13 @@ internal static class ReportingMappingExtensions {
         return new MonthlyExpensesDto(rows);
     }
 
+    public static MonthlyIncomesDto ToMonthlyIncomesDto(this MonthlyIncomesResponse response) {
+        var rows = response.Rows
+            .Select(row => new MonthlyIncomeRowDto(row.Month, row.AmountMinorUnits, row.CurrencyCode))
+            .ToList();
+        return new MonthlyIncomesDto(rows);
+    }
+
     public static CardDueByMonthDto ToCardDueByMonthDto(this CardDueByMonthResponse response) {
         var rows = response.Rows
             .Select(row => new CardDueRowDto(

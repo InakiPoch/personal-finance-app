@@ -4,6 +4,10 @@ public sealed record MonthlyExpenseRowDto(string Month, string Category, long Am
 
 public sealed record MonthlyExpensesDto(IReadOnlyList<MonthlyExpenseRowDto> Rows);
 
+public sealed record MonthlyIncomeRowDto(string Month, long AmountMinorUnits, string CurrencyCode);
+
+public sealed record MonthlyIncomesDto(IReadOnlyList<MonthlyIncomeRowDto> Rows);
+
 public sealed record CardDueRowDto(
     string Bucket,
     string Card,

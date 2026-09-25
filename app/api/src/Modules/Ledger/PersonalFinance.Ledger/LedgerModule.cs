@@ -10,6 +10,7 @@ using PersonalFinance.Ledger.Application.Commands.GetOrCreateExpenseCategory;
 using PersonalFinance.Ledger.Application.Commands.PostReceivable;
 using PersonalFinance.Ledger.Application.Commands.PostTransaction;
 using PersonalFinance.Ledger.Application.Commands.RecordDebitExpense;
+using PersonalFinance.Ledger.Application.Commands.RecordIncome;
 using PersonalFinance.Ledger.Application.Commands.ReverseTransaction;
 using PersonalFinance.Ledger.Application.Queries.GetAccountBalance;
 using PersonalFinance.Ledger.Application.Queries.FindAccrualTransactionIds;
@@ -44,6 +45,7 @@ public sealed class LedgerModule : IModule {
         services.AddScoped<ICommandHandler<CreateAccountCommand, Guid>, CreateAccountHandler>();
         services.AddScoped<ICommandHandler<GetOrCreateExpenseCategoryCommand, Guid>, GetOrCreateExpenseCategoryHandler>();
         services.AddScoped<ICommandHandler<RecordDebitExpenseCommand, Guid>, RecordDebitExpenseHandler>();
+        services.AddScoped<ICommandHandler<RecordIncomeCommand, Guid>, RecordIncomeHandler>();
         services.AddScoped<IQueryHandler<GetAccountBalanceQuery, IReadOnlyList<Money>>, GetAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCardLiabilityQuery, IReadOnlyList<Money>>, GetCardLiabilityHandler>();
         services.AddScoped<IQueryHandler<ListExpenseCategoriesQuery, ExpenseCategoriesResponse>, ListExpenseCategoriesHandler>();

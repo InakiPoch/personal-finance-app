@@ -12,8 +12,10 @@ import {
 import { RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { fromMinorUnits } from '../../../../core/money/money';
+import { AppError } from '../../../../core/types/app-error';
 import { CurrencyCode } from '../../../../core/types/currency-code';
 import { ReportsService } from '../../../reports/reports-service';
+import { LedgerService } from '../../ledger-service';
 import { MoneyFlowRow } from '../../types/money-flow-row';
 import { MoneyFlowCurrencyTotal, MoneyFlowTable } from './money-flow-table';
 
@@ -53,13 +55,46 @@ export class MoneyFlowPage implements OnInit, OnDestroy {
   });
 
   protected readonly rows: WritableSignal<MoneyFlowRow[]> = signal<MoneyFlowRow[]>([]);
+  protected readonly undoingTransactionId: WritableSignal<string | null> = signal<string | null>(null);
+  protected readonly undoError: WritableSignal<AppError | null> = signal<AppError | null>(null);
 
   private readonly reports: ReportsService = inject(ReportsService);
+  private readonly ledger: LedgerService = inject(LedgerService);
   private readonly destroy$: Subject<void> = new Subject<void>();
 
   protected onMonthChange(month: string): void {
     this.selectedMonth.set(month);
     this.loadMoneyFlow();
+  }
+
+  protected onUndo(transactionId: string): void {
+    if(!window.confirm('Undo this income? This posts a reversal.')) {
+      return;
+    }
+    this.undoError.set(null);
+    this.undoingTransactionId.set(transactionId);
+    this.ledger
+      .reverse(transactionId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.undoingTransactionId.set(null);
+          this.loadMoneyFlow();
+        },
+        error: (error: AppError) => {
+          this.undoingTransactionId.set(null);
+          this.undoError.set(error);
+          if(error.status === 409) {
+            this.loadMoneyFlow();
+          }
+        }
+      });
+  }
+
+  protected undoErrorText(error: AppError): string {
+    return error.status === 409
+      ? 'That income was already undone — the row will refresh.'
+      : 'Could not undo that income — try again in a moment.';
   }
 
   private loadMoneyFlow(): void {

@@ -80,4 +80,23 @@ describe('MoneyFlowTable', () => {
     expect(footerRows[1].textContent).toContain('USD');
     expect(footerRows[1].textContent).toContain(formatMoney(money(5000), 'USD'));
   });
+  it('renders an Undo button on an income row but not on an outcome row', () => {
+    render([incomeRow, outcomeRow]);
+    const bodyRows: NodeListOf<HTMLTableRowElement> = fixture.nativeElement.querySelectorAll('tbody tr');
+    expect(bodyRows[0].querySelector('button')?.textContent?.trim()).toBe('Undo');
+    expect(bodyRows[1].querySelector('button')).toBeNull();
+  });
+  it('emits the transaction id when the Undo button is clicked', () => {
+    render([incomeRow]);
+    const emitted: string[] = [];
+    fixture.componentInstance.undo.subscribe((transactionId: string) => emitted.push(transactionId));
+    (fixture.nativeElement.querySelector('tbody button') as HTMLButtonElement).click();
+    expect(emitted).toEqual(['tx-1']);
+  });
+  it('disables the Undo button while undoing() is true', () => {
+    render([incomeRow]);
+    fixture.componentRef.setInput('undoing', true);
+    fixture.detectChanges();
+    expect((fixture.nativeElement.querySelector('tbody button') as HTMLButtonElement).disabled).toBeTrue();
+  });
 });

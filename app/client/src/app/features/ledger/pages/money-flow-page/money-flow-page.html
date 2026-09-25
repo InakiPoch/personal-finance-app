@@ -28,6 +28,14 @@
   } @else if(loadStatus() === 'error') {
     <p class="text-sm text-negative" role="alert">Could not load the money flow — try again in a moment.</p>
   } @else {
-    <app-money-flow-table [rows]="rows()" [footerTotals]="footerTotals()" />
+    @if(undoError(); as error) {
+      <p class="mb-4 text-sm text-negative" role="alert">{{ undoErrorText(error) }}</p>
+    }
+    <app-money-flow-table
+      [rows]="rows()"
+      [footerTotals]="footerTotals()"
+      [undoing]="undoingTransactionId() !== null"
+      (undo)="onUndo($event)"
+    />
   }
 </div>

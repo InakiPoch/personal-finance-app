@@ -267,6 +267,11 @@ internal static class EndpointExtensions {
                 .WithSummary("Get monthly incomes.")
                 .WithDescription("Cross-module dashboard over the Ledger monthly-incomes view, optionally filtered to one month.")
                 .Produces<MonthlyIncomesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Reporting.MoneyFlow, GetMoneyFlow.Handle)
+                .WithSummary("Get the Money Flow table for one month.")
+                .WithDescription("Accounting-style monthly rows over the Ledger money-flow view — an income credit or an out-of-pocket debit (my share only), reversed pairs hidden. The month query parameter is required.")
+                .Produces<MoneyFlowDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapGet(ApiRoutes.Reporting.CardDueByMonth, GetCardDueByMonth.Handle)
                 .WithSummary("Get card liability due by month.")
                 .WithDescription("Combines already-accrued card liability with the not-yet-accrued future installment schedule.")

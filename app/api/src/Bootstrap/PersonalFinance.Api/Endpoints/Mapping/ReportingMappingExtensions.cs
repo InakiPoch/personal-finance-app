@@ -52,4 +52,18 @@ internal static class ReportingMappingExtensions {
             .ToList();
         return new DebtByPartyDto(rows);
     }
+
+    public static MoneyFlowDto ToMoneyFlowDto(this MoneyFlowResponse response) {
+        var rows = response.Rows
+            .Select(row => new MoneyFlowRowDto(
+                row.TransactionId,
+                row.Date,
+                row.Description,
+                row.AccountName,
+                row.Kind,
+                row.AmountMinorUnits,
+                row.CurrencyCode))
+            .ToList();
+        return new MoneyFlowDto(rows);
+    }
 }

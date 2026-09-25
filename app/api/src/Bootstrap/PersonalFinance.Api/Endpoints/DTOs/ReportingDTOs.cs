@@ -34,3 +34,15 @@ public sealed record PartyTimelineDto(IReadOnlyList<PartyTimelineRowDto> Rows);
 public sealed record PartyDebtRowDto(Guid PartyId, string PartyName, long NetBalanceMinorUnits, string CurrencyCode);
 
 public sealed record DebtByPartyDto(IReadOnlyList<PartyDebtRowDto> Rows);
+
+public sealed record MoneyFlowRowDto(
+    Guid TransactionId,
+    DateOnly Date,
+    string Description,
+    string AccountName,
+    string Kind,
+    long AmountMinorUnits,
+    string CurrencyCode
+);
+
+public sealed record MoneyFlowDto(IReadOnlyList<MoneyFlowRowDto> Rows);

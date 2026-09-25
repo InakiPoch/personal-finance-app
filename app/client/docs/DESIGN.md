@@ -235,6 +235,15 @@ no `I-` prefix.
   currencyCode: CurrencyCode }`
 - `PartyTimelineRow = { movementOnUtc: IsoInstant; description: string; deltaMinorUnits: Money;
   runningBalanceMinorUnits: Money; currencyCode: CurrencyCode }`
+- `MonthlyIncomeRow = { month: string; amountMinorUnits: Money; currencyCode: CurrencyCode }`
+  (`GET /v1/reports/monthly-incomes`, `docs/incomes-support/slice-1-…` — missing from this list
+  since that slice, added here alongside `MoneyFlowRow` below)
+- `MoneyFlowRow = { transactionId: string; date: string; description: string; accountName: string;
+  kind: 'Income' | 'Outcome'; amountMinorUnits: Money; currencyCode: CurrencyCode }`
+  (`GET /v1/reports/money-flow?month=`, `docs/incomes-support/slice-2-money-flow-table.md`) —
+  `transactionId` rides on the row on purpose, unused by this slice's own view but needed by
+  Slice 3's Undo; `kind`/`amountMinorUnits` are already resolved server-side (never both a
+  non-zero income and outcome on the same row)
 
 ## 4. Services
 
@@ -392,6 +401,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 34 | POST | `/v1/financing/creditor-payables/{creditorId}/pay-full` | `FinancingService.payCreditorFullDebt` | Creditor detail — **Pay full debt** (stamps every unpaid, non-reversed cuota across the creditor's purchases, empty `{}` body; returns `{ settledCount }`; zero settleable → `0`; unknown creditor → 404) |
 | 35 | POST | `/v1/ledger/incomes` | `LedgerService.recordIncome` | Record income (§3.12) |
 | 36 | GET | `/v1/reports/monthly-incomes` | `ReportsService.monthlyIncomes` | Dashboard — Income side of the `Out of pocket \| Income` toggle (§3.12) |
+| 37 | GET | `/v1/reports/money-flow` | `ReportsService.moneyFlow` | Money Flow table (§3.13; required `month` param, one row per money movement, `kind`-driven signed rendering) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

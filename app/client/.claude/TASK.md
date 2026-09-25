@@ -1379,6 +1379,34 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 
 ---
 
+## Phase 41 — Incomes support: the Money Flow table (Slice 2)
+
+**Goal:** An accounting-style monthly view where every row is one movement of the user's own money — income in green, outcome in red — reusing the Dashboard's existing Out-of-pocket and Income filters rather than a new one.
+
+**Traces to:** `docs/incomes-support/slice-2-money-flow-table.md` (+ `00-overview.md`; second of three slices — Slice 3 undo an income remains). API half is `app/api` Phase 46 (`GET /v1/reports/money-flow?month=`). `docs/DESIGN.md` §3/§9 gain the type + endpoint row; `docs/PRD.md` §3.13 records the view; the API's own `docs/DESIGN.md` D16 + `docs/PRD.md` §9 decision 17 record the view semantics.
+
+**Depends on:** Phase 40 (the `ledger` feature's `record-income-page`, `ledger.routes.ts`) and Phase 1 (`ReportsService`, the `dashboard-page.ts` month-input idiom).
+
+### Tasks
+- [x] Type — `features/ledger/types/money-flow-row.ts`.
+- [x] `ReportsService.moneyFlow(month)` → `GET reports/money-flow` (required `month` param).
+- [x] `pages/money-flow-page/` (container, routed `money-flow` in `ledger.routes.ts` → `/ledger/money-flow`) — month picker defaulting to the current month, `loadStatus`, `footerTotals` computed per currency, "Record income" link.
+- [x] `money-flow-table.{ts,html,css}` (presentational) — signed `+`/`−` (U+2212 minus) Income/Outcome cells, muted `—` for the empty side, `<tfoot>` per-currency totals, staggered row-in animation.
+- [x] Nav entry `{ label: 'Money Flow', path: '/ledger/money-flow' }` in `app.ts`.
+- [x] Record income page — success navigation retargeted from `/reports` to `/ledger/money-flow`.
+- [x] `docs/SYSTEM.md` — "Signed amounts" rule.
+- [x] Specs — `reports-service.spec.ts` +1; new `money-flow-table.spec.ts` (5 facts); new `money-flow-page.spec.ts` (5 facts); `record-income-page.spec.ts` navigation fact retargeted.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **333/333** (from 322); `pnpm ng build --configuration production` clean (`ledger-routes` lazy chunk 24.98 → 31.47 kB).
+- [ ] Manual (no browser here) — handed to the user: in one month, an income, a plain debit expense, a split debit expense, a USD expense, a card purchase and a statement payment; confirm Money Flow shows the income (green) and the three debit expenses (red, split at the holder's share) but no card rows, ARS and USD totals separated in the footer; reverse an expense from Transactions and confirm it disappears from Money Flow.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. Slice 3 (undo an income) remains — not started, which will close `docs/incomes-support/`.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

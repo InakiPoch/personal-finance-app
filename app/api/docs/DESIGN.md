@@ -199,6 +199,19 @@ Por ahora la API es de consumo puro (Swagger/Postman), sin autenticación más a
 - **`Transaction.Description` persiste por primera vez (arregla un bug verificado, no es parte del alcance de "ingresos" en sí).** `RecordDebitExpenseHandler` (rama sin split) y `PostTransactionHandler` recibían una descripción y la descartaban silenciosamente — `RegisterSharedExpenseHandler` (split) y `SettleCurrentAccountHandler` ya la enviaban, sin efecto. Como la descripción de un ingreso es su única etiqueta legible y la tabla "Money Flow" de la Slice 2 depende de ella, el fix se adelantó a este slice en lugar de esperar una iniciativa propia. Las filas históricas no se pueden recuperar — el dato nunca se guardó.
 - **Vista de solo lectura, espejo de `vw_ledger_monthly_expenses`.** `vw_ledger_monthly_incomes` sigue el mismo criterio D9/RF-1 (agrupar por `AccountKind` correcto, particionar por moneda) pero en sentido crédito-positivo; una reversión anula su propio mes automáticamente porque el storno debita `Income`, igual que Out of pocket.
 
+---
+
+### D16 — La tabla "Money Flow" reutiliza los filtros de D9/D15, no inventa un tercero
+
+`docs/incomes-support/slice-2-money-flow-table.md` (Slice 2) agrega una vista mensual, estilo libro contable, donde cada fila es un movimiento de plata propia — una fila **Outcome** o una fila **Income**, nunca ambas. La decisión de diseño central es **no inventar un tercer criterio de filtrado**: reutilizar bit-a-bit los dos que ya existen y ya están probados.
+
+- **El lado Outcome es exactamente el filtro de `vw_ledger_monthly_expenses`.** Débito a una cuenta `Expense`-tipo cuyo `Kind` no es `Receivable` ni `CardPurchases` (D9/RF-1) — así una compra dividida muestra solo la parte propia del titular, igual que "Out of pocket", sin duplicar esa lógica en un segundo lugar.
+- **El lado Income es exactamente el filtro de `vw_ledger_monthly_incomes`.** Crédito a la única cuenta `Income` (D15).
+- **Las cuotas de tarjeta, los pagos de resumen y las liquidaciones a terceros quedan afuera sin necesidad de un `WHERE` extra.** Una acreencia de `CardPurchases` (Kind excluido de Outcome) y el pago del resumen (`Dr Pasivo:Tarjeta / Cr Activo:Banco`, ninguna pata es `Income` ni `Expense` no-`Receivable`) suman cero en ambos lados — la fila se descarta por el propio `HAVING IncomeMinorUnits > 0 OR OutcomeMinorUnits > 0`, no por una exclusión explícita. Es deliberado (ver decisión 17 del PRD): esos movimientos se cargan a mano como gasto débito/efectivo cuando efectivamente se pagan.
+- **Un par revertido se oculta entero, sin importar el mes de cada pata.** `WHERE t.OriginalTransactionId IS NULL AND NOT EXISTS(...)` excluye tanto la transacción original como su storno.
+- **Diferencia aceptada y documentada, no corregida, con "Out of pocket": el storno fecha con el reloj, no con el mes original.** `ReverseTransaction` fecha la reversión en `DateTimeOffset.UtcNow` (no en el mes del movimiento original). Revertir en septiembre un gasto de agosto hace que Out of pocket muestre `+X` en agosto y `−X` en septiembre (dos meses, dos filas), mientras que Money Flow oculta ambas patas en cualquier mes que se consulte. Una reversión en el mismo mes reconcilia igual en los dos reportes; el caso cross-month es la única divergencia, y se documenta en el header de la vista SQL en lugar de "arreglar" `vw_ledger_monthly_expenses` — ese cambio queda fuera de esta iniciativa.
+- **La descripción cae a la categoría cuando no hay una propia.** `COALESCE(t.Description, <nombre de la cuenta de gasto>, 'Income')` — una fila anterior a la Fase 45 (sin `Description` persistida) muestra su categoría, igual que decidió D15's fix retroactivo.
+
 ## 3. Requisitos funcionales
 
 | # | Caso de uso | Tipo | Módulo(s) | Estado |

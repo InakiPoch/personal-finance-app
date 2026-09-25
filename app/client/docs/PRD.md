@@ -254,6 +254,19 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   reversals) or a third party paying back a receivable (a settlement, not a gain). No
   categories, no recurrence — a manual, one-off entry every time.
 
+### 3.13 Money Flow table (new — extends §3.12, now built)
+- **Shows:** an accounting-style monthly view at `/ledger/money-flow` — one row per movement of
+  the user's own money, an Income row (`+amount`, green) or an Outcome row (`−amount`, red),
+  never both on the same row; a per-currency footer total, no net figure. A month picker
+  (defaults to the current month) and a "Record income" link round out the page.
+- **Source:** `GET /v1/reports/money-flow?month=` (required).
+- **Notes:** traces to `docs/incomes-support/slice-2-money-flow-table.md`, the second of three
+  slices (Slice 3 undoes an income). The Outcome side shows **exactly** what the Dashboard's Out
+  of pocket total already shows — a split expense at the holder's share only, card purchases and
+  statement payments excluded — and the Income side mirrors the Dashboard's Income toggle; no new
+  filtering rule is introduced, both sides reuse what §3.1/§3.12 already established. A reversed
+  pair (income or outcome) is hidden entirely, in whichever month it is viewed from.
+
 ## 4. Cross-cutting client requirements
 
 - **Consistent error surfacing.** Every failed call yields the same typed error (from the API's

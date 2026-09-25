@@ -1385,3 +1385,29 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 ### Completion notes
 
 Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Nothing committed by this session — the user commits their own. **Migration-id resequencing (see Step 2 above) is the one non-obvious thing a fresh session should know about**: `AddTransactionDescription`'s migration id no longer matches its scaffold timestamp — this is deliberate and safe (verified against `__EFMigrationsHistory_Ledger`, neither new migration had been applied), not a mistake to "fix" by renaming it back. Slices 2 (Money Flow table) and 3 (undo an income) remain — not started.
+
+---
+
+## Phase 46 — Incomes support: the Money Flow table (Slice 2)
+
+**Goal:** A monthly, accounting-style table where every row is one movement of the user's own money — income in green, outcome in red — reusing the exact Outcome filter `vw_ledger_monthly_expenses` already proves correct.
+
+**Traces to:** `docs/incomes-support/slice-2-money-flow-table.md` (+ `00-overview.md`; second of three slices — Slice 3 undo an income remains). `docs/DESIGN.md` D16 + `docs/PRD.md` §9 decision 17 record the view semantics.
+
+**Depends on:** Phase 45 (`Transaction.Description`, the `Income` account, `vw_ledger_monthly_incomes`).
+
+### Tasks
+- [x] **View `vw_ledger_money_flow`.** One row per live transaction; Outcome filter identical to `vw_ledger_monthly_expenses` (D9/RF-1); Income filter identical to `vw_ledger_monthly_incomes` (Phase 45); `HAVING IncomeMinorUnits > 0 OR OutcomeMinorUnits > 0` drops card accruals/statement payments; reversed pairs hidden via `WHERE OriginalTransactionId IS NULL AND NOT EXISTS(...)`. Migration `AddMoneyFlowView`.
+- [x] **Report.** `MoneyFlowQuery`/`Handler` (Reporting) — `Kind`/`AmountMinorUnits` mapped in C#, not SQL; `GET /v1/reports/money-flow?month=` (required, 400 on missing/malformed).
+- [x] **Host endpoint.** `Endpoints/Reporting/GetMoneyFlow.cs`, `ApiRoutes.Reporting.MoneyFlow`, `ReportingMappingExtensions.ToMoneyFlowDto`.
+- [x] **API tests.** `MoneyFlowQueryTests.cs` (9 facts — reconciliation per currency across two months, split-share-only outcome, income row's account+description, reversal-hiding for both income and expense, card-accrual/statement-payment exclusion with exact row count, description fallback, month scoping + ordering); `MoneyFlowTests.cs` (3 WAF facts). `ReportingIntegrationFixture` gained June-only seed data (reused the existing May split rather than a new party, to avoid perturbing `DebtByParty_nets_each_parties_movements_into_a_single_row`) + a `PostWithNoDescriptionAsync` helper; `PostAsync` now returns the posted transaction id.
+- [x] **Client.** `ReportsService.moneyFlow(month)`, `money-flow-row.ts`; Money Flow page + table (signed `+`/`−`, U+2212 minus, per-currency `<tfoot>`); nav entry; Record income's success navigation retargeted to `/ledger/money-flow`; `docs/SYSTEM.md` "Signed amounts" rule.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. All seven test binaries run directly → **Reporting 20** (from 11), **Api 61** (from 58), Ledger 59, Financing 155, Subscriptions 59, Parties 33, Architecture 15 = **402** (was 390). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): `pnpm ng lint` clean, `pnpm ng test` **333/333** (from 322), `pnpm ng build --configuration production` clean (`ledger-routes` 24.98 → 31.47 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: in one month, record an income, a plain debit expense, a split debit expense, a USD expense, a card purchase and a statement payment; confirm Money Flow shows the income (green) and the three debit expenses (red, split at the holder's share) but **no** card rows, with ARS and USD footer totals separated; confirm the outcome total per currency equals the Dashboard's Out of pocket figure; reverse an expense from Transactions and confirm it disappears from Money Flow; confirm a pre-Slice-1 expense shows its category name as the description.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. Slice 3 (undo an income) remains — not started, which will close `docs/incomes-support/`.

@@ -28,6 +28,12 @@
         >
           Running balance
         </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Currency
+        </th>
         <th scope="col" class="pb-2 text-right">
           <span class="sr-only">Reverse</span>
         </th>
@@ -46,12 +52,15 @@
             [class.text-ink]="row.deltaMinorUnits >= 0"
             [class.timeline__debit]="row.deltaMinorUnits < 0"
           >
-            {{ signed(row.deltaMinorUnits) }}
+            {{ signed(row) }}
           </td>
           <td
             class="py-2.5 text-right text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]"
           >
-            {{ formatArs(row.runningBalanceMinorUnits) }}
+            {{ formatMoney(row.runningBalanceMinorUnits, row.currencyCode) }}
+          </td>
+          <td class="py-2.5 text-right">
+            <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ row.currencyCode }}</span>
           </td>
           <td class="py-2.5 text-right">
             <div class="inline-flex items-baseline justify-end gap-2">

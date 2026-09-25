@@ -6,7 +6,8 @@ import {
   input,
   output,
 } from '@angular/core';
-import { formatArs } from '../../../../core/money/money';
+import { formatMoney } from '../../../../core/money/money';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 
@@ -21,11 +22,11 @@ export class TimelineTable {
   readonly rows: InputSignal<PartyTimelineRow[]> = input.required<PartyTimelineRow[]>();
   readonly reverseClick: OutputEmitterRef<string> = output<string>();
 
-  protected readonly formatArs: (value: Money) => string = formatArs;
+  protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
 
-  protected signed(value: Money): string {
-    const formatted: string = this.formatArs(value);
-    return value > 0 ? `+${formatted}` : formatted;
+  protected signed(row: PartyTimelineRow): string {
+    const formatted: string = this.formatMoney(row.deltaMinorUnits, row.currencyCode);
+    return row.deltaMinorUnits > 0 ? `+${formatted}` : formatted;
   }
 
   protected isReversalRow(row: PartyTimelineRow): boolean {

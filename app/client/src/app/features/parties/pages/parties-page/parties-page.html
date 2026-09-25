@@ -20,16 +20,25 @@
         Could not load parties — try again in a moment.
       </p>
     } @else {
-      <p
-        class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
-      >
-        {{ formatArs(totalReceivable()) }}
-      </p>
+      @for(total of receivableTotals(); track total.currencyCode) {
+        <p
+          class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
+        >
+          {{ formatMoney(total.netBalanceMinorUnits, total.currencyCode) }}
+        </p>
+      }
+      @if(receivableTotals().length === 0) {
+        <p
+          class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
+        >
+          {{ formatMoney(zeroMinorUnits, 'ARS') }}
+        </p>
+      }
       <div class="mt-3 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
       <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
         What parties owe you across every open balance.
-        @if(totalPayable() > 0) {
-          <span class="text-ink-soft">You owe {{ formatArs(totalPayable()) }} back.</span>
+        @for(total of payableTotals(); track total.currencyCode) {
+          <span class="text-ink-soft">You owe {{ formatMoney(total.netBalanceMinorUnits, total.currencyCode) }} back.</span>
         }
       </p>
       @if(parties().length === 0) {
@@ -57,14 +66,20 @@
                     class="transition-transform group-hover:translate-x-0.5"
                   >&rsaquo;</span>
                 </a>
-                <span
-                  class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]"
-                  [class.text-ledger]="party.netBalanceMinorUnits === 0 && party.scheduledCount === 0"
-                >
-                  {{ formatArs(party.netBalanceMinorUnits) }}
-                </span>
+                @if(party.balances.length > 0) {
+                  <div class="flex flex-col items-end gap-0.5">
+                    @for(balance of party.balances; track balance.currencyCode) {
+                      <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                        {{ formatMoney(balance.netBalanceMinorUnits, balance.currencyCode) }}
+                      </span>
+                    }
+                  </div>
+                }
               </div>
-              <p class="mt-0.5 text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">
+              <p
+                class="mt-0.5 text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint"
+                [class.text-ledger]="party.balances.length === 0 && party.scheduledCount === 0"
+              >
                 {{ balanceHint(party) }}
               </p>
             </li>

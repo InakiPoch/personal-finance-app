@@ -28,23 +28,36 @@
       <p class="mt-6 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
         {{ current.name }}
       </p>
-      <p
-        class="mt-2 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] [font-variant-numeric:tabular-nums_lining-nums]"
-        [class.text-stamp]="current.balanceMinorUnits !== 0"
-        [class.text-ledger]="current.balanceMinorUnits === 0"
-      >
-        {{ formatArs(current.balanceMinorUnits) }}
-      </p>
       <div class="mt-3 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
-      <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
-        @if(current.balanceMinorUnits > 0) {
-          What this party owes you right now.
-        } @else if(current.balanceMinorUnits < 0) {
-          What you owe this party right now.
-        } @else {
-          Nothing outstanding — you're square.
+      @if(current.balances.length > 0) {
+        @for(currencyBalance of current.balances; track currencyBalance.currencyCode) {
+          <p
+            class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] [font-variant-numeric:tabular-nums_lining-nums]"
+            [class.text-stamp]="currencyBalance.balanceMinorUnits !== 0"
+            [class.text-ledger]="currencyBalance.balanceMinorUnits === 0"
+          >
+            {{ formatMoney(currencyBalance.balanceMinorUnits, currencyBalance.currencyCode) }}
+          </p>
+          <p class="mt-1 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+            @if(currencyBalance.balanceMinorUnits > 0) {
+              What this party owes you in {{ currencyBalance.currencyCode }}.
+            } @else if(currencyBalance.balanceMinorUnits < 0) {
+              What you owe this party in {{ currencyBalance.currencyCode }}.
+            } @else {
+              Nothing outstanding in {{ currencyBalance.currencyCode }}.
+            }
+          </p>
         }
-      </p>
+      } @else {
+        <p
+          class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-ledger [font-variant-numeric:tabular-nums_lining-nums]"
+        >
+          {{ formatMoney(zeroMinorUnits, 'ARS') }}
+        </p>
+        <p class="mt-1 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+          Nothing outstanding — you're square.
+        </p>
+      }
     }
     @if(partyId(); as id) {
       <a
@@ -109,7 +122,7 @@
             <span
               class="shrink-0 font-serif text-base text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
             >
-              {{ formatArs(share.shareMinorUnits) }}
+              {{ formatMoney(share.shareMinorUnits, share.currencyCode) }}
             </span>
           </li>
         }
@@ -134,17 +147,29 @@
         for="amount"
         class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
       >
-        Amount (ARS)
+        Amount
       </label>
-      <input
-        type="number"
-        id="amount"
-        min="0"
-        step="0.01"
-        inputmode="decimal"
-        formControlName="amount"
-        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
-      />
+      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+        <input
+          type="number"
+          id="amount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        <select
+          id="currency"
+          formControlName="currency"
+          aria-label="Currency"
+          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+        >
+          @for(code of owedCurrencies(); track code) {
+            <option [value]="code">{{ code }}</option>
+          }
+        </select>
+      </div>
       @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
         <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
       }

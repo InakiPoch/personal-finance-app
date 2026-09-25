@@ -206,7 +206,8 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         var parties = scope.ServiceProvider.GetRequiredService<IPartiesApi>();
         var result = await parties.SettleCurrentAccountAsync(
             new SettleCurrentAccountCommand(partyId, amountMinorUnits, bankAccountId, settledOnUtc),
-            CancellationToken.None);
+            CancellationToken.None
+        );
         Assert.True(result.IsSuccess, $"Settle failed: {result.Error}");
     }
 }

@@ -42,7 +42,7 @@ describe('PartiesService', () => {
     const balance: CurrentAccountBalance = {
       partyId: 'p1',
       name: 'Alice',
-      balanceMinorUnits: money(250000)
+      balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }]
     };
     let result: CurrentAccountBalance | undefined;
     service.getBalance('p1').subscribe((r: CurrentAccountBalance) => (result = r));
@@ -91,7 +91,8 @@ describe('PartiesService', () => {
       participants: [
         { partyId: 'p1', weight: 1 },
         { partyId: 'p2', weight: 2 }
-      ]
+      ],
+      currencyCode: 'ARS'
     };
     let result: SharedExpenseResult | undefined;
     service.registerSharedExpense(body).subscribe((r: SharedExpenseResult) => (result = r));
@@ -110,7 +111,8 @@ describe('PartiesService', () => {
         expenseAccountId: 'exp-1',
         fundingAccountId: 'acc-1',
         incurredOnUtc: '2026-09-01T20:00:00.000Z',
-        participants: []
+        participants: [],
+        currencyCode: 'ARS'
       }).subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
     httpMock.expectOne(`${environment.apiUrl}/parties/shared-expenses`).flush(
       {
@@ -127,6 +129,7 @@ describe('PartiesService', () => {
   it('POSTs a settlement for a party and returns the ledger transaction id', () => {
     const body: SettleCurrentAccount = {
       amountMinorUnits: money(250000),
+      currencyCode: 'ARS',
       bankAccountId: 'acc-1',
       settledOnUtc: '2026-09-02T12:00:00.000Z'
     };
@@ -143,6 +146,7 @@ describe('PartiesService', () => {
     service
       .settle('p1', {
         amountMinorUnits: money(999999999),
+        currencyCode: 'ARS',
         bankAccountId: 'acc-1',
         settledOnUtc: '2026-09-02T12:00:00.000Z'
       }).subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
@@ -165,7 +169,8 @@ describe('PartiesService', () => {
         movementOnUtc: '2026-09-01T20:00:00.000Z',
         description: 'Dinner split',
         deltaMinorUnits: money(300000),
-        runningBalanceMinorUnits: money(300000)
+        runningBalanceMinorUnits: money(300000),
+        currencyCode: 'ARS'
       }
     ];
     let result: CurrentAccountTimelineRow[] | undefined;

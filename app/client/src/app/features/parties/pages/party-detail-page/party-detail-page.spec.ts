@@ -3,7 +3,9 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
+import { formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
@@ -19,6 +21,7 @@ import { PartyDetailPage } from './party-detail-page';
 type PartyDetailView = {
   form: FormGroup<{
     amount: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
     bankAccountId: FormControl<string>;
     settledOnUtc: FormControl<string>;
   }>;
@@ -38,7 +41,16 @@ const money = (value: number): Money => value as Money;
 const balance: CurrentAccountBalance = {
   partyId: 'p1',
   name: 'Alice',
-  balanceMinorUnits: money(250000)
+  balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }]
+};
+
+const twoCurrencyBalance: CurrentAccountBalance = {
+  partyId: 'p1',
+  name: 'Alice',
+  balances: [
+    { currencyCode: 'ARS', balanceMinorUnits: money(250000) },
+    { currencyCode: 'USD', balanceMinorUnits: money(5000) }
+  ]
 };
 
 const timelineRows: PartyTimelineRow[] = [{
@@ -91,6 +103,7 @@ describe('PartyDetailPage', () => {
   function fillSettleForm(): void {
     view.form.setValue({
       amount: 2500,
+      currency: 'ARS',
       bankAccountId: 'acct-debit',
       settledOnUtc: '2026-09-15T10:30'
     });
@@ -153,11 +166,38 @@ describe('PartyDetailPage', () => {
     const [id, body]: [string, SettleCurrentAccount] = settle.calls.mostRecent().args;
     expect(id).toBe('p1');
     expect(body.amountMinorUnits).toBe(money(250000));
+    expect(body.currencyCode).toBe('ARS');
     expect(body.bankAccountId).toBe('acct-debit');
     expect(body.settledOnUtc).toBe(new Date('2026-09-15T10:30').toISOString());
     expect(view.settleStatus()).toBe('settled');
     expect(getBalance).toHaveBeenCalledTimes(1);
     expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('renders one balance line per currency the party owes', () => {
+    getBalance.and.returnValue(of(twoCurrencyBalance));
+    setup();
+    expect(text()).toContain(formatMoney(money(250000), 'ARS'));
+    expect(text()).toContain(formatMoney(money(5000), 'USD'));
+  });
+  it('offers only the currencies the party actually owes on the settle form', () => {
+    getBalance.and.returnValue(of(twoCurrencyBalance));
+    setup();
+    const options: NodeListOf<HTMLOptionElement> = fixture.nativeElement.querySelectorAll('#currency option');
+    expect(options.length).toBe(2);
+    expect(Array.from(options).map((option: HTMLOptionElement) => option.value)).toEqual(['ARS', 'USD']);
+  });
+  it('sends the chosen settlement currency', () => {
+    getBalance.and.returnValue(of(twoCurrencyBalance));
+    setup();
+    view.form.setValue({
+      amount: 50,
+      currency: 'USD',
+      bankAccountId: 'acct-debit',
+      settledOnUtc: '2026-09-15T10:30'
+    });
+    view.onSubmit();
+    const [, body]: [string, SettleCurrentAccount] = settle.calls.mostRecent().args;
+    expect(body.currencyCode).toBe('USD');
   });
   it('renders each scheduled share under its due month, verbatim from the API', () => {
     futureShares.and.returnValue(of<FuturePartyShare[]>(futureShareRows));

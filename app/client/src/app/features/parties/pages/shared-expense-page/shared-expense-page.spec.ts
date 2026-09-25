@@ -4,6 +4,7 @@ import { FormArray, FormControl, FormGroup } from '@angular/forms';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
@@ -23,6 +24,7 @@ type SharedExpenseView = {
   form: FormGroup<{
     description: FormControl<string>;
     total: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
     expenseAccountId: FormControl<string>;
     fundingAccountId: FormControl<string>;
     incurredOnUtc: FormControl<string>;
@@ -132,6 +134,7 @@ describe('SharedExpensePage', () => {
     expect(body).toEqual({
       description: 'Dinner',
       totalMinorUnits: 900000 as Money,
+      currencyCode: 'ARS',
       expenseAccountId: 'exp-uuid',
       fundingAccountId: 'acct-1',
       incurredOnUtc: new Date('2026-09-01T20:00').toISOString(),
@@ -139,6 +142,21 @@ describe('SharedExpensePage', () => {
     });
     expect(view.submitStatus()).toBe('confirmed');
     expect(view.splitReferenceId()).toBe('split-1');
+  });
+  it('sends the chosen currency when it is not the ARS default', () => {
+    setup();
+    view.addParticipant();
+    view.form.controls.participants.at(0).setValue({ partyId: 'p1', weight: 2 });
+    fillHeaderFields();
+    view.form.controls.currency.setValue('USD');
+    view.onSubmit();
+    const body: RegisterSharedExpense = registerSharedExpense.calls.mostRecent().args[0];
+    expect(body.currencyCode).toBe('USD');
+  });
+  it('no longer hardcodes ARS on the total label', () => {
+    setup();
+    const label: HTMLLabelElement | null = fixture.nativeElement.querySelector('label[for="total"]');
+    expect(label?.textContent?.trim()).toBe('Total');
   });
   it('renders submitErrorText keyed off the AppError code on a 422', () => {
     const appError: AppError = {

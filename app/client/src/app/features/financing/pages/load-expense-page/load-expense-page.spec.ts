@@ -4,6 +4,7 @@ import { FormArray, FormControl, FormGroup } from '@angular/forms';
 import { Observable, of, throwError } from 'rxjs';
 import { TestScheduler } from 'rxjs/testing';
 import { AppError } from '../../../../core/types/app-error';
+import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { CreditorsService } from '../../../creditors/creditors-service';
 import { Creditor, CreditorAccount } from '../../../creditors/types/creditor';
@@ -70,8 +71,8 @@ describe('LoadExpensePage', () => {
   const pastIso = (): string => new Date(Date.now() - 86_400_000).toISOString().slice(0, 10);
   const futureIso = (): string => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
-  function balance(value: number): CurrentAccountBalance {
-    return { partyId: 'p1', name: 'Alice', balanceMinorUnits: money(value) };
+  function balance(value: number, currencyCode: CurrencyCode = 'ARS'): CurrentAccountBalance {
+    return { partyId: 'p1', name: 'Alice', balances: [{ currencyCode, balanceMinorUnits: money(value) }] };
   }
 
   function fillValidForm(): void {
@@ -298,6 +299,32 @@ describe('LoadExpensePage', () => {
     });
     expect(getBalance).toHaveBeenCalled();
     expect(view.reconciliations()[0].status).not.toBe('scheduled');
+  });
+  it('reconciles a USD debit split against the USD balance, not a stale ARS row', () => {
+    const scheduler: TestScheduler = new TestScheduler((actual, expected) =>
+      expect(actual).toEqual(expected),
+    );
+    let call: number = 0;
+    getBalance.and.callFake(() => {
+      call += 1;
+      return of({
+        partyId: 'p1',
+        name: 'Alice',
+        balances: [
+          { currencyCode: 'ARS' as CurrencyCode, balanceMinorUnits: money(100000) },
+          { currencyCode: 'USD' as CurrencyCode, balanceMinorUnits: money(call === 1 ? 20000 : 30000) }
+        ]
+      });
+    });
+    fillValidDebitForm();
+    view.form.controls.currency.setValue('USD');
+    addParticipant('p1', 1);
+    scheduler.run(() => {
+      view.onSubmit();
+    });
+    const row = view.reconciliations()[0];
+    expect(row.status).toBe('reconciled');
+    expect(row.balanceMinorUnits).toBe(30000);
   });
   it('swaps cardId validation for the creditor fields when the mode is "creditor"', () => {
     expect(view.form.controls.cardId.hasError('required')).toBe(true);

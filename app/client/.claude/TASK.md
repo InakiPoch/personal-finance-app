@@ -1407,6 +1407,29 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 
 ---
 
+## Phase 42 — Incomes support: undo an income (Slice 3, closes the initiative)
+
+**Goal:** Let a mistakenly recorded income be undone from Money Flow — no new mechanism, just the existing ledger reversal call surfaced as a per-row Undo button on income rows.
+
+**Traces to:** `docs/incomes-support/slice-3-undo-income.md` (+ `00-overview.md`; third and final slice). API half is `app/api` Phase 47 (a global double-reversal guard, `Ledger.TransactionAlreadyReversed`, 409). `docs/DESIGN.md` §3 (the `MoneyFlowRow.transactionId` note) + §9 (the reversal endpoint row) updated; `docs/PRD.md` §3.13 records the slice.
+
+**Depends on:** Phase 41 (the Money Flow page/table, `MoneyFlowRow.transactionId`) and Phase 1 (`LedgerService.reverse`, already used by `reverse-movement-page`).
+
+### Tasks
+- [x] `money-flow-table` — `undo: OutputEmitterRef<string>` + `undoing: InputSignal<boolean>`; an Undo button renders on income rows only (`kind === 'Income'`), disabled while `undoing()`; new sr-only "Actions" column, footer `colspan` bumped 3 → 4.
+- [x] `money-flow-page` — injects `LedgerService`; `onUndo(transactionId)` does `window.confirm(...)`, tracks the in-flight id in `undoingTransactionId`, calls `ledger.reverse(...)`; on success refetches the month; on 409 refetches **and** shows an inline message; on any other error shows the inline message without refetching. No new dialog component (native `confirm`, YAGNI).
+- [x] Specs — `money-flow-table.spec.ts` +3 (Undo renders on income rows only, click emits the row's `transactionId`, disabled by `undoing()`); `money-flow-page.spec.ts` +5 (confirmed undo reverses + refetches; cancelled confirm makes no call; button disabled mid-flight; a 409 refetches + shows the message; any other error shows the message and does not refetch).
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **341/341** (from 333); `pnpm ng build --configuration production` clean (`ledger-routes` lazy chunk 31.47 → 33.48 kB).
+- [ ] Manual (no browser here) — handed to the user: record an income, undo it from Money Flow → the row disappears and the Dashboard's Income side for that month drops by that amount; open two tabs and undo the same income in both → the second shows the conflict message and the income is not counted negative; confirm outcome rows never show an Undo button; confirm the reverse-movement page still reverses expenses and a second attempt is rejected with 409.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. **This closes `docs/incomes-support/` — the initiative is complete.**
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

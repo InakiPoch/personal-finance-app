@@ -212,6 +212,17 @@ Por ahora la API es de consumo puro (Swagger/Postman), sin autenticación más a
 - **Diferencia aceptada y documentada, no corregida, con "Out of pocket": el storno fecha con el reloj, no con el mes original.** `ReverseTransaction` fecha la reversión en `DateTimeOffset.UtcNow` (no en el mes del movimiento original). Revertir en septiembre un gasto de agosto hace que Out of pocket muestre `+X` en agosto y `−X` en septiembre (dos meses, dos filas), mientras que Money Flow oculta ambas patas en cualquier mes que se consulte. Una reversión en el mismo mes reconcilia igual en los dos reportes; el caso cross-month es la única divergencia, y se documenta en el header de la vista SQL en lugar de "arreglar" `vw_ledger_monthly_expenses` — ese cambio queda fuera de esta iniciativa.
 - **La descripción cae a la categoría cuando no hay una propia.** `COALESCE(t.Description, <nombre de la cuenta de gasto>, 'Income')` — una fila anterior a la Fase 45 (sin `Description` persistida) muestra su categoría, igual que decidió D15's fix retroactivo.
 
+---
+
+### D17 — Deshacer un ingreso: la reversión existente + un guard global de doble reversión
+
+`docs/incomes-support/slice-3-undo-income.md` (Slice 3, cierra la iniciativa) agrega un botón "Undo" en las filas de ingreso de Money Flow. No hay mecanismo nuevo — es la reversión de Ledger que ya existe (`POST /v1/ledger/transactions/{id}/reversal`); lo único que faltaba era cerrar un agujero que esa reversión siempre tuvo.
+
+- **`ReverseTransactionHandler` bloqueaba revertir una reversión (`CannotReverseAReversal`), pero nada bloqueaba revertir el mismo original dos veces.** El índice sobre `OriginalTransactionId` no es único (`TransactionConfiguration.cs`). Hasta ahora ese agujero solo era alcanzable desde `reverse-movement-page`; un botón de un solo click (doble click o una pestaña vieja) podía postear dos stornos, dejando el ingreso contado como negativo.
+- **El fix es un `AnyAsync` global, no acotado a ingresos.** Antes de `Transaction.Reverse(...)`, el handler chequea si ya existe una transacción con `OriginalTransactionId == original.Id`; si existe, devuelve el nuevo `LedgerErrors.TransactionAlreadyReversed` (409, el mismo precedente que `InstallmentNotAccrued`/`NotACreditorInstallment`). El guard aplica a **toda** reversión — gastos incluidos — porque el agujero era el mismo para cualquier transacción, no solo ingresos.
+- **Check-then-insert, no una transacción serializada.** Con un único usuario la ventana de carrera entre el `AnyAsync` y el `SaveChanges` del storno es negligible; el camino de mejora si algún día hay escritores concurrentes es un índice único filtrado sobre `OriginalTransactionId` (una migración) — deliberadamente no implementado en esta slice.
+- **Sin endpoint nuevo, sin migración.** El cliente reutiliza `LedgerService.reverse(transactionId)`, la misma llamada de `reverse-movement-page`.
+
 ## 3. Requisitos funcionales
 
 | # | Caso de uso | Tipo | Módulo(s) | Estado |

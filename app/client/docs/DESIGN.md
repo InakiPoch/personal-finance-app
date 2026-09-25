@@ -241,9 +241,10 @@ no `I-` prefix.
 - `MoneyFlowRow = { transactionId: string; date: string; description: string; accountName: string;
   kind: 'Income' | 'Outcome'; amountMinorUnits: Money; currencyCode: CurrencyCode }`
   (`GET /v1/reports/money-flow?month=`, `docs/incomes-support/slice-2-money-flow-table.md`) —
-  `transactionId` rides on the row on purpose, unused by this slice's own view but needed by
-  Slice 3's Undo; `kind`/`amountMinorUnits` are already resolved server-side (never both a
-  non-zero income and outcome on the same row)
+  `transactionId` rode on the row unused by Slice 2's own view, exactly so Slice 3's Undo button
+  (`slice-3-undo-income.md`, now built) could target `LedgerService.reverse(transactionId)`
+  without a second read; `kind`/`amountMinorUnits` are already resolved server-side (never both
+  a non-zero income and outcome on the same row)
 
 ## 4. Services
 
@@ -368,7 +369,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 1 | POST | `/v1/instruments` | `InstrumentsService.create` | Instruments setup |
 | 2 | GET | `/v1/instruments` | `InstrumentsService.list` | Instruments setup + every card/funding `<select>` (Load expense, Statement pay, Subscriptions, Party settlement, Shared expense) |
 | 3 | POST | `/v1/ledger/transactions` | `LedgerService.postTransaction` | (low-level; internal) |
-| 4 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement |
+| 4 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement; Money Flow's per-row Undo (income rows only, `docs/incomes-support/slice-3-undo-income.md`) |
 | 5 | GET | `/v1/ledger/accounts/{id}/balance` | `LedgerService.getAccountBalance` | (detail widgets) |
 | 6 | GET | `/v1/ledger/transactions` | `LedgerService.listTransactions` | Transactions feed (account + date filter → row → Reverse movement) |
 | 7 | POST | `/v1/financing/payment-plans` | `FinancingService.createPaymentPlan` | Load expense |

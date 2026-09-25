@@ -261,11 +261,16 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   (defaults to the current month) and a "Record income" link round out the page.
 - **Source:** `GET /v1/reports/money-flow?month=` (required).
 - **Notes:** traces to `docs/incomes-support/slice-2-money-flow-table.md`, the second of three
-  slices (Slice 3 undoes an income). The Outcome side shows **exactly** what the Dashboard's Out
+  slices. The Outcome side shows **exactly** what the Dashboard's Out
   of pocket total already shows — a split expense at the holder's share only, card purchases and
   statement payments excluded — and the Income side mirrors the Dashboard's Income toggle; no new
   filtering rule is introduced, both sides reuse what §3.1/§3.12 already established. A reversed
-  pair (income or outcome) is hidden entirely, in whichever month it is viewed from.
+  pair (income or outcome) is hidden entirely, in whichever month it is viewed from. **Slice 3
+  (`slice-3-undo-income.md`, now built, closes the initiative)** adds an **Undo** button on income
+  rows only, reusing the existing `LedgerService.reverse(transactionId)` call the Transactions
+  feed already has — a native `window.confirm` before posting, the button disabled while the
+  request is in flight, and a 409 (already undone elsewhere) refetches the month and shows an
+  inline message instead of treating it as a hard failure.
 
 ## 4. Cross-cutting client requirements
 

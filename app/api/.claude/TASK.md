@@ -1411,3 +1411,28 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 ### Completion notes
 
 Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. Slice 3 (undo an income) remains — not started, which will close `docs/incomes-support/`.
+
+---
+
+## Phase 47 — Incomes support: undo an income + the double-reversal guard (Slice 3, closes the initiative)
+
+**Goal:** Let a mistakenly recorded income be undone from Money Flow. Undo is the existing ledger reversal (`POST /v1/ledger/transactions/{id}/reversal`) — no new mechanism — but nothing stopped reversing the same original transaction twice, so a one-click Undo button would have exposed that hole. Closing it is the price of the button, and it applies globally, not just to incomes.
+
+**Traces to:** `docs/incomes-support/slice-3-undo-income.md` (+ `00-overview.md`; third and final slice). `docs/DESIGN.md` D17 + `docs/PRD.md` §9 decision 17 record the guard.
+
+**Depends on:** Phase 2 (the Ledger module — `ReverseTransactionHandler`, `Transaction.Reverse`) and Phase 46 (Money Flow rows already carry `transactionId`).
+
+### Tasks
+- [x] **Double-reversal guard.** `ReverseTransactionHandler` — before `Transaction.Reverse(...)`, an `AnyAsync` check for an existing transaction with `OriginalTransactionId == original.Id`; if found, returns the new `LedgerErrors.TransactionAlreadyReversed`. Global — applies to every reversal, not just incomes.
+- [x] **Error + HTTP mapping.** `LedgerErrors.TransactionAlreadyReversed` ("Ledger.TransactionAlreadyReversed"); explicit 409 entry in `ErrorHttpStatusHelper` (the `InstallmentNotAccrued`/`NotACreditorInstallment` precedent). No new endpoint, no migration.
+- [x] **API tests.** New `ReverseTransactionHandlerTests.cs` (4 facts, in-memory SQLite: reverse once succeeds; reverse twice → the new error with no second storno; the guard is global — proven on a debit expense too; `CannotReverseAReversal` still rejects reversing a reversal — the existing, distinct guard). `ErrorEnvelopeTests.cs` +1 WAF fact — the second `POST .../reversal` → 409 with `code: "Ledger.TransactionAlreadyReversed"`. Reporting coverage (an income's reversal nets to zero on `monthly-incomes`; a reversed pair is hidden from `money-flow`) was already in place from Phases 45–46 — verified, nothing added.
+- [x] **Client.** `money-flow-table` gains an Undo button on income rows only, reusing `LedgerService.reverse(transactionId)` (no new client call); `money-flow-page` handles the confirm/in-flight/409 flow. Detail in `app/client/.claude/CLAUDE.md`.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. All seven test binaries run directly → **Ledger 63** (from 59), **Api 62** (from 61), Financing 155, Subscriptions 59, Parties 33, Reporting 20, Architecture 15 = **407** (was 402). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new module edge.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): `pnpm ng lint` clean, `pnpm ng test` **341/341** (from 333), `pnpm ng build --configuration production` clean (`ledger-routes` lazy chunk 31.47 → 33.48 kB).
+- [ ] Manual live E2E (no browser here) — handed to the user: record an income, undo it from Money Flow → the row disappears and the Dashboard's Income side for that month drops by that amount; open two tabs and undo the same income in both → the second gets the conflict message and the income is not counted negative; outcome rows show no Undo button; the reverse-movement page still reverses expenses and a second attempt on the same transaction is now rejected with 409.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. **This closes `docs/incomes-support/` — the initiative is complete.**

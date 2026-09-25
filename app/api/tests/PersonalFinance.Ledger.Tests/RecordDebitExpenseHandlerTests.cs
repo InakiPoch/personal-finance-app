@@ -51,6 +51,16 @@ public sealed class RecordDebitExpenseHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Unsplit_expense_persists_its_description() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var bankId = await SeedAccountAsync("Checking", AccountType.Asset, AccountKind.Bank, cancellationToken);
+        await Handle(new RecordDebitExpenseCommand(250_00, bankId, "Groceries", new DateOnly(2026, 3, 10), "  Weekly shop  "), cancellationToken);
+        await using var context = NewContext();
+        var transaction = await context.Transactions.SingleAsync(cancellationToken);
+        Assert.Equal("Weekly shop", transaction.Description);
+    }
+
+    [Fact]
     public async Task Unsplit_expense_reuses_an_existing_category_account() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var bankId = await SeedAccountAsync("Checking", AccountType.Asset, AccountKind.Bank, cancellationToken);

@@ -11,7 +11,7 @@ using PersonalFinance.Ledger.Infrastructure.Persistence;
 namespace PersonalFinance.Ledger.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(LedgerDbContext))]
-    [Migration("20260925193544_AddTransactionDescription")]
+    [Migration("20260924180000_AddTransactionDescription")]
     partial class AddTransactionDescription
     {
         /// <inheritdoc />

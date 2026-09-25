@@ -7,6 +7,7 @@ using PersonalFinance.Financing;
 using PersonalFinance.Financing.Contracts;
 using PersonalFinance.Financing.Contracts.Commands;
 using PersonalFinance.Infrastructure.DependencyInjection;
+using PersonalFinance.Infrastructure.Messaging;
 using PersonalFinance.Ledger;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
@@ -125,6 +126,12 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await RegisterSharedExpenseAsync("Bob concert", 8_000, sharedDining, bank, At(5, 27), BobId);
         BobOwed = await GetPartyBalanceAsync(BobId);
         Assert.True(BobOwed > 0, $"Expected Bob to owe a positive amount, got {BobOwed}.");
+
+        await RecordIncomeAsync(15_000, bank, new DateOnly(2026, 5, 15), "May salary");
+        await RecordIncomeAsync(200_00, bank, new DateOnly(2026, 5, 16), "May freelance", "USD");
+        await RecordIncomeAsync(9_000, bank, new DateOnly(2026, 4, 20), "April refund");
+        var reversibleIncomeId = await RecordIncomeAsync(4_000, bank, new DateOnly(2026, 7, 10), "July gift");
+        await ReverseAsync(reversibleIncomeId, At(7, 11));
     }
 
     private static DateTimeOffset At(int month, int day) {
@@ -192,6 +199,23 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         );
         var result = await parties.RegisterSharedExpenseAsync(command, CancellationToken.None);
         Assert.True(result.IsSuccess, $"RegisterSharedExpense '{description}' failed: {result.Error}");
+    }
+
+    private async Task<Guid> RecordIncomeAsync(long amountMinorUnits, Guid targetAccountId, DateOnly receivedOn, string description, string currencyCode = "ARS") {
+        await using var scope = host!.Services.CreateAsyncScope();
+        var commandBus = scope.ServiceProvider.GetRequiredService<ICommandBus>();
+        var result = await commandBus.SendAsync<Guid>(
+            new RecordIncomeCommand(amountMinorUnits, targetAccountId, receivedOn, description, currencyCode),
+            CancellationToken.None);
+        Assert.True(result.IsSuccess, $"RecordIncome '{description}' failed: {result.Error}");
+        return result.Value;
+    }
+
+    private async Task ReverseAsync(Guid transactionId, DateTimeOffset reversedOnUtc) {
+        await using var scope = host!.Services.CreateAsyncScope();
+        var ledger = scope.ServiceProvider.GetRequiredService<ILedgerApi>();
+        var result = await ledger.ReverseTransactionAsync(new ReverseTransactionCommand(transactionId, reversedOnUtc), CancellationToken.None);
+        Assert.True(result.IsSuccess, $"Reverse '{transactionId}' failed: {result.Error}");
     }
 
     private async Task<long> GetPartyBalanceAsync(Guid partyId) {

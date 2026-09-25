@@ -202,13 +202,28 @@ no `I-` prefix.
 - `CreateParty = { name: string }`, `PartyResult = { id: string }`
 - `SharedExpenseParticipant = { partyId: string; weight: number }`
 - `RegisterSharedExpense = { description: string; totalMinorUnits: Money; expenseAccountId: string;
-  fundingAccountId: string; incurredOnUtc: IsoInstant; participants: SharedExpenseParticipant[] }`
+  fundingAccountId: string; incurredOnUtc: IsoInstant; participants: SharedExpenseParticipant[];
+  currencyCode: CurrencyCode }` (`currencyCode` added in `docs/dollar-support/slice-4-parties.md`)
 - `SharedExpenseResult = { splitReferenceId: string }`
-- `SettleCurrentAccount = { amountMinorUnits: Money; bankAccountId: string; settledOnUtc: IsoInstant }`
+- `SettleCurrentAccount = { amountMinorUnits: Money; bankAccountId: string; settledOnUtc: IsoInstant;
+  currencyCode: CurrencyCode }` — the settle form constrains the offered `currencyCode` to whatever
+  the party's balances actually carry a positive amount in
 - `SettlementResult = { ledgerTransactionId: string }`
-- `CurrentAccountBalance = { partyId: string; name: string; balanceMinorUnits: Money }`
+- `PartyCurrencyBalance = { currencyCode: CurrencyCode; balanceMinorUnits: Money }`
+- `CurrentAccountBalance = { partyId: string; name: string; balances: PartyCurrencyBalance[] }` —
+  reshaped from a single scalar to one row per currency the party has ever moved money in
+  (`docs/dollar-support/slice-4-parties.md`); a party with no movements in a currency has no row
+  for it, so an all-settled party has an empty `balances` array, never a synthesized `$0` row
 - `CurrentAccountTimelineRow = { movementOnUtc: IsoInstant; description: string;
-  deltaMinorUnits: Money; runningBalanceMinorUnits: Money }`
+  deltaMinorUnits: Money; runningBalanceMinorUnits: Money; currencyCode: CurrencyCode }` — the
+  running balance is windowed per `(accountId, currencyCode)` server-side, so it never crosses
+  currencies
+- `FuturePartyShare = { cycleYear: number; cycleMonth: number; shareMinorUnits: Money;
+  currencyCode: CurrencyCode; sourceLabel: string }` (`GET /v1/parties/{id}/future-shares`) and
+  `PendingSharesByPartyRow = { partyId: string; scheduledCount: number;
+  scheduledTotalMinorUnits: Money; currencyCode: CurrencyCode }` (`GET /v1/parties/pending-shares`)
+  — `currencyCode` was a bare `string` placeholder on both and is now the same closed
+  `CurrencyCode` union, carrying real per-currency values
 
 **Reporting** (`ReportingDTOs`)
 - `MonthlyExpenseRow = { month: string; category: string; amountMinorUnits: Money;

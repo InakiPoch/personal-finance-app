@@ -37,4 +37,9 @@ internal static class PartiesErrors {
         "Parties.SettlementExceedsBalance",
         "A settlement cannot exceed the party's outstanding balance."
     );
+
+    public static readonly Error InvalidCurrencyCode = new(
+        "Parties.InvalidCurrencyCode",
+        "Currency code must be ARS or USD."
+    );
 }

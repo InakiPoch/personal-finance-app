@@ -17,7 +17,7 @@ internal sealed class RecordSplitAccrualHandler(PartiesDbContext context) : ICom
         if(split is null) {
             return Result.Failure(PartiesErrors.SplitNotFound);
         }
-        var recorded = split.RecordAccrued(Money.FromMinorUnits(command.AccruedReceivableMinorUnits, Currency.Reference));
+        var recorded = split.RecordAccrued(Money.FromMinorUnits(command.AccruedReceivableMinorUnits, split.Currency));
         if(recorded.IsFailure) {
             return recorded;
         }

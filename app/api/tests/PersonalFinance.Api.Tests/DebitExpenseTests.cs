@@ -61,7 +61,9 @@ public sealed class DebitExpenseTests(ApiWebApplicationFactory factory) : IClass
         }, cancellationToken);
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var balance = await client.GetFromJsonAsync<JsonElement>($"/v1/parties/{aliceId}/balance", cancellationToken);
-        Assert.Equal(150_00, balance.GetProperty("balanceMinorUnits").GetInt64());
+        var arsBalance = balance.GetProperty("balances").EnumerateArray()
+            .Single(row => row.GetProperty("currencyCode").GetString() == "ARS");
+        Assert.Equal(150_00, arsBalance.GetProperty("balanceMinorUnits").GetInt64());
         var monthly = await client.GetFromJsonAsync<JsonElement>("/v1/reports/monthly-expenses", cancellationToken);
         var dining = monthly.GetProperty("rows").EnumerateArray()
             .Single(row => row.GetProperty("category").GetString() == "Dining");

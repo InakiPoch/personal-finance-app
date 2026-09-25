@@ -8,7 +8,8 @@ public sealed record RegisterSharedExpenseDto(
     Guid ExpenseAccountId,
     Guid FundingAccountId,
     DateTimeOffset IncurredOnUtc,
-    IReadOnlyList<SharedExpenseParticipantDto> Participants
+    IReadOnlyList<SharedExpenseParticipantDto> Participants,
+    string CurrencyCode = "ARS"
 );
 
 public sealed record SharedExpenseResultDto(Guid SplitReferenceId);

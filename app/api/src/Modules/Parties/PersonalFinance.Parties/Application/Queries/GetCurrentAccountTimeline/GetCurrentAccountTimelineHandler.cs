@@ -17,7 +17,8 @@ internal sealed class GetCurrentAccountTimelineHandler(PartiesDbContext context)
                 entry.MovementOnUtc,
                 entry.Description,
                 entry.DeltaMinorUnits,
-                entry.RunningBalanceMinorUnits
+                entry.RunningBalanceMinorUnits,
+                entry.CurrencyCode
             })
             .ToListAsync(cancellationToken);
         var rows = movements
@@ -27,7 +28,8 @@ internal sealed class GetCurrentAccountTimelineHandler(PartiesDbContext context)
                 entry.MovementOnUtc,
                 entry.Description,
                 entry.DeltaMinorUnits,
-                entry.RunningBalanceMinorUnits)
+                entry.RunningBalanceMinorUnits,
+                entry.CurrencyCode)
             )
             .ToList();
         return new CurrentAccountTimelineResponse(rows);

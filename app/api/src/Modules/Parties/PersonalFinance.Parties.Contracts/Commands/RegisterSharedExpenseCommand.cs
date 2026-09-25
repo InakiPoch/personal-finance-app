@@ -10,5 +10,6 @@ public sealed record RegisterSharedExpenseCommand(
     Guid ExpenseAccountId,
     Guid FundingAccountId,
     DateTimeOffset IncurredOnUtc,
-    IReadOnlyList<SharedExpenseParticipant> Participants
+    IReadOnlyList<SharedExpenseParticipant> Participants,
+    string CurrencyCode = "ARS"
 ) : ICommand<Guid>;

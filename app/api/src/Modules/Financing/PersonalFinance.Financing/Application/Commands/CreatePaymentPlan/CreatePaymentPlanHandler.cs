@@ -87,7 +87,8 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
                 command.CardId,
                 plan.Value.Total.MinorUnits,
                 plan.Value.PurchaseDate,
-                command.Split.Participants)
+                command.Split.Participants,
+                plan.Value.Total.Currency.Code)
             );
         }
         await context.SaveChangesAsync(cancellationToken);

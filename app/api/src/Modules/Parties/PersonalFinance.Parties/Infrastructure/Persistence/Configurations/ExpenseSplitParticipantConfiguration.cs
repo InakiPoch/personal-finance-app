@@ -12,11 +12,11 @@ internal sealed class ExpenseSplitParticipantConfiguration : IEntityTypeConfigur
         builder.Property(participant => participant.Id).ValueGeneratedNever();
         builder.Property(participant => participant.ExpenseSplitId).IsRequired();
         builder.Property(participant => participant.PartyId).IsRequired();
-        builder.Property(participant => participant.Share)
-            .HasConversion(
-                amount => amount.MinorUnits,
-                value => Money.FromMinorUnits(value, Currency.Reference))
-            .HasColumnName("ShareMinorUnits")
-        .IsRequired();
+        builder.Property(participant => participant.ShareMinorUnits).HasColumnName("ShareMinorUnits").IsRequired();
+        builder.Property(participant => participant.Currency)
+            .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
+            .HasColumnName("CurrencyCode")
+            .IsRequired();
+        builder.Ignore(participant => participant.Share);
     }
 }

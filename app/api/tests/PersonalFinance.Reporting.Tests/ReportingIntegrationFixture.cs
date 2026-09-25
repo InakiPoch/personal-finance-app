@@ -198,7 +198,7 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await using var scope = host!.Services.CreateAsyncScope();
         var parties = scope.ServiceProvider.GetRequiredService<IPartiesApi>();
         var response = await parties.GetCurrentAccountBalanceAsync(new GetCurrentAccountBalanceQuery(partyId), CancellationToken.None);
-        return response.BalanceMinorUnits;
+        return response.Balances.FirstOrDefault(balance => balance.CurrencyCode == "ARS")?.BalanceMinorUnits ?? 0;
     }
 
     private async Task SettleAsync(Guid partyId, long amountMinorUnits, Guid bankAccountId, DateTimeOffset settledOnUtc) {

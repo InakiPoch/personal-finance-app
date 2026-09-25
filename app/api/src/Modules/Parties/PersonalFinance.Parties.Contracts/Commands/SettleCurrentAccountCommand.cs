@@ -11,5 +11,6 @@ public sealed record SettleCurrentAccountCommand(
     Guid PartyId,
     long AmountMinorUnits,
     Guid BankAccountId,
-    DateTimeOffset SettledOnUtc
+    DateTimeOffset SettledOnUtc,
+    string CurrencyCode = "ARS"
 ) : ICommand<Guid>;

@@ -20,7 +20,7 @@ internal sealed class CorrectExpenseSplitHandler(PartiesDbContext context) : ICo
         if(split is null) {
             return Result.Failure(PartiesErrors.SplitNotFound);
         }
-        var recorded = split.RecordReversed(Money.FromMinorUnits(command.ReversedReceivableMinorUnits, Currency.Reference));
+        var recorded = split.RecordReversed(Money.FromMinorUnits(command.ReversedReceivableMinorUnits, split.Currency));
         if(recorded.IsFailure) {
             return recorded;
         }

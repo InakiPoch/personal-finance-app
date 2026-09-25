@@ -13,7 +13,8 @@ public sealed record CurrentAccountTimelineRow(
     DateTimeOffset MovementOnUtc,
     string Description,
     long DeltaMinorUnits,
-    long RunningBalanceMinorUnits
+    long RunningBalanceMinorUnits,
+    string CurrencyCode
 );
 
 public sealed record CurrentAccountTimelineResponse(IReadOnlyList<CurrentAccountTimelineRow> Rows);

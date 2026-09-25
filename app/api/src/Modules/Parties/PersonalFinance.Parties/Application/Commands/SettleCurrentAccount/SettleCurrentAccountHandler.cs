@@ -23,9 +23,10 @@ internal sealed class SettleCurrentAccountHandler(PartiesDbContext context, ILed
         if(party is null) {
             return PartiesErrors.PartyNotFound;
         }
+        var currency = Currency.FromCode(command.CurrencyCode);
         var outstandingBalances = await ledger.GetAccountBalanceAsync(new GetAccountBalanceQuery(party.ReceivableAccountId), cancellationToken);
-        var outstanding = outstandingBalances.FirstOrDefault(candidate => candidate.Currency == Currency.Reference);
-        var amount = Money.FromMinorUnits(command.AmountMinorUnits, Currency.Reference);
+        var outstanding = outstandingBalances.FirstOrDefault(candidate => candidate.Currency == currency);
+        var amount = Money.FromMinorUnits(command.AmountMinorUnits, currency);
         if(amount.MinorUnits > outstanding.MinorUnits) {
             return PartiesErrors.SettlementExceedsBalance;
         }

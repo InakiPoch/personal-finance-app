@@ -9,6 +9,9 @@ internal static class RegisterSharedExpenseValidator {
         if(command.TotalMinorUnits <= 0) {
             return Result.Failure(PartiesErrors.NonPositiveAmount);
         }
+        if(command.CurrencyCode is not ("ARS" or "USD")) {
+            return Result.Failure(PartiesErrors.InvalidCurrencyCode);
+        }
         if(command.ExpenseAccountId == Guid.Empty || command.FundingAccountId == Guid.Empty) {
             return Result.Failure(PartiesErrors.UnknownFundingAccount);
         }

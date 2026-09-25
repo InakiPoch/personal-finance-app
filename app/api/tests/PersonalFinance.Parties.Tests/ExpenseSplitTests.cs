@@ -43,6 +43,27 @@ public class ExpenseSplitTests {
     }
 
     [Fact]
+    public void Create_in_usd_allocates_the_same_shares_as_the_ars_case() {
+        var usd = Currency.Usd;
+        var partyId = Guid.CreateVersion7();
+        var split = ExpenseSplit.Create(
+            ExpenseSplitSource.Debit,
+            Guid.CreateVersion7(),
+            Money.FromMinorUnits(1000, usd),
+            Money.FromMinorUnits(600, usd),
+            [new PartyShare(partyId, Money.FromMinorUnits(400, usd))],
+            Money.FromMinorUnits(400, usd)
+        ).Value;
+
+        Assert.Equal(usd, split.Total.Currency);
+        Assert.Equal(usd, split.HolderShare.Currency);
+        Assert.Equal(usd, split.AccruedReceivable.Currency);
+        Assert.Equal(usd, Assert.Single(split.Participants).Share.Currency);
+        Assert.Equal(400, split.AccruedReceivable.MinorUnits);
+        Assert.Equal(400, split.PartyReceivableTotal.MinorUnits);
+    }
+
+    [Fact]
     public void Create_rejects_an_empty_participant_set() {
         var result = ExpenseSplit.Create(
             ExpenseSplitSource.Debit,

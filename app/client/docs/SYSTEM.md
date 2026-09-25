@@ -73,6 +73,12 @@ titles + the brighter `stamp` / `stamp-soft` accent ≤10%. The blue-on-blue is 
 tiers are spaced by weight and size, not just hue. `ledger` (green, positive) and
 `negative` (brick, error) are semantic, not decoration.
 
+**Signed amounts.** `--ledger` (green) and `--negative` (red) may also be used for signed
+money figures in ledger-style tables (e.g. the Money Flow table's Income/Outcome columns) —
+always paired with an explicit `+`/`−` sign, never colour alone (a11y); the empty
+counterpart cell is a neutral `text-ink-faint` `—`, not a coloured zero. This extends, and
+does not contradict, the "semantic only" rule above.
+
 ---
 
 ## Typography

@@ -97,7 +97,7 @@ export class RecordIncomePage implements OnInit, OnDestroy {
       })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: () => this.router.navigate(['reports']),
+        next: () => this.router.navigate(['ledger', 'money-flow']),
         error: (error: AppError) => {
           this.submitError.set(error);
           this.submitStatus.set('error');

@@ -111,10 +111,10 @@ describe('RecordIncomePage', () => {
     const body: RecordIncome = recordIncome.calls.mostRecent().args[0];
     expect(body.currencyCode).toBe('USD');
   });
-  it('navigates to the Dashboard once the income is recorded', () => {
+  it('navigates to the Money Flow table once the income is recorded', () => {
     fillValidForm();
     view.onSubmit();
-    expect(navigate).toHaveBeenCalledWith(['reports']);
+    expect(navigate).toHaveBeenCalledWith(['ledger', 'money-flow']);
   });
   it('surfaces an AppError when the income cannot be recorded', () => {
     const appError: AppError = {

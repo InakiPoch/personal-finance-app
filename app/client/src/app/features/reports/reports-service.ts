@@ -1,6 +1,7 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
+import { MoneyFlowRow } from '../ledger/types/money-flow-row';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { MonthlyIncomeRow } from './types/monthly-income-row';
@@ -27,6 +28,11 @@ export class ReportsService {
       params = params.set('month', month);
     }
     return this.http.get<RowsEnvelope<MonthlyIncomeRow>>('reports/monthly-incomes', { params }).pipe(map((envelope: RowsEnvelope<MonthlyIncomeRow>) => envelope.rows));
+  }
+
+  moneyFlow(month: string): Observable<MoneyFlowRow[]> {
+    const params: HttpParams = new HttpParams().set('month', month);
+    return this.http.get<RowsEnvelope<MoneyFlowRow>>('reports/money-flow', { params }).pipe(map((envelope: RowsEnvelope<MoneyFlowRow>) => envelope.rows));
   }
 
   cardDueByMonth(): Observable<CardDueRow[]> {

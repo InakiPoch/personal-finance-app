@@ -1,0 +1,53 @@
+@if(rows().length === 0) {
+  <p class="flow-empty text-sm text-ink-soft">No money moved this month.</p>
+} @else {
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b border-rule">
+        <th scope="col" class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Date</th>
+        <th scope="col" class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Description</th>
+        <th scope="col" class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Account</th>
+        <th scope="col" class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Income</th>
+        <th scope="col" class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Outcome</th>
+      </tr>
+    </thead>
+    <tbody>
+      @for(row of rows(); track row.transactionId; let i = $index) {
+        <tr class="flow-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">{{ datePart(row) }}</td>
+          <td class="py-2.5 text-sm text-ink">{{ row.description }}</td>
+          <td class="py-2.5 text-sm text-ink-soft">{{ row.accountName }}</td>
+          <td class="py-2.5 text-right text-sm font-medium [font-variant-numeric:tabular-nums_lining-nums]">
+            @if(row.kind === 'Income') {
+              <span class="text-ledger">+{{ formatMoney(row.amountMinorUnits, row.currencyCode) }}</span>
+            } @else {
+              <span class="text-ink-faint">&mdash;</span>
+            }
+          </td>
+          <td class="py-2.5 text-right text-sm font-medium [font-variant-numeric:tabular-nums_lining-nums]">
+            @if(row.kind === 'Outcome') {
+              <span class="text-negative">&minus;{{ formatMoney(row.amountMinorUnits, row.currencyCode) }}</span>
+            } @else {
+              <span class="text-ink-faint">&mdash;</span>
+            }
+          </td>
+        </tr>
+      }
+    </tbody>
+    <tfoot>
+      @for(total of footerTotals(); track total.currencyCode) {
+        <tr class="border-t border-rule">
+          <td class="pt-2.5 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint" colspan="3">
+            {{ total.currencyCode }} total
+          </td>
+          <td class="pt-2.5 text-right text-sm font-medium text-ledger [font-variant-numeric:tabular-nums_lining-nums]">
+            +{{ formatMoney(total.income, total.currencyCode) }}
+          </td>
+          <td class="pt-2.5 text-right text-sm font-medium text-negative [font-variant-numeric:tabular-nums_lining-nums]">
+            &minus;{{ formatMoney(total.outcome, total.currencyCode) }}
+          </td>
+        </tr>
+      }
+    </tfoot>
+  </table>
+}

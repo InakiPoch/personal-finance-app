@@ -15,6 +15,7 @@ export class App {
     { label: 'Dashboard', path: '/reports' },
     { label: 'Instruments', path: '/instruments' },
     { label: 'Load expense', path: '/financing/load-expense' },
+    { label: 'Money Flow', path: '/ledger/money-flow' },
     { label: 'Statements', path: '/financing/statements' },
     { label: 'Recent purchases', path: '/financing/recent-purchases' },
     { label: 'Owed to creditors', path: '/financing/creditor-payables' },

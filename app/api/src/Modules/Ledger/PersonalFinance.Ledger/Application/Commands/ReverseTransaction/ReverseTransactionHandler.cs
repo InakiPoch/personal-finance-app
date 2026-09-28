@@ -14,11 +14,7 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Ledger.Application.Commands.ReverseTransaction;
 
-internal sealed class ReverseTransactionHandler(
-    LedgerDbContext context,
-    TransactionWriter writer,
-    IFinancingApi financing,
-    IPartiesApi parties,
+internal sealed class ReverseTransactionHandler(LedgerDbContext context, TransactionWriter writer, IFinancingApi financing, IPartiesApi parties, 
     ILogger<ReverseTransactionHandler> logger) : ICommandHandler<ReverseTransactionCommand, ReverseTransactionResult> {
     public async Task<Result<ReverseTransactionResult>> HandleAsync(ReverseTransactionCommand command, CancellationToken cancellationToken) {
         var validation = ReverseTransactionValidator.Validate(command);
@@ -83,7 +79,6 @@ internal sealed class ReverseTransactionHandler(
                     storno.Value, original.Id, installmentReference.Value, marked.Error.Code);
             }
         }
-
         if(!decision.CorrectParty) return new ReverseTransactionResult(storno.Value, compensatingEntryPosted);
         var reversedReceivableMinorUnits = await sumReversedReceivableAsync(original, cancellationToken);
         var correction = await parties.CorrectExpenseSplitAsync(
@@ -98,7 +93,8 @@ internal sealed class ReverseTransactionHandler(
         if(correction.IsFailure) {
             logger.LogWarning(
                 "Reversal {ReversalId} of transaction {OriginalId} is posted, but correcting split {SplitReferenceId} in Parties failed ({ErrorCode}). The party balance still reflects the storno; only the split metadata is stale.",
-                storno.Value, original.Id, original.SplitReference.Value, correction.Error.Code);
+                storno.Value, original.Id, original.SplitReference.Value, correction.Error.Code
+            );
         }
         return new ReverseTransactionResult(storno.Value, compensatingEntryPosted);
     }
@@ -124,6 +120,6 @@ internal sealed class ReverseTransactionHandler(
         var receivableAccountIdSet = receivableAccountIds.ToHashSet();
         return original.Entries
             .Where(entry => entry.Direction == DebitOrCredit.Debit && receivableAccountIdSet.Contains(entry.AccountId))
-            .Sum(entry => entry.Amount.MinorUnits);
+        .Sum(entry => entry.Amount.MinorUnits);
     }
 }

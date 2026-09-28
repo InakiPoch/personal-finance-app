@@ -8,11 +8,9 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.PayCreditorFullDebt;
 
 /// <summary>
-/// Settles a creditor's entire remaining debt in one transaction: a display-only
-/// <see cref="Installment.PaidOnUtc"/> stamp (the server clock) on every unpaid, non-reversed installment
-/// across all of that creditor's purchases. No bank account, no ledger posting. Already-paid and reversed
-/// installments are skipped; the returned count reflects only the newly-settled ones, so running it twice
-/// settles zero the second time (idempotent — not an error).
+/// Settles a creditor's entire remaining debt in one transaction: a display-only payment for the full
+/// <see cref="Installment.RemainingMinorUnits"/> of every unpaid, non-reversed installment across all of
+/// that creditor's purchases. No bank account, no ledger posting.
 /// </summary>
 internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, TimeProvider timeProvider) : ICommandHandler<PayCreditorFullDebtCommand, int> {
     public async Task<Result<int>> HandleAsync(PayCreditorFullDebtCommand command, CancellationToken cancellationToken) {
@@ -26,7 +24,7 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
             return FinancingErrors.CreditorNotFound;
         }
         var installments = await (
-            from installment in context.Set<Installment>()
+            from installment in context.Set<Installment>().Include(candidate => candidate.Payments)
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
             where plan.CreditorId == command.CreditorId
             select installment
@@ -34,12 +32,12 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
         var now = timeProvider.GetUtcNow();
         var settled = 0;
         foreach(var installment in installments) {
-            if(installment.IsReversed || installment.IsPaid) {
+            if(installment.IsReversed || installment.RemainingMinorUnits == 0) {
                 continue;
             }
-            var marked = installment.MarkPaid(now);
-            if(marked.IsFailure) {
-                return marked.Error;
+            var applied = installment.ApplyPayment(installment.RemainingMinorUnits, now);
+            if(applied.IsFailure) {
+                return applied.Error;
             }
             settled++;
         }

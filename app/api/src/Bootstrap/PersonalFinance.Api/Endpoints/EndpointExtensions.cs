@@ -106,22 +106,23 @@ internal static class EndpointExtensions {
                 .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Financing.CreditorPayables, GetCreditorPayables.Handle)
                 .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
-                .WithDescription("Read-only roll-up over creditor-financed payment plans. There is no per-installment paid/settled flag yet, so \"outstanding\" is the whole plan: every non-reversed installment of a creditor-financed plan counts as still owed. Card-backed plans never appear.")
+                .WithDescription("Read-only roll-up over creditor-financed payment plans, in remaining (unpaid) amounts: \"due now\" folds in arrears up to the current billing cycle, \"total owed\" adds future installments. Fully or partially paid amounts are excluded. Card-backed plans never appear.")
                 .Produces<CreditorPayablesDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Financing.CreditorPayableDetail, GetCreditorDetail.Handle)
                 .WithSummary("Get one creditor's outstanding debt, grouped by purchase.")
-                .WithDescription("Read-only drill-down: every creditor-financed purchase (payment plan) for the given creditor with its installments listed beneath — sequence, amount, due month, and paid/reversed status. An unknown creditor yields a 404.")
+                .WithDescription("Read-only drill-down: every creditor-financed purchase (payment plan) for the given creditor with its installments listed beneath — sequence, remaining/paid amounts, due month, and paid/reversed status. An unknown creditor yields a 404.")
                 .Produces<CreditorDetailDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound);
             group.MapPost(ApiRoutes.Financing.CreditorInstallmentPayment, PayCreditorInstallment.Handle)
-                .WithSummary("Mark a creditor installment paid.")
-                .WithDescription("Stamps a display-only PaidOnUtc on one creditor-financed installment — no bank account and no ledger posting (creditor debt is ledger-free for the holder). Fails if the installment is unknown, belongs to a credit-card plan, reversed, or already paid.")
+                .WithSummary("Record a payment on a creditor installment.")
+                .WithDescription("Records a display-only payment (full or partial) on one creditor-financed installment — no bank account and no ledger posting (creditor debt is ledger-free for the holder). A null amount pays whatever remains. Fails if the installment is unknown, belongs to a credit-card plan, reversed, already fully paid, the amount is not positive, or it exceeds what remains.")
                 .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);
             group.MapPost(ApiRoutes.Financing.CreditorInstallmentUnpayment, UnpayCreditorInstallment.Handle)
-                .WithSummary("Undo a creditor installment payment.")
-                .WithDescription("Clears the display-only PaidOnUtc stamp on one creditor-financed installment (fat-finger recovery). There is no ledger transaction to reverse. Fails if the installment is unknown, belongs to a credit-card plan, or is reversed.")
+                .WithSummary("Undo the last payment on a creditor installment.")
+                .WithDescription("Removes the most recent payment recorded on one creditor-financed installment (fat-finger recovery) — there is no ledger transaction to reverse. Fails if the installment is unknown, belongs to a credit-card plan, is reversed, or has no recorded payment to undo.")
                 .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);

@@ -15,11 +15,7 @@ namespace PersonalFinance.Financing.Application.Commands.CreatePaymentPlan;
 /// <summary>
 /// Persists an installment plan and, when the purchase is shared, a durable <see cref="PaymentPlanCreatedIntegrationEvent"/>.
 /// For a back-dated card purchase it also settles every already-elapsed installment synchronously — accruing each closed
-/// cycle onto its <see cref="MonthlyStatement"/> and paying, from <see cref="CreatePaymentPlanCommand.BankAccountId"/>,
-/// the ones whose due month is already past — with historically-dated ledger postings, so Recent Purchases and the
-/// statement list read correctly the instant the plan is saved instead of a scheduler tick later. For a back-dated
-/// creditor-financed purchase it stamps every already-elapsed installment as paid (display-only <c>PaidOnUtc</c>, no
-/// ledger movement and no accrual — creditor debt has no ledger footprint for the holder anywhere in the system).
+/// cycle onto its <see cref="MonthlyStatement"/> and paying, from <see cref="CreatePaymentPlanCommand.BankAccountId"/>, the ones whose due month is already past
 /// </summary>
 internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, FinancingOutboxWriter outboxWriter, TimeProvider timeProvider, ILedgerApi ledger) : ICommandHandler<CreatePaymentPlanCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(CreatePaymentPlanCommand command, CancellationToken cancellationToken) {
@@ -115,9 +111,9 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             if(ordinalOf(installment.DueCycle) >= currentMonthOrdinal) {
                 break;
             }
-            var marked = installment.MarkPaid(clampedCutoffInstant(installment.DueCycle, PaymentPlan.CreditorCutoffDay));
-            if(marked.IsFailure) {
-                return marked;
+            var applied = installment.ApplyPayment(installment.AmountMinorUnits, clampedCutoffInstant(installment.DueCycle, PaymentPlan.CreditorCutoffDay));
+            if(applied.IsFailure) {
+                return Result.Failure(applied.Error);
             }
         }
         return Result.Success();

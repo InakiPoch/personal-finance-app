@@ -11,7 +11,10 @@ public sealed record CreditorInstallmentRow(
     int DueMonth,
     bool IsPaid,
     bool IsReversed,
-    string Status
+    string Status,
+    long PaidMinorUnits,
+    long RemainingMinorUnits,
+    bool HasPayments
 );
 
 public sealed record CreditorPurchaseGroup(
@@ -20,14 +23,14 @@ public sealed record CreditorPurchaseGroup(
     DateOnly PurchaseDate,
     long TotalMinorUnits,
     long OutstandingMinorUnits,
-    IReadOnlyList<CreditorInstallmentRow> Installments
+    IReadOnlyList<CreditorInstallmentRow> Installments,
+    string CurrencyCode
 );
 
 /// <summary>
 /// One creditor's debt broken down by purchase: every creditor-financed payment plan a section, its
 /// installments listed beneath with sequence, amount, due month and paid/reversed status. Groups are
-/// ordered newest purchase first. <see cref="CreditorDetailResponse.Found"/> is false for an unknown
-/// creditor (the host maps that to 404).
+/// ordered newest purchase first.
 /// </summary>
 public sealed record CreditorDetailResponse(
     bool Found,

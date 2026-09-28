@@ -158,9 +158,13 @@ internal static class FinancingMappingExtensions {
                         row.DueMonth,
                         row.IsPaid,
                         row.IsReversed,
-                        row.Status)
+                        row.Status,
+                        row.PaidMinorUnits,
+                        row.RemainingMinorUnits,
+                        row.HasPayments)
                     )
-                    .ToList()
+                    .ToList(),
+                group.CurrencyCode
                 )
             )
             .ToList();

@@ -33,7 +33,10 @@ internal sealed class GetCreditorDetailHandler(FinancingDbContext context, TimeP
                 installment.CycleYear,
                 installment.CycleMonth,
                 installment.PaidOnUtc,
-                installment.IsReversed
+                installment.IsReversed,
+                PaidMinorUnits = context.Set<CreditorInstallmentPayment>()
+                    .Where(payment => payment.InstallmentId == installment.Id)
+                    .Sum(payment => (long?)payment.AmountMinorUnits) ?? 0
             }
         ).ToListAsync(cancellationToken);
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
@@ -58,22 +61,24 @@ internal sealed class GetCreditorDetailHandler(FinancingDbContext context, TimeP
                             dueCycle.Month,
                             row.PaidOnUtc is not null,
                             row.IsReversed,
-                            statusFor(row.IsReversed, row.PaidOnUtc, dueOrdinal, currentOrdinal)
+                            statusFor(row.IsReversed, row.PaidOnUtc, dueOrdinal, currentOrdinal),
+                            row.PaidMinorUnits,
+                            row.Amount.MinorUnits - row.PaidMinorUnits,
+                            row.PaidMinorUnits > 0
                         );
                     })
                     .ToList();
                 var nonReversed = group.Where(row => row.IsReversed == false).ToList();
                 var totalMinorUnits = nonReversed.Sum(row => row.Amount.MinorUnits);
-                var outstandingMinorUnits = nonReversed
-                    .Where(row => row.PaidOnUtc is null)
-                    .Sum(row => row.Amount.MinorUnits);
+                var outstandingMinorUnits = nonReversed.Sum(row => row.Amount.MinorUnits - row.PaidMinorUnits);
                 return new CreditorPurchaseGroup(
                     group.Key,
                     first.Description,
                     first.PurchaseDate,
                     totalMinorUnits,
                     outstandingMinorUnits,
-                    installments
+                    installments,
+                    first.Amount.Currency.Code
                 );
             })
             .OrderByDescending(purchase => purchase.PurchaseDate)

@@ -8,10 +8,8 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.UnpayCreditorInstallment;
 
 /// <summary>
-/// Reverts a creditor installment's display-only paid stamp. There is no ledger transaction to storno,
-/// so this just clears <see cref="Installment.PaidOnUtc"/>; clearing an already-unpaid installment is a
-/// harmless no-op. An installment on a credit-card plan is rejected with
-/// <see cref="FinancingErrors.NotACreditorInstallment"/>.
+/// Undoes the last payment recorded against a creditor installment — a display-only row removed, no
+/// ledger transaction to storno. With no payments recorded, fails with <see cref="FinancingErrors.NoPaymentToUndo"/>
 /// </summary>
 internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context)
     : ICommandHandler<UnpayCreditorInstallmentCommand, Guid> {
@@ -21,6 +19,7 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
             return validation.Error;
         }
         var installment = await context.Set<Installment>()
+            .Include(candidate => candidate.Payments)
             .FirstOrDefaultAsync(candidate => candidate.Id == command.InstallmentId, cancellationToken);
         if(installment is null) {
             return FinancingErrors.InstallmentNotFound;
@@ -33,9 +32,9 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
         if(installment.IsReversed) {
             return FinancingErrors.InstallmentAlreadyReversed;
         }
-        var cleared = installment.ClearPayment();
-        if(cleared.IsFailure) {
-            return cleared.Error;
+        var undone = installment.UndoLastPayment();
+        if(undone.IsFailure) {
+            return undone.Error;
         }
         await context.SaveChangesAsync(cancellationToken);
         return installment.Id;

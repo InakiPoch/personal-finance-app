@@ -26,7 +26,10 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, Tim
                 installment.CycleYear,
                 installment.CycleMonth,
                 installment.PaidOnUtc,
-                plan.PurchaseDate
+                plan.PurchaseDate,
+                PaidMinorUnits = context.Set<CreditorInstallmentPayment>()
+                    .Where(payment => payment.InstallmentId == installment.Id)
+                    .Sum(payment => (long?)payment.AmountMinorUnits) ?? 0
             }
         ).ToListAsync(cancellationToken);
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
@@ -42,15 +45,15 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, Tim
         var rows = installments
             .GroupBy(row => row.CreditorId!.Value)
             .Select(group => {
-                var unpaid = group.Where(row => row.PaidOnUtc is null).ToList();
-                var totalOwedMinorUnits = unpaid.Sum(row => row.Amount.MinorUnits);
+                var unpaid = group.Where(row => row.Amount.MinorUnits - row.PaidMinorUnits > 0).ToList();
+                var totalOwedMinorUnits = unpaid.Sum(row => row.Amount.MinorUnits - row.PaidMinorUnits);
                 var dueNowMinorUnits = unpaid
                     .Where(row => {
                         var dueCycle = new BillingCycle(row.CycleYear, row.CycleMonth).DueCycle;
                         return dueCycle.Year * 12 + dueCycle.Month <= currentOrdinal;
                     })
-                    .Sum(row => row.Amount.MinorUnits);
-                var earliest = group
+                    .Sum(row => row.Amount.MinorUnits - row.PaidMinorUnits);
+                var earliest = unpaid
                     .OrderBy(row => row.CycleYear)
                     .ThenBy(row => row.CycleMonth)
                     .FirstOrDefault();
@@ -65,7 +68,7 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, Tim
                     .Select(accountGroup => new CreditorPayableAccountBreakdown(
                         accountGroup.Key,
                         accountLabelById.TryGetValue(accountGroup.Key, out var label) ? label : "",
-                        accountGroup.Sum(row => row.Amount.MinorUnits)))
+                        accountGroup.Sum(row => row.Amount.MinorUnits - row.PaidMinorUnits)))
                     .OrderBy(account => account.Label)
                     .ToList();
                 return new CreditorPayableRow(

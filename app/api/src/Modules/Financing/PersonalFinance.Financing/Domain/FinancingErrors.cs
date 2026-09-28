@@ -157,4 +157,19 @@ internal static class FinancingErrors {
         "Financing.BackdatedCardBankAccountRequired",
         "A back-dated card purchase with an already-elapsed installment requires a bank account to fund its retroactive payment."
     );
+
+    public static readonly Error InvalidPaymentAmount = new(
+        "Financing.InvalidPaymentAmount",
+        "A creditor installment payment amount must be a positive number of minor units."
+    );
+
+    public static readonly Error PaymentExceedsRemaining = new(
+        "Financing.PaymentExceedsRemaining",
+        "A creditor installment payment cannot exceed the amount still remaining on the installment."
+    );
+
+    public static readonly Error NoPaymentToUndo = new(
+        "Financing.NoPaymentToUndo",
+        "The installment has no recorded payment to undo."
+    );
 }

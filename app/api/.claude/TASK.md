@@ -1464,3 +1464,28 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 ### Completion notes
 
 Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. **Real bug caught and fixed mid-slice, twice:** (1) the 7 pre-existing test failures at Step 2's start were the seed helpers bypassing the new `Payments` collection via a direct `MarkPaid` call; (2) two of my own new `LoadInstallmentAsync` test helpers were missing `.Include(i => i.Payments)`, silently reporting the full amount as remaining regardless of real state — caught by my own new facts failing, not by the user. Slices 2 (pay-from-expense), 3 (partial full-debt) and 4 (party share) remain — not started.
+
+---
+
+## Phase 49 — Partial creditor payments: pay-from-expense (Slice 2)
+
+**Goal:** Each purchase group on the creditor detail page gets a "Pay expense" button, opening the shared dialog in `expense` mode: pay the whole purchase, or a custom amount that fills its cuotas in `Sequence` order, the last one taking the leftover as a partial.
+
+**Traces to:** `docs/partial-creditor-payments/slice-2-pay-expense.md` (+ `00-overview.md`; second of four slices — Slice 3 partial full-debt, Slice 4 party share remain).
+
+**Depends on:** Phase 48 (`Installment.ApplyPayment`, the payments table, `RemainingMinorUnits`, `CreditorPurchaseGroup.CurrencyCode`, the shared `creditor-pay-dialog`).
+
+### Tasks
+- [x] **Allocator.** `F/Application/Commands/CreditorPaymentWaterfall.cs` — pure `internal static Allocate(ordered, amountMinorUnits)`, `min(remaining, left)` per installment in the given order, stops once the amount is used up. Written once so Slice 3's partial "Pay full debt" (oldest-due-month ordering) can reuse it unchanged.
+- [x] **Command/handler.** `PayCreditorExpenseCommand(Guid PaymentPlanId, long? AmountMinorUnits = null) : ICommand<int>`; `PayCreditorExpenseHandler` (ctor `(FinancingDbContext, TimeProvider)`) loads the plan (unknown → `PaymentPlanNotFound`), rejects a card plan (`NotACreditorInstallment`, reused), gathers non-reversed installments with remaining > 0 ordered by `Sequence` (none → `0`, idempotent), validates the amount against Σ remaining (`InvalidPaymentAmount` / `PaymentExceedsRemaining`, both reused), runs `Allocate(...)`, applies each piece via `ApplyPayment`, counts newly-settled, one `SaveChangesAsync`.
+- [x] **Host.** `ApiRoutes.Financing.CreditorPurchasePayment`; `Endpoints/Financing/PayCreditorExpense.cs`; `PayCreditorExpenseRequestDto`/`PayCreditorExpenseResultDto`; `FinancingMappingExtensions` groups `ToPayCreditorExpenseResultDto` with the pre-existing `ToPayCreditorFullDebtResultDto` under one `extension(int settledCount)` block; wired in `EndpointExtensions` with 200/400/404/409.
+- [x] **Client.** New `pay-creditor-expense.ts`/`pay-creditor-expense-result.ts`; `financing-service.ts` gains `payCreditorExpense`; `creditor-purchases-table` gains a per-group "Pay expense" button (`outstandingMinorUnits > 0`) + `payExpenseClick` output; `creditor-detail-page`'s `payTarget` becomes `{ kind: 'installment' | 'expense', … }`, routing confirm to the right service call and reusing `lastSettledCount` for the expense case; `creditor-pay-dialog` swaps copy in `expense` mode and adds the waterfall hint.
+
+### Definition of done
+- [x] `dotnet build PersonalFinance.sln -c Release` 0W/0E. All seven test binaries run directly → **Financing 182** (from 170), Ledger 63, Subscriptions 59, Parties 33, Reporting 20, Architecture 15, Api 62 = **434** (was 422). `PersonalFinance.Architecture.Tests` (RNF-9) unaffected — no new module edge.
+- [x] Client (`app/client/.claude/CLAUDE.md` / `TASK.md`): `pnpm ng lint` clean, `pnpm ng test` **363/363** (from 353), `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk ~84 → 85.82 kB raw).
+- [ ] Manual live E2E (no browser here) — handed to the user: on a real 5-cuota creditor plan, pay $175.000 of a $200.000 purchase → cuotas 1–4 paid, cuota 5 "$25.000 left · paid $15.000 of $40.000"; payables Due now / Total move by exactly the amount paid.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). No new error codes — every failure mode this slice can hit already existed before it. Not committed by this session — the user commits their own. Slices 3 (partial full-debt) and 4 (party share) remain — not started.

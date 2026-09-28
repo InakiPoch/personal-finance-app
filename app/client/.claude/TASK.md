@@ -1457,6 +1457,32 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 
 ---
 
+## Phase 44 — Partial creditor payments: pay-from-expense (Slice 2)
+
+**Goal:** Each purchase group on the creditor detail page gets a "Pay expense" button, opening the shared dialog in `expense` mode: pay the whole purchase, or a custom amount that fills its cuotas in sequence order, the last one taking the leftover as a partial.
+
+**Traces to:** `docs/partial-creditor-payments/slice-2-pay-expense.md` (+ `00-overview.md`; second of four slices — Slice 3 partial full-debt, Slice 4 party share remain). API half is `app/api` Phase 49 (a pure `CreditorPaymentWaterfall.Allocate` + `POST /v1/financing/creditor-purchases/{paymentPlanId}/pay`; no new error codes).
+
+**Depends on:** Phase 43 (the `creditor-pay-dialog` component, already modeling `mode: 'installment' | 'expense' | 'full-debt'`, and `creditor-detail-page`'s pay/undo machinery this slice extends).
+
+### Tasks
+- [x] Types — `types/pay-creditor-expense.ts` (new) + `types/pay-creditor-expense-result.ts` (new).
+- [x] `financing-service.ts` — `payCreditorExpense(planId, body)` → `POST financing/creditor-purchases/${planId}/pay`.
+- [x] `creditor-purchases-table` — a "Pay expense" button per purchase-group header, shown when `outstandingMinorUnits > 0`, `[disabled]="paying()"`; new `payExpenseClick` output carrying the whole group.
+- [x] `creditor-detail-page` — `payTarget` widened to `{ kind: 'installment'; row } | { kind: 'expense'; group }`; `onDialogConfirm` routes to a new `runPayExpense` for the expense case, which also sets `lastSettledCount` to reuse the existing "N cuota(s) settled." line.
+- [x] `creditor-pay-dialog` — `expense`-mode copy ("Pay the whole expense" / "Pay part of it") + a one-line waterfall hint under the custom input.
+- [x] Specs — `financing-service.spec.ts` +2; `creditor-purchases-table.spec.ts` +4; `creditor-pay-dialog.spec.ts` +2; `creditor-detail-page.spec.ts` +2.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **363/363** (from 353); `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk ~84 → 85.82 kB raw, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: on a real 5-cuota creditor plan, "Pay expense" a $200.000 purchase for $175.000 → cuotas 1–4 paid, cuota 5 reads "$25.000 left · paid $15.000 of $40.000"; payables Due now / Total move by exactly the amount paid.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. Slices 3 (partial full-debt) and 4 (party share) remain — not started, per `docs/partial-creditor-payments/00-overview.md`.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

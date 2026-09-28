@@ -186,6 +186,13 @@ no `I-` prefix.
   friendly not-found state
 - `PayCreditorInstallment = { amountMinorUnits: Money | null }` — the pay-dialog's output/POST body,
   `null` = pay whatever remains (`docs/partial-creditor-payments/slice-1-foundation-partial-installment.md`)
+- `PayCreditorExpense = { amountMinorUnits: Money | null }` — same shape as `PayCreditorInstallment`,
+  the pay-dialog's output/POST body in `expense` mode: `null` pays everything remaining on the whole
+  purchase, a custom amount fills its cuotas in `Sequence` order, the last one taking the leftover as a
+  partial (`docs/partial-creditor-payments/slice-2-pay-expense.md`)
+- `PayCreditorExpenseResult = { settledCount: number }` — the count of cuotas newly fully settled,
+  same meaning as `PayCreditorFullDebtResult.settledCount`; `creditor-detail-page` reuses its
+  "N cuota(s) settled." line for both
 
 **Subscriptions** (`CreateSubscriptionDto`, `SubscriptionResultDto`, `ActiveSubscriptionsDto`)
 - `Frequency = 'monthly' | 'weekly' | 'daily' | 'annually'`
@@ -412,6 +419,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 35 | POST | `/v1/ledger/incomes` | `LedgerService.recordIncome` | Record income (§3.12) |
 | 36 | GET | `/v1/reports/monthly-incomes` | `ReportsService.monthlyIncomes` | Dashboard — Income side of the `Out of pocket \| Income` toggle (§3.12) |
 | 37 | GET | `/v1/reports/money-flow` | `ReportsService.moneyFlow` | Money Flow table (§3.13; required `month` param, one row per money movement, `kind`-driven signed rendering) |
+| 38 | POST | `/v1/financing/creditor-purchases/{paymentPlanId}/pay` | `FinancingService.payCreditorExpense` | Creditor detail — per-purchase **Pay expense**, opened via the shared pay dialog in `expense` mode (display-only; body `{ amountMinorUnits: Money \| null }`, `null` = pay everything remaining, a custom amount fills that purchase's cuotas in sequence order; card plan → 409 `Financing.NotACreditorInstallment`; 0/negative or over-remaining → 400; returns `{ settledCount }`) |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

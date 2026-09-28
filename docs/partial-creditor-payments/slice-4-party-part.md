@@ -187,7 +187,10 @@ page (balance + timeline) reflects it on its next load.
 
 ## Doc-sync (step 5, closes the initiative)
 
-- Phase 51 (API) / 46 (client)
+- `TASK.md` (api + client): one ledger line each — Phase 51 / 46, what shipped, test count, date,
+  pointer to this doc. No `CLAUDE.md` edit — the cross-module sync-call pattern already exists
+  (mirrors `RecordSplitAccrualAsync` in `AccrueInstallments.cs`), nothing evergreen to add.
 - api DESIGN: the party path is the one ledger-touching creditor payment; compensation note
 - api PRD + client PRD / DESIGN
-- memory/engram: mark the initiative complete
+- memory/engram: mark the initiative complete (update the `partial-creditor-payments-plan` memory
+  entry + MEMORY.md index)

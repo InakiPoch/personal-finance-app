@@ -86,7 +86,9 @@ makes the payables "Due now" figure drop first, which is what the user sees. Per
 
 ## Doc-sync (step 5)
 
-- Phase 50 (API) / 45 (client)
+- `TASK.md` (api + client): one ledger line each — Phase 50 / 45, what shipped, test count, date,
+  pointer to this doc. No `CLAUDE.md` edit — nothing evergreen changed (reuses the existing
+  waterfall allocator and shared dialog).
 - DESIGN: full-debt ordering + currency rule
 - client DESIGN: the inline confirm was replaced by the dialog
 - PRD

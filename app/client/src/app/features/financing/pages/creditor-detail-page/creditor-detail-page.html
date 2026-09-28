@@ -80,13 +80,14 @@
           [paying]="payStatus() === 'busy'"
           (payClick)="onPay($event)"
           (undoClick)="onUndo($event)"
+          (payExpenseClick)="onPayExpense($event)"
         />
       </div>
     </section>
   }
   <app-creditor-pay-dialog
     [open]="payTarget() !== null"
-    mode="installment"
+    [mode]="payDialogMode()"
     [title]="payDialogTitle()"
     [remainingMinorUnits]="payTargetRemaining()"
     [currency]="payDialogCurrency()"

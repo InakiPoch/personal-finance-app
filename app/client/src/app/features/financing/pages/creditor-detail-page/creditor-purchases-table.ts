@@ -27,6 +27,7 @@ export class CreditorPurchasesTable {
   readonly paying: InputSignal<boolean> = input<boolean>(false);
   readonly payClick: OutputEmitterRef<CreditorInstallmentRow> = output<CreditorInstallmentRow>();
   readonly undoClick: OutputEmitterRef<string> = output<string>();
+  readonly payExpenseClick: OutputEmitterRef<CreditorPurchaseGroup> = output<CreditorPurchaseGroup>();
 
   protected readonly formatArs: (value: Money) => string = formatArs;
 
@@ -50,6 +51,10 @@ export class CreditorPurchasesTable {
     return row.paidMinorUnits > 0 && row.remainingMinorUnits > 0;
   }
 
+  protected canPayExpense(group: CreditorPurchaseGroup): boolean {
+    return group.outstandingMinorUnits > 0;
+  }
+
   protected onPay(row: CreditorInstallmentRow): void {
     if(this.canPay(row)) {
       this.payClick.emit(row);
@@ -59,6 +64,12 @@ export class CreditorPurchasesTable {
   protected onUndo(row: CreditorInstallmentRow): void {
     if(this.canUndo(row)) {
       this.undoClick.emit(row.installmentId);
+    }
+  }
+
+  protected onPayExpense(group: CreditorPurchaseGroup): void {
+    if(this.canPayExpense(group)) {
+      this.payExpenseClick.emit(group);
     }
   }
 }

@@ -12,11 +12,11 @@
         <legend class="sr-only">Payment amount</legend>
         <label class="flex cursor-pointer items-center gap-2 text-sm text-ink">
           <input type="radio" value="full" formControlName="choice" />
-          Pay in full ({{ formatMoney(remainingMinorUnits(), currency()) }})
+          {{ payInFullLabel() }} ({{ formatMoney(remainingMinorUnits(), currency()) }})
         </label>
         <label class="flex cursor-pointer items-center gap-2 text-sm text-ink">
           <input type="radio" value="custom" formControlName="choice" />
-          Pay a custom amount
+          {{ payCustomLabel() }}
         </label>
       </fieldset>
       @if(choice() === 'custom') {
@@ -50,6 +50,9 @@
             <p class="text-xs text-negative" role="alert">
               Can't exceed {{ formatMoney(remainingMinorUnits(), currency()) }} remaining.
             </p>
+          }
+          @if(mode() === 'expense') {
+            <p class="text-xs text-ink-faint">Fills cuotas in order; the last one may be partly paid.</p>
           }
         </div>
       }

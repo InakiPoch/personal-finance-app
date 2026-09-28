@@ -112,4 +112,22 @@ describe('CreditorPayDialog', () => {
     cancelButton().click();
     expect(cancelled).toBe(true);
   });
+
+  it('swaps to expense-mode copy and adds the waterfall hint under the custom amount', () => {
+    fixture.componentRef.setInput('mode', 'expense');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Pay the whole expense');
+    expect(fixture.nativeElement.textContent).toContain('Pay part of it');
+    radioByValue('custom').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('Fills cuotas in order; the last one may be partly paid.');
+  });
+
+  it('keeps installment-mode copy by default', () => {
+    expect(fixture.nativeElement.textContent).toContain('Pay in full');
+    expect(fixture.nativeElement.textContent).toContain('Pay a custom amount');
+    radioByValue('custom').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Fills cuotas in order');
+  });
 });

@@ -20,6 +20,7 @@ import { FinancingService } from '../../financing-service';
 import { CreditorDetail } from '../../types/creditor-detail';
 import { CreditorInstallmentRow } from '../../types/creditor-installment-row';
 import { CreditorPurchaseGroup } from '../../types/creditor-purchase-group';
+import { PayCreditorExpenseResult } from '../../types/pay-creditor-expense-result';
 import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from '../../types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
@@ -27,6 +28,9 @@ import { CreditorPurchasesTable } from './creditor-purchases-table';
 
 type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 type PayStatus = 'idle' | 'busy' | 'error';
+type PayTarget =
+  | { kind: 'installment'; row: CreditorInstallmentRow }
+  | { kind: 'expense'; group: CreditorPurchaseGroup };
 
 @Component({
   selector: 'app-creditor-detail-page',
@@ -43,27 +47,40 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
   protected readonly payError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly confirmingFullDebt: WritableSignal<boolean> = signal<boolean>(false);
   protected readonly lastSettledCount: WritableSignal<number | null> = signal<number | null>(null);
-  protected readonly payTarget: WritableSignal<CreditorInstallmentRow | null> = signal<CreditorInstallmentRow | null>(null);
-  protected readonly payTargetRemaining: Signal<Money> = computed(() =>
-    this.payTarget()?.remainingMinorUnits ?? fromMinorUnits(0)
+  protected readonly payTarget: WritableSignal<PayTarget | null> = signal<PayTarget | null>(null);
+  protected readonly payDialogMode: Signal<'installment' | 'expense'> = computed(() =>
+    this.payTarget()?.kind ?? 'installment'
   );
+  protected readonly payTargetRemaining: Signal<Money> = computed(() => {
+    const target: PayTarget | null = this.payTarget();
+    if(target === null) {
+      return fromMinorUnits(0);
+    }
+    return target.kind === 'expense' ? target.group.outstandingMinorUnits : target.row.remainingMinorUnits;
+  });
   protected readonly payTargetGroup: Signal<CreditorPurchaseGroup | null> = computed(() => {
-    const target: CreditorInstallmentRow | null = this.payTarget();
+    const target: PayTarget | null = this.payTarget();
     if(target === null) {
       return null;
     }
+    if(target.kind === 'expense') {
+      return target.group;
+    }
     return (
       (this.detail()?.purchases ?? []).find((group: CreditorPurchaseGroup) =>
-        group.installments.some((installment: CreditorInstallmentRow) => installment.installmentId === target.installmentId)
+        group.installments.some((installment: CreditorInstallmentRow) => installment.installmentId === target.row.installmentId)
       ) ?? null
     );
   });
   protected readonly payDialogTitle: Signal<string> = computed(() => {
-    const target: CreditorInstallmentRow | null = this.payTarget();
+    const target: PayTarget | null = this.payTarget();
     if(target === null) {
       return '';
     }
-    return `Cuota ${target.sequence}/${target.installmentCount} · ${this.payTargetGroup()?.description ?? ''}`;
+    if(target.kind === 'expense') {
+      return target.group.description;
+    }
+    return `Cuota ${target.row.sequence}/${target.row.installmentCount} · ${this.payTargetGroup()?.description ?? ''}`;
   });
   protected readonly payDialogCurrency: Signal<CurrencyCode> = computed(() =>
     this.payTargetGroup()?.currencyCode ?? 'ARS'
@@ -93,7 +110,12 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
 
   protected onPay(row: CreditorInstallmentRow): void {
     this.payError.set(null);
-    this.payTarget.set(row);
+    this.payTarget.set({ kind: 'installment', row });
+  }
+
+  protected onPayExpense(group: CreditorPurchaseGroup): void {
+    this.payError.set(null);
+    this.payTarget.set({ kind: 'expense', group });
   }
 
   protected onDialogCancel(): void {
@@ -102,11 +124,15 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
   }
 
   protected onDialogConfirm(body: PayCreditorInstallment): void {
-    const target: CreditorInstallmentRow | null = this.payTarget();
+    const target: PayTarget | null = this.payTarget();
     if(target === null) {
       return;
     }
-    this.runPay(target.installmentId, body);
+    if(target.kind === 'expense') {
+      this.runPayExpense(target.group.planId, body);
+      return;
+    }
+    this.runPay(target.row.installmentId, body);
   }
 
   protected onUndo(installmentId: string): void {
@@ -169,6 +195,31 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
         next: () => {
           this.payStatus.set('idle');
           this.payTarget.set(null);
+          this.loadDetail(creditorId);
+        },
+        error: (error: AppError) => {
+          this.payError.set(error);
+          this.payStatus.set('error');
+        }
+      }
+    );
+  }
+
+  private runPayExpense(planId: string, body: PayCreditorInstallment): void {
+    const creditorId: string | null = this.creditorId;
+    if(creditorId === null) {
+      return;
+    }
+    this.payError.set(null);
+    this.payStatus.set('busy');
+    this.financing
+      .payCreditorExpense(planId, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (result: PayCreditorExpenseResult) => {
+          this.payStatus.set('idle');
+          this.payTarget.set(null);
+          this.lastSettledCount.set(result.settledCount);
           this.loadDetail(creditorId);
         },
         error: (error: AppError) => {

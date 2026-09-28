@@ -69,6 +69,12 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
       return false;
     }
   });
+  protected readonly payInFullLabel: Signal<string> = computed(() =>
+    this.mode() === 'expense' ? 'Pay the whole expense' : 'Pay in full'
+  );
+  protected readonly payCustomLabel: Signal<string> = computed(() =>
+    this.mode() === 'expense' ? 'Pay part of it' : 'Pay a custom amount'
+  );
   protected readonly confirmDisabled: Signal<boolean> = computed(() => {
     if(this.busy()) {
       return true;

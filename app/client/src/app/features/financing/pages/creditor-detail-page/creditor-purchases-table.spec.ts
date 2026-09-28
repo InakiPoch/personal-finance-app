@@ -160,4 +160,41 @@ describe('CreditorPurchasesTable', () => {
     expect(buttonsByLabel('Pay').length).toBe(1);
     expect(buttonsByLabel('Undo').length).toBe(1);
   });
+  it('shows a Pay expense button in the header of every purchase with something outstanding', () => {
+    fixture.componentRef.setInput('purchases', groups);
+    fixture.detectChanges();
+    expect(buttonsByLabel('Pay expense').length).toBe(2);
+  });
+  it('hides Pay expense once nothing is outstanding on the purchase', () => {
+    const settled: CreditorPurchaseGroup[] = [{
+      planId: 'pl-r',
+      description: 'Fridge',
+      purchaseDate: '2026-01-10',
+      totalMinorUnits: money(50000),
+      outstandingMinorUnits: money(0),
+      currencyCode: 'ARS',
+      installments: [
+        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: true, isReversed: false, status: 'paid', paidMinorUnits: money(50000), remainingMinorUnits: money(0), hasPayments: true }
+      ]
+    }];
+    fixture.componentRef.setInput('purchases', settled);
+    fixture.detectChanges();
+    expect(buttonsByLabel('Pay expense').length).toBe(0);
+  });
+  it('emits payExpenseClick with the purchase group when Pay expense is clicked', () => {
+    fixture.componentRef.setInput('purchases', groups);
+    fixture.detectChanges();
+    let emitted: CreditorPurchaseGroup | undefined;
+    fixture.componentInstance.payExpenseClick.subscribe((group: CreditorPurchaseGroup) => (emitted = group));
+    buttonsByLabel('Pay expense')[0].click();
+    expect(emitted?.planId).toBe('pl-1');
+  });
+  it('disables Pay expense while a request is in flight', () => {
+    fixture.componentRef.setInput('purchases', groups);
+    fixture.componentRef.setInput('paying', true);
+    fixture.detectChanges();
+    const buttons: HTMLButtonElement[] = buttonsByLabel('Pay expense');
+    expect(buttons.length).toBe(2);
+    expect(buttons.every((button: HTMLButtonElement) => button.disabled)).toBe(true);
+  });
 });

@@ -14,6 +14,8 @@ import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayCreditorExpense } from './types/pay-creditor-expense';
+import { PayCreditorExpenseResult } from './types/pay-creditor-expense-result';
 import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from './types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
@@ -309,6 +311,25 @@ describe('FinancingService', () => {
     expect(req.request.body).toEqual({});
     req.flush({ settledCount: 4 });
     expect(result).toBe(4);
+  });
+  it('POSTs a null amount to pay a creditor expense in full and returns the settled count', () => {
+    let result: number | undefined;
+    const body: PayCreditorExpense = { amountMinorUnits: null };
+    service.payCreditorExpense('plan-1', body)
+      .subscribe((r: PayCreditorExpenseResult) => (result = r.settledCount));
+    const req = httpMock.expectOne(`${base}/financing/creditor-purchases/plan-1/pay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ settledCount: 4 });
+    expect(result).toBe(4);
+  });
+  it('POSTs a custom minor-unit amount to pay a creditor expense', () => {
+    const body: PayCreditorExpense = { amountMinorUnits: money(175000) };
+    service.payCreditorExpense('plan-1', body).subscribe();
+    const req = httpMock.expectOne(`${base}/financing/creditor-purchases/plan-1/pay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ settledCount: 4 });
   });
   it('maps a 404 on getStatement to an AppError keyed off code', () => {
     let error: AppError | undefined;

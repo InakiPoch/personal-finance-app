@@ -6,6 +6,8 @@ import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../financing-service';
 import { CreditorDetail } from '../../types/creditor-detail';
+import { PayCreditorExpense } from '../../types/pay-creditor-expense';
+import { PayCreditorExpenseResult } from '../../types/pay-creditor-expense-result';
 import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from '../../types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
@@ -24,6 +26,7 @@ describe('CreditorDetailPage', () => {
   let payCreditorInstallment: jasmine.Spy<(id: string, body: PayCreditorInstallment) => Observable<PayCreditorInstallmentResult>>;
   let unpayCreditorInstallment: jasmine.Spy<(id: string) => Observable<PayCreditorInstallmentResult>>;
   let payCreditorFullDebt: jasmine.Spy<(creditorId: string) => Observable<PayCreditorFullDebtResult>>;
+  let payCreditorExpense: jasmine.Spy<(planId: string, body: PayCreditorExpense) => Observable<PayCreditorExpenseResult>>;
 
   const money = (value: number): Money => value as Money;
 
@@ -74,7 +77,7 @@ describe('CreditorDetailPage', () => {
         provideZonelessChangeDetection(),
         {
           provide: FinancingService,
-          useValue: { creditorDetail, payCreditorInstallment, unpayCreditorInstallment, payCreditorFullDebt }
+          useValue: { creditorDetail, payCreditorInstallment, unpayCreditorInstallment, payCreditorFullDebt, payCreditorExpense }
         },
         {
           provide: ActivatedRoute,
@@ -107,6 +110,8 @@ describe('CreditorDetailPage', () => {
       .and.returnValue(of({ installmentId: 'i-1' }));
     payCreditorFullDebt = jasmine.createSpy('payCreditorFullDebt')
       .and.returnValue(of({ settledCount: 3 }));
+    payCreditorExpense = jasmine.createSpy('payCreditorExpense')
+      .and.returnValue(of({ settledCount: 2 }));
   });
 
   it('loads the creditor named by the route param and renders its purchases', () => {
@@ -228,6 +233,27 @@ describe('CreditorDetailPage', () => {
     fixture.detectChanges();
     expect(payCreditorFullDebt).not.toHaveBeenCalled();
     expect(buttonByLabel('Pay full debt')).toBeTruthy();
+  });
+  it('opens the pay dialog in expense mode on Pay expense, titled with the purchase description', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
+    setup();
+    buttonByLabel('Pay expense').click();
+    fixture.detectChanges();
+    expect(payCreditorExpense).not.toHaveBeenCalled();
+    const dialogText: string = fixture.nativeElement.querySelector('dialog').textContent;
+    expect(dialogText).toContain('Sofa');
+    expect(dialogText).toContain('Pay the whole expense');
+  });
+  it('confirms the expense pay dialog in full, re-fetches the detail, and shows the settled count', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
+    setup();
+    buttonByLabel('Pay expense').click();
+    fixture.detectChanges();
+    buttonByLabel('Confirm').click();
+    expect(payCreditorExpense).toHaveBeenCalledWith('pl-1', { amountMinorUnits: null });
+    expect(creditorDetail).toHaveBeenCalledTimes(2);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('2 cuota(s) settled.');
   });
   it('shows a friendly message keyed off code when a pay fails', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));

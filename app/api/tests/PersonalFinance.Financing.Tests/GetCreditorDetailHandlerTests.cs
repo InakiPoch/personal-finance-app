@@ -53,7 +53,8 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
         await using(var context = NewContext()) {
             // Older purchase: 3 cuotas / 30_000, one cuota paid -> Total 30_000, Outstanding 20_000.
             var older = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 3, 30_000);
-            older.Installments.OrderBy(installment => installment.Sequence).First().MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            var paidInstallment = older.Installments.OrderBy(installment => installment.Sequence).First();
+            paidInstallment.ApplyPayment(paidInstallment.Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
             context.PaymentPlans.Add(older);
             // Newer purchase: 2 cuotas / 12_000, untouched -> Total 12_000, Outstanding 12_000.
             context.PaymentPlans.Add(CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 3, 5), 2, 12_000));
@@ -83,7 +84,7 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
             // Purchase Jan 10 -> stored cycles Jan..May 2026 -> DueCycles Feb/Mar/Apr/May/Jun 2026.
             var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 5, 50_000);
             var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
-            ordered[0].MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            ordered[0].ApplyPayment(ordered[0].Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
             ordered[1].MarkReversed();
             context.PaymentPlans.Add(plan);
             await context.SaveChangesAsync(cancellationToken);
@@ -112,6 +113,30 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
         // Total excludes the reversed cuota; Outstanding also excludes the paid one.
         Assert.Equal(40_000, purchase.TotalMinorUnits);
         Assert.Equal(30_000, purchase.OutstandingMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_reflects_a_partial_payment_in_paid_remaining_and_outstanding() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Sasha", ["Sasha Bank"], cancellationToken);
+        await using(var context = NewContext()) {
+            var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 2, 20_000);
+            var partiallyPaid = plan.Installments.OrderBy(installment => installment.Sequence).First();
+            partiallyPaid.ApplyPayment(4_000, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow))
+            .HandleAsync(new GetCreditorDetailQuery(creditor.CreditorId), cancellationToken);
+        var purchase = Assert.Single(response.Purchases);
+        var row = purchase.Installments.Single(candidate => candidate.Sequence == 1);
+        Assert.False(row.IsPaid);
+        Assert.True(row.HasPayments);
+        Assert.Equal(4_000, row.PaidMinorUnits);
+        Assert.Equal(6_000, row.RemainingMinorUnits);
+        Assert.Equal(20_000, purchase.TotalMinorUnits);
+        Assert.Equal(16_000, purchase.OutstandingMinorUnits);
     }
 
     [Fact]

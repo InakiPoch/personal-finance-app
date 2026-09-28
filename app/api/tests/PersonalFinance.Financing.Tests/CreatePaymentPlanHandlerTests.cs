@@ -407,6 +407,11 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         Assert.All(installments, installment => Assert.False(installment.IsAccrued));
         Assert.All(installments, installment => Assert.Null(installment.SplitAccruedOnUtc));
         Assert.Empty(ledger.PostedTransactions);
+        Assert.All(installments.Where(installment => installment.IsPaid), installment => {
+            var payment = Assert.Single(installment.Payments);
+            Assert.Equal(installment.Amount.MinorUnits, payment.AmountMinorUnits);
+        });
+        Assert.Empty(installments[2].Payments);
         await using var verify = NewContext();
         Assert.Empty(await verify.MonthlyStatements.ToListAsync(cancellationToken));
     }
@@ -509,6 +514,7 @@ public sealed class CreatePaymentPlanHandlerTests : IDisposable {
         await using var context = NewContext();
         return await context.PaymentPlans
             .Include(plan => plan.Installments)
+            .ThenInclude(installment => installment.Payments)
             .SingleAsync(plan => plan.Id == planId, cancellationToken);
     }
 

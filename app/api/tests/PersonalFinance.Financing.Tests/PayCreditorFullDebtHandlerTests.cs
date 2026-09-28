@@ -86,6 +86,30 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_settles_exactly_the_remaining_amount_on_a_partly_paid_installment() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Nina", ["Nina Bank"], cancellationToken);
+        Guid partiallyPaidId;
+        await using(var context = NewContext()) {
+            var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 2, 20_000);
+            var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
+            ordered[0].ApplyPayment(3_000, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            partiallyPaidId = ordered[0].Id;
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+
+        var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value);
+        var settled = await LoadInstallmentAsync(partiallyPaidId, cancellationToken);
+        Assert.True(settled.IsPaid);
+        Assert.Equal(0, settled.RemainingMinorUnits);
+        Assert.Equal(10_000, settled.PaidMinorUnits);
+    }
+
+    [Fact]
     public async Task Handle_is_idempotent_second_run_settles_zero() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var creditor = await SeedCreditorAsync("Paula", ["Paula Bank"], cancellationToken);
@@ -157,7 +181,9 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
 
     private async Task<Installment> LoadInstallmentAsync(Guid installmentId, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await context.Set<Installment>().FirstAsync(candidate => candidate.Id == installmentId, cancellationToken);
+        return await context.Set<Installment>()
+            .Include(candidate => candidate.Payments)
+        .FirstAsync(candidate => candidate.Id == installmentId, cancellationToken);
     }
 
     private async Task<IReadOnlyList<Guid>> SeedCreditorPlanAsync(
@@ -167,12 +193,14 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         long totalMinorUnits,
         CancellationToken cancellationToken,
         int? markPaidSequence = null,
-        int? markReversedSequence = null) {
+        int? markReversedSequence = null
+    ) {
         await using var context = NewContext();
         var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], purchaseDate, installmentCount, totalMinorUnits);
         var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
         if(markPaidSequence is not null) {
-            ordered[markPaidSequence.Value - 1].MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            var paidInstallment = ordered[markPaidSequence.Value - 1];
+            paidInstallment.ApplyPayment(paidInstallment.Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
         }
         if(markReversedSequence is not null) {
             ordered[markReversedSequence.Value - 1].MarkReversed();

@@ -296,8 +296,18 @@ remaining cuota…" confirm is gone — "Pay full debt" now opens the shared `cr
 a new `full-debt` mode. A currency `<select>` appears only when the creditor's outstanding
 purchases span more than one currency; a custom amount then fills that currency's remaining
 cuotas across every purchase, oldest due-month first. New `pay-creditor-full-debt.ts` request
-type, `creditor-outstanding-by-currency.ts`. Tests 370/370. **Current phase** — Slice 4 (party
-share) remains, per `docs/partial-creditor-payments/00-overview.md`.
+type, `creditor-outstanding-by-currency.ts`. Tests 370/370.
+
+## Phase 46 — Partial creditor payments: party share (Slice 4)
+
+Done. `docs/partial-creditor-payments/slice-4-party-part.md`. `creditor-pay-dialog` (installment
+mode) gains a third radio per unpaid party share — disabled with an inline explanation when the
+share exceeds what remains — revealing a required "Received into" bank-account `<select>`;
+`confirm` output is now a `{kind:'own',...} | {kind:'party',...}` union. `creditor-detail-page`
+loads bank accounts the same way `party-detail-page` does (reuses `InstrumentsService`, no new
+endpoint) and maps the new `Parties.SettlementExceedsBalance` / `Parties.UnknownFundingAccount` /
+`Financing.PartyShareAlreadyPaid` / `Financing.PartyShareNotDue` errors into the existing
+`payErrorMessages`. Closes `docs/partial-creditor-payments/`. Tests 377/377.
 
 ---
 

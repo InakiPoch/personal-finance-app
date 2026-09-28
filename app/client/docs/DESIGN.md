@@ -167,11 +167,16 @@ no `I-` prefix.
 - `CreditorInstallmentRow = { installmentId: string; sequence: number; installmentCount: number;
   amountMinorUnits: Money; dueYear: number; dueMonth: number; isPaid: boolean; isReversed: boolean;
   status: 'overdue' | 'due' | 'future' | 'paid' | 'reversed'; paidMinorUnits: Money;
-  remainingMinorUnits: Money; hasPayments: boolean }` — `dueYear`/`dueMonth` are the payment
-  month (stored cycle + 1); `status` is server-computed; `paidMinorUnits`/`remainingMinorUnits`/
-  `hasPayments` are derived from the installment's payment rows (`docs/partial-creditor-payments/
-  slice-1-foundation-partial-installment.md`) — Pay shows on `remainingMinorUnits > 0`, Undo on
-  `hasPayments`, independently (a partial row shows both)
+  remainingMinorUnits: Money; hasPayments: boolean; partyShares: CreditorInstallmentPartyShare[] }`
+  — `dueYear`/`dueMonth` are the payment month (stored cycle + 1); `status` is server-computed;
+  `paidMinorUnits`/`remainingMinorUnits`/`hasPayments` are derived from the installment's payment
+  rows (`docs/partial-creditor-payments/slice-1-foundation-partial-installment.md`) — Pay shows on
+  `remainingMinorUnits > 0`, Undo on `hasPayments`, independently (a partial row shows both)
+- `CreditorInstallmentPartyShare = { partyId: string; partyName: string; shareMinorUnits: Money;
+  isPaid: boolean }` — one entry per split participant, empty unless the plan has a split **and**
+  the cuota already accrued that split **and** isn't reversed; `partyShares` is server-filtered to
+  the split, the page filters it further to `!isPaid` before handing it to the dialog
+  (`docs/partial-creditor-payments/slice-4-party-part.md`)
 - `CreditorPurchaseGroup = { planId: string; description: string; purchaseDate: IsoDate;
   totalMinorUnits: Money; outstandingMinorUnits: Money; currencyCode: CurrencyCode;
   installments: CreditorInstallmentRow[] }` — `totalMinorUnits` = Σ non-reversed cuotas of the plan,
@@ -194,15 +199,24 @@ no `I-` prefix.
   same meaning as `PayCreditorFullDebtResult.settledCount`; `creditor-detail-page` reuses its
   "N cuota(s) settled." line for both
 - `PayCreditorFullDebt = { amountMinorUnits: Money | null; currencyCode: CurrencyCode | null }` —
-  the pay-dialog's output/POST body for `pay-full`; `{ null, null }` pays everything remaining in
-  every currency (unchanged). This same shape is what `creditor-pay-dialog`'s `confirm` output
-  emits for **every** mode now, not just `full-debt` — `currencyCode` is simply always `null` for
-  `installment`/`expense`, and `creditor-detail-page` strips it back down to
-  `{ amountMinorUnits }` before calling those two services, so their request bodies stay exactly
-  what the API expects (`docs/partial-creditor-payments/slice-3-partial-full-debt.md`)
+  the request body for `pay-full`; `{ null, null }` pays everything remaining in every currency
+  (unchanged)
 - `CreditorOutstandingByCurrency = { currencyCode: CurrencyCode; outstandingMinorUnits: Money }` —
   one entry per currency the creditor currently owes in, summed across purchase groups; the page's
-  `outstandingByCurrency` computed feeds the dialog's new `currencies` input
+  `outstandingByCurrency` computed feeds the dialog's `currencies` input
+- `PayCreditorInstallmentPartyShare = { partyId: string; bankAccountId: string }` — request body
+  for `pay-party`; `PayCreditorInstallmentPartyShareResult = { paymentId: string }` — its response
+  (`docs/partial-creditor-payments/slice-4-party-part.md`)
+- `CreditorPayDialogConfirm = { kind: 'own'; amountMinorUnits: Money | null; currencyCode:
+  CurrencyCode | null } | { kind: 'party'; partyId: string; bankAccountId: string }` — replaces the
+  Slice-3 note below that `PayCreditorFullDebt`'s shape doubled as the dialog's `confirm` output for
+  every mode: with a fourth option (a third party's share) added in `installment` mode, one bare
+  shape could no longer tell "pay my own part" from "pay `<party>`'s part" — `own` carries the same
+  `{ amountMinorUnits, currencyCode }` the three original modes always emitted (`currencyCode`
+  still only ever set outside `null` in `full-debt`), `party` carries the id of the party and bank
+  account picked. `creditor-detail-page` narrows on `kind` and, for `own`, strips `currencyCode`
+  back down to `{ amountMinorUnits }` before calling `payCreditorInstallment`/`payCreditorExpense`,
+  same as before this slice.
 - **`creditor-pay-dialog` gains a third mode, `full-debt`.** The creditor-detail-page's old inline
   "Settle every remaining cuota…" confirm (`confirmingFullDebt` signal + its own template block)
   is gone — "Pay full debt" now sets `payTarget = { kind: 'full-debt' }` like the other two modes.
@@ -212,6 +226,24 @@ no `I-` prefix.
   confirm. With a single currency the select stays hidden and the dialog falls back to the
   existing `remainingMinorUnits`/`currency` inputs directly. The "Pay in full" radio lists every
   currency's total (`$X + US$Y`) when there's more than one.
+- **`creditor-pay-dialog` (installment mode) gains one radio per unpaid party share, plus a
+  `bankAccounts: Instrument[]` input.** New inputs `partyShares` (already filtered to `!isPaid` by
+  the page) and `bankAccounts`. Each unpaid share renders "Pay `<name>`'s part (`<share>`)"; a
+  share larger than `remainingMinorUnits` gets the explanation text visible beneath it, not a
+  tooltip, and the radio can't actually be selected — Angular's reactive forms overwrite a plain
+  `[disabled]` binding on a `formControlName` radio back to enabled on every change-detection pass
+  (a real gap found writing this slice's specs, not a documented Angular limitation elsewhere in
+  this codebase), so the click handler itself calls `preventDefault()` when the share exceeds what
+  remains, and `confirmDisabled` double-checks the same condition as defense in depth. Picking an
+  enabled party radio reveals a required "Received into" `<select>` of `bankAccounts`; its selected
+  value is bridged into a `WritableSignal` via `valueChanges` (the same pattern `amount`/`choice`
+  already used) rather than read as a plain `FormControl.value` inside `confirmDisabled` — a
+  `computed()` only reactively recomputes off **signal** reads, so the first cut of this code read
+  the raw control value directly and silently never re-enabled Confirm once a bank account was
+  picked. `creditor-detail-page` loads `bankAccounts` the same way `party-detail-page` does
+  (`InstrumentsService.list()` filtered to `type === 'debit'`, no new endpoint) and routes a
+  `party`-kind confirm to `payCreditorInstallmentPartyShare` (`docs/partial-creditor-payments/
+  slice-4-party-part.md`).
 
 **Subscriptions** (`CreateSubscriptionDto`, `SubscriptionResultDto`, `ActiveSubscriptionsDto`)
 - `Frequency = 'monthly' | 'weekly' | 'daily' | 'annually'`
@@ -439,6 +471,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 36 | GET | `/v1/reports/monthly-incomes` | `ReportsService.monthlyIncomes` | Dashboard — Income side of the `Out of pocket \| Income` toggle (§3.12) |
 | 37 | GET | `/v1/reports/money-flow` | `ReportsService.moneyFlow` | Money Flow table (§3.13; required `month` param, one row per money movement, `kind`-driven signed rendering) |
 | 38 | POST | `/v1/financing/creditor-purchases/{paymentPlanId}/pay` | `FinancingService.payCreditorExpense` | Creditor detail — per-purchase **Pay expense**, opened via the shared pay dialog in `expense` mode (display-only; body `{ amountMinorUnits: Money \| null }`, `null` = pay everything remaining, a custom amount fills that purchase's cuotas in sequence order; card plan → 409 `Financing.NotACreditorInstallment`; 0/negative or over-remaining → 400; returns `{ settledCount }`) |
+| 39 | POST | `/v1/financing/creditor-installments/{id}/pay-party` | `FinancingService.payCreditorInstallmentPartyShare` | Creditor detail — the shared pay dialog's per-party radio, `installment` mode only; body `{ partyId: string; bankAccountId: string }`, returns `{ paymentId: string }`; the **only** creditor-payment endpoint that touches the Ledger (`Dr Bank / Cr <party>`, real money); share not yet accrued → 409 `Financing.PartyShareNotDue`; unknown party → 409 `Financing.PartyNotInSplit`; already paid → 409 `Financing.PartyShareAlreadyPaid`; over-remaining → 400 `Financing.PaymentExceedsRemaining`; party has no outstanding balance → 409 `Parties.SettlementExceedsBalance`; bad bank id → 422 `Parties.UnknownFundingAccount` |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

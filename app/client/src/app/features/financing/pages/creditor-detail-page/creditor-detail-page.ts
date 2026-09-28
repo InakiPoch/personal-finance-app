@@ -19,8 +19,10 @@ import { CreditorPayDialog } from '../../components/creditor-pay-dialog/creditor
 import { FinancingService } from '../../financing-service';
 import { CreditorDetail } from '../../types/creditor-detail';
 import { CreditorInstallmentRow } from '../../types/creditor-installment-row';
+import { CreditorOutstandingByCurrency } from '../../types/creditor-outstanding-by-currency';
 import { CreditorPurchaseGroup } from '../../types/creditor-purchase-group';
 import { PayCreditorExpenseResult } from '../../types/pay-creditor-expense-result';
+import { PayCreditorFullDebt } from '../../types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from '../../types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
@@ -30,7 +32,8 @@ type LoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 type PayStatus = 'idle' | 'busy' | 'error';
 type PayTarget =
   | { kind: 'installment'; row: CreditorInstallmentRow }
-  | { kind: 'expense'; group: CreditorPurchaseGroup };
+  | { kind: 'expense'; group: CreditorPurchaseGroup }
+  | { kind: 'full-debt' };
 
 @Component({
   selector: 'app-creditor-detail-page',
@@ -45,22 +48,40 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
   protected readonly loadError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly payStatus: WritableSignal<PayStatus> = signal<PayStatus>('idle');
   protected readonly payError: WritableSignal<AppError | null> = signal<AppError | null>(null);
-  protected readonly confirmingFullDebt: WritableSignal<boolean> = signal<boolean>(false);
   protected readonly lastSettledCount: WritableSignal<number | null> = signal<number | null>(null);
   protected readonly payTarget: WritableSignal<PayTarget | null> = signal<PayTarget | null>(null);
-  protected readonly payDialogMode: Signal<'installment' | 'expense'> = computed(() =>
+  protected readonly payDialogMode: Signal<'installment' | 'expense' | 'full-debt'> = computed(() =>
     this.payTarget()?.kind ?? 'installment'
   );
+  protected readonly outstandingByCurrency: Signal<CreditorOutstandingByCurrency[]> = computed(() => {
+    const totals: Map<CurrencyCode, Money> = new Map<CurrencyCode, Money>();
+    for(const group of this.detail()?.purchases ?? []) {
+      if(group.outstandingMinorUnits <= 0) {
+        continue;
+      }
+      totals.set(group.currencyCode, fromMinorUnits((totals.get(group.currencyCode) ?? 0) + group.outstandingMinorUnits));
+    }
+    return Array.from(totals.entries()).map(([currencyCode, outstandingMinorUnits]: [CurrencyCode, Money]) => ({
+      currencyCode,
+      outstandingMinorUnits
+    }));
+  });
   protected readonly payTargetRemaining: Signal<Money> = computed(() => {
     const target: PayTarget | null = this.payTarget();
     if(target === null) {
       return fromMinorUnits(0);
     }
-    return target.kind === 'expense' ? target.group.outstandingMinorUnits : target.row.remainingMinorUnits;
+    if(target.kind === 'expense') {
+      return target.group.outstandingMinorUnits;
+    }
+    if(target.kind === 'full-debt') {
+      return this.outstandingByCurrency()[0]?.outstandingMinorUnits ?? fromMinorUnits(0);
+    }
+    return target.row.remainingMinorUnits;
   });
   protected readonly payTargetGroup: Signal<CreditorPurchaseGroup | null> = computed(() => {
     const target: PayTarget | null = this.payTarget();
-    if(target === null) {
+    if(target === null || target.kind === 'full-debt') {
       return null;
     }
     if(target.kind === 'expense') {
@@ -77,14 +98,20 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     if(target === null) {
       return '';
     }
+    if(target.kind === 'full-debt') {
+      return 'Pay full debt';
+    }
     if(target.kind === 'expense') {
       return target.group.description;
     }
     return `Cuota ${target.row.sequence}/${target.row.installmentCount} · ${this.payTargetGroup()?.description ?? ''}`;
   });
-  protected readonly payDialogCurrency: Signal<CurrencyCode> = computed(() =>
-    this.payTargetGroup()?.currencyCode ?? 'ARS'
-  );
+  protected readonly payDialogCurrency: Signal<CurrencyCode> = computed(() => {
+    if(this.payTarget()?.kind === 'full-debt') {
+      return this.outstandingByCurrency()[0]?.currencyCode ?? 'ARS';
+    }
+    return this.payTargetGroup()?.currencyCode ?? 'ARS';
+  });
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly financing: FinancingService = inject(FinancingService);
@@ -96,7 +123,8 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     'Financing.InstallmentNotFound': 'No installment matches that id.',
     'Financing.InvalidPaymentAmount': 'Enter a valid payment amount.',
     'Financing.PaymentExceedsRemaining': "That payment exceeds what's still remaining.",
-    'Financing.NoPaymentToUndo': 'There is no payment recorded on this installment to undo.'
+    'Financing.NoPaymentToUndo': 'There is no payment recorded on this installment to undo.',
+    'Financing.InvalidCurrencyCode': 'Choose a currency for this payment.'
   };
   private creditorId: string | null = null;
 
@@ -123,16 +151,21 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     this.payError.set(null);
   }
 
-  protected onDialogConfirm(body: PayCreditorInstallment): void {
+  protected onDialogConfirm(body: PayCreditorFullDebt): void {
     const target: PayTarget | null = this.payTarget();
     if(target === null) {
       return;
     }
-    if(target.kind === 'expense') {
-      this.runPayExpense(target.group.planId, body);
+    if(target.kind === 'full-debt') {
+      this.runPayFullDebt(body);
       return;
     }
-    this.runPay(target.row.installmentId, body);
+    const amountBody: PayCreditorInstallment = { amountMinorUnits: body.amountMinorUnits };
+    if(target.kind === 'expense') {
+      this.runPayExpense(target.group.planId, amountBody);
+      return;
+    }
+    this.runPay(target.row.installmentId, amountBody);
   }
 
   protected onUndo(installmentId: string): void {
@@ -145,17 +178,13 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     );
   }
 
-  protected requestPayFullDebt(): void {
+  protected onPayFullDebt(): void {
     this.payError.set(null);
     this.lastSettledCount.set(null);
-    this.confirmingFullDebt.set(true);
+    this.payTarget.set({ kind: 'full-debt' });
   }
 
-  protected cancelPayFullDebt(): void {
-    this.confirmingFullDebt.set(false);
-  }
-
-  protected confirmPayFullDebt(): void {
+  private runPayFullDebt(body: PayCreditorFullDebt): void {
     const creditorId: string | null = this.creditorId;
     if(creditorId === null) {
       return;
@@ -163,19 +192,18 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     this.payError.set(null);
     this.payStatus.set('busy');
     this.financing
-      .payCreditorFullDebt(creditorId)
+      .payCreditorFullDebt(creditorId, body)
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (result: PayCreditorFullDebtResult) => {
           this.payStatus.set('idle');
-          this.confirmingFullDebt.set(false);
+          this.payTarget.set(null);
           this.lastSettledCount.set(result.settledCount);
           this.loadDetail(creditorId);
         },
         error: (error: AppError) => {
           this.payError.set(error);
           this.payStatus.set('error');
-          this.confirmingFullDebt.set(false);
         }
       }
     );

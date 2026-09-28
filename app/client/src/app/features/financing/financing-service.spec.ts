@@ -16,6 +16,7 @@ import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayCreditorExpense } from './types/pay-creditor-expense';
 import { PayCreditorExpenseResult } from './types/pay-creditor-expense-result';
+import { PayCreditorFullDebt } from './types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from './types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
@@ -302,15 +303,24 @@ describe('FinancingService', () => {
     req.flush({ installmentId: 'ci-1' });
     expect(result).toBe('ci-1');
   });
-  it('POSTs an empty body to pay a creditor full debt and returns the settled count', () => {
+  it('POSTs a null amount and currency to pay a creditor full debt and returns the settled count', () => {
     let result: number | undefined;
-    service.payCreditorFullDebt('cr-1')
+    const body: PayCreditorFullDebt = { amountMinorUnits: null, currencyCode: null };
+    service.payCreditorFullDebt('cr-1', body)
       .subscribe((r: PayCreditorFullDebtResult) => (result = r.settledCount));
     const req = httpMock.expectOne(`${base}/financing/creditor-payables/cr-1/pay-full`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({});
+    expect(req.request.body).toEqual(body);
     req.flush({ settledCount: 4 });
     expect(result).toBe(4);
+  });
+  it('POSTs a custom minor-unit amount and currency to pay a creditor full debt', () => {
+    const body: PayCreditorFullDebt = { amountMinorUnits: money(15050), currencyCode: 'USD' };
+    service.payCreditorFullDebt('cr-1', body).subscribe();
+    const req = httpMock.expectOne(`${base}/financing/creditor-payables/cr-1/pay-full`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ settledCount: 1 });
   });
   it('POSTs a null amount to pay a creditor expense in full and returns the settled count', () => {
     let result: number | undefined;

@@ -8,6 +8,7 @@ import { FinancingService } from '../../financing-service';
 import { CreditorDetail } from '../../types/creditor-detail';
 import { PayCreditorExpense } from '../../types/pay-creditor-expense';
 import { PayCreditorExpenseResult } from '../../types/pay-creditor-expense-result';
+import { PayCreditorFullDebt } from '../../types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from '../../types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
@@ -25,7 +26,7 @@ describe('CreditorDetailPage', () => {
   let creditorDetail: jasmine.Spy<(creditorId: string) => Observable<CreditorDetail>>;
   let payCreditorInstallment: jasmine.Spy<(id: string, body: PayCreditorInstallment) => Observable<PayCreditorInstallmentResult>>;
   let unpayCreditorInstallment: jasmine.Spy<(id: string) => Observable<PayCreditorInstallmentResult>>;
-  let payCreditorFullDebt: jasmine.Spy<(creditorId: string) => Observable<PayCreditorFullDebtResult>>;
+  let payCreditorFullDebt: jasmine.Spy<(creditorId: string, body: PayCreditorFullDebt) => Observable<PayCreditorFullDebtResult>>;
   let payCreditorExpense: jasmine.Spy<(planId: string, body: PayCreditorExpense) => Observable<PayCreditorExpenseResult>>;
 
   const money = (value: number): Money => value as Money;
@@ -195,13 +196,21 @@ describe('CreditorDetailPage', () => {
     expect(unpayCreditorInstallment).toHaveBeenCalledWith('i-1');
     expect(creditorDetail).toHaveBeenCalledTimes(2);
   });
-  it('arms an inline confirm, settles the full debt on confirm, and re-fetches the detail', () => {
+  it('opens the pay dialog in full-debt mode on Pay full debt', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
+    setup();
+    buttonByLabel('Pay full debt').click();
+    fixture.detectChanges();
+    expect(payCreditorFullDebt).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('dialog').textContent).toContain('Pay full debt');
+  });
+  it('confirms the full-debt pay dialog in full and re-fetches the detail', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
     setup();
     buttonByLabel('Pay full debt').click();
     fixture.detectChanges();
     buttonByLabel('Confirm').click();
-    expect(payCreditorFullDebt).toHaveBeenCalledWith('cred-1');
+    expect(payCreditorFullDebt).toHaveBeenCalledWith('cred-1', { amountMinorUnits: null, currencyCode: null });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('cuota(s) settled');
@@ -224,7 +233,34 @@ describe('CreditorDetailPage', () => {
     setup();
     expect(buttonByLabel('Pay full debt').disabled).toBe(true);
   });
-  it('backs out of the confirm without calling the service', () => {
+  it('shows a currency select in the full-debt dialog for a creditor with two outstanding currencies', () => {
+    const mixed: CreditorDetail = {
+      creditorId: 'cred-1',
+      creditorName: 'Juan',
+      purchases: [
+        detail.purchases[0],
+        {
+          planId: 'pl-2',
+          description: 'Laptop',
+          purchaseDate: '2026-01-15',
+          totalMinorUnits: money(100000),
+          outstandingMinorUnits: money(100000),
+          currencyCode: 'USD',
+          installments: []
+        }
+      ]
+    };
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(mixed));
+    setup();
+    buttonByLabel('Pay full debt').click();
+    fixture.detectChanges();
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('dialog');
+    const custom: HTMLInputElement = dialog.querySelector('input[type="radio"][value="custom"]') as HTMLInputElement;
+    custom.click();
+    fixture.detectChanges();
+    expect(dialog.querySelector('#pay-dialog-currency')).toBeTruthy();
+  });
+  it('backs out of the full-debt pay dialog via Cancel without calling the service', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
     setup();
     buttonByLabel('Pay full debt').click();

@@ -5,14 +5,14 @@
   >
     <h2 class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">{{ title() }}</h2>
     <p class="mt-1 text-[0.8125rem] text-ink-faint">
-      {{ formatMoney(remainingMinorUnits(), currency()) }} remaining.
+      {{ formatMoney(effectiveRemaining(), effectiveCurrency()) }} remaining.
     </p>
     <form [formGroup]="form" class="mt-6 flex flex-col gap-4" (ngSubmit)="onConfirm()">
       <fieldset class="flex flex-col gap-2">
         <legend class="sr-only">Payment amount</legend>
         <label class="flex cursor-pointer items-center gap-2 text-sm text-ink">
           <input type="radio" value="full" formControlName="choice" />
-          {{ payInFullLabel() }} ({{ formatMoney(remainingMinorUnits(), currency()) }})
+          {{ payInFullLabel() }} ({{ payInFullSummary() }})
         </label>
         <label class="flex cursor-pointer items-center gap-2 text-sm text-ink">
           <input type="radio" value="custom" formControlName="choice" />
@@ -20,6 +20,26 @@
         </label>
       </fieldset>
       @if(choice() === 'custom') {
+        @if(showCurrencySelect()) {
+          <div class="flex flex-col gap-1.5">
+            <label
+              for="pay-dialog-currency"
+              class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+            >
+              Currency
+            </label>
+            <select
+              id="pay-dialog-currency"
+              formControlName="currencyCode"
+              aria-label="Currency"
+              class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+            >
+              @for(entry of currencies(); track entry.currencyCode) {
+                <option [value]="entry.currencyCode">{{ entry.currencyCode }}</option>
+              }
+            </select>
+          </div>
+        }
         <div class="flex flex-col gap-1.5">
           <label
             for="pay-dialog-amount"
@@ -48,11 +68,14 @@
           }
           @if(exceedsRemaining()) {
             <p class="text-xs text-negative" role="alert">
-              Can't exceed {{ formatMoney(remainingMinorUnits(), currency()) }} remaining.
+              Can't exceed {{ formatMoney(effectiveRemaining(), effectiveCurrency()) }} remaining.
             </p>
           }
           @if(mode() === 'expense') {
             <p class="text-xs text-ink-faint">Fills cuotas in order; the last one may be partly paid.</p>
+          }
+          @if(mode() === 'full-debt') {
+            <p class="text-xs text-ink-faint">Fills the oldest cuotas first, across all purchases.</p>
           }
         </div>
       }

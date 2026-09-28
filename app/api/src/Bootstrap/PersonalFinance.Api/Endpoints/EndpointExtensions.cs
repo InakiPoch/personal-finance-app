@@ -126,6 +126,14 @@ internal static class EndpointExtensions {
                 .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Financing.CreditorInstallmentPartySharePayment, PayCreditorInstallmentPartyShare.Handle)
+                .WithSummary("Pay a split participant's share of a creditor installment.")
+                .WithDescription("\"The party paid me, I pay the creditor\": settles the party's receivable into the given bank account (the same settlement recorded by hand on the Parties page) and records that share as a payment on the installment, in one call. Offered only once the installment's split receivable has been accrued. Fails if the installment is unknown, belongs to a credit-card plan, is reversed, its split hasn't accrued yet, the party isn't a participant, the party already paid this share, the share exceeds what remains, or the settlement itself fails (e.g. the party has no outstanding balance, or the bank account is unknown).")
+                .Produces<PayCreditorInstallmentPartyShareResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapPost(ApiRoutes.Financing.CreditorPayableFullPayment, PayCreditorFullDebt.Handle)
                 .WithSummary("Settle a creditor's entire remaining debt.")
                 .WithDescription("Stamps a display-only PaidOnUtc on every unpaid, non-reversed installment across all of the creditor's purchases — no bank account and no ledger posting. Already-paid and reversed installments are skipped; the result carries the number newly settled (zero when the debt was already clear). An unknown creditor yields a 404.")

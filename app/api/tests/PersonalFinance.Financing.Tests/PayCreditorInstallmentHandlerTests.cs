@@ -152,6 +152,60 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Unpay_of_a_party_paid_installment_reverses_its_settlement_transaction() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Vito", ["Vito Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 1, 10_000, cancellationToken);
+        var partyId = Guid.CreateVersion7();
+        var settlementTransactionId = Guid.CreateVersion7();
+        await using(var context = NewContext()) {
+            var installment = await context.Set<Installment>().Include(candidate => candidate.Payments).FirstAsync(candidate => candidate.Id == installmentIds[0], cancellationToken);
+            installment.ApplyPayment(10_000, fixedNow, partyId, settlementTransactionId);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        var ledger = new FakeLedgerApi();
+        var result = await UnpayAsync(installmentIds[0], ledger, cancellationToken);
+        Assert.True(result.IsSuccess);
+        var reversed = Assert.Single(ledger.ReversedTransactions);
+        Assert.Equal(settlementTransactionId, reversed.OriginalTransactionId);
+        var installmentAfter = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.False(installmentAfter.IsPaid);
+        Assert.Empty(installmentAfter.Payments);
+    }
+
+    [Fact]
+    public async Task Unpay_of_a_party_paid_installment_keeps_the_row_when_the_reversal_fails() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Wendy", ["Wendy Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 1, 10_000, cancellationToken);
+        var partyId = Guid.CreateVersion7();
+        var settlementTransactionId = Guid.CreateVersion7();
+        await using(var context = NewContext()) {
+            var installment = await context.Set<Installment>().Include(candidate => candidate.Payments).FirstAsync(candidate => candidate.Id == installmentIds[0], cancellationToken);
+            installment.ApplyPayment(10_000, fixedNow, partyId, settlementTransactionId);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        var ledger = new FakeLedgerApi { ReverseTransactionResultOverride = new Error("Ledger.TransactionAlreadyReversed", "Already reversed.") };
+        var result = await UnpayAsync(installmentIds[0], ledger, cancellationToken);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Ledger.TransactionAlreadyReversed", result.Error.Code);
+        var installmentAfter = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.True(installmentAfter.IsPaid);
+        Assert.Single(installmentAfter.Payments);
+    }
+
+    [Fact]
+    public async Task Unpay_of_an_own_payment_does_not_touch_the_ledger() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Xena", ["Xena Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken, markPaidSequence: 1);
+        var ledger = new FakeLedgerApi();
+        var result = await UnpayAsync(installmentIds[0], ledger, cancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Empty(ledger.ReversedTransactions);
+    }
+
+    [Fact]
     public async Task Handle_with_a_null_amount_pays_whatever_remains_after_an_earlier_partial_payment() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var creditor = await SeedCreditorAsync("Tomas", ["Tomas Bank"], cancellationToken);
@@ -206,8 +260,12 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     }
 
     private async Task<Result<Guid>> UnpayAsync(Guid installmentId, CancellationToken cancellationToken) {
+        return await UnpayAsync(installmentId, new FakeLedgerApi(), cancellationToken);
+    }
+
+    private async Task<Result<Guid>> UnpayAsync(Guid installmentId, FakeLedgerApi ledger, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await new UnpayCreditorInstallmentHandler(context).HandleAsync(new UnpayCreditorInstallmentCommand(installmentId), cancellationToken);
+        return await new UnpayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow), ledger).HandleAsync(new UnpayCreditorInstallmentCommand(installmentId), cancellationToken);
     }
 
     private async Task<(long DueNow, long TotalOwed)> ReadPayablesFiguresAsync(Guid creditorId, CancellationToken cancellationToken) {

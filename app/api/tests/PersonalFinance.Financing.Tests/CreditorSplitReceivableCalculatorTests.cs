@@ -65,6 +65,33 @@ public class CreditorSplitReceivableCalculatorTests {
         Assert.Equal(0, partyPortion);
     }
 
+    [Fact]
+    public void PartyShares_lands_the_same_way_the_ledger_legs_do_for_uneven_weights() {
+        var partyA = Guid.CreateVersion7();
+        var partyB = Guid.CreateVersion7();
+        var ordered = new[] { partyA, partyB }.OrderBy(id => id).ToArray();
+        var participants = new[] {
+            participantFor(ordered[0], 1),
+            participantFor(ordered[1], 2)
+        };
+
+        var shares = CreditorSplitReceivableCalculator.PartyShares(money(9001), participants);
+
+        var (lines, _) = CreditorSplitReceivableCalculator.BuildLines(money(9001), participants, payableAccountId);
+        Assert.Equal(2, shares.Count);
+        foreach(var (partyId, shareMinorUnits) in shares) {
+            var participant = participants.Single(candidate => candidate.PartyId == partyId);
+            var line = lines.Single(candidate => candidate.AccountId == participant.ReceivableAccountId);
+            Assert.Equal(line.Amount.MinorUnits, shareMinorUnits);
+        }
+    }
+
+    private static PaymentPlanSplitParticipant participantFor(Guid partyId, long weight) {
+        var participant = PaymentPlanSplitParticipant.For(Guid.CreateVersion7(), partyId, weight);
+        participant.AssignReceivableAccount(Guid.CreateVersion7());
+        return participant;
+    }
+
     private static PaymentPlanSplitParticipant participant(long weight) {
         var participant = PaymentPlanSplitParticipant.For(Guid.CreateVersion7(), Guid.CreateVersion7(), weight);
         participant.AssignReceivableAccount(Guid.CreateVersion7());

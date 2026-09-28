@@ -1,18 +1,18 @@
 using Microsoft.EntityFrameworkCore;
 using PersonalFinance.Abstractions.Messaging;
+using PersonalFinance.Financing.Application.Commands.LinkPaymentPlanSplit;
 using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
+using PersonalFinance.Parties.Contracts;
+using PersonalFinance.Parties.Contracts.Queries;
 
 namespace PersonalFinance.Financing.Application.Queries.GetCreditorDetail;
 
 /// <summary>
-/// Read-only drill-down for one creditor: every creditor-financed purchase (payment plan) with its
-/// installments beneath. Per group, <c>Total</c> is the sum of non-reversed installment amounts and
-/// <c>Outstanding</c> the sum of the unpaid, non-reversed ones. Each installment's status compares its
-/// payment cycle (<see cref="Installment.DueCycle"/>) to the current uniform-26th creditor cycle.
+/// Read-only drill-down for one creditor: every creditor-financed purchase (payment plan) with its installments beneath.
 /// </summary>
-internal sealed class GetCreditorDetailHandler(FinancingDbContext context, TimeProvider timeProvider) : IQueryHandler<GetCreditorDetailQuery, CreditorDetailResponse> {
+internal sealed class GetCreditorDetailHandler(FinancingDbContext context, TimeProvider timeProvider, IPartiesApi partiesApi) : IQueryHandler<GetCreditorDetailQuery, CreditorDetailResponse> {
     public async Task<CreditorDetailResponse> HandleAsync(GetCreditorDetailQuery query, CancellationToken cancellationToken) {
         var creditor = await context.Creditors
             .FirstOrDefaultAsync(candidate => candidate.Id == query.CreditorId, cancellationToken);
@@ -34,11 +34,28 @@ internal sealed class GetCreditorDetailHandler(FinancingDbContext context, TimeP
                 installment.CycleMonth,
                 installment.PaidOnUtc,
                 installment.IsReversed,
+                installment.SplitAccruedOnUtc,
                 PaidMinorUnits = context.Set<CreditorInstallmentPayment>()
                     .Where(payment => payment.InstallmentId == installment.Id)
-                    .Sum(payment => (long?)payment.AmountMinorUnits) ?? 0
+                .Sum(payment => (long?)payment.AmountMinorUnits) ?? 0
             }
         ).ToListAsync(cancellationToken);
+        var planIds = rows.Select(row => row.Id).Distinct().ToList();
+        var participantsByPlan = (await context.Set<PaymentPlanSplitParticipant>()
+                .Where(participant => planIds.Contains(participant.PaymentPlanId))
+                .OrderBy(participant => participant.PartyId)
+                .ToListAsync(cancellationToken))
+            .GroupBy(participant => participant.PaymentPlanId)
+            .ToDictionary(group => group.Key, group => (IReadOnlyList<PaymentPlanSplitParticipant>)group.ToList());
+        var installmentIds = rows.Select(row => row.InstallmentId).ToList();
+        var paidPartyIdsByInstallment = (await context.Set<CreditorInstallmentPayment>()
+                .Where(payment => installmentIds.Contains(payment.InstallmentId) && payment.PartyId != null)
+                .Select(payment => new { payment.InstallmentId, PartyId = payment.PartyId!.Value })
+                .ToListAsync(cancellationToken))
+            .GroupBy(payment => payment.InstallmentId)
+            .ToDictionary(group => group.Key, group => group.Select(payment => payment.PartyId).ToHashSet());
+        var partyNamesById = (await partiesApi.ListPartiesAsync(new ListPartiesQuery(), cancellationToken)).Rows
+            .ToDictionary(party => party.Id, party => party.Name);
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var currentDueCycle = BillingCycleCalculator.ResolveCycle(today, PaymentPlan.CreditorCutoffDay).DueCycle;
         var currentOrdinal = currentDueCycle.Year * 12 + currentDueCycle.Month;
@@ -52,6 +69,18 @@ internal sealed class GetCreditorDetailHandler(FinancingDbContext context, TimeP
                     .Select(row => {
                         var dueCycle = new BillingCycle(row.CycleYear, row.CycleMonth).DueCycle;
                         var dueOrdinal = dueCycle.Year * 12 + dueCycle.Month;
+                        var partyShares = row.IsReversed || row.SplitAccruedOnUtc is null
+                            || !participantsByPlan.TryGetValue(row.Id, out var participants)
+                            ? []
+                            : CreditorSplitReceivableCalculator.PartyShares(row.Amount, participants)
+                                .Where(share => share.ShareMinorUnits > 0)
+                                .Select(share => new CreditorInstallmentPartyShare(
+                                    share.PartyId,
+                                    partyNamesById.GetValueOrDefault(share.PartyId, "Unknown party"),
+                                    share.ShareMinorUnits,
+                                    paidPartyIdsByInstallment.TryGetValue(row.InstallmentId, out var paidSet) && paidSet.Contains(share.PartyId))
+                                )
+                                .ToList();
                         return new CreditorInstallmentRow(
                             row.InstallmentId,
                             row.Sequence,
@@ -64,7 +93,8 @@ internal sealed class GetCreditorDetailHandler(FinancingDbContext context, TimeP
                             statusFor(row.IsReversed, row.PaidOnUtc, dueOrdinal, currentOrdinal),
                             row.PaidMinorUnits,
                             row.Amount.MinorUnits - row.PaidMinorUnits,
-                            row.PaidMinorUnits > 0
+                            row.PaidMinorUnits > 0,
+                            partyShares
                         );
                     })
                     .ToList();

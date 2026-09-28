@@ -172,4 +172,19 @@ internal static class FinancingErrors {
         "Financing.NoPaymentToUndo",
         "The installment has no recorded payment to undo."
     );
+
+    public static readonly Error PartyShareNotDue = new(
+        "Financing.PartyShareNotDue",
+        "The installment's split receivable has not been accrued yet, so no party share can be paid."
+    );
+
+    public static readonly Error PartyNotInSplit = new(
+        "Financing.PartyNotInSplit",
+        "The referenced party is not a participant in this payment plan's split."
+    );
+
+    public static readonly Error PartyShareAlreadyPaid = new(
+        "Financing.PartyShareAlreadyPaid",
+        "This party's share of the installment has already been paid."
+    );
 }

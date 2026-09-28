@@ -6,3 +6,7 @@ namespace PersonalFinance.Api.Endpoints.DTOs;
 public sealed record PayCreditorInstallmentRequestDto(long? AmountMinorUnits);
 
 public sealed record PayCreditorInstallmentResultDto(Guid InstallmentId);
+
+public sealed record PayCreditorInstallmentPartyShareRequestDto(Guid PartyId, Guid BankAccountId);
+
+public sealed record PayCreditorInstallmentPartyShareResultDto(Guid PaymentId);

@@ -161,7 +161,7 @@ public sealed class PayCreditorExpenseHandlerTests : IDisposable {
 
     private async Task<Result<Guid>> UnpayAsync(Guid installmentId, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await new UnpayCreditorInstallmentHandler(context).HandleAsync(new UnpayCreditorInstallmentCommand(installmentId), cancellationToken);
+        return await new UnpayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow), new FakeLedgerApi()).HandleAsync(new UnpayCreditorInstallmentCommand(installmentId), cancellationToken);
     }
 
     private async Task<Installment> LoadInstallmentAsync(Guid installmentId, CancellationToken cancellationToken) {

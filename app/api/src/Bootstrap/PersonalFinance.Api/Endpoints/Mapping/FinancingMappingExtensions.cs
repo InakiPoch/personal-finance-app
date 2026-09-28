@@ -60,6 +60,10 @@ internal static class FinancingMappingExtensions {
         }
     }
 
+    public static PayCreditorInstallmentPartyShareResultDto ToPayCreditorInstallmentPartyShareResultDto(this Guid paymentId) {
+        return new PayCreditorInstallmentPartyShareResultDto(paymentId);
+    }
+
     public static CardFutureScheduleDto ToCardFutureScheduleDto(this CardFutureScheduleResponse response, Guid cardId) {
         var rows = response.Rows
             .Select(row => new CardFutureScheduleRowDto(
@@ -167,7 +171,10 @@ internal static class FinancingMappingExtensions {
                         row.Status,
                         row.PaidMinorUnits,
                         row.RemainingMinorUnits,
-                        row.HasPayments)
+                        row.HasPayments,
+                        row.PartyShares
+                            .Select(share => new CreditorInstallmentPartyShareDto(share.PartyId, share.PartyName, share.ShareMinorUnits, share.IsPaid))
+                            .ToList())
                     )
                     .ToList(),
                 group.CurrencyCode

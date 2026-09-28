@@ -2,6 +2,11 @@ using PersonalFinance.Abstractions.Messaging;
 
 namespace PersonalFinance.Financing.Contracts.Queries;
 
+/// <summary>
+/// One split participant's share of a single installment.
+/// </summary>
+public sealed record CreditorInstallmentPartyShare(Guid PartyId, string PartyName, long ShareMinorUnits, bool IsPaid);
+
 public sealed record CreditorInstallmentRow(
     Guid InstallmentId,
     int Sequence,
@@ -14,7 +19,8 @@ public sealed record CreditorInstallmentRow(
     string Status,
     long PaidMinorUnits,
     long RemainingMinorUnits,
-    bool HasPayments
+    bool HasPayments,
+    IReadOnlyList<CreditorInstallmentPartyShare> PartyShares
 );
 
 public sealed record CreditorPurchaseGroup(

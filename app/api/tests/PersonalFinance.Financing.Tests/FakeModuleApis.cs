@@ -17,8 +17,10 @@ namespace PersonalFinance.Financing.Tests;
 internal sealed class FakeLedgerApi : ILedgerApi {
     public List<CreateAccountCommand> CreatedAccounts { get; } = [];
     public List<PostTransactionCommand> PostedTransactions { get; } = [];
+    public List<ReverseTransactionCommand> ReversedTransactions { get; } = [];
     public Guid NextAccountId { get; set; } = Guid.CreateVersion7();
     public Result<Guid>? PostTransactionResultOverride { get; set; }
+    public Result<ReverseTransactionResult>? ReverseTransactionResultOverride { get; set; }
 
     public Task<Result<Guid>> CreateAccountAsync(CreateAccountCommand command, CancellationToken ct = default) {
         CreatedAccounts.Add(command);
@@ -43,7 +45,8 @@ internal sealed class FakeLedgerApi : ILedgerApi {
     }
 
     public Task<Result<ReverseTransactionResult>> ReverseTransactionAsync(ReverseTransactionCommand command, CancellationToken ct = default) {
-        throw new NotSupportedException();
+        ReversedTransactions.Add(command);
+        return Task.FromResult(ReverseTransactionResultOverride ?? new ReverseTransactionResult(Guid.CreateVersion7(), false));
     }
 
     public Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default) {
@@ -72,7 +75,10 @@ internal sealed class FakeLedgerApi : ILedgerApi {
 /// </summary>
 internal sealed class FakePartiesApi : IPartiesApi {
     public List<RecordSplitAccrualCommand> RecordedAccruals { get; } = [];
+    public List<SettleCurrentAccountCommand> Settlements { get; } = [];
     public Result? RecordSplitAccrualResultOverride { get; set; }
+    public Result<Guid>? SettleCurrentAccountResultOverride { get; set; }
+    public ListPartiesResponse? ListPartiesResponseOverride { get; set; }
 
     public Task<Result> RecordSplitAccrualAsync(RecordSplitAccrualCommand command, CancellationToken ct = default) {
         RecordedAccruals.Add(command);
@@ -88,7 +94,8 @@ internal sealed class FakePartiesApi : IPartiesApi {
     }
 
     public Task<Result<Guid>> SettleCurrentAccountAsync(SettleCurrentAccountCommand command, CancellationToken ct = default) {
-        throw new NotSupportedException();
+        Settlements.Add(command);
+        return Task.FromResult(SettleCurrentAccountResultOverride ?? Guid.CreateVersion7());
     }
 
     public Task<Result> CorrectExpenseSplitAsync(CorrectExpenseSplitCommand command, CancellationToken ct = default) {
@@ -104,7 +111,7 @@ internal sealed class FakePartiesApi : IPartiesApi {
     }
 
     public Task<ListPartiesResponse> ListPartiesAsync(ListPartiesQuery query, CancellationToken ct = default) {
-        throw new NotSupportedException();
+        return Task.FromResult(ListPartiesResponseOverride ?? new ListPartiesResponse([]));
     }
 }
 

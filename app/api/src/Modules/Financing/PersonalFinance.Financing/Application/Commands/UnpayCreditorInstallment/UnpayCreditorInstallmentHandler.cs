@@ -3,16 +3,16 @@ using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Financing.Contracts.Commands;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Financing.Application.Commands.UnpayCreditorInstallment;
 
 /// <summary>
-/// Undoes the last payment recorded against a creditor installment — a display-only row removed, no
-/// ledger transaction to storno. With no payments recorded, fails with <see cref="FinancingErrors.NoPaymentToUndo"/>
+/// Undoes the last payment recorded against a creditor installment.
 /// </summary>
-internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context)
-    : ICommandHandler<UnpayCreditorInstallmentCommand, Guid> {
+internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context, TimeProvider timeProvider, ILedgerApi ledgerApi) : ICommandHandler<UnpayCreditorInstallmentCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(UnpayCreditorInstallmentCommand command, CancellationToken cancellationToken) {
         var validation = UnpayCreditorInstallmentValidator.Validate(command);
         if(validation.IsFailure) {
@@ -35,6 +35,12 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
         var undone = installment.UndoLastPayment();
         if(undone.IsFailure) {
             return undone.Error;
+        }
+        if(undone.Value.SettlementTransactionId is { } settlementTransactionId) {
+            var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settlementTransactionId, timeProvider.GetUtcNow()), cancellationToken);
+            if(reversed.IsFailure) {
+                return reversed.Error;
+            }
         }
         await context.SaveChangesAsync(cancellationToken);
         return installment.Id;

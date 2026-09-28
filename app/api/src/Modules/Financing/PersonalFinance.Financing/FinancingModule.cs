@@ -10,6 +10,7 @@ using PersonalFinance.Financing.Application.Commands.MarkInstallmentReversed;
 using PersonalFinance.Financing.Application.Commands.PayCreditorExpense;
 using PersonalFinance.Financing.Application.Commands.PayCreditorFullDebt;
 using PersonalFinance.Financing.Application.Commands.PayCreditorInstallment;
+using PersonalFinance.Financing.Application.Commands.PayCreditorInstallmentPartyShare;
 using PersonalFinance.Financing.Application.Commands.PayInstallment;
 using PersonalFinance.Financing.Application.Commands.PayStatement;
 using PersonalFinance.Financing.Application.Commands.UnpayCreditorInstallment;
@@ -53,6 +54,7 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<ICommandHandler<PayInstallmentCommand, Guid>, PayInstallmentHandler>();
         services.AddScoped<ICommandHandler<PayCreditorInstallmentCommand, Guid>, PayCreditorInstallmentHandler>();
         services.AddScoped<ICommandHandler<UnpayCreditorInstallmentCommand, Guid>, UnpayCreditorInstallmentHandler>();
+        services.AddScoped<ICommandHandler<PayCreditorInstallmentPartyShareCommand, Guid>, PayCreditorInstallmentPartyShareHandler>();
         services.AddScoped<ICommandHandler<PayCreditorFullDebtCommand, int>, PayCreditorFullDebtHandler>();
         services.AddScoped<ICommandHandler<PayCreditorExpenseCommand, int>, PayCreditorExpenseHandler>();
         services.AddScoped<ICommandHandler<MarkInstallmentReversedCommand>, MarkInstallmentReversedHandler>();

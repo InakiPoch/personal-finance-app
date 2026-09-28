@@ -131,6 +131,13 @@ internal static class EndpointExtensions {
                 .WithDescription("Stamps a display-only PaidOnUtc on every unpaid, non-reversed installment across all of the creditor's purchases — no bank account and no ledger posting. Already-paid and reversed installments are skipped; the result carries the number newly settled (zero when the debt was already clear). An unknown creditor yields a 404.")
                 .Produces<PayCreditorFullDebtResultDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound);
+            group.MapPost(ApiRoutes.Financing.CreditorPurchasePayment, PayCreditorExpense.Handle)
+                .WithSummary("Pay one creditor-financed purchase.")
+                .WithDescription("Records a display-only payment (full or partial) against one creditor-financed purchase — no bank account and no ledger posting. Fills that purchase's installments in sequence order, each taken in full until the amount runs out, the last one getting the leftover as a partial. A null amount pays whatever remains. Fails if the purchase is unknown, is card-backed, the amount is not positive, or it exceeds what remains.")
+                .Produces<PayCreditorExpenseResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
             return endpoints;
         }
 

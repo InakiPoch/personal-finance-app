@@ -28,6 +28,7 @@ public sealed record ApiRoutes {
         public const string CreditorInstallmentPayment = "/creditor-installments/{id:guid}/pay";
         public const string CreditorInstallmentUnpayment = "/creditor-installments/{id:guid}/unpay";
         public const string CreditorPayableFullPayment = "/creditor-payables/{creditorId:guid}/pay-full";
+        public const string CreditorPurchasePayment = "/creditor-purchases/{paymentPlanId:guid}/pay";
     }
 
     public sealed record Instruments {

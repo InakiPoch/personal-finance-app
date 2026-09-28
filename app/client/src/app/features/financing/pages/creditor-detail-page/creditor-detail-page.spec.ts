@@ -7,6 +7,7 @@ import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../financing-service';
 import { CreditorDetail } from '../../types/creditor-detail';
 import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
+import { PayCreditorInstallment } from '../../types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
 import { CreditorDetailPage } from './creditor-detail-page';
 
@@ -20,7 +21,7 @@ describe('CreditorDetailPage', () => {
   let fixture: ComponentFixture<CreditorDetailPage>;
   let view: CreditorDetailView;
   let creditorDetail: jasmine.Spy<(creditorId: string) => Observable<CreditorDetail>>;
-  let payCreditorInstallment: jasmine.Spy<(id: string) => Observable<PayCreditorInstallmentResult>>;
+  let payCreditorInstallment: jasmine.Spy<(id: string, body: PayCreditorInstallment) => Observable<PayCreditorInstallmentResult>>;
   let unpayCreditorInstallment: jasmine.Spy<(id: string) => Observable<PayCreditorInstallmentResult>>;
   let payCreditorFullDebt: jasmine.Spy<(creditorId: string) => Observable<PayCreditorFullDebtResult>>;
 
@@ -35,6 +36,7 @@ describe('CreditorDetailPage', () => {
       purchaseDate: '2026-01-10',
       totalMinorUnits: money(300000),
       outstandingMinorUnits: money(200000),
+      currencyCode: 'ARS',
       installments: [{
         installmentId: 'i-1',
         sequence: 1,
@@ -44,7 +46,10 @@ describe('CreditorDetailPage', () => {
         dueMonth: 2,
         isPaid: true,
         isReversed: false,
-        status: 'paid'
+        status: 'paid',
+        paidMinorUnits: money(100000),
+        remainingMinorUnits: money(0),
+        hasPayments: true
       }, {
         installmentId: 'i-2',
         sequence: 2,
@@ -54,7 +59,10 @@ describe('CreditorDetailPage', () => {
         dueMonth: 3,
         isPaid: false,
         isReversed: false,
-        status: 'overdue'
+        status: 'overdue',
+        paidMinorUnits: money(0),
+        remainingMinorUnits: money(100000),
+        hasPayments: false
       }]
     }]
   };
@@ -85,6 +93,14 @@ describe('CreditorDetailPage', () => {
   }
 
   beforeEach(() => {
+    if(!HTMLDialogElement.prototype.showModal) {
+      spyOn(HTMLDialogElement.prototype, 'showModal').and.callFake(function(this: HTMLDialogElement): void {
+        this.setAttribute('open', '');
+      });
+      spyOn(HTMLDialogElement.prototype, 'close').and.callFake(function(this: HTMLDialogElement): void {
+        this.removeAttribute('open');
+      });
+    }
     payCreditorInstallment = jasmine.createSpy('payCreditorInstallment')
       .and.returnValue(of({ installmentId: 'i-2' }));
     unpayCreditorInstallment = jasmine.createSpy('unpayCreditorInstallment')
@@ -140,12 +156,32 @@ describe('CreditorDetailPage', () => {
     expect(view.isNotFound()).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('Could not load this creditor');
   });
-  it('pays an installment via the row Pay button and re-fetches the detail', () => {
+  it('opens the pay dialog on Pay, titled with the cuota and purchase', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
     setup();
     buttonByLabel('Pay').click();
-    expect(payCreditorInstallment).toHaveBeenCalledWith('i-2');
+    fixture.detectChanges();
+    expect(payCreditorInstallment).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.querySelector('dialog').textContent).toContain('Cuota 2/3 · Sofa');
+  });
+  it('confirms the pay dialog in full and re-fetches the detail', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
+    setup();
+    buttonByLabel('Pay').click();
+    fixture.detectChanges();
+    buttonByLabel('Confirm').click();
+    expect(payCreditorInstallment).toHaveBeenCalledWith('i-2', { amountMinorUnits: null });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
+  });
+  it('backs out of the pay dialog via Cancel without calling the service', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
+    setup();
+    buttonByLabel('Pay').click();
+    fixture.detectChanges();
+    buttonByLabel('Cancel').click();
+    fixture.detectChanges();
+    expect(payCreditorInstallment).not.toHaveBeenCalled();
+    expect(creditorDetail).toHaveBeenCalledTimes(1);
   });
   it('undoes a payment via the row Undo button and re-fetches the detail', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
@@ -175,6 +211,7 @@ describe('CreditorDetailPage', () => {
         purchaseDate: '2026-01-10',
         totalMinorUnits: money(300000),
         outstandingMinorUnits: money(0),
+        currencyCode: 'ARS',
         installments: []
       }]
     };
@@ -205,6 +242,8 @@ describe('CreditorDetailPage', () => {
       .and.returnValue(throwError(() => appError));
     setup();
     buttonByLabel('Pay').click();
+    fixture.detectChanges();
+    buttonByLabel('Confirm').click();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('already marked paid');
     expect(creditorDetail).toHaveBeenCalledTimes(1);

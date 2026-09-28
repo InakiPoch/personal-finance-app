@@ -15,6 +15,7 @@ import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
+import { PayCreditorInstallment } from './types/pay-creditor-installment';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
@@ -236,6 +237,7 @@ describe('FinancingService', () => {
         purchaseDate: '2026-01-10',
         totalMinorUnits: money(300000),
         outstandingMinorUnits: money(200000),
+        currencyCode: 'ARS',
         installments: [{
           installmentId: 'i-1',
           sequence: 1,
@@ -245,7 +247,10 @@ describe('FinancingService', () => {
           dueMonth: 2,
           isPaid: false,
           isReversed: false,
-          status: 'due'
+          status: 'due',
+          paidMinorUnits: money(0),
+          remainingMinorUnits: money(100000),
+          hasPayments: false
         }]
       }]
     };
@@ -266,15 +271,24 @@ describe('FinancingService', () => {
     expect(error?.code).toBe('Financing.CreditorNotFound');
     expect(error?.status).toBe(404);
   });
-  it('POSTs an empty body to pay a creditor installment and returns its id', () => {
+  it('POSTs the payment body to pay a creditor installment in full and returns its id', () => {
     let result: string | undefined;
-    service.payCreditorInstallment('ci-1')
+    const body: PayCreditorInstallment = { amountMinorUnits: null };
+    service.payCreditorInstallment('ci-1', body)
       .subscribe((r: PayCreditorInstallmentResult) => (result = r.installmentId));
     const req = httpMock.expectOne(`${base}/financing/creditor-installments/ci-1/pay`);
     expect(req.request.method).toBe('POST');
-    expect(req.request.body).toEqual({});
+    expect(req.request.body).toEqual(body);
     req.flush({ installmentId: 'ci-1' });
     expect(result).toBe('ci-1');
+  });
+  it('POSTs a custom minor-unit amount to pay a creditor installment', () => {
+    const body: PayCreditorInstallment = { amountMinorUnits: money(15050) };
+    service.payCreditorInstallment('ci-1', body).subscribe();
+    const req = httpMock.expectOne(`${base}/financing/creditor-installments/ci-1/pay`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ installmentId: 'ci-1' });
   });
   it('POSTs an empty body to undo a creditor installment payment and returns its id', () => {
     let result: string | undefined;

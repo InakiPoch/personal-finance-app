@@ -84,4 +84,15 @@
       </div>
     </section>
   }
+  <app-creditor-pay-dialog
+    [open]="payTarget() !== null"
+    mode="installment"
+    [title]="payDialogTitle()"
+    [remainingMinorUnits]="payTargetRemaining()"
+    [currency]="payDialogCurrency()"
+    [busy]="payStatus() === 'busy'"
+    [error]="payError() ? payErrorText(payError()!) : null"
+    (confirm)="onDialogConfirm($event)"
+    (cancel)="onDialogCancel()"
+  />
 </div>

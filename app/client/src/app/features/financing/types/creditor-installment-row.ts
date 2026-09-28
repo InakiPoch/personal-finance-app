@@ -10,4 +10,7 @@ export type CreditorInstallmentRow = {
   isPaid: boolean;
   isReversed: boolean;
   status: 'overdue' | 'due' | 'future' | 'paid' | 'reversed';
+  paidMinorUnits: Money;
+  remainingMinorUnits: Money;
+  hasPayments: boolean;
 };

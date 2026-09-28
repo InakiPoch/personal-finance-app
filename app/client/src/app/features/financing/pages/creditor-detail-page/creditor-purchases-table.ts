@@ -25,7 +25,7 @@ const MONTH_LABELS: readonly string[] = [
 export class CreditorPurchasesTable {
   readonly purchases: InputSignal<CreditorPurchaseGroup[]> = input.required<CreditorPurchaseGroup[]>();
   readonly paying: InputSignal<boolean> = input<boolean>(false);
-  readonly payClick: OutputEmitterRef<string> = output<string>();
+  readonly payClick: OutputEmitterRef<CreditorInstallmentRow> = output<CreditorInstallmentRow>();
   readonly undoClick: OutputEmitterRef<string> = output<string>();
 
   protected readonly formatArs: (value: Money) => string = formatArs;
@@ -39,17 +39,25 @@ export class CreditorPurchasesTable {
   }
 
   protected canPay(row: CreditorInstallmentRow): boolean {
-    return !row.isPaid && !row.isReversed;
+    return !row.isReversed && row.remainingMinorUnits > 0;
+  }
+
+  protected canUndo(row: CreditorInstallmentRow): boolean {
+    return row.hasPayments && !row.isReversed;
+  }
+
+  protected showsPartial(row: CreditorInstallmentRow): boolean {
+    return row.paidMinorUnits > 0 && row.remainingMinorUnits > 0;
   }
 
   protected onPay(row: CreditorInstallmentRow): void {
     if(this.canPay(row)) {
-      this.payClick.emit(row.installmentId);
+      this.payClick.emit(row);
     }
   }
 
   protected onUndo(row: CreditorInstallmentRow): void {
-    if(row.isPaid) {
+    if(this.canUndo(row)) {
       this.undoClick.emit(row.installmentId);
     }
   }

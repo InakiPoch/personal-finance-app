@@ -64,7 +64,14 @@
                   {{ dueLabel(row) }}
                 </td>
                 <td class="py-2 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-                  {{ formatArs(row.amountMinorUnits) }}
+                  @if(showsPartial(row)) {
+                    <span class="block text-ink">{{ formatArs(row.remainingMinorUnits) }} left</span>
+                    <span class="block text-[0.6875rem] text-ink-faint">
+                      paid {{ formatArs(row.paidMinorUnits) }} of {{ formatArs(row.amountMinorUnits) }}
+                    </span>
+                  } @else {
+                    {{ formatArs(row.amountMinorUnits) }}
+                  }
                 </td>
                 <td class="py-2 text-right">
                   @switch(row.status) {
@@ -86,25 +93,28 @@
                   }
                 </td>
                 <td class="py-2 text-right">
-                  @if(canPay(row)) {
-                    <button
-                      type="button"
-                      [disabled]="paying()"
-                      (click)="onPay(row)"
-                      class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
-                    >
-                      Pay
-                    </button>
-                  } @else if(row.isPaid) {
-                    <button
-                      type="button"
-                      [disabled]="paying()"
-                      (click)="onUndo(row)"
-                      class="text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
-                    >
-                      Undo
-                    </button>
-                  }
+                  <div class="flex justify-end gap-3">
+                    @if(canPay(row)) {
+                      <button
+                        type="button"
+                        [disabled]="paying()"
+                        (click)="onPay(row)"
+                        class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                      >
+                        Pay
+                      </button>
+                    }
+                    @if(canUndo(row)) {
+                      <button
+                        type="button"
+                        [disabled]="paying()"
+                        (click)="onUndo(row)"
+                        class="text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                      >
+                        Undo
+                      </button>
+                    }
+                  </div>
                 </td>
               </tr>
             }

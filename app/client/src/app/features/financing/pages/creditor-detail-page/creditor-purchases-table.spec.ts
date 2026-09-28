@@ -2,6 +2,7 @@ import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { formatArs } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
+import { CreditorInstallmentRow } from '../../types/creditor-installment-row';
 import { CreditorPurchaseGroup } from '../../types/creditor-purchase-group';
 import { CreditorPurchasesTable } from './creditor-purchases-table';
 
@@ -16,10 +17,11 @@ describe('CreditorPurchasesTable', () => {
     purchaseDate: '2026-01-10',
     totalMinorUnits: money(300000),
     outstandingMinorUnits: money(200000),
+    currencyCode: 'ARS',
     installments: [
-      { installmentId: 'i-1', sequence: 1, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 2, isPaid: true, isReversed: false, status: 'paid' },
-      { installmentId: 'i-2', sequence: 2, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 3, isPaid: false, isReversed: false, status: 'overdue' },
-      { installmentId: 'i-3', sequence: 3, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'future' }
+      { installmentId: 'i-1', sequence: 1, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 2, isPaid: true, isReversed: false, status: 'paid', paidMinorUnits: money(100000), remainingMinorUnits: money(0), hasPayments: true },
+      { installmentId: 'i-2', sequence: 2, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 3, isPaid: false, isReversed: false, status: 'overdue', paidMinorUnits: money(0), remainingMinorUnits: money(100000), hasPayments: false },
+      { installmentId: 'i-3', sequence: 3, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'future', paidMinorUnits: money(0), remainingMinorUnits: money(100000), hasPayments: false }
     ]
   }, {
     planId: 'pl-2',
@@ -27,8 +29,21 @@ describe('CreditorPurchasesTable', () => {
     purchaseDate: '2026-02-20',
     totalMinorUnits: money(60000),
     outstandingMinorUnits: money(60000),
+    currencyCode: 'ARS',
     installments: [
-      { installmentId: 'i-4', sequence: 1, installmentCount: 1, amountMinorUnits: money(60000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'due' }
+      { installmentId: 'i-4', sequence: 1, installmentCount: 1, amountMinorUnits: money(60000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'due', paidMinorUnits: money(0), remainingMinorUnits: money(60000), hasPayments: false }
+    ]
+  }];
+
+  const partial: CreditorPurchaseGroup[] = [{
+    planId: 'pl-3',
+    description: 'Bike',
+    purchaseDate: '2026-01-15',
+    totalMinorUnits: money(400000),
+    outstandingMinorUnits: money(250000),
+    currencyCode: 'ARS',
+    installments: [
+      { installmentId: 'i-5', sequence: 1, installmentCount: 1, amountMinorUnits: money(400000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: false, status: 'due', paidMinorUnits: money(150000), remainingMinorUnits: money(250000), hasPayments: true }
     ]
   }];
 
@@ -95,8 +110,9 @@ describe('CreditorPurchasesTable', () => {
       purchaseDate: '2026-01-10',
       totalMinorUnits: money(50000),
       outstandingMinorUnits: money(0),
+      currencyCode: 'ARS',
       installments: [
-        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: true, status: 'reversed' }
+        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: true, status: 'reversed', paidMinorUnits: money(0), remainingMinorUnits: money(0), hasPayments: false }
       ]
     }];
     fixture.componentRef.setInput('purchases', reversed);
@@ -104,13 +120,13 @@ describe('CreditorPurchasesTable', () => {
     expect(buttonsByLabel('Pay').length).toBe(0);
     expect(buttonsByLabel('Undo').length).toBe(0);
   });
-  it('emits payClick with the installment id when Pay is clicked', () => {
+  it('emits payClick with the installment row when Pay is clicked', () => {
     fixture.componentRef.setInput('purchases', groups);
     fixture.detectChanges();
-    let emitted: string | undefined;
-    fixture.componentInstance.payClick.subscribe((id: string) => (emitted = id));
+    let emitted: CreditorInstallmentRow | undefined;
+    fixture.componentInstance.payClick.subscribe((row: CreditorInstallmentRow) => (emitted = row));
     buttonsByLabel('Pay')[0].click();
-    expect(emitted).toBe('i-2');
+    expect(emitted?.installmentId).toBe('i-2');
   });
   it('emits undoClick with the installment id when Undo is clicked', () => {
     fixture.componentRef.setInput('purchases', groups);
@@ -127,5 +143,21 @@ describe('CreditorPurchasesTable', () => {
     const actions: HTMLButtonElement[] = [...buttonsByLabel('Pay'), ...buttonsByLabel('Undo')];
     expect(actions.length).toBe(4);
     expect(actions.every((button: HTMLButtonElement) => button.disabled)).toBe(true);
+  });
+  it('renders "$X left" and "paid $Y of $Z" for a partially paid installment', () => {
+    fixture.componentRef.setInput('purchases', partial);
+    fixture.detectChanges();
+    const cell: HTMLElement = fixture.nativeElement.querySelector('tbody tr td:nth-child(3)');
+    expect(cell.textContent).toContain(formatArs(money(250000)));
+    expect(cell.textContent).toContain('left');
+    expect(cell.textContent).toContain('paid');
+    expect(cell.textContent).toContain(formatArs(money(150000)));
+    expect(cell.textContent).toContain(formatArs(money(400000)));
+  });
+  it('offers both Pay and Undo on a partially paid installment', () => {
+    fixture.componentRef.setInput('purchases', partial);
+    fixture.detectChanges();
+    expect(buttonsByLabel('Pay').length).toBe(1);
+    expect(buttonsByLabel('Undo').length).toBe(1);
   });
 });

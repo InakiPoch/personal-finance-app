@@ -41,9 +41,7 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         var creditor = await SeedCreditorAsync("Nora", ["Nora Bank"], cancellationToken);
         var planA = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
         var planB = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 2, 10), 2, 20_000, cancellationToken);
-
         var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Equal(5, result.Value);
         foreach(var installmentId in planA.Concat(planB)) {
@@ -68,9 +66,7 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
             markReversedSequence: 2
         );
         var alreadyPaidOn = new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero);
-
         var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value);
         var alreadyPaid = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
@@ -98,9 +94,7 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
             context.PaymentPlans.Add(plan);
             await context.SaveChangesAsync(cancellationToken);
         }
-
         var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value);
         var settled = await LoadInstallmentAsync(partiallyPaidId, cancellationToken);
@@ -114,10 +108,8 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         var cancellationToken = TestContext.Current.CancellationToken;
         var creditor = await SeedCreditorAsync("Paula", ["Paula Bank"], cancellationToken);
         await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
-
         var first = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
         var second = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
-
         Assert.True(first.IsSuccess);
         Assert.Equal(3, first.Value);
         Assert.True(second.IsSuccess);
@@ -129,9 +121,7 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
     public async Task Handle_settles_zero_for_a_creditor_with_no_purchases() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var creditor = await SeedCreditorAsync("Quinn", ["Quinn Bank"], cancellationToken);
-
         var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Equal(0, result.Value);
     }
@@ -143,9 +133,7 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         var other = await SeedCreditorAsync("Sami", ["Sami Bank"], cancellationToken);
         await SeedCreditorPlanAsync(target, new DateOnly(2026, 1, 10), 2, 20_000, cancellationToken);
         var otherInstallments = await SeedCreditorPlanAsync(other, new DateOnly(2026, 1, 10), 2, 20_000, cancellationToken);
-
         var result = await PayFullDebtAsync(target.CreditorId, cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Equal(2, result.Value);
         foreach(var installmentId in otherInstallments) {
@@ -158,17 +146,98 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
     [Fact]
     public async Task Handle_returns_not_found_for_an_unknown_creditor() {
         var cancellationToken = TestContext.Current.CancellationToken;
-
         var result = await PayFullDebtAsync(Guid.NewGuid(), cancellationToken);
-
         Assert.True(result.IsFailure);
         Assert.Equal(FinancingErrors.CreditorNotFound, result.Error);
     }
 
-    private async Task<Result<int>> PayFullDebtAsync(Guid creditorId, CancellationToken cancellationToken) {
+    [Fact]
+    public async Task Handle_a_partial_amount_fills_oldest_due_cuotas_first_across_purchases_leaving_the_last_partial() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Tomas", ["Tomas Bank"], cancellationToken);
+        var planA = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 3, 30_000, cancellationToken);
+        var planB = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 2, 20), 1, 10_000, cancellationToken);
+        var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken, amountMinorUnits: 25_000, currencyCode: "ARS");
+        Assert.True(result.IsSuccess);
+        Assert.Equal(2, result.Value);
+        var aSeq1 = await LoadInstallmentAsync(planA[0], cancellationToken);
+        var aSeq2 = await LoadInstallmentAsync(planA[1], cancellationToken);
+        var aSeq3 = await LoadInstallmentAsync(planA[2], cancellationToken);
+        var bSeq1 = await LoadInstallmentAsync(planB[0], cancellationToken);
+        Assert.True(aSeq1.IsPaid);
+        Assert.True(aSeq2.IsPaid);
+        Assert.Equal(0, aSeq3.PaidMinorUnits);
+        Assert.False(bSeq1.IsPaid);
+        Assert.Equal(5_000, bSeq1.PaidMinorUnits);
+        Assert.Equal(5_000, bSeq1.RemainingMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_a_set_amount_only_touches_the_chosen_currency_in_a_mixed_currency_creditor() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Uma", ["Uma Bank"], cancellationToken);
+        var arsPlan = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 3, 30_000, cancellationToken);
+        var usdPlan = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 3, 30_000, cancellationToken, currency: Currency.Usd);
+        var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken, amountMinorUnits: 15_000, currencyCode: "USD");
+        Assert.True(result.IsSuccess);
+        Assert.Equal(1, result.Value);
+        var usdFirst = await LoadInstallmentAsync(usdPlan[0], cancellationToken);
+        var usdSecond = await LoadInstallmentAsync(usdPlan[1], cancellationToken);
+        Assert.True(usdFirst.IsPaid);
+        Assert.Equal(5_000, usdSecond.PaidMinorUnits);
+        foreach(var installmentId in arsPlan) {
+            var installment = await LoadInstallmentAsync(installmentId, cancellationToken);
+            Assert.Equal(0, installment.PaidMinorUnits);
+        }
+    }
+
+    [Fact]
+    public async Task Handle_a_null_amount_settles_every_currencys_remaining_debt() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Vera", ["Vera Bank"], cancellationToken);
+        var arsPlan = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 2, 20_000, cancellationToken);
+        var usdPlan = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 2, 20_000, cancellationToken, currency: Currency.Usd);
+        var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(4, result.Value);
+        foreach(var installmentId in arsPlan.Concat(usdPlan)) {
+            var installment = await LoadInstallmentAsync(installmentId, cancellationToken);
+            Assert.True(installment.IsPaid);
+        }
+    }
+
+    [Fact]
+    public async Task Handle_a_set_amount_without_a_currency_code_rejects_with_invalid_currency_code() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Willa", ["Willa Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 2, 20_000, cancellationToken);
+        var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken, amountMinorUnits: 10_000);
+        Assert.True(result.IsFailure);
+        Assert.Equal(FinancingErrors.InvalidCurrencyCode, result.Error);
+        foreach(var installmentId in installmentIds) {
+            var installment = await LoadInstallmentAsync(installmentId, cancellationToken);
+            Assert.Equal(0, installment.PaidMinorUnits);
+        }
+    }
+
+    [Fact]
+    public async Task Handle_a_set_amount_over_the_currencys_remaining_total_rejects_with_payment_exceeds_remaining_and_persists_nothing() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Xena", ["Xena Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 3, 30_000, cancellationToken);
+        var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken, amountMinorUnits: 40_000, currencyCode: "ARS");
+        Assert.True(result.IsFailure);
+        Assert.Equal(FinancingErrors.PaymentExceedsRemaining, result.Error);
+        foreach(var installmentId in installmentIds) {
+            var installment = await LoadInstallmentAsync(installmentId, cancellationToken);
+            Assert.Equal(0, installment.PaidMinorUnits);
+        }
+    }
+
+    private async Task<Result<int>> PayFullDebtAsync(Guid creditorId, CancellationToken cancellationToken, long? amountMinorUnits = null, string? currencyCode = null) {
         await using var context = NewContext();
         return await new PayCreditorFullDebtHandler(context, new FixedTimeProvider(fixedNow))
-            .HandleAsync(new PayCreditorFullDebtCommand(creditorId), cancellationToken);
+            .HandleAsync(new PayCreditorFullDebtCommand(creditorId, amountMinorUnits, currencyCode), cancellationToken);
     }
 
     private async Task<(long DueNow, long TotalOwed)> ReadPayablesFiguresAsync(Guid creditorId, CancellationToken cancellationToken) {
@@ -193,10 +262,11 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         long totalMinorUnits,
         CancellationToken cancellationToken,
         int? markPaidSequence = null,
-        int? markReversedSequence = null
+        int? markReversedSequence = null,
+        Currency? currency = null
     ) {
         await using var context = NewContext();
-        var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], purchaseDate, installmentCount, totalMinorUnits);
+        var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], purchaseDate, installmentCount, totalMinorUnits, currency);
         var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
         if(markPaidSequence is not null) {
             var paidInstallment = ordered[markPaidSequence.Value - 1];
@@ -210,8 +280,8 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         return ordered.Select(installment => installment.Id).ToList();
     }
 
-    private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits) {
-        var total = Money.FromMinorUnits(totalMinorUnits, Currency.Reference);
+    private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits, Currency? currency = null) {
+        var total = Money.FromMinorUnits(totalMinorUnits, currency ?? Currency.Reference);
         return PaymentPlan.Create(
             cardId: null,
             total,

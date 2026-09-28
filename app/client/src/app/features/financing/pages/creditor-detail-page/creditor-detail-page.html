@@ -72,6 +72,8 @@
     [remainingMinorUnits]="payTargetRemaining()"
     [currency]="payDialogCurrency()"
     [currencies]="outstandingByCurrency()"
+    [partyShares]="payTargetPartyShares()"
+    [bankAccounts]="bankAccounts()"
     [busy]="payStatus() === 'busy'"
     [error]="payError() ? payErrorText(payError()!) : null"
     (confirm)="onDialogConfirm($event)"

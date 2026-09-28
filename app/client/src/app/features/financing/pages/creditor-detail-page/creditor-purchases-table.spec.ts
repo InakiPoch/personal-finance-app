@@ -19,9 +19,9 @@ describe('CreditorPurchasesTable', () => {
     outstandingMinorUnits: money(200000),
     currencyCode: 'ARS',
     installments: [
-      { installmentId: 'i-1', sequence: 1, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 2, isPaid: true, isReversed: false, status: 'paid', paidMinorUnits: money(100000), remainingMinorUnits: money(0), hasPayments: true },
-      { installmentId: 'i-2', sequence: 2, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 3, isPaid: false, isReversed: false, status: 'overdue', paidMinorUnits: money(0), remainingMinorUnits: money(100000), hasPayments: false },
-      { installmentId: 'i-3', sequence: 3, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'future', paidMinorUnits: money(0), remainingMinorUnits: money(100000), hasPayments: false }
+      { installmentId: 'i-1', sequence: 1, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 2, isPaid: true, isReversed: false, status: 'paid', paidMinorUnits: money(100000), remainingMinorUnits: money(0), hasPayments: true, partyShares: [] },
+      { installmentId: 'i-2', sequence: 2, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 3, isPaid: false, isReversed: false, status: 'overdue', paidMinorUnits: money(0), remainingMinorUnits: money(100000), hasPayments: false, partyShares: [] },
+      { installmentId: 'i-3', sequence: 3, installmentCount: 3, amountMinorUnits: money(100000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'future', paidMinorUnits: money(0), remainingMinorUnits: money(100000), hasPayments: false, partyShares: [] }
     ]
   }, {
     planId: 'pl-2',
@@ -31,7 +31,7 @@ describe('CreditorPurchasesTable', () => {
     outstandingMinorUnits: money(60000),
     currencyCode: 'ARS',
     installments: [
-      { installmentId: 'i-4', sequence: 1, installmentCount: 1, amountMinorUnits: money(60000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'due', paidMinorUnits: money(0), remainingMinorUnits: money(60000), hasPayments: false }
+      { installmentId: 'i-4', sequence: 1, installmentCount: 1, amountMinorUnits: money(60000), dueYear: 2026, dueMonth: 4, isPaid: false, isReversed: false, status: 'due', paidMinorUnits: money(0), remainingMinorUnits: money(60000), hasPayments: false, partyShares: [] }
     ]
   }];
 
@@ -43,7 +43,7 @@ describe('CreditorPurchasesTable', () => {
     outstandingMinorUnits: money(250000),
     currencyCode: 'ARS',
     installments: [
-      { installmentId: 'i-5', sequence: 1, installmentCount: 1, amountMinorUnits: money(400000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: false, status: 'due', paidMinorUnits: money(150000), remainingMinorUnits: money(250000), hasPayments: true }
+      { installmentId: 'i-5', sequence: 1, installmentCount: 1, amountMinorUnits: money(400000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: false, status: 'due', paidMinorUnits: money(150000), remainingMinorUnits: money(250000), hasPayments: true, partyShares: [] }
     ]
   }];
 
@@ -112,7 +112,7 @@ describe('CreditorPurchasesTable', () => {
       outstandingMinorUnits: money(0),
       currencyCode: 'ARS',
       installments: [
-        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: true, status: 'reversed', paidMinorUnits: money(0), remainingMinorUnits: money(0), hasPayments: false }
+        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: false, isReversed: true, status: 'reversed', paidMinorUnits: money(0), remainingMinorUnits: money(0), hasPayments: false, partyShares: [] }
       ]
     }];
     fixture.componentRef.setInput('purchases', reversed);
@@ -174,7 +174,7 @@ describe('CreditorPurchasesTable', () => {
       outstandingMinorUnits: money(0),
       currencyCode: 'ARS',
       installments: [
-        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: true, isReversed: false, status: 'paid', paidMinorUnits: money(50000), remainingMinorUnits: money(0), hasPayments: true }
+        { installmentId: 'i-r', sequence: 1, installmentCount: 1, amountMinorUnits: money(50000), dueYear: 2026, dueMonth: 2, isPaid: true, isReversed: false, status: 'paid', paidMinorUnits: money(50000), remainingMinorUnits: money(0), hasPayments: true, partyShares: [] }
       ]
     }];
     fixture.componentRef.setInput('purchases', settled);

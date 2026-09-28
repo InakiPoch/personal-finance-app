@@ -14,6 +14,8 @@ import { PayCreditorExpenseResult } from './types/pay-creditor-expense-result';
 import { PayCreditorFullDebt } from './types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from './types/pay-creditor-installment';
+import { PayCreditorInstallmentPartyShare } from './types/pay-creditor-installment-party-share';
+import { PayCreditorInstallmentPartyShareResult } from './types/pay-creditor-installment-party-share-result';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
@@ -81,6 +83,13 @@ export class FinancingService {
 
   unpayCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> {
     return this.http.post<PayCreditorInstallmentResult>(`financing/creditor-installments/${installmentId}/unpay`, {});
+  }
+
+  payCreditorInstallmentPartyShare(installmentId: string, body: PayCreditorInstallmentPartyShare): Observable<PayCreditorInstallmentPartyShareResult> {
+    return this.http.post<PayCreditorInstallmentPartyShareResult>(
+      `financing/creditor-installments/${installmentId}/pay-party`,
+      body
+    );
   }
 
   payCreditorFullDebt(creditorId: string, body: PayCreditorFullDebt): Observable<PayCreditorFullDebtResult> {

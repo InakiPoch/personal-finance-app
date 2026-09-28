@@ -19,6 +19,8 @@ import { PayCreditorExpenseResult } from './types/pay-creditor-expense-result';
 import { PayCreditorFullDebt } from './types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from './types/pay-creditor-installment';
+import { PayCreditorInstallmentPartyShare } from './types/pay-creditor-installment-party-share';
+import { PayCreditorInstallmentPartyShareResult } from './types/pay-creditor-installment-party-share-result';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
@@ -253,7 +255,8 @@ describe('FinancingService', () => {
           status: 'due',
           paidMinorUnits: money(0),
           remainingMinorUnits: money(100000),
-          hasPayments: false
+          hasPayments: false,
+          partyShares: []
         }]
       }]
     };
@@ -302,6 +305,17 @@ describe('FinancingService', () => {
     expect(req.request.body).toEqual({});
     req.flush({ installmentId: 'ci-1' });
     expect(result).toBe('ci-1');
+  });
+  it('POSTs the party payment body to pay a creditor installment party share and returns the payment id', () => {
+    let result: string | undefined;
+    const body: PayCreditorInstallmentPartyShare = { partyId: 'party-1', bankAccountId: 'bank-1' };
+    service.payCreditorInstallmentPartyShare('ci-1', body)
+      .subscribe((r: PayCreditorInstallmentPartyShareResult) => (result = r.paymentId));
+    const req = httpMock.expectOne(`${base}/financing/creditor-installments/ci-1/pay-party`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ paymentId: 'pay-1' });
+    expect(result).toBe('pay-1');
   });
   it('POSTs a null amount and currency to pay a creditor full debt and returns the settled count', () => {
     let result: number | undefined;

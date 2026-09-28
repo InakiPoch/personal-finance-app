@@ -1,4 +1,5 @@
 import { Money } from '../../../core/types/money';
+import { CreditorInstallmentPartyShare } from './creditor-installment-party-share';
 
 export type CreditorInstallmentRow = {
   installmentId: string;
@@ -13,4 +14,5 @@ export type CreditorInstallmentRow = {
   paidMinorUnits: Money;
   remainingMinorUnits: Money;
   hasPayments: boolean;
+  partyShares: CreditorInstallmentPartyShare[];
 };

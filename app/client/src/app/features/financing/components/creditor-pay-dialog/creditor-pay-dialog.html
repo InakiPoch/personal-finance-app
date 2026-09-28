@@ -18,7 +18,50 @@
           <input type="radio" value="custom" formControlName="choice" />
           {{ payCustomLabel() }}
         </label>
+        @for(share of partyShares(); track share.partyId) {
+          <label
+            class="flex cursor-pointer items-center gap-2 text-sm text-ink"
+            [class.opacity-60]="shareExceedsRemaining(share)"
+          >
+            <input
+              type="radio"
+              [value]="share.partyId"
+              formControlName="choice"
+              [attr.aria-disabled]="shareExceedsRemaining(share) ? true : null"
+              (click)="onPartyRadioClick($event, share)"
+            />
+            Pay {{ share.partyName }}'s part ({{ formatMoney(share.shareMinorUnits, currency()) }})
+          </label>
+          @if(shareExceedsRemaining(share)) {
+            <p class="text-xs text-ink-faint">
+              Their share ({{ formatMoney(share.shareMinorUnits, currency()) }}) is more than the
+              {{ formatMoney(remainingMinorUnits(), currency()) }} left on this cuota.
+            </p>
+          }
+        }
       </fieldset>
+      @if(selectedPartyShare()) {
+        <div class="flex flex-col gap-1.5">
+          <label
+            for="pay-dialog-bank-account"
+            class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+          >
+            Received into
+          </label>
+          <select
+            id="pay-dialog-bank-account"
+            formControlName="bankAccountId"
+            required
+            aria-label="Received into"
+            class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+          >
+            <option value="" disabled>Choose an account</option>
+            @for(account of bankAccounts(); track account.id) {
+              <option [value]="account.id">{{ account.name }}</option>
+            }
+          </select>
+        </div>
+      }
       @if(choice() === 'custom') {
         @if(showCurrencySelect()) {
           <div class="flex flex-col gap-1.5">

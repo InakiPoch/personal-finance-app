@@ -4,6 +4,8 @@ import { ActivatedRoute, convertToParamMap } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
+import { InstrumentsService } from '../../../instruments/instruments-service';
+import { Instrument } from '../../../instruments/types/instrument';
 import { FinancingService } from '../../financing-service';
 import { CreditorDetail } from '../../types/creditor-detail';
 import { PayCreditorExpense } from '../../types/pay-creditor-expense';
@@ -11,6 +13,8 @@ import { PayCreditorExpenseResult } from '../../types/pay-creditor-expense-resul
 import { PayCreditorFullDebt } from '../../types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
 import { PayCreditorInstallment } from '../../types/pay-creditor-installment';
+import { PayCreditorInstallmentPartyShare } from '../../types/pay-creditor-installment-party-share';
+import { PayCreditorInstallmentPartyShareResult } from '../../types/pay-creditor-installment-party-share-result';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
 import { CreditorDetailPage } from './creditor-detail-page';
 
@@ -28,8 +32,13 @@ describe('CreditorDetailPage', () => {
   let unpayCreditorInstallment: jasmine.Spy<(id: string) => Observable<PayCreditorInstallmentResult>>;
   let payCreditorFullDebt: jasmine.Spy<(creditorId: string, body: PayCreditorFullDebt) => Observable<PayCreditorFullDebtResult>>;
   let payCreditorExpense: jasmine.Spy<(planId: string, body: PayCreditorExpense) => Observable<PayCreditorExpenseResult>>;
+  let payCreditorInstallmentPartyShare: jasmine.Spy<
+    (id: string, body: PayCreditorInstallmentPartyShare) => Observable<PayCreditorInstallmentPartyShareResult>
+  >;
+  let instrumentsList: jasmine.Spy<() => Observable<Instrument[]>>;
 
   const money = (value: number): Money => value as Money;
+  const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null }];
 
   const detail: CreditorDetail = {
     creditorId: 'cred-1',
@@ -53,7 +62,8 @@ describe('CreditorDetailPage', () => {
         status: 'paid',
         paidMinorUnits: money(100000),
         remainingMinorUnits: money(0),
-        hasPayments: true
+        hasPayments: true,
+        partyShares: []
       }, {
         installmentId: 'i-2',
         sequence: 2,
@@ -66,7 +76,38 @@ describe('CreditorDetailPage', () => {
         status: 'overdue',
         paidMinorUnits: money(0),
         remainingMinorUnits: money(100000),
-        hasPayments: false
+        hasPayments: false,
+        partyShares: []
+      }]
+    }]
+  };
+
+  const detailWithParty: CreditorDetail = {
+    creditorId: 'cred-1',
+    creditorName: 'Juan',
+    purchases: [{
+      planId: 'pl-1',
+      description: 'Sofa',
+      purchaseDate: '2026-01-10',
+      totalMinorUnits: money(100000),
+      outstandingMinorUnits: money(100000),
+      currencyCode: 'ARS',
+      installments: [{
+        installmentId: 'i-3',
+        sequence: 1,
+        installmentCount: 1,
+        amountMinorUnits: money(100000),
+        dueYear: 2026,
+        dueMonth: 3,
+        isPaid: false,
+        isReversed: false,
+        status: 'due',
+        paidMinorUnits: money(0),
+        remainingMinorUnits: money(100000),
+        hasPayments: false,
+        partyShares: [
+          { partyId: 'party-1', partyName: 'Nora', shareMinorUnits: money(50000), isPaid: false }
+        ]
       }]
     }]
   };
@@ -78,8 +119,16 @@ describe('CreditorDetailPage', () => {
         provideZonelessChangeDetection(),
         {
           provide: FinancingService,
-          useValue: { creditorDetail, payCreditorInstallment, unpayCreditorInstallment, payCreditorFullDebt, payCreditorExpense }
+          useValue: {
+            creditorDetail,
+            payCreditorInstallment,
+            unpayCreditorInstallment,
+            payCreditorFullDebt,
+            payCreditorExpense,
+            payCreditorInstallmentPartyShare
+          }
         },
+        { provide: InstrumentsService, useValue: { list: instrumentsList } },
         {
           provide: ActivatedRoute,
           useValue: { paramMap: of(convertToParamMap({ creditorId: 'cred-1' })) }
@@ -94,6 +143,21 @@ describe('CreditorDetailPage', () => {
   function buttonByLabel(label: string): HTMLButtonElement {
     const all: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('button');
     return Array.from(all).find((button: HTMLButtonElement) => button.textContent?.trim() === label) as HTMLButtonElement;
+  }
+
+  function payParty(partyName: string, bankAccountId: string): void {
+    const dialog: HTMLElement = fixture.nativeElement.querySelector('dialog');
+    const labels: NodeListOf<HTMLLabelElement> = dialog.querySelectorAll('label');
+    const label: HTMLLabelElement = Array.from(labels).find((candidate: HTMLLabelElement) =>
+      candidate.textContent?.includes(`Pay ${partyName}'s part`)
+    ) as HTMLLabelElement;
+    const radio: HTMLInputElement = label.querySelector('input[type="radio"]') as HTMLInputElement;
+    radio.click();
+    fixture.detectChanges();
+    const select: HTMLSelectElement = dialog.querySelector('#pay-dialog-bank-account') as HTMLSelectElement;
+    select.value = bankAccountId;
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
   }
 
   beforeEach(() => {
@@ -113,6 +177,9 @@ describe('CreditorDetailPage', () => {
       .and.returnValue(of({ settledCount: 3 }));
     payCreditorExpense = jasmine.createSpy('payCreditorExpense')
       .and.returnValue(of({ settledCount: 2 }));
+    payCreditorInstallmentPartyShare = jasmine.createSpy('payCreditorInstallmentPartyShare')
+      .and.returnValue(of({ paymentId: 'pay-1' }));
+    instrumentsList = jasmine.createSpy('list').and.returnValue(of(bankAccounts));
   });
 
   it('loads the creditor named by the route param and renders its purchases', () => {
@@ -308,6 +375,36 @@ describe('CreditorDetailPage', () => {
     buttonByLabel('Confirm').click();
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('already marked paid');
+    expect(creditorDetail).toHaveBeenCalledTimes(1);
+  });
+  it('confirms a party share pay in the dialog and re-fetches the detail', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detailWithParty));
+    setup();
+    buttonByLabel('Pay').click();
+    fixture.detectChanges();
+    payParty('Nora', 'bank-1');
+    buttonByLabel('Confirm').click();
+    expect(payCreditorInstallmentPartyShare).toHaveBeenCalledWith('i-3', { partyId: 'party-1', bankAccountId: 'bank-1' });
+    expect(creditorDetail).toHaveBeenCalledTimes(2);
+  });
+  it('shows a friendly message for a party settlement that exceeds the balance', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detailWithParty));
+    const appError: AppError = {
+      code: 'Parties.SettlementExceedsBalance',
+      title: 'Conflict',
+      detail: 'x',
+      status: 409,
+      metadata: {}
+    };
+    payCreditorInstallmentPartyShare = jasmine.createSpy('payCreditorInstallmentPartyShare')
+      .and.returnValue(throwError(() => appError));
+    setup();
+    buttonByLabel('Pay').click();
+    fixture.detectChanges();
+    payParty('Nora', 'bank-1');
+    buttonByLabel('Confirm').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('no outstanding balance for this share');
     expect(creditorDetail).toHaveBeenCalledTimes(1);
   });
 });

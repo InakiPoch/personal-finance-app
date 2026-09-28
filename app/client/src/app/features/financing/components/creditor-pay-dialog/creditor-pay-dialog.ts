@@ -21,17 +21,19 @@ import { Subject, merge, takeUntil } from 'rxjs';
 import { formatMoney, toMinorUnits } from '../../../../core/money/money';
 import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
+import { Instrument } from '../../../instruments/types/instrument';
+import { CreditorInstallmentPartyShare } from '../../types/creditor-installment-party-share';
 import { CreditorOutstandingByCurrency } from '../../types/creditor-outstanding-by-currency';
-import { PayCreditorFullDebt } from '../../types/pay-creditor-full-debt';
+import { CreditorPayDialogConfirm } from '../../types/creditor-pay-dialog-confirm';
 import { atMostTwoDecimals, positiveAmount } from '../../validation-helpers';
 
-type PayChoice = 'full' | 'custom';
 type PayMode = 'installment' | 'expense' | 'full-debt';
 
 type PayDialogForm = FormGroup<{
-  choice: FormControl<PayChoice>;
+  choice: FormControl<string>;
   amount: FormControl<number | null>;
   currencyCode: FormControl<CurrencyCode>;
+  bankAccountId: FormControl<string>;
 }>;
 
 @Component({
@@ -48,15 +50,17 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
   readonly remainingMinorUnits: InputSignal<Money> = input.required<Money>();
   readonly currency: InputSignal<CurrencyCode> = input.required<CurrencyCode>();
   readonly currencies: InputSignal<CreditorOutstandingByCurrency[]> = input<CreditorOutstandingByCurrency[]>([]);
+  readonly partyShares: InputSignal<CreditorInstallmentPartyShare[]> = input<CreditorInstallmentPartyShare[]>([]);
+  readonly bankAccounts: InputSignal<Instrument[]> = input<Instrument[]>([]);
   readonly busy: InputSignal<boolean> = input<boolean>(false);
   readonly error: InputSignal<string | null> = input<string | null>(null);
-  readonly confirm: OutputEmitterRef<PayCreditorFullDebt> = output<PayCreditorFullDebt>();
-  // eslint-disable-next-line @angular-eslint/no-output-native -- the slice doc names this output `cancel`
+  readonly confirm: OutputEmitterRef<CreditorPayDialogConfirm> = output<CreditorPayDialogConfirm>();
+  // eslint-disable-next-line @angular-eslint/no-output-native
   readonly cancel: OutputEmitterRef<void> = output<void>();
 
   protected form!: PayDialogForm;
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
-  protected readonly choice: WritableSignal<PayChoice> = signal<PayChoice>('full');
+  protected readonly choice: WritableSignal<string> = signal<string>('full');
   protected readonly amountInvalid: WritableSignal<boolean> = signal<boolean>(false);
   protected readonly showCurrencySelect: Signal<boolean> = computed(() =>
     this.mode() === 'full-debt' && this.currencies().length > 1
@@ -103,9 +107,16 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
   protected readonly payCustomLabel: Signal<string> = computed(() =>
     this.mode() === 'expense' ? 'Pay part of it' : 'Pay a custom amount'
   );
+  protected readonly selectedPartyShare: Signal<CreditorInstallmentPartyShare | null> = computed(() =>
+    this.partyShares().find((share: CreditorInstallmentPartyShare) => share.partyId === this.choice()) ?? null
+  );
   protected readonly confirmDisabled: Signal<boolean> = computed(() => {
     if(this.busy()) {
       return true;
+    }
+    const partyShare: CreditorInstallmentPartyShare | null = this.selectedPartyShare();
+    if(partyShare !== null) {
+      return this.shareExceedsRemaining(partyShare) || this.selectedBankAccountId() === '';
     }
     if(this.choice() === 'full') {
       return false;
@@ -118,6 +129,7 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
     viewChild<ElementRef<HTMLDialogElement>>('dialogEl');
   private readonly customAmountMajor: WritableSignal<number | null> = signal<number | null>(null);
   private readonly selectedCurrencyCode: WritableSignal<CurrencyCode | null> = signal<CurrencyCode | null>(null);
+  private readonly selectedBankAccountId: WritableSignal<string> = signal<string>('');
   private readonly destroy$: Subject<void> = new Subject<void>();
 
   constructor() {
@@ -141,8 +153,17 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
     if(this.confirmDisabled()) {
       return;
     }
+    const partyShare: CreditorInstallmentPartyShare | null = this.selectedPartyShare();
+    if(partyShare !== null) {
+      this.confirm.emit({
+        kind: 'party',
+        partyId: partyShare.partyId,
+        bankAccountId: this.selectedBankAccountId(),
+      });
+      return;
+    }
     if(this.choice() === 'full') {
-      this.confirm.emit({ amountMinorUnits: null, currencyCode: null });
+      this.confirm.emit({ kind: 'own', amountMinorUnits: null, currencyCode: null });
       return;
     }
     const major: number | null = this.form.controls.amount.value;
@@ -150,7 +171,19 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
       return;
     }
     const currencyCode: CurrencyCode | null = this.mode() === 'full-debt' ? this.effectiveCurrency() : null;
-    this.confirm.emit({ amountMinorUnits: toMinorUnits(major), currencyCode });
+    this.confirm.emit({ kind: 'own', amountMinorUnits: toMinorUnits(major), currencyCode });
+  }
+
+  protected shareExceedsRemaining(share: CreditorInstallmentPartyShare): boolean {
+    return share.shareMinorUnits > this.remainingMinorUnits();
+  }
+
+  // Angular's reactive forms overwrite a plain [disabled] binding on a formControlName radio
+  // back to enabled, so an over-limit share is blocked here instead of via the disabled attribute.
+  protected onPartyRadioClick(event: Event, share: CreditorInstallmentPartyShare): void {
+    if(this.shareExceedsRemaining(share)) {
+      event.preventDefault();
+    }
   }
 
   protected onCancel(): void {
@@ -165,18 +198,20 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
 
   private initForm(): void {
     this.form = this.fb.group({
-      choice: this.fb.nonNullable.control<PayChoice>('full'),
+      choice: this.fb.nonNullable.control<string>('full'),
       amount: this.fb.control<number | null>(null, [positiveAmount, atMostTwoDecimals]),
       currencyCode: this.fb.nonNullable.control<CurrencyCode>(this.defaultCurrencyCode()),
+      bankAccountId: this.fb.nonNullable.control<string>(''),
     });
   }
 
   private resetForm(): void {
     const defaultCurrencyCode: CurrencyCode = this.defaultCurrencyCode();
-    this.form.reset({ choice: 'full', amount: null, currencyCode: defaultCurrencyCode });
+    this.form.reset({ choice: 'full', amount: null, currencyCode: defaultCurrencyCode, bankAccountId: '' });
     this.choice.set('full');
     this.customAmountMajor.set(null);
     this.selectedCurrencyCode.set(defaultCurrencyCode);
+    this.selectedBankAccountId.set('');
     this.amountInvalid.set(false);
   }
 
@@ -186,11 +221,14 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initForm();
-    this.form.controls.choice.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((value: PayChoice) => {
+    this.form.controls.choice.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((value: string) => {
       this.choice.set(value);
     });
     this.form.controls.currencyCode.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((value: CurrencyCode) => {
       this.selectedCurrencyCode.set(value);
+    });
+    this.form.controls.bankAccountId.valueChanges.pipe(takeUntil(this.destroy$)).subscribe((value: string) => {
+      this.selectedBankAccountId.set(value);
     });
     merge(this.form.controls.amount.valueChanges, this.form.controls.amount.statusChanges)
       .pipe(takeUntil(this.destroy$))

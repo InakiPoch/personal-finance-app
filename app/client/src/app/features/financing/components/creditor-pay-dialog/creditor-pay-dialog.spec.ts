@@ -1,7 +1,8 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { Money } from '../../../../core/types/money';
-import { PayCreditorFullDebt } from '../../types/pay-creditor-full-debt';
+import { Instrument } from '../../../instruments/types/instrument';
+import { CreditorPayDialogConfirm } from '../../types/creditor-pay-dialog-confirm';
 import { CreditorPayDialog } from './creditor-pay-dialog';
 
 describe('CreditorPayDialog', () => {
@@ -34,6 +35,18 @@ describe('CreditorPayDialog', () => {
     return fixture.nativeElement.querySelector(`input[type="radio"][value="${value}"]`);
   }
 
+  function partyRadio(partyName: string): HTMLInputElement {
+    const labels: NodeListOf<HTMLLabelElement> = fixture.nativeElement.querySelectorAll('label');
+    const label: HTMLLabelElement = Array.from(labels).find((candidate: HTMLLabelElement) =>
+      candidate.textContent?.includes(`Pay ${partyName}'s part`)
+    ) as HTMLLabelElement;
+    return label.querySelector('input[type="radio"]') as HTMLInputElement;
+  }
+
+  function bankAccountSelect(): HTMLSelectElement | null {
+    return fixture.nativeElement.querySelector('#pay-dialog-bank-account');
+  }
+
   function amountInput(): HTMLInputElement {
     return fixture.nativeElement.querySelector('#pay-dialog-amount');
   }
@@ -52,10 +65,10 @@ describe('CreditorPayDialog', () => {
   }
 
   it('emits confirm with a null amount when "Pay in full" is submitted', () => {
-    let emitted: PayCreditorFullDebt | undefined;
-    fixture.componentInstance.confirm.subscribe((body: PayCreditorFullDebt) => (emitted = body));
+    let emitted: CreditorPayDialogConfirm | undefined;
+    fixture.componentInstance.confirm.subscribe((body: CreditorPayDialogConfirm) => (emitted = body));
     confirmButton().click();
-    expect(emitted).toEqual({ amountMinorUnits: null, currencyCode: null });
+    expect(emitted).toEqual({ kind: 'own', amountMinorUnits: null, currencyCode: null });
   });
   it('emits confirm with the minor-unit amount when a custom amount is submitted', () => {
     radioByValue('custom').click();
@@ -64,10 +77,10 @@ describe('CreditorPayDialog', () => {
     input.value = '150.50';
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    let emitted: PayCreditorFullDebt | undefined;
-    fixture.componentInstance.confirm.subscribe((body: PayCreditorFullDebt) => (emitted = body));
+    let emitted: CreditorPayDialogConfirm | undefined;
+    fixture.componentInstance.confirm.subscribe((body: CreditorPayDialogConfirm) => (emitted = body));
     confirmButton().click();
-    expect(emitted).toEqual({ amountMinorUnits: money(15050), currencyCode: null });
+    expect(emitted).toEqual({ kind: 'own', amountMinorUnits: money(15050), currencyCode: null });
   });
   it('disables Confirm and shows an error for a custom amount over the remaining balance', () => {
     radioByValue('custom').click();
@@ -185,9 +198,69 @@ describe('CreditorPayDialog', () => {
     input.value = '100';
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
-    let emitted: PayCreditorFullDebt | undefined;
-    fixture.componentInstance.confirm.subscribe((body: PayCreditorFullDebt) => (emitted = body));
+    let emitted: CreditorPayDialogConfirm | undefined;
+    fixture.componentInstance.confirm.subscribe((body: CreditorPayDialogConfirm) => (emitted = body));
     confirmButton().click();
-    expect(emitted).toEqual({ amountMinorUnits: money(10000), currencyCode: 'USD' });
+    expect(emitted).toEqual({ kind: 'own', amountMinorUnits: money(10000), currencyCode: 'USD' });
+  });
+  it('renders a radio per unpaid party share with its amount', () => {
+    fixture.componentRef.setInput('partyShares', [
+      { partyId: 'party-1', partyName: 'Nora', shareMinorUnits: money(200000), isPaid: false },
+      { partyId: 'party-2', partyName: 'Omar', shareMinorUnits: money(150000), isPaid: false }
+    ]);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain("Pay Nora's part");
+    expect(fixture.nativeElement.textContent).toContain("Pay Omar's part");
+    expect(partyRadio('Nora')).toBeTruthy();
+    expect(partyRadio('Omar')).toBeTruthy();
+  });
+  it('disables a party radio and explains why when the share exceeds what remains', () => {
+    fixture.componentRef.setInput('remainingMinorUnits', money(100000));
+    fixture.componentRef.setInput('partyShares', [
+      { partyId: 'party-1', partyName: 'Nora', shareMinorUnits: money(200000), isPaid: false }
+    ]);
+    fixture.detectChanges();
+    const radio: HTMLInputElement = partyRadio('Nora');
+    expect(radio.getAttribute('aria-disabled')).toBe('true');
+    expect(fixture.nativeElement.textContent).toContain('is more than the');
+    radio.click();
+    fixture.detectChanges();
+    expect(bankAccountSelect()).toBeNull();
+  });
+  it('requires a bank account once a party share is selected, and disables Confirm until one is chosen', () => {
+    fixture.componentRef.setInput('partyShares', [
+      { partyId: 'party-1', partyName: 'Nora', shareMinorUnits: money(200000), isPaid: false }
+    ]);
+    const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null }];
+    fixture.componentRef.setInput('bankAccounts', bankAccounts);
+    fixture.detectChanges();
+    expect(bankAccountSelect()).toBeNull();
+    partyRadio('Nora').click();
+    fixture.detectChanges();
+    expect(bankAccountSelect()).toBeTruthy();
+    expect(confirmButton().disabled).toBe(true);
+    const select: HTMLSelectElement = bankAccountSelect()!;
+    select.value = 'bank-1';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    expect(confirmButton().disabled).toBe(false);
+  });
+  it('emits the party union with the chosen bank account when a party share is confirmed', () => {
+    fixture.componentRef.setInput('partyShares', [
+      { partyId: 'party-1', partyName: 'Nora', shareMinorUnits: money(200000), isPaid: false }
+    ]);
+    const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null }];
+    fixture.componentRef.setInput('bankAccounts', bankAccounts);
+    fixture.detectChanges();
+    partyRadio('Nora').click();
+    fixture.detectChanges();
+    const select: HTMLSelectElement = bankAccountSelect()!;
+    select.value = 'bank-1';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    let emitted: CreditorPayDialogConfirm | undefined;
+    fixture.componentInstance.confirm.subscribe((body: CreditorPayDialogConfirm) => (emitted = body));
+    confirmButton().click();
+    expect(emitted).toEqual({ kind: 'party', partyId: 'party-1', bankAccountId: 'bank-1' });
   });
 });

@@ -1430,6 +1430,33 @@ Built one green-lit step at a time (5 steps — API production, API tests, clien
 
 ---
 
+## Phase 43 — Partial creditor payments: foundation (Slice 1)
+
+**Goal:** Pressing Pay on a creditor installment opens a dialog offering "Pay in full" or "Pay a custom amount" (0 < x ≤ remaining); a partial payment leaves the row reading "$X left · paid $Y of $Z"; Undo removes the last payment.
+
+**Traces to:** `docs/partial-creditor-payments/slice-1-foundation-partial-installment.md` (+ `00-overview.md`; first of four slices — Slice 2 pay-from-expense, Slice 3 partial full-debt, Slice 4 party share remain). API half is `app/api` Phase 48 (a new `CreditorInstallmentPayment` entity replaces the single `PaidOnUtc` stamp; `POST /v1/financing/creditor-installments/{id}/pay` takes a body; undo-with-nothing-to-undo is now a 409). `docs/DESIGN.md` §3/§9 gain the new type + body change; `docs/SYSTEM.md` gains a "Dialog" entry; `docs/PRD.md` §3.10 records the partial-pay behavior.
+
+**Depends on:** Phase 36 (the Slice-2/3 creditor-detail pay/undo machinery this slice extends).
+
+### Tasks
+- [x] Types — `types/pay-creditor-installment.ts` (new); `types/creditor-installment-row.ts` +`paidMinorUnits`/`remainingMinorUnits`/`hasPayments`; `types/creditor-purchase-group.ts` +`currencyCode`.
+- [x] `financing-service.ts` — `payCreditorInstallment(installmentId, body)` posts `body` instead of `{}`.
+- [x] New shared `components/creditor-pay-dialog/` — native `<dialog>` (the client's first), `showModal()`/`close()` via a `viewChild` + constructor `effect()` on an `open` input; full-vs-custom-amount radio, `exceedsRemaining` local validation; outputs `confirm`/`cancel`.
+- [x] `creditor-purchases-table` — Pay (`!isReversed && remainingMinorUnits > 0`) and Undo (`hasPayments && !isReversed`) now gate independently, so a partial row shows both; partial amount cell renders "left"/"paid of"; `payClick` emits the whole row.
+- [x] `creditor-detail-page` — a `payTarget` signal opens the dialog; confirm posts the body via `runMutation`-style refetch; 3 new error-code mappings.
+- [x] `docs/SYSTEM.md` — new "Dialog" entry (native-`<dialog>`-reset + inner Card panel + `::backdrop` + viewChild/effect pattern).
+- [x] Specs — new `creditor-pay-dialog.spec.ts` (8 facts); `creditor-purchases-table.spec.ts` fixture + assertion updates +2 facts; `creditor-detail-page.spec.ts` Pay flow rewritten through the dialog; `financing-service.spec.ts` asserts the posted body.
+
+### Definition of done
+- [x] `pnpm ng lint` clean; `pnpm ng test --watch=false --browsers=ChromeHeadless` → **353/353** (from 341); `pnpm ng build --configuration production` clean (`financing-routes` lazy chunk ~75 → ~84 kB raw, well under the 500 kB budget).
+- [ ] Manual (no browser here) — handed to the user: pay $15.000 of a $40.000 cuota → "$25.000 left" and Undo now visible alongside Pay; Undo → back to $40.000, no payments; pay the remainder in full → paid, both buttons gone.
+
+### Completion notes
+
+Built one green-lit step at a time (5 steps — API production, API tests, client production, client specs, this doc-sync). Not committed by this session — the user commits their own. **Real bug caught and fixed while writing the Step-4 specs (self-caught, not user-reported):** `creditor-purchases-table.html`'s action cell used `@if(canPay) {…} @else if(canUndo) {…}`, so a partially-paid row (remaining > 0 and has payments) only ever showed Pay, never Undo, contradicting the slice doc's independently-gated buttons — fixed to two sibling `@if`s in a flex row. Slices 2 (pay-from-expense), 3 (partial full-debt) and 4 (party share) remain — not started, per `docs/partial-creditor-payments/00-overview.md`.
+
+---
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

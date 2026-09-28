@@ -189,3 +189,7 @@ New `CreditorInstallmentPayment` entity (payment-per-row, not a single stamp) ba
 ## Phase 49 — Partial creditor payments: pay-from-expense (2026-09-28)
 
 `PayCreditorExpenseCommand` + `POST /v1/financing/creditor-purchases/{id}/pay` pays a whole purchase (full or partial) via a new pure `CreditorPaymentWaterfall.Allocate` (fills installments in `Sequence` order, last one partial). `docs/partial-creditor-payments/slice-2-pay-expense.md`. Financing 182 / client 363. Slices 3 (partial full-debt) and 4 (party share) of `docs/partial-creditor-payments/` remain.
+
+## Phase 50 — Partial creditor payments: partial full-debt (2026-09-28)
+
+`PayCreditorFullDebtCommand` gains optional `AmountMinorUnits`/`CurrencyCode`: `null` keeps settling everything in every currency (unchanged); a set amount requires a currency (`InvalidCurrencyCode` otherwise) and fills that currency's remaining installments across every purchase, oldest due-month first (tie-break: purchase date, then `Sequence`), reusing `CreditorPaymentWaterfall.Allocate` from Phase 49. `docs/partial-creditor-payments/slice-3-partial-full-debt.md`. Financing 187. Slice 4 (party share) of `docs/partial-creditor-payments/` remains.

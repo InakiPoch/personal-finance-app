@@ -287,8 +287,17 @@ amount; Pay/Undo gate independently so a partial row shows both. Tests 353/353.
 
 Done. `docs/partial-creditor-payments/slice-2-pay-expense.md`. "Pay expense" button per purchase
 group, opens the shared dialog in `expense` mode (`POST creditor-purchases/{planId}/pay`), fills
-cuotas in sequence via a waterfall. Tests 363/363. **Current phase** — Slices 3 (partial
-full-debt) and 4 (party share) remain, per `docs/partial-creditor-payments/00-overview.md`.
+cuotas in sequence via a waterfall. Tests 363/363.
+
+## Phase 45 — Partial creditor payments: partial full-debt (Slice 3)
+
+Done. `docs/partial-creditor-payments/slice-3-partial-full-debt.md`. The inline "Settle every
+remaining cuota…" confirm is gone — "Pay full debt" now opens the shared `creditor-pay-dialog` in
+a new `full-debt` mode. A currency `<select>` appears only when the creditor's outstanding
+purchases span more than one currency; a custom amount then fills that currency's remaining
+cuotas across every purchase, oldest due-month first. New `pay-creditor-full-debt.ts` request
+type, `creditor-outstanding-by-currency.ts`. Tests 370/370. **Current phase** — Slice 4 (party
+share) remains, per `docs/partial-creditor-payments/00-overview.md`.
 
 ---
 

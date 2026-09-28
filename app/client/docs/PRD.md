@@ -232,14 +232,19 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   same shared dialog in `expense` mode: pay in full, or a custom amount that fills that purchase's
   cuotas in sequence order — each cuota taken in full until the amount runs out, the last one left
   partly paid. Reuses the "`<n>` cuota(s) settled." confirmation line from Pay full debt.
-- **Pay the full debt (now built).** A header-level **Pay full debt** button, guarded by a lightweight
-  inline confirm, settles every remaining cuota across all of a creditor's purchases in one action
-  (display-only, same as above); disabled when nothing is outstanding.
+- **Pay the full debt, in full or partially (now built).** A header-level **Pay full debt** button
+  opens the same shared dialog in a new `full-debt` mode (replacing the old lightweight inline
+  confirm): "Pay in full" settles every remaining cuota across all of a creditor's purchases in
+  every currency, unchanged; a custom amount covers **one currency only** (no FX) and fills that
+  currency's remaining cuotas across **all purchases**, oldest due-month first — not grouped by
+  purchase — so a newer purchase's cuota can land ahead of an older purchase's later cuota. A
+  currency `<select>` appears only when the creditor's outstanding purchases span more than one
+  currency; disabled when nothing is outstanding.
 - **Source:** `GET /v1/financing/creditor-payables` (list) + `GET /v1/financing/creditor-payables/{creditorId}` (detail)
   + `POST .../creditor-installments/{id}/pay` (body: `{ amountMinorUnits: Money | null }`, `null` = pay
-  in full) + `.../unpay` + `POST .../creditor-payables/{creditorId}/pay-full`
-  + `POST .../creditor-purchases/{paymentPlanId}/pay` (same body shape, returns `{ settledCount }`).
-- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (the list) and `docs/owed-to-creditors/` (`slice-1-current-cycle-outstanding.md` — the two-figure split, API's Phase 34; `slice-2-creditor-detail-view.md` — the detail view, API's Phase 35; `slice-3-pay-installment-and-undo.md` — pay/undo a cuota, API's Phase 36; `slice-4-pay-full-debt.md` — pay the full debt, API's Phase 37); Financing-only, read-only, no Ledger (D7). Paid cuotas drop out of both list money figures. **Pay a whole purchase** traces to `docs/partial-creditor-payments/slice-2-pay-expense.md` (API's Phase 49); partial pay on one cuota (the shared dialog, `docs/partial-creditor-payments/slice-1-foundation-partial-installment.md`, API's Phase 48) traces here too. **Still pending:** `NextDueDate` is the earliest *scheduled* month and does not advance as months pass; the per-account sub-line breakdown still sums over all non-reversed cuotas, so it can exceed "Total owed" when a creditor has paid cuotas — both deferred to a later slice; partial "pay the full debt" and a third party's share counting as a payment (Slices 3–4 of `docs/partial-creditor-payments/`) are not built yet. Reachable from the global nav right after "Recent purchases".
+  in full) + `.../unpay` + `POST .../creditor-payables/{creditorId}/pay-full` (body: `{ amountMinorUnits: Money | null; currencyCode: CurrencyCode | null }`)
+  + `POST .../creditor-purchases/{paymentPlanId}/pay` (same body shape as the installment endpoint, returns `{ settledCount }`).
+- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (the list) and `docs/owed-to-creditors/` (`slice-1-current-cycle-outstanding.md` — the two-figure split, API's Phase 34; `slice-2-creditor-detail-view.md` — the detail view, API's Phase 35; `slice-3-pay-installment-and-undo.md` — pay/undo a cuota, API's Phase 36; `slice-4-pay-full-debt.md` — pay the full debt, API's Phase 37); Financing-only, read-only, no Ledger (D7). Paid cuotas drop out of both list money figures. **Pay a whole purchase** traces to `docs/partial-creditor-payments/slice-2-pay-expense.md` (API's Phase 49); partial pay on one cuota (the shared dialog, `docs/partial-creditor-payments/slice-1-foundation-partial-installment.md`, API's Phase 48) traces here too. **Partial "pay the full debt"** traces to `docs/partial-creditor-payments/slice-3-partial-full-debt.md` (API's Phase 50). **Still pending:** `NextDueDate` is the earliest *scheduled* month and does not advance as months pass; the per-account sub-line breakdown still sums over all non-reversed cuotas, so it can exceed "Total owed" when a creditor has paid cuotas — both deferred to a later slice; `GetCreditorPayablesHandler`'s "Due now"/"Total owed" figures still sum ARS and USD into one number, unseparated by currency; a third party's share counting as a payment (Slice 4 of `docs/partial-creditor-payments/`) is not built yet. Reachable from the global nav right after "Recent purchases".
 
 ### 3.11 Debit/cash expenses with categories (new — extends §3.3, now built)
 - **Shows:** the third *My debit-cash* mode of §3.3's Load-Expense form. When selected, the form

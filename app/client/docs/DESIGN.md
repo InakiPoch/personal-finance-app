@@ -193,6 +193,25 @@ no `I-` prefix.
 - `PayCreditorExpenseResult = { settledCount: number }` — the count of cuotas newly fully settled,
   same meaning as `PayCreditorFullDebtResult.settledCount`; `creditor-detail-page` reuses its
   "N cuota(s) settled." line for both
+- `PayCreditorFullDebt = { amountMinorUnits: Money | null; currencyCode: CurrencyCode | null }` —
+  the pay-dialog's output/POST body for `pay-full`; `{ null, null }` pays everything remaining in
+  every currency (unchanged). This same shape is what `creditor-pay-dialog`'s `confirm` output
+  emits for **every** mode now, not just `full-debt` — `currencyCode` is simply always `null` for
+  `installment`/`expense`, and `creditor-detail-page` strips it back down to
+  `{ amountMinorUnits }` before calling those two services, so their request bodies stay exactly
+  what the API expects (`docs/partial-creditor-payments/slice-3-partial-full-debt.md`)
+- `CreditorOutstandingByCurrency = { currencyCode: CurrencyCode; outstandingMinorUnits: Money }` —
+  one entry per currency the creditor currently owes in, summed across purchase groups; the page's
+  `outstandingByCurrency` computed feeds the dialog's new `currencies` input
+- **`creditor-pay-dialog` gains a third mode, `full-debt`.** The creditor-detail-page's old inline
+  "Settle every remaining cuota…" confirm (`confirmingFullDebt` signal + its own template block)
+  is gone — "Pay full debt" now sets `payTarget = { kind: 'full-debt' }` like the other two modes.
+  A currency `<select>` (a real `formControlName`, mirrored into a signal like `amount`/`choice`
+  already were, since the app is zoneless) appears **only** when `currencies().length > 1`; picking
+  a currency changes the "$X remaining" text, the custom-amount max, and the currency sent on
+  confirm. With a single currency the select stays hidden and the dialog falls back to the
+  existing `remainingMinorUnits`/`currency` inputs directly. The "Pay in full" radio lists every
+  currency's total (`$X + US$Y`) when there's more than one.
 
 **Subscriptions** (`CreateSubscriptionDto`, `SubscriptionResultDto`, `ActiveSubscriptionsDto`)
 - `Frequency = 'monthly' | 'weekly' | 'daily' | 'annually'`
@@ -415,7 +434,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 31 | GET | `/v1/financing/creditor-payables/{creditorId}` | `FinancingService.creditorDetail` | Owed to creditors — creditor detail (§3.10; one creditor's debt grouped by purchase; unknown creditor → 404 `Financing.CreditorNotFound` → friendly not-found state) |
 | 32 | POST | `/v1/financing/creditor-installments/{id}/pay` | `FinancingService.payCreditorInstallment` | Creditor detail — per-cuota **Pay**, opened via the shared pay dialog (display-only; body `{ amountMinorUnits: Money \| null }`, `null` = pay remaining; card installment → 409 `Financing.NotACreditorInstallment`; 0/negative or over-remaining → 400 `InvalidPaymentAmount`/`PaymentExceedsRemaining`) |
 | 33 | POST | `/v1/financing/creditor-installments/{id}/unpay` | `FinancingService.unpayCreditorInstallment` | Creditor detail — per-cuota **Undo**, removes the last payment (empty `{}` body; shown only when the cuota has at least one payment; nothing to undo → 409 `Financing.NoPaymentToUndo`, no longer a silent no-op) |
-| 34 | POST | `/v1/financing/creditor-payables/{creditorId}/pay-full` | `FinancingService.payCreditorFullDebt` | Creditor detail — **Pay full debt** (stamps every unpaid, non-reversed cuota across the creditor's purchases, empty `{}` body; returns `{ settledCount }`; zero settleable → `0`; unknown creditor → 404) |
+| 34 | POST | `/v1/financing/creditor-payables/{creditorId}/pay-full` | `FinancingService.payCreditorFullDebt` | Creditor detail — **Pay full debt**, now via `creditor-pay-dialog`'s `full-debt` mode; body `{ amountMinorUnits, currencyCode }`, `{ null, null }` stamps every unpaid, non-reversed cuota in every currency (unchanged); a set amount + currency fills that currency's remaining cuotas oldest due-month first across every purchase; returns `{ settledCount }`; zero settleable → `0`; unknown creditor → 404; missing/invalid currency with a set amount → 422 `Financing.InvalidCurrencyCode` |
 | 35 | POST | `/v1/ledger/incomes` | `LedgerService.recordIncome` | Record income (§3.12) |
 | 36 | GET | `/v1/reports/monthly-incomes` | `ReportsService.monthlyIncomes` | Dashboard — Income side of the `Out of pocket \| Income` toggle (§3.12) |
 | 37 | GET | `/v1/reports/money-flow` | `ReportsService.moneyFlow` | Money Flow table (§3.13; required `month` param, one row per money movement, `kind`-driven signed rendering) |

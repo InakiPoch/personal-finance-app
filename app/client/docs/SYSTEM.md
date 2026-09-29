@@ -196,6 +196,21 @@ the native picker glyph can't be themed further; acceptable for a single-user to
 For `<select>` / richer date entry elsewhere, compose a headless primitive rather than
 hand-rolling — do not ship an unstyled native `<select>` as the "design".
 
+### Dialog
+Native `<dialog>`, opened via `showModal()` (never a hand-rolled overlay/portal — the
+browser gives focus trap, Esc-to-cancel and top-layer stacking for free). The `<dialog>`
+itself is reset to a bare positioning box (`margin: auto; padding: 0; border: none;
+background: transparent`); the actual panel is an inner `<div class="rounded-card
+border border-rule bg-paper-raised p-6 shadow-card">` (the Card / secondary panel
+pattern, centered by the dialog's own auto margins) with `(click)="$event.stopPropagation()"`
+so a click on the panel doesn't bubble to the dialog's own backdrop-click handler.
+`::backdrop` = ink at ~40% opacity (`rgba(15, 15, 15, .4)`), not a raw palette tint —
+still reads as a dimming scrim, not a fourth surface colour. Close on Esc (the native
+`(cancel)` event) or a click that lands on the `<dialog>` element itself (not the inner
+panel) — both emit the component's own `cancel` output; the host owns the `open` state
+and the dialog syncs to it via a `viewChild` + `effect()` calling `showModal()` /
+`close()`.
+
 ---
 
 ## States checklist (every data view)

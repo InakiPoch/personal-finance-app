@@ -1,0 +1,147 @@
+<dialog #dialogEl class="dialog-reset" (cancel)="onCancel()" (click)="onBackdropClick($event)">
+  <div
+    class="w-full max-w-md rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+    (click)="$event.stopPropagation()"
+  >
+    <h2 class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">{{ title() }}</h2>
+    <p class="mt-1 text-[0.8125rem] text-ink-faint">
+      {{ formatMoney(effectiveRemaining(), effectiveCurrency()) }} remaining.
+    </p>
+    <form [formGroup]="form" class="mt-6 flex flex-col gap-4" (ngSubmit)="onConfirm()">
+      <fieldset class="flex flex-col gap-2">
+        <legend class="sr-only">Payment amount</legend>
+        <label class="flex cursor-pointer items-center gap-2 text-sm text-ink">
+          <input type="radio" value="full" formControlName="choice" />
+          {{ payInFullLabel() }} ({{ payInFullSummary() }})
+        </label>
+        <label class="flex cursor-pointer items-center gap-2 text-sm text-ink">
+          <input type="radio" value="custom" formControlName="choice" />
+          {{ payCustomLabel() }}
+        </label>
+        @for(share of partyShares(); track share.partyId) {
+          <label
+            class="flex cursor-pointer items-center gap-2 text-sm text-ink"
+            [class.opacity-60]="shareExceedsRemaining(share)"
+          >
+            <input
+              type="radio"
+              [value]="share.partyId"
+              formControlName="choice"
+              [attr.aria-disabled]="shareExceedsRemaining(share) ? true : null"
+              (click)="onPartyRadioClick($event, share)"
+            />
+            Pay {{ share.partyName }}'s part ({{ formatMoney(share.shareMinorUnits, currency()) }})
+          </label>
+          @if(shareExceedsRemaining(share)) {
+            <p class="text-xs text-ink-faint">
+              Their share ({{ formatMoney(share.shareMinorUnits, currency()) }}) is more than the
+              {{ formatMoney(remainingMinorUnits(), currency()) }} left on this cuota.
+            </p>
+          }
+        }
+      </fieldset>
+      @if(selectedPartyShare()) {
+        <div class="flex flex-col gap-1.5">
+          <label
+            for="pay-dialog-bank-account"
+            class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+          >
+            Received into
+          </label>
+          <select
+            id="pay-dialog-bank-account"
+            formControlName="bankAccountId"
+            required
+            aria-label="Received into"
+            class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+          >
+            <option value="" disabled>Choose an account</option>
+            @for(account of bankAccounts(); track account.id) {
+              <option [value]="account.id">{{ account.name }}</option>
+            }
+          </select>
+        </div>
+      }
+      @if(choice() === 'custom') {
+        @if(showCurrencySelect()) {
+          <div class="flex flex-col gap-1.5">
+            <label
+              for="pay-dialog-currency"
+              class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+            >
+              Currency
+            </label>
+            <select
+              id="pay-dialog-currency"
+              formControlName="currencyCode"
+              aria-label="Currency"
+              class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+            >
+              @for(entry of currencies(); track entry.currencyCode) {
+                <option [value]="entry.currencyCode">{{ entry.currencyCode }}</option>
+              }
+            </select>
+          </div>
+        }
+        <div class="flex flex-col gap-1.5">
+          <label
+            for="pay-dialog-amount"
+            class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+          >
+            Amount
+          </label>
+          <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+            <span class="font-serif text-xl text-stamp" aria-hidden="true">$</span>
+            <input
+              type="number"
+              id="pay-dialog-amount"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="0.00"
+              formControlName="amount"
+              class="w-full bg-transparent pb-1 font-serif text-[1.75rem] leading-none text-ink outline-none [font-variant-numeric:tabular-nums_lining-nums] placeholder:text-ink-faint"
+            />
+          </div>
+          @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
+            <p class="text-xs text-negative" role="alert">Enter an amount greater than zero.</p>
+          }
+          @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
+            <p class="text-xs text-negative" role="alert">Use at most two decimal places.</p>
+          }
+          @if(exceedsRemaining()) {
+            <p class="text-xs text-negative" role="alert">
+              Can't exceed {{ formatMoney(effectiveRemaining(), effectiveCurrency()) }} remaining.
+            </p>
+          }
+          @if(mode() === 'expense') {
+            <p class="text-xs text-ink-faint">Fills cuotas in order; the last one may be partly paid.</p>
+          }
+          @if(mode() === 'full-debt') {
+            <p class="text-xs text-ink-faint">Fills the oldest cuotas first, across all purchases.</p>
+          }
+        </div>
+      }
+      @if(error(); as message) {
+        <p class="text-sm text-negative" role="alert">{{ message }}</p>
+      }
+      <div class="mt-2 flex justify-end gap-3">
+        <button
+          type="button"
+          [disabled]="busy()"
+          (click)="onCancel()"
+          class="text-xs font-medium text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+        >
+          Cancel
+        </button>
+        <button
+          type="submit"
+          [disabled]="confirmDisabled()"
+          class="text-xs font-medium text-stamp transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+        >
+          Confirm
+        </button>
+      </div>
+    </form>
+  </div>
+</dialog>

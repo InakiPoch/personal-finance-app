@@ -2,6 +2,11 @@ using PersonalFinance.Abstractions.Messaging;
 
 namespace PersonalFinance.Financing.Contracts.Queries;
 
+/// <summary>
+/// One split participant's share of a single installment.
+/// </summary>
+public sealed record CreditorInstallmentPartyShare(Guid PartyId, string PartyName, long ShareMinorUnits, bool IsPaid);
+
 public sealed record CreditorInstallmentRow(
     Guid InstallmentId,
     int Sequence,
@@ -11,7 +16,11 @@ public sealed record CreditorInstallmentRow(
     int DueMonth,
     bool IsPaid,
     bool IsReversed,
-    string Status
+    string Status,
+    long PaidMinorUnits,
+    long RemainingMinorUnits,
+    bool HasPayments,
+    IReadOnlyList<CreditorInstallmentPartyShare> PartyShares
 );
 
 public sealed record CreditorPurchaseGroup(
@@ -20,14 +29,14 @@ public sealed record CreditorPurchaseGroup(
     DateOnly PurchaseDate,
     long TotalMinorUnits,
     long OutstandingMinorUnits,
-    IReadOnlyList<CreditorInstallmentRow> Installments
+    IReadOnlyList<CreditorInstallmentRow> Installments,
+    string CurrencyCode
 );
 
 /// <summary>
 /// One creditor's debt broken down by purchase: every creditor-financed payment plan a section, its
 /// installments listed beneath with sequence, amount, due month and paid/reversed status. Groups are
-/// ordered newest purchase first. <see cref="CreditorDetailResponse.Found"/> is false for an unknown
-/// creditor (the host maps that to 404).
+/// ordered newest purchase first.
 /// </summary>
 public sealed record CreditorDetailResponse(
     bool Found,

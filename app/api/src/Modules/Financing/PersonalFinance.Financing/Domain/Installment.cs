@@ -18,9 +18,14 @@ internal sealed class Installment : Entity<Guid> {
     public bool IsPaid => PaidOnUtc is not null;
     public BillingCycle Cycle => new(CycleYear, CycleMonth);
     public BillingCycle DueCycle => Cycle.DueCycle;
+    public IReadOnlyList<CreditorInstallmentPayment> Payments => payments;
+    public long PaidMinorUnits => payments.Sum(payment => payment.AmountMinorUnits);
+    public long RemainingMinorUnits => AmountMinorUnits - PaidMinorUnits;
 
     internal long AmountMinorUnits { get; }
     internal Currency Currency { get; }
+
+    private readonly List<CreditorInstallmentPayment> payments = [];
 
     private Installment(Guid id, Guid paymentPlanId, int sequence, long amountMinorUnits, Currency currency, int cycleYear, int cycleMonth) : base(id) {
         PaymentPlanId = paymentPlanId;
@@ -63,6 +68,39 @@ internal sealed class Installment : Entity<Guid> {
     public Result ClearPayment() {
         PaidOnUtc = null;
         return Result.Success();
+    }
+
+    public Result<CreditorInstallmentPayment> ApplyPayment(long amountMinorUnits, DateTimeOffset now, Guid? partyId = null, Guid? settlementTransactionId = null) {
+        if(IsReversed) {
+            return FinancingErrors.InstallmentAlreadyReversed;
+        }
+        if(RemainingMinorUnits == 0) {
+            return FinancingErrors.InstallmentAlreadyPaid;
+        }
+        if(amountMinorUnits <= 0) {
+            return FinancingErrors.InvalidPaymentAmount;
+        }
+        if(amountMinorUnits > RemainingMinorUnits) {
+            return FinancingErrors.PaymentExceedsRemaining;
+        }
+        var payment = CreditorInstallmentPayment.For(Id, amountMinorUnits, now, partyId, settlementTransactionId);
+        payments.Add(payment);
+        if(RemainingMinorUnits == 0) {
+            MarkPaid(now);
+        }
+        return payment;
+    }
+
+    public Result<CreditorInstallmentPayment> UndoLastPayment() {
+        if(payments.Count == 0) {
+            return FinancingErrors.NoPaymentToUndo;
+        }
+        var last = payments.OrderByDescending(payment => payment.PaidOnUtc).ThenByDescending(payment => payment.Id).First();
+        payments.Remove(last);
+        if(PaidOnUtc is not null) {
+            ClearPayment();
+        }
+        return last;
     }
 
     public Result MarkReversed() {

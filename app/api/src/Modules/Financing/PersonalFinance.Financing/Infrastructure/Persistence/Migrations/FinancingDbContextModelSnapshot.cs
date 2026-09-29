@@ -88,6 +88,33 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.ToTable("financing_creditor_accounts", (string)null);
                 });
 
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.CreditorInstallmentPayment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AmountMinorUnits")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("InstallmentId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("PaidOnUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("PartyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SettlementTransactionId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("InstallmentId");
+
+                    b.ToTable("financing_creditor_installment_payments", (string)null);
+                });
+
             modelBuilder.Entity("PersonalFinance.Financing.Domain.Installment", b =>
                 {
                     b.Property<Guid>("Id")
@@ -307,6 +334,15 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.CreditorInstallmentPayment", b =>
+                {
+                    b.HasOne("PersonalFinance.Financing.Domain.Installment", null)
+                        .WithMany("Payments")
+                        .HasForeignKey("InstallmentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PersonalFinance.Financing.Domain.Installment", b =>
                 {
                     b.HasOne("PersonalFinance.Financing.Domain.PaymentPlan", null)
@@ -333,6 +369,11 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
             modelBuilder.Entity("PersonalFinance.Financing.Domain.Creditor", b =>
                 {
                     b.Navigation("Accounts");
+                });
+
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.Installment", b =>
+                {
+                    b.Navigation("Payments");
                 });
 
             modelBuilder.Entity("PersonalFinance.Financing.Domain.PaymentPlan", b =>

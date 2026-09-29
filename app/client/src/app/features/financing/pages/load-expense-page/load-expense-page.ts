@@ -140,6 +140,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };
+  private readonly bankAccountRequiredCode: string = 'Financing.BackdatedCardBankAccountRequired';
   private readonly destroy$: Subject<void> = new Subject<void>();
 
   protected addSplitRow(): void {
@@ -154,12 +155,10 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     return this.submitErrorMessages[error.code] ?? 'The expense could not be loaded.';
   }
 
-  protected isBackdatedCardPurchase(): boolean {
-    const purchaseDate: string = this.form.controls.purchaseDate.value;
+  protected needsBankAccount(): boolean {
     return (
       this.form.controls.mode.value === 'card' &&
-      /^\d{4}-\d{2}-\d{2}$/.test(purchaseDate) &&
-      purchaseDate < this.todayIso()
+      this.submitError()?.code === this.bankAccountRequiredCode
     );
   }
 
@@ -223,6 +222,11 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       error: (error: AppError) => {
         this.submitError.set(error);
         this.submitStatus.set('error');
+        if(this.needsBankAccount()) {
+          const control: FormControl<string> = this.form.controls.bankAccountId;
+          control.setValidators(Validators.required);
+          control.updateValueAndValidity({ emitEvent: false });
+        }
       },
     });
   }
@@ -357,21 +361,16 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     });
   }
 
-  private todayIso(): string {
-    return new Date().toISOString().slice(0, 10);
-  }
-
   private watchBackdatedFunding(): void {
     merge(this.form.controls.mode.valueChanges, this.form.controls.purchaseDate.valueChanges)
       .pipe(takeUntil(this.destroy$))
       .subscribe(() => {
         const control: FormControl<string> = this.form.controls.bankAccountId;
-        if(this.isBackdatedCardPurchase()) {
-          control.setValidators(Validators.required);
-        } else {
-          control.setValidators(null);
-          control.setValue('', { emitEvent: false });
+        if(this.needsBankAccount()) {
+          this.submitError.set(null);
         }
+        control.setValidators(null);
+        control.setValue('', { emitEvent: false });
         control.updateValueAndValidity({ emitEvent: false });
       });
   }

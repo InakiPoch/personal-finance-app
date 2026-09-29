@@ -1,7 +1,9 @@
 namespace PersonalFinance.Api.Endpoints.DTOs;
 
 /// <summary>
-/// Paying a creditor's full debt takes no input — the creditor id comes from the route and the paid
-/// timestamp is the server clock. The result carries the number of installments newly settled.
+/// A null <see cref="AmountMinorUnits"/> settles the creditor's entire debt in every currency.
+/// A set amount requires <see cref="CurrencyCode"/> and only settles that currency's remaining debt.
 /// </summary>
+public sealed record PayCreditorFullDebtRequestDto(long? AmountMinorUnits, string? CurrencyCode);
+
 public sealed record PayCreditorFullDebtResultDto(int SettledCount);

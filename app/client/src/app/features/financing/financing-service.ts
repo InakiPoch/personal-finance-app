@@ -9,7 +9,13 @@ import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
+import { PayCreditorExpense } from './types/pay-creditor-expense';
+import { PayCreditorExpenseResult } from './types/pay-creditor-expense-result';
+import { PayCreditorFullDebt } from './types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from './types/pay-creditor-full-debt-result';
+import { PayCreditorInstallment } from './types/pay-creditor-installment';
+import { PayCreditorInstallmentPartyShare } from './types/pay-creditor-installment-party-share';
+import { PayCreditorInstallmentPartyShareResult } from './types/pay-creditor-installment-party-share-result';
 import { PayCreditorInstallmentResult } from './types/pay-creditor-installment-result';
 import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
@@ -71,15 +77,26 @@ export class FinancingService {
     return this.http.get<CreditorDetail>(`financing/creditor-payables/${creditorId}`);
   }
 
-  payCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> { 
-    return this.http.post<PayCreditorInstallmentResult>(`financing/creditor-installments/${installmentId}/pay`, {});
+  payCreditorInstallment(installmentId: string, body: PayCreditorInstallment): Observable<PayCreditorInstallmentResult> {
+    return this.http.post<PayCreditorInstallmentResult>(`financing/creditor-installments/${installmentId}/pay`, body);
   }
 
   unpayCreditorInstallment(installmentId: string): Observable<PayCreditorInstallmentResult> {
     return this.http.post<PayCreditorInstallmentResult>(`financing/creditor-installments/${installmentId}/unpay`, {});
   }
 
-  payCreditorFullDebt(creditorId: string): Observable<PayCreditorFullDebtResult> {
-    return this.http.post<PayCreditorFullDebtResult>(`financing/creditor-payables/${creditorId}/pay-full`, {});
+  payCreditorInstallmentPartyShare(installmentId: string, body: PayCreditorInstallmentPartyShare): Observable<PayCreditorInstallmentPartyShareResult> {
+    return this.http.post<PayCreditorInstallmentPartyShareResult>(
+      `financing/creditor-installments/${installmentId}/pay-party`,
+      body
+    );
+  }
+
+  payCreditorFullDebt(creditorId: string, body: PayCreditorFullDebt): Observable<PayCreditorFullDebtResult> {
+    return this.http.post<PayCreditorFullDebtResult>(`financing/creditor-payables/${creditorId}/pay-full`, body);
+  }
+
+  payCreditorExpense(planId: string, body: PayCreditorExpense): Observable<PayCreditorExpenseResult> {
+    return this.http.post<PayCreditorExpenseResult>(`financing/creditor-purchases/${planId}/pay`, body);
   }
 }

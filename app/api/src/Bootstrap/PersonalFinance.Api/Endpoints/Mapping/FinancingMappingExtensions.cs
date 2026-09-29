@@ -40,8 +40,14 @@ internal static class FinancingMappingExtensions {
         return new PayStatementResultDto(statementId);
     }
 
-    public static PayCreditorFullDebtResultDto ToPayCreditorFullDebtResultDto(this int settledCount) {
-        return new PayCreditorFullDebtResultDto(settledCount);
+    extension(int settledCount) {
+        public PayCreditorFullDebtResultDto ToPayCreditorFullDebtResultDto() {
+            return new PayCreditorFullDebtResultDto(settledCount);
+        }
+
+        public PayCreditorExpenseResultDto ToPayCreditorExpenseResultDto() {
+            return new PayCreditorExpenseResultDto(settledCount);
+        }
     }
 
     extension(Guid installmentId) {
@@ -52,6 +58,10 @@ internal static class FinancingMappingExtensions {
         public PayCreditorInstallmentResultDto ToPayCreditorInstallmentResultDto() {
             return new PayCreditorInstallmentResultDto(installmentId);
         }
+    }
+
+    public static PayCreditorInstallmentPartyShareResultDto ToPayCreditorInstallmentPartyShareResultDto(this Guid paymentId) {
+        return new PayCreditorInstallmentPartyShareResultDto(paymentId);
     }
 
     public static CardFutureScheduleDto ToCardFutureScheduleDto(this CardFutureScheduleResponse response, Guid cardId) {
@@ -158,9 +168,16 @@ internal static class FinancingMappingExtensions {
                         row.DueMonth,
                         row.IsPaid,
                         row.IsReversed,
-                        row.Status)
+                        row.Status,
+                        row.PaidMinorUnits,
+                        row.RemainingMinorUnits,
+                        row.HasPayments,
+                        row.PartyShares
+                            .Select(share => new CreditorInstallmentPartyShareDto(share.PartyId, share.PartyName, share.ShareMinorUnits, share.IsPaid))
+                            .ToList())
                     )
-                    .ToList()
+                    .ToList(),
+                group.CurrencyCode
                 )
             )
             .ToList();

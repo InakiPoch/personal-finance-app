@@ -32,10 +32,20 @@ internal sealed class InstallmentConfiguration : IEntityTypeConfiguration<Instal
             .HasForeignKey(installment => installment.StatementId)
             .IsRequired(false)
             .OnDelete(DeleteBehavior.Restrict);
+        builder.HasMany(installment => installment.Payments)
+            .WithOne()
+            .HasForeignKey(payment => payment.InstallmentId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(installment => installment.Payments)
+            .HasField("payments")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Ignore(installment => installment.IsAccrued);
         builder.Ignore(installment => installment.IsSplitAccrued);
         builder.Ignore(installment => installment.IsPaid);
         builder.Ignore(installment => installment.Cycle);
         builder.Ignore(installment => installment.DueCycle);
+        builder.Ignore(installment => installment.PaidMinorUnits);
+        builder.Ignore(installment => installment.RemainingMinorUnits);
     }
 }

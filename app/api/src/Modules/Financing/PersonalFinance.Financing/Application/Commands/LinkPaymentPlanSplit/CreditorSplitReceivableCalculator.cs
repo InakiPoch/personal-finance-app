@@ -33,4 +33,17 @@ internal static class CreditorSplitReceivableCalculator {
         lines.Add(new PostTransactionLine(creditorPayableAccountId, DebitOrCredit.Credit, Money.FromMinorUnits(partyPortion, amount.Currency)));
         return (lines, partyPortion);
     }
+
+    /// <summary>
+    /// The same per-party shares <see cref="BuildLines"/> books, without building Ledger legs
+    /// </summary>
+    public static IReadOnlyList<(Guid PartyId, long ShareMinorUnits)> PartyShares(
+        Money amount,
+        IReadOnlyList<PaymentPlanSplitParticipant> participantsOrderedByPartyId) {
+        long[] weights = [1L, .. participantsOrderedByPartyId.Select(participant => participant.Weight)];
+        var shares = new PhantomPennyAllocator().Allocate(amount, weights);
+        return participantsOrderedByPartyId
+            .Select((participant, index) => (participant.PartyId, shares[index + 1].MinorUnits))
+            .ToList();
+    }
 }

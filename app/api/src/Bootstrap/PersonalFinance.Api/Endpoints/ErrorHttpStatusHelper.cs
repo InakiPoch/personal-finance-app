@@ -26,6 +26,10 @@ internal static class ErrorHttpStatusHelper {
             "Financing.InstallmentAlreadyPaid" => StatusCodes.Status409Conflict,
             "Financing.InstallmentNotAccrued" => StatusCodes.Status409Conflict,
             "Financing.NotACreditorInstallment" => StatusCodes.Status409Conflict,
+            "Financing.NoPaymentToUndo" => StatusCodes.Status409Conflict,
+            "Financing.PartyShareNotDue" => StatusCodes.Status409Conflict,
+            "Financing.PartyNotInSplit" => StatusCodes.Status409Conflict,
+            "Financing.PartyShareAlreadyPaid" => StatusCodes.Status409Conflict,
             "Subscriptions.SubscriptionNotActive" => StatusCodes.Status409Conflict,
             "Subscriptions.SubscriptionNotPaid" => StatusCodes.Status409Conflict,
             "Parties.SettlementExceedsBalance" => StatusCodes.Status409Conflict,
@@ -74,6 +78,8 @@ internal static class ErrorHttpStatusHelper {
             // 400 — unroutable / unknown-shape codes
             "Instruments.UnknownType" => StatusCodes.Status400BadRequest,
             "Request.Malformed" => StatusCodes.Status400BadRequest,
+            "Financing.InvalidPaymentAmount" => StatusCodes.Status400BadRequest,
+            "Financing.PaymentExceedsRemaining" => StatusCodes.Status400BadRequest,
 
             _ => fromSuffix(errorCode)
         };

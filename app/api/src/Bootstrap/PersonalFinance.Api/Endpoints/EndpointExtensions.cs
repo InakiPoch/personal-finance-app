@@ -106,30 +106,46 @@ internal static class EndpointExtensions {
                 .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Financing.CreditorPayables, GetCreditorPayables.Handle)
                 .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
-                .WithDescription("Read-only roll-up over creditor-financed payment plans. There is no per-installment paid/settled flag yet, so \"outstanding\" is the whole plan: every non-reversed installment of a creditor-financed plan counts as still owed. Card-backed plans never appear.")
+                .WithDescription("Read-only roll-up over creditor-financed payment plans, in remaining (unpaid) amounts: \"due now\" folds in arrears up to the current billing cycle, \"total owed\" adds future installments. Fully or partially paid amounts are excluded. Card-backed plans never appear.")
                 .Produces<CreditorPayablesDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Financing.CreditorPayableDetail, GetCreditorDetail.Handle)
                 .WithSummary("Get one creditor's outstanding debt, grouped by purchase.")
-                .WithDescription("Read-only drill-down: every creditor-financed purchase (payment plan) for the given creditor with its installments listed beneath — sequence, amount, due month, and paid/reversed status. An unknown creditor yields a 404.")
+                .WithDescription("Read-only drill-down: every creditor-financed purchase (payment plan) for the given creditor with its installments listed beneath — sequence, remaining/paid amounts, due month, and paid/reversed status. An unknown creditor yields a 404.")
                 .Produces<CreditorDetailDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound);
             group.MapPost(ApiRoutes.Financing.CreditorInstallmentPayment, PayCreditorInstallment.Handle)
-                .WithSummary("Mark a creditor installment paid.")
-                .WithDescription("Stamps a display-only PaidOnUtc on one creditor-financed installment — no bank account and no ledger posting (creditor debt is ledger-free for the holder). Fails if the installment is unknown, belongs to a credit-card plan, reversed, or already paid.")
+                .WithSummary("Record a payment on a creditor installment.")
+                .WithDescription("Records a display-only payment (full or partial) on one creditor-financed installment — no bank account and no ledger posting (creditor debt is ledger-free for the holder). A null amount pays whatever remains. Fails if the installment is unknown, belongs to a credit-card plan, reversed, already fully paid, the amount is not positive, or it exceeds what remains.")
                 .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);
             group.MapPost(ApiRoutes.Financing.CreditorInstallmentUnpayment, UnpayCreditorInstallment.Handle)
-                .WithSummary("Undo a creditor installment payment.")
-                .WithDescription("Clears the display-only PaidOnUtc stamp on one creditor-financed installment (fat-finger recovery). There is no ledger transaction to reverse. Fails if the installment is unknown, belongs to a credit-card plan, or is reversed.")
+                .WithSummary("Undo the last payment on a creditor installment.")
+                .WithDescription("Removes the most recent payment recorded on one creditor-financed installment (fat-finger recovery) — there is no ledger transaction to reverse. Fails if the installment is unknown, belongs to a credit-card plan, is reversed, or has no recorded payment to undo.")
                 .Produces<PayCreditorInstallmentResultDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Financing.CreditorInstallmentPartySharePayment, PayCreditorInstallmentPartyShare.Handle)
+                .WithSummary("Pay a split participant's share of a creditor installment.")
+                .WithDescription("\"The party paid me, I pay the creditor\": settles the party's receivable into the given bank account (the same settlement recorded by hand on the Parties page) and records that share as a payment on the installment, in one call. Offered only once the installment's split receivable has been accrued. Fails if the installment is unknown, belongs to a credit-card plan, is reversed, its split hasn't accrued yet, the party isn't a participant, the party already paid this share, the share exceeds what remains, or the settlement itself fails (e.g. the party has no outstanding balance, or the bank account is unknown).")
+                .Produces<PayCreditorInstallmentPartyShareResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapPost(ApiRoutes.Financing.CreditorPayableFullPayment, PayCreditorFullDebt.Handle)
                 .WithSummary("Settle a creditor's entire remaining debt.")
                 .WithDescription("Stamps a display-only PaidOnUtc on every unpaid, non-reversed installment across all of the creditor's purchases — no bank account and no ledger posting. Already-paid and reversed installments are skipped; the result carries the number newly settled (zero when the debt was already clear). An unknown creditor yields a 404.")
                 .Produces<PayCreditorFullDebtResultDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status404NotFound);
+            group.MapPost(ApiRoutes.Financing.CreditorPurchasePayment, PayCreditorExpense.Handle)
+                .WithSummary("Pay one creditor-financed purchase.")
+                .WithDescription("Records a display-only payment (full or partial) against one creditor-financed purchase — no bank account and no ledger posting. Fills that purchase's installments in sequence order, each taken in full until the amount runs out, the last one getting the leftover as a partial. A null amount pays whatever remains. Fails if the purchase is unknown, is card-backed, the amount is not positive, or it exceeds what remains.")
+                .Produces<PayCreditorExpenseResultDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
             return endpoints;
         }
 

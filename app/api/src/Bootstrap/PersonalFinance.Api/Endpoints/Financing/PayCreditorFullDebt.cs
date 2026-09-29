@@ -7,8 +7,8 @@ using PersonalFinance.Infrastructure.Messaging;
 namespace PersonalFinance.Api.Endpoints.Financing;
 
 public static class PayCreditorFullDebt {
-    public static async Task<Results<Ok<PayCreditorFullDebtResultDto>, ProblemHttpResult>> Handle(Guid creditorId, ICommandBus commandBus, CancellationToken cancellationToken) {
-        var result = await commandBus.SendAsync<int>(new PayCreditorFullDebtCommand(creditorId), cancellationToken);
+    public static async Task<Results<Ok<PayCreditorFullDebtResultDto>, ProblemHttpResult>> Handle(Guid creditorId, PayCreditorFullDebtRequestDto dto, ICommandBus commandBus, CancellationToken cancellationToken) {
+        var result = await commandBus.SendAsync<int>(new PayCreditorFullDebtCommand(creditorId, dto.AmountMinorUnits, dto.CurrencyCode), cancellationToken);
         if(result.IsFailure) {
             return ProblemResultsHelper.From(result.Error);
         }

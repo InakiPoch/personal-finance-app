@@ -8,6 +8,7 @@ using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Persistence;
+using PersonalFinance.Parties.Contracts.Queries;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 using Xunit;
@@ -19,6 +20,7 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
 
     private readonly SqliteConnection connection;
     private readonly DbContextOptions<FinancingDbContext> options;
+    private readonly FakePartiesApi parties = new();
 
     public GetCreditorDetailHandlerTests() {
         connection = new SqliteConnection("Filename=:memory:");
@@ -39,7 +41,7 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
         var cancellationToken = TestContext.Current.CancellationToken;
         var unknownId = Guid.NewGuid();
         await using var readContext = NewContext();
-        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow))
+        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow), parties)
             .HandleAsync(new GetCreditorDetailQuery(unknownId), cancellationToken);
         Assert.False(response.Found);
         Assert.Equal(unknownId, response.CreditorId);
@@ -53,14 +55,15 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
         await using(var context = NewContext()) {
             // Older purchase: 3 cuotas / 30_000, one cuota paid -> Total 30_000, Outstanding 20_000.
             var older = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 3, 30_000);
-            older.Installments.OrderBy(installment => installment.Sequence).First().MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            var paidInstallment = older.Installments.OrderBy(installment => installment.Sequence).First();
+            paidInstallment.ApplyPayment(paidInstallment.Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
             context.PaymentPlans.Add(older);
             // Newer purchase: 2 cuotas / 12_000, untouched -> Total 12_000, Outstanding 12_000.
             context.PaymentPlans.Add(CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 3, 5), 2, 12_000));
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow))
+        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow), parties)
             .HandleAsync(new GetCreditorDetailQuery(creditor.CreditorId), cancellationToken);
         Assert.True(response.Found);
         Assert.Equal("Nora", response.CreditorName);
@@ -83,14 +86,14 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
             // Purchase Jan 10 -> stored cycles Jan..May 2026 -> DueCycles Feb/Mar/Apr/May/Jun 2026.
             var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 5, 50_000);
             var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
-            ordered[0].MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            ordered[0].ApplyPayment(ordered[0].Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
             ordered[1].MarkReversed();
             context.PaymentPlans.Add(plan);
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
         // Clock Apr 15 2026 -> ResolveCycle(Apr 15, 26) = Apr 2026 -> current creditor DueCycle is May 2026.
-        var handler = new GetCreditorDetailHandler(readContext, new FixedTimeProvider(new DateTimeOffset(2026, 4, 15, 0, 0, 0, TimeSpan.Zero)));
+        var handler = new GetCreditorDetailHandler(readContext, new FixedTimeProvider(new DateTimeOffset(2026, 4, 15, 0, 0, 0, TimeSpan.Zero)), parties);
         var response = await handler.HandleAsync(new GetCreditorDetailQuery(creditor.CreditorId), cancellationToken);
         var purchase = Assert.Single(response.Purchases);
         var installments = purchase.Installments;
@@ -115,6 +118,30 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_reflects_a_partial_payment_in_paid_remaining_and_outstanding() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Sasha", ["Sasha Bank"], cancellationToken);
+        await using(var context = NewContext()) {
+            var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 2, 20_000);
+            var partiallyPaid = plan.Installments.OrderBy(installment => installment.Sequence).First();
+            partiallyPaid.ApplyPayment(4_000, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow), parties)
+            .HandleAsync(new GetCreditorDetailQuery(creditor.CreditorId), cancellationToken);
+        var purchase = Assert.Single(response.Purchases);
+        var row = purchase.Installments.Single(candidate => candidate.Sequence == 1);
+        Assert.False(row.IsPaid);
+        Assert.True(row.HasPayments);
+        Assert.Equal(4_000, row.PaidMinorUnits);
+        Assert.Equal(6_000, row.RemainingMinorUnits);
+        Assert.Equal(20_000, purchase.TotalMinorUnits);
+        Assert.Equal(16_000, purchase.OutstandingMinorUnits);
+    }
+
+    [Fact]
     public async Task Handle_excludes_other_creditors_and_card_backed_plans() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var target = await SeedCreditorAsync("Paula", ["Paula Bank"], cancellationToken);
@@ -126,11 +153,77 @@ public sealed class GetCreditorDetailHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow))
+        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow), parties)
             .HandleAsync(new GetCreditorDetailQuery(target.CreditorId), cancellationToken);
         var purchase = Assert.Single(response.Purchases);
         Assert.Equal(20_000, purchase.TotalMinorUnits);
         Assert.Equal(2, purchase.Installments.Count);
+    }
+
+    [Fact]
+    public async Task Handle_exposes_party_shares_only_for_split_accrued_non_reversed_installments_with_mapped_names() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Vera", ["Vera Bank"], cancellationToken);
+        var partyId = Guid.CreateVersion7();
+        parties.ListPartiesResponseOverride = new ListPartiesResponse([new PartyRow(partyId, "Dana")]);
+        await using(var context = NewContext()) {
+            // 3 cuotas / 30_000 -> 10_000 each; split weights [1 holder, 1 party] -> 5_000 each.
+            var plan = CreateSplitCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 3, 30_000, partyId);
+            var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
+            ordered[1].MarkSplitAccrued(fixedNow);
+            ordered[2].MarkSplitAccrued(fixedNow);
+            ordered[2].MarkReversed();
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow), parties)
+            .HandleAsync(new GetCreditorDetailQuery(creditor.CreditorId), cancellationToken);
+        var installments = Assert.Single(response.Purchases).Installments;
+        Assert.Empty(installments[0].PartyShares);
+        var accrued = Assert.Single(installments[1].PartyShares);
+        Assert.Equal(partyId, accrued.PartyId);
+        Assert.Equal("Dana", accrued.PartyName);
+        Assert.Equal(5_000, accrued.ShareMinorUnits);
+        Assert.False(accrued.IsPaid);
+        Assert.Empty(installments[2].PartyShares);
+    }
+
+    [Fact]
+    public async Task Handle_marks_a_party_share_paid_once_that_party_has_a_payment_row() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Wade", ["Wade Bank"], cancellationToken);
+        var partyId = Guid.CreateVersion7();
+        parties.ListPartiesResponseOverride = new ListPartiesResponse([new PartyRow(partyId, "Ivy")]);
+        await using(var context = NewContext()) {
+            var plan = CreateSplitCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 1, 10_000, partyId);
+            var installment = plan.Installments.Single();
+            installment.MarkSplitAccrued(fixedNow);
+            installment.ApplyPayment(5_000, fixedNow, partyId, Guid.CreateVersion7());
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new GetCreditorDetailHandler(readContext, new FixedTimeProvider(fixedNow), parties)
+            .HandleAsync(new GetCreditorDetailQuery(creditor.CreditorId), cancellationToken);
+        var share = Assert.Single(Assert.Single(response.Purchases).Installments.Single().PartyShares);
+        Assert.True(share.IsPaid);
+    }
+
+    private static PaymentPlan CreateSplitCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits, Guid partyId) {
+        var total = Money.FromMinorUnits(totalMinorUnits, Currency.Reference);
+        return PaymentPlan.Create(
+            cardId: null,
+            total,
+            installmentCount,
+            purchaseDate,
+            "Creditor split purchase",
+            cutoffDay: null,
+            new PhantomPennyAllocator(),
+            splitParticipants: [(partyId, 1L)],
+            creditorId: creditorId,
+            creditorAccountId: creditorAccountId
+        ).Value;
     }
 
     private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits) {

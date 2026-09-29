@@ -41,9 +41,7 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
         var cancellationToken = TestContext.Current.CancellationToken;
         var creditor = await SeedCreditorAsync("Nora", ["Nora Bank"], cancellationToken);
         var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
-
         var result = await PayAsync(installmentIds[0], cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Equal(installmentIds[0], result.Value);
         var installment = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
@@ -55,9 +53,7 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     public async Task Handle_rejects_a_card_installment_with_not_a_creditor_installment() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var installmentIds = await SeedCardPlanAsync(new DateOnly(2026, 1, 10), 2, 20_000, cancellationToken);
-
         var result = await PayAsync(installmentIds[0], cancellationToken);
-
         Assert.True(result.IsFailure);
         Assert.Equal(FinancingErrors.NotACreditorInstallment, result.Error);
         var installment = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
@@ -76,9 +72,7 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
             cancellationToken,
             markPaidSequence: 1
         );
-
         var result = await PayAsync(installmentIds[0], cancellationToken);
-
         Assert.True(result.IsFailure);
         Assert.Equal(FinancingErrors.InstallmentAlreadyPaid, result.Error);
     }
@@ -95,9 +89,7 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
             cancellationToken,
             markReversedSequence: 1
         );
-
         var result = await PayAsync(installmentIds[0], cancellationToken);
-
         Assert.True(result.IsFailure);
         Assert.Equal(FinancingErrors.InstallmentAlreadyReversed, result.Error);
     }
@@ -105,9 +97,7 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     [Fact]
     public async Task Handle_returns_not_found_for_an_unknown_installment() {
         var cancellationToken = TestContext.Current.CancellationToken;
-
         var result = await PayAsync(Guid.NewGuid(), cancellationToken);
-
         Assert.True(result.IsFailure);
         Assert.Equal(FinancingErrors.InstallmentNotFound, result.Error);
     }
@@ -124,9 +114,7 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
             cancellationToken,
             markPaidSequence: 1
         );
-
         var result = await UnpayAsync(installmentIds[0], cancellationToken);
-
         Assert.True(result.IsSuccess);
         Assert.Equal(installmentIds[0], result.Value);
         var installment = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
@@ -138,9 +126,7 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     public async Task Unpay_rejects_a_card_installment_with_not_a_creditor_installment() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var installmentIds = await SeedCardPlanAsync(new DateOnly(2026, 1, 10), 2, 20_000, cancellationToken);
-
         var result = await UnpayAsync(installmentIds[0], cancellationToken);
-
         Assert.True(result.IsFailure);
         Assert.Equal(FinancingErrors.NotACreditorInstallment, result.Error);
     }
@@ -148,24 +134,106 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     [Fact]
     public async Task Unpay_returns_not_found_for_an_unknown_installment() {
         var cancellationToken = TestContext.Current.CancellationToken;
-
         var result = await UnpayAsync(Guid.NewGuid(), cancellationToken);
-
         Assert.True(result.IsFailure);
         Assert.Equal(FinancingErrors.InstallmentNotFound, result.Error);
     }
 
     [Fact]
-    public async Task Unpay_of_an_unpaid_installment_is_a_no_op_success() {
+    public async Task Unpay_of_an_unpaid_installment_reports_no_payment_to_undo() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var creditor = await SeedCreditorAsync("Rosa", ["Rosa Bank"], cancellationToken);
         var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
-
         var result = await UnpayAsync(installmentIds[0], cancellationToken);
-
-        Assert.True(result.IsSuccess);
+        Assert.True(result.IsFailure);
+        Assert.Equal(FinancingErrors.NoPaymentToUndo, result.Error);
         var installment = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
         Assert.False(installment.IsPaid);
+    }
+
+    [Fact]
+    public async Task Unpay_of_a_party_paid_installment_reverses_its_settlement_transaction() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Vito", ["Vito Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 1, 10_000, cancellationToken);
+        var partyId = Guid.CreateVersion7();
+        var settlementTransactionId = Guid.CreateVersion7();
+        await using(var context = NewContext()) {
+            var installment = await context.Set<Installment>().Include(candidate => candidate.Payments).FirstAsync(candidate => candidate.Id == installmentIds[0], cancellationToken);
+            installment.ApplyPayment(10_000, fixedNow, partyId, settlementTransactionId);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        var ledger = new FakeLedgerApi();
+        var result = await UnpayAsync(installmentIds[0], ledger, cancellationToken);
+        Assert.True(result.IsSuccess);
+        var reversed = Assert.Single(ledger.ReversedTransactions);
+        Assert.Equal(settlementTransactionId, reversed.OriginalTransactionId);
+        var installmentAfter = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.False(installmentAfter.IsPaid);
+        Assert.Empty(installmentAfter.Payments);
+    }
+
+    [Fact]
+    public async Task Unpay_of_a_party_paid_installment_keeps_the_row_when_the_reversal_fails() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Wendy", ["Wendy Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 1, 10_000, cancellationToken);
+        var partyId = Guid.CreateVersion7();
+        var settlementTransactionId = Guid.CreateVersion7();
+        await using(var context = NewContext()) {
+            var installment = await context.Set<Installment>().Include(candidate => candidate.Payments).FirstAsync(candidate => candidate.Id == installmentIds[0], cancellationToken);
+            installment.ApplyPayment(10_000, fixedNow, partyId, settlementTransactionId);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        var ledger = new FakeLedgerApi { ReverseTransactionResultOverride = new Error("Ledger.TransactionAlreadyReversed", "Already reversed.") };
+        var result = await UnpayAsync(installmentIds[0], ledger, cancellationToken);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Ledger.TransactionAlreadyReversed", result.Error.Code);
+        var installmentAfter = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.True(installmentAfter.IsPaid);
+        Assert.Single(installmentAfter.Payments);
+    }
+
+    [Fact]
+    public async Task Unpay_of_an_own_payment_does_not_touch_the_ledger() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Xena", ["Xena Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken, markPaidSequence: 1);
+        var ledger = new FakeLedgerApi();
+        var result = await UnpayAsync(installmentIds[0], ledger, cancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Empty(ledger.ReversedTransactions);
+    }
+
+    [Fact]
+    public async Task Handle_with_a_null_amount_pays_whatever_remains_after_an_earlier_partial_payment() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Tomas", ["Tomas Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 1, 10_000, cancellationToken);
+        Assert.True((await PayAsync(installmentIds[0], 4_000, cancellationToken)).IsSuccess);
+        var result = await PayAsync(installmentIds[0], null, cancellationToken);
+        Assert.True(result.IsSuccess);
+        var installment = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.True(installment.IsPaid);
+        Assert.Equal(0, installment.RemainingMinorUnits);
+        Assert.Equal(10_000, installment.PaidMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_a_partial_payment_then_a_second_partial_payment_settles_the_installment() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Ursula", ["Ursula Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 1, 10_000, cancellationToken);
+
+        Assert.True((await PayAsync(installmentIds[0], 6_000, cancellationToken)).IsSuccess);
+        var installmentAfterFirst = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.False(installmentAfterFirst.IsPaid);
+        Assert.Equal(4_000, installmentAfterFirst.RemainingMinorUnits);
+
+        Assert.True((await PayAsync(installmentIds[0], 4_000, cancellationToken)).IsSuccess);
+        var installmentAfterSecond = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.True(installmentAfterSecond.IsPaid);
+        Assert.Equal(0, installmentAfterSecond.RemainingMinorUnits);
     }
 
     [Fact]
@@ -175,26 +243,29 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
         // Purchase Jan 10 2026, 3 cuotas / 30_000 -> DueCycles Feb/Mar/Apr 2026, all at or before the
         // current creditor cycle at the fixed clock, so every cuota is "due now".
         var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
-
         Assert.Equal((30_000, 30_000), await ReadPayablesFiguresAsync(creditor.CreditorId, cancellationToken));
-
         Assert.True((await PayAsync(installmentIds[0], cancellationToken)).IsSuccess);
         Assert.Equal((20_000, 20_000), await ReadPayablesFiguresAsync(creditor.CreditorId, cancellationToken));
-
         Assert.True((await UnpayAsync(installmentIds[0], cancellationToken)).IsSuccess);
         Assert.Equal((30_000, 30_000), await ReadPayablesFiguresAsync(creditor.CreditorId, cancellationToken));
     }
 
     private async Task<Result<Guid>> PayAsync(Guid installmentId, CancellationToken cancellationToken) {
+        return await PayAsync(installmentId, null, cancellationToken);
+    }
+
+    private async Task<Result<Guid>> PayAsync(Guid installmentId, long? amountMinorUnits, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await new PayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow))
-            .HandleAsync(new PayCreditorInstallmentCommand(installmentId), cancellationToken);
+        return await new PayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow)).HandleAsync(new PayCreditorInstallmentCommand(installmentId, amountMinorUnits), cancellationToken);
     }
 
     private async Task<Result<Guid>> UnpayAsync(Guid installmentId, CancellationToken cancellationToken) {
+        return await UnpayAsync(installmentId, new FakeLedgerApi(), cancellationToken);
+    }
+
+    private async Task<Result<Guid>> UnpayAsync(Guid installmentId, FakeLedgerApi ledger, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await new UnpayCreditorInstallmentHandler(context)
-            .HandleAsync(new UnpayCreditorInstallmentCommand(installmentId), cancellationToken);
+        return await new UnpayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow), ledger).HandleAsync(new UnpayCreditorInstallmentCommand(installmentId), cancellationToken);
     }
 
     private async Task<(long DueNow, long TotalOwed)> ReadPayablesFiguresAsync(Guid creditorId, CancellationToken cancellationToken) {
@@ -207,22 +278,25 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
 
     private async Task<Installment> LoadInstallmentAsync(Guid installmentId, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await context.Set<Installment>().FirstAsync(candidate => candidate.Id == installmentId, cancellationToken);
+        return await context.Set<Installment>()
+            .Include(candidate => candidate.Payments)
+        .FirstAsync(candidate => candidate.Id == installmentId, cancellationToken);
     }
 
     private async Task<IReadOnlyList<Guid>> SeedCreditorPlanAsync(
-        (Guid CreditorId, IReadOnlyList<Guid> AccountIds, CreditorRow Row) creditor,
-        DateOnly purchaseDate,
-        int installmentCount,
-        long totalMinorUnits,
-        CancellationToken cancellationToken,
-        int? markPaidSequence = null,
-        int? markReversedSequence = null) {
+        (Guid CreditorId, IReadOnlyList<Guid> AccountIds, CreditorRow Row) creditor, 
+        DateOnly purchaseDate, int installmentCount,
+        long totalMinorUnits, 
+        CancellationToken cancellationToken, 
+        int? markPaidSequence = null, 
+        int? markReversedSequence = null
+    ) {
         await using var context = NewContext();
         var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], purchaseDate, installmentCount, totalMinorUnits);
         var ordered = plan.Installments.OrderBy(installment => installment.Sequence).ToList();
         if(markPaidSequence is not null) {
-            ordered[markPaidSequence.Value - 1].MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            var paidInstallment = ordered[markPaidSequence.Value - 1];
+            paidInstallment.ApplyPayment(paidInstallment.Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
         }
         if(markReversedSequence is not null) {
             ordered[markReversedSequence.Value - 1].MarkReversed();

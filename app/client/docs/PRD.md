@@ -214,15 +214,47 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   Paid cuotas are excluded from both.
   An empty-state note when no creditor has an outstanding balance. **Each creditor name is a link
   into its detail view.**
-- **Detail view (`financing/creditor-payables/:creditorId`, now built):** a read-only drill-down
-  showing one creditor's debt **grouped by purchase** — each payment plan a section with its
-  description, purchase date and "`<outstanding>` outstanding of `<total>`", and an installments
-  sub-table beneath (cuota N/M, payment month, amount, and a status badge: overdue / due / future /
-  paid / reversed). Sections are ordered newest purchase first. An unknown creditor id renders a
-  friendly "no creditor matches that link" state. No pay/undo actions yet — the table leaves a seam
-  for them (Slices 3–4).
-- **Source:** `GET /v1/financing/creditor-payables` (list) + `GET /v1/financing/creditor-payables/{creditorId}` (detail).
-- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (the list) and `docs/owed-to-creditors/` (`slice-1-current-cycle-outstanding.md` — the two-figure split, API's Phase 34; `slice-2-creditor-detail-view.md` — the detail view, API's Phase 35); Financing-only, read-only, no Ledger (D7). Paid cuotas drop out of both list money figures (`Installment.PaidOnUtc`, stamped by the back-dated creditor path and — from Slice 3 — a "pay a cuota" action). **Still pending:** `NextDueDate` is the earliest *scheduled* month and does not advance as months pass; the per-account sub-line breakdown still sums over all non-reversed cuotas, so it can exceed "Total owed" when a creditor has paid cuotas — both deferred to a later slice. Pay/undo a cuota and pay the full debt (Slices 3–4) are not built yet. Reachable from the global nav right after "Recent purchases".
+- **Detail view (`financing/creditor-payables/:creditorId`, now built):** a drill-down showing one
+  creditor's debt **grouped by purchase** — each payment plan a section with its description,
+  purchase date and "`<outstanding>` outstanding of `<total>`", and an installments sub-table
+  beneath (cuota N/M, payment month, amount, and a status badge: overdue / due / future / paid /
+  reversed). Sections are ordered newest purchase first. An unknown creditor id renders a friendly
+  "no creditor matches that link" state.
+- **Pay a cuota, in full or partially (now built).** Pressing **Pay** on an unpaid or partly-paid
+  cuota (`remaining > 0`) opens a dialog offering "Pay in full" or a custom amount (0 < x ≤ what
+  remains — never capped, rejected instead). A partial payment leaves the row reading "`<remaining>`
+  left · paid `<paid>` of `<amount>`"; **Undo** (shown whenever the cuota has at least one payment,
+  independently of whether it also still shows Pay) removes the last payment made on it. Both
+  actions are display-only — no bank, no ledger movement — and refresh the list's two figures
+  (Slice 1 below) and the per-account breakdown immediately.
+- **Pay a whole purchase, in full or partially (new, now built).** Each purchase section gains a
+  **Pay expense** button (shown while that purchase still has something outstanding), opening the
+  same shared dialog in `expense` mode: pay in full, or a custom amount that fills that purchase's
+  cuotas in sequence order — each cuota taken in full until the amount runs out, the last one left
+  partly paid. Reuses the "`<n>` cuota(s) settled." confirmation line from Pay full debt.
+- **Pay the full debt, in full or partially (now built).** A header-level **Pay full debt** button
+  opens the same shared dialog in a new `full-debt` mode (replacing the old lightweight inline
+  confirm): "Pay in full" settles every remaining cuota across all of a creditor's purchases in
+  every currency, unchanged; a custom amount covers **one currency only** (no FX) and fills that
+  currency's remaining cuotas across **all purchases**, oldest due-month first — not grouped by
+  purchase — so a newer purchase's cuota can land ahead of an older purchase's later cuota. A
+  currency `<select>` appears only when the creditor's outstanding purchases span more than one
+  currency; disabled when nothing is outstanding.
+- **Pay a third party's share of a cuota (new, now built, closes the initiative).** When a cuota's
+  purchase was split with one or more third parties (US-7) and the cuota has already accrued its
+  split (the scheduler has posted that party's receivable), the pay dialog gains one more radio per
+  party still owing — "Pay `<party>`'s part (`<share>`)" — hidden once that party has a payment on
+  the cuota, disabled with an inline explanation when the share is larger than what remains.
+  Picking one reveals a required "Received into" bank-account `<select>`. Unlike every other option
+  on this page, this one **is** real money: confirming records the same settlement the user would
+  otherwise enter by hand on that party's page (`Dr Bank / Cr <party>`), then marks that share paid
+  on the cuota. Undo reverses both — the payment row and the settlement.
+- **Source:** `GET /v1/financing/creditor-payables` (list) + `GET /v1/financing/creditor-payables/{creditorId}` (detail)
+  + `POST .../creditor-installments/{id}/pay` (body: `{ amountMinorUnits: Money | null }`, `null` = pay
+  in full) + `.../unpay` + `POST .../creditor-payables/{creditorId}/pay-full` (body: `{ amountMinorUnits: Money | null; currencyCode: CurrencyCode | null }`)
+  + `POST .../creditor-purchases/{paymentPlanId}/pay` (same body shape as the installment endpoint, returns `{ settledCount }`)
+  + `POST .../creditor-installments/{id}/pay-party` (body: `{ partyId: string; bankAccountId: string }`, returns `{ paymentId: string }`).
+- **Notes:** not part of the original 7-view scope; traces to `docs/expense-payment-modes/slice-2-owed-to-creditors-list.md` (the list) and `docs/owed-to-creditors/` (`slice-1-current-cycle-outstanding.md` — the two-figure split, API's Phase 34; `slice-2-creditor-detail-view.md` — the detail view, API's Phase 35; `slice-3-pay-installment-and-undo.md` — pay/undo a cuota, API's Phase 36; `slice-4-pay-full-debt.md` — pay the full debt, API's Phase 37); Financing-only, read-only, no Ledger (D7). Paid cuotas drop out of both list money figures. **Pay a whole purchase** traces to `docs/partial-creditor-payments/slice-2-pay-expense.md` (API's Phase 49); partial pay on one cuota (the shared dialog, `docs/partial-creditor-payments/slice-1-foundation-partial-installment.md`, API's Phase 48) traces here too. **Partial "pay the full debt"** traces to `docs/partial-creditor-payments/slice-3-partial-full-debt.md` (API's Phase 50). **Pay a third party's share** traces to `docs/partial-creditor-payments/slice-4-party-part.md` (API's Phase 51, client's Phase 46) — the only one of these four that touches the Ledger, via `IPartiesApi.SettleCurrentAccountAsync`. Closes `docs/partial-creditor-payments/`. **Still pending:** `NextDueDate` is the earliest *scheduled* month and does not advance as months pass; the per-account sub-line breakdown still sums over all non-reversed cuotas, so it can exceed "Total owed" when a creditor has paid cuotas — both deferred to a later slice; `GetCreditorPayablesHandler`'s "Due now"/"Total owed" figures still sum ARS and USD into one number, unseparated by currency. Reachable from the global nav right after "Recent purchases".
 
 ### 3.11 Debit/cash expenses with categories (new — extends §3.3, now built)
 - **Shows:** the third *My debit-cash* mode of §3.3's Load-Expense form. When selected, the form

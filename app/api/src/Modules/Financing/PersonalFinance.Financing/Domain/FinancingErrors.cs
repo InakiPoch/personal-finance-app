@@ -157,4 +157,34 @@ internal static class FinancingErrors {
         "Financing.BackdatedCardBankAccountRequired",
         "A back-dated card purchase with an already-elapsed installment requires a bank account to fund its retroactive payment."
     );
+
+    public static readonly Error InvalidPaymentAmount = new(
+        "Financing.InvalidPaymentAmount",
+        "A creditor installment payment amount must be a positive number of minor units."
+    );
+
+    public static readonly Error PaymentExceedsRemaining = new(
+        "Financing.PaymentExceedsRemaining",
+        "A creditor installment payment cannot exceed the amount still remaining on the installment."
+    );
+
+    public static readonly Error NoPaymentToUndo = new(
+        "Financing.NoPaymentToUndo",
+        "The installment has no recorded payment to undo."
+    );
+
+    public static readonly Error PartyShareNotDue = new(
+        "Financing.PartyShareNotDue",
+        "The installment's split receivable has not been accrued yet, so no party share can be paid."
+    );
+
+    public static readonly Error PartyNotInSplit = new(
+        "Financing.PartyNotInSplit",
+        "The referenced party is not a participant in this payment plan's split."
+    );
+
+    public static readonly Error PartyShareAlreadyPaid = new(
+        "Financing.PartyShareAlreadyPaid",
+        "This party's share of the installment has already been paid."
+    );
 }

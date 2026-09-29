@@ -161,7 +161,8 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
         var creditor = await SeedCreditorAsync("Elena", ["Elena Bank"], cancellationToken);
         await using(var context = NewContext()) {
             var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 3, 30_000);
-            plan.Installments.OrderBy(installment => installment.Sequence).First().MarkPaid(new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            var paidInstallment = plan.Installments.OrderBy(installment => installment.Sequence).First();
+            paidInstallment.ApplyPayment(paidInstallment.Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
             context.PaymentPlans.Add(plan);
             await context.SaveChangesAsync(cancellationToken);
         }
@@ -171,6 +172,67 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
         var row = Assert.Single(response.Rows);
         Assert.Equal(20_000, row.DueNowMinorUnits);
         Assert.Equal(20_000, row.TotalOwedMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_reflects_a_partial_payment_in_due_now_and_total_owed() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Felipe", ["Felipe Bank"], cancellationToken);
+        await using(var context = NewContext()) {
+            var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 2, 20_000);
+            var partiallyPaid = plan.Installments.OrderBy(installment => installment.Sequence).First();
+            partiallyPaid.ApplyPayment(4_000, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        // fixedNow (Jun 15 2026) puts every DueCycle in the past, so both cuotas are due now.
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var row = Assert.Single(response.Rows);
+        Assert.Equal(16_000, row.DueNowMinorUnits);
+        Assert.Equal(16_000, row.TotalOwedMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_excludes_paid_amounts_from_the_per_account_breakdown() {
+        // D14 regression: a partly paid account must not report its paid portion as still outstanding.
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Greta", ["AA Bank", "ZZ Bank"], cancellationToken);
+        var aaAccountId = creditor.Row.Accounts.Single(account => account.Label == "AA Bank").Id;
+        var zzAccountId = creditor.Row.Accounts.Single(account => account.Label == "ZZ Bank").Id;
+        await using(var context = NewContext()) {
+            var aaPlan = CreateCreditorPlan(creditor.CreditorId, aaAccountId, new DateOnly(2026, 1, 10), 2, 20_000);
+            var paidInstallment = aaPlan.Installments.OrderBy(installment => installment.Sequence).First();
+            paidInstallment.ApplyPayment(paidInstallment.Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            context.PaymentPlans.Add(aaPlan);
+            context.PaymentPlans.Add(CreateCreditorPlan(creditor.CreditorId, zzAccountId, new DateOnly(2026, 1, 10), 1, 30_000));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var row = Assert.Single(response.Rows);
+        var aaBreakdown = row.Accounts.Single(account => account.Label == "AA Bank");
+        Assert.Equal(10_000, aaBreakdown.OutstandingMinorUnits);
+        var zzBreakdown = row.Accounts.Single(account => account.Label == "ZZ Bank");
+        Assert.Equal(30_000, zzBreakdown.OutstandingMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_reports_next_due_date_skipping_a_fully_paid_earliest_installment() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Hector", ["Hector Bank"], cancellationToken);
+        await using(var context = NewContext()) {
+            var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], new DateOnly(2026, 1, 10), 3, 30_000);
+            var earliest = plan.Installments.OrderBy(installment => installment.Sequence).First();
+            earliest.ApplyPayment(earliest.Amount.MinorUnits, new DateTimeOffset(2026, 2, 1, 0, 0, 0, TimeSpan.Zero));
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        var row = Assert.Single(response.Rows);
+        // Cuota 1 (owed Feb 10) is fully paid, so the next due date is cuota 2's, Mar 10.
+        Assert.Equal(new DateOnly(2026, 3, 10), row.NextDueDate);
     }
 
     private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits) {
@@ -202,8 +264,7 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
         ).Value;
     }
 
-    private async Task<(Guid CreditorId, IReadOnlyList<Guid> AccountIds, CreditorRow Row)> SeedCreditorAsync(
-        string name, string[] accountLabels, CancellationToken cancellationToken) {
+    private async Task<(Guid CreditorId, IReadOnlyList<Guid> AccountIds, CreditorRow Row)> SeedCreditorAsync(string name, string[] accountLabels, CancellationToken cancellationToken) {
         await using(var context = NewContext()) {
             var accounts = accountLabels.Select(label => new CreditorAccountPayload(label, null)).ToList();
             await new CreateCreditorHandler(context).HandleAsync(new CreateCreditorCommand(name, accounts), cancellationToken);

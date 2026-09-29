@@ -383,25 +383,47 @@ describe('LoadExpensePage', () => {
     expect(host.querySelector('#bankAccountId')).toBeNull();
     expect(view.form.controls.bankAccountId.hasError('required')).toBe(false);
   });
-  it('shows and requires the "Paid from" selector for a back-dated card purchase', () => {
+  const bankRequiredError: AppError = {
+    code: 'Financing.BackdatedCardBankAccountRequired',
+    title: 'Conflict',
+    detail: 'x',
+    status: 409,
+    metadata: {}
+  };
+  it('submits a past-dated card purchase without a bank account and keeps the selector hidden', () => {
     const host = fixture.nativeElement as HTMLElement;
+    const past: string = pastIso();
+    fillValidForm();
+    view.form.controls.purchaseDate.setValue(past);
+    fixture.detectChanges();
+    expect(host.querySelector('#bankAccountId')).toBeNull();
+    expect(view.form.valid).toBe(true);
+    view.onSubmit();
+    const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+    expect('bankAccountId' in body).toBe(false);
+    expect(body.purchaseDate).toBe(past);
+  });
+  it('reveals and requires the "Paid from" selector when the API asks for it', () => {
+    const host = fixture.nativeElement as HTMLElement;
+    createPaymentPlan.and.returnValue(throwError(() => bankRequiredError));
     fillValidForm();
     view.form.controls.purchaseDate.setValue(pastIso());
+    view.onSubmit();
     fixture.detectChanges();
     expect(host.querySelector('#bankAccountId')).not.toBeNull();
     expect(view.form.controls.bankAccountId.hasError('required')).toBe(true);
     expect(view.form.valid).toBe(false);
   });
-  it('includes bankAccountId in the submit body for a back-dated card purchase', () => {
-    const past: string = pastIso();
+  it('includes bankAccountId when resubmitting after the API asked for it', () => {
+    createPaymentPlan.and.returnValues(throwError(() => bankRequiredError), of({ paymentPlanId: 'plan-1' }));
     fillValidForm();
-    view.form.controls.purchaseDate.setValue(past);
+    view.form.controls.purchaseDate.setValue(pastIso());
+    view.onSubmit();
     view.form.controls.bankAccountId.setValue('acct-debit');
     view.onSubmit();
-    expect(createPaymentPlan).toHaveBeenCalledTimes(1);
+    expect(createPaymentPlan).toHaveBeenCalledTimes(2);
     const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
     expect(body.bankAccountId).toBe('acct-debit');
-    expect(body.purchaseDate).toBe(past);
   });
   it('omits bankAccountId from the submit body for a today-dated card purchase', () => {
     fillValidForm();
@@ -409,9 +431,11 @@ describe('LoadExpensePage', () => {
     const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
     expect('bankAccountId' in body).toBe(false);
   });
-  it('drops the bank requirement when a back-dated card purchase is re-dated to today', () => {
+  it('drops the bank requirement when the purchase is re-dated after the API asked for it', () => {
+    createPaymentPlan.and.returnValue(throwError(() => bankRequiredError));
     fillValidForm();
     view.form.controls.purchaseDate.setValue(pastIso());
+    view.onSubmit();
     expect(view.form.controls.bankAccountId.hasError('required')).toBe(true);
     view.form.controls.bankAccountId.setValue('acct-debit');
     view.form.controls.purchaseDate.setValue(todayIso());

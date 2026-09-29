@@ -119,7 +119,7 @@
             <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
           }
         </div>
-        @if(isBackdatedCardPurchase()) {
+        @if(needsBankAccount()) {
           <div class="mt-6 flex flex-col gap-1.5">
             <label for="bankAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
               Paid from
@@ -140,7 +140,7 @@
               </span>
             </div>
             <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-              This purchase is back-dated — its already-due installments are settled from this account.
+              This purchase has installments that are already due — they are settled from this account.
             </p>
             @if(bankAndCashInstruments().length === 0) {
               <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">

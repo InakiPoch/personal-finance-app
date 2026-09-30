@@ -5,6 +5,7 @@ public sealed record CreditorPayableAccountDto(Guid AccountId, string Label, lon
 public sealed record CreditorPayableRowDto(
     Guid CreditorId,
     string CreditorName,
+    string CurrencyCode,
     long DueNowMinorUnits,
     long TotalOwedMinorUnits,
     DateOnly? NextDueDate,

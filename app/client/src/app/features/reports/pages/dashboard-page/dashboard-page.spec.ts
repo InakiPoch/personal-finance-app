@@ -7,6 +7,7 @@ import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
+import { DueThisMonthRow } from '../../../financing/types/due-this-month-row';
 import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
 import { ActiveSubscription } from '../../../subscriptions/types/active-subscription';
 import { ReportsService } from '../../reports-service';
@@ -21,6 +22,8 @@ type DashboardView = {
   monthlyStatus: () => 'loading' | 'ready' | 'error';
   incomeStatus: () => 'loading' | 'ready' | 'error';
   cardDueStatus: () => 'loading' | 'ready' | 'error';
+  dueStatus: () => 'loading' | 'ready' | 'error';
+  dueExpanded: () => boolean;
   subscriptionsStatus: () => 'loading' | 'ready' | 'error';
   activeSubscriptions: () => ActiveSubscription[];
   expensesByCategory: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
@@ -35,6 +38,7 @@ type DashboardView = {
   purchasesStatus: () => 'loading' | 'ready' | 'error';
   expandedPurchases: () => CardPurchaseRow[];
   toggleCardPurchases: (cardId: string | null) => void;
+  toggleDueBreakdown: () => void;
 };
 
 describe('DashboardPage', () => {
@@ -44,6 +48,7 @@ describe('DashboardPage', () => {
   let monthlyIncomes: jasmine.Spy<(month?: string) => Observable<MonthlyIncomeRow[]>>;
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
   let cardPurchases: jasmine.Spy<(cardId: string) => Observable<CardPurchaseRow[]>>;
+  let dueThisMonth: jasmine.Spy<() => Observable<DueThisMonthRow[]>>;
   let listActive: jasmine.Spy<() => Observable<ActiveSubscription[]>>;
 
   const money = (value: number): Money => value as Money;
@@ -70,6 +75,16 @@ describe('DashboardPage', () => {
     { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', status: 'upcoming', currencyCode: 'ARS' }
   ];
 
+  const dueRows: DueThisMonthRow[] = [
+    { kind: 'card', sourceId: 'c1', sourceName: 'Visa', currencyCode: 'ARS', amountMinorUnits: money(500000) },
+    { kind: 'creditor', sourceId: 'cr1', sourceName: 'Juan', currencyCode: 'ARS', amountMinorUnits: money(100000) },
+    { kind: 'card', sourceId: 'c2', sourceName: 'Amex', currencyCode: 'USD', amountMinorUnits: money(5000) },
+    { kind: 'creditor', sourceId: 'cr2', sourceName: 'Maria', currencyCode: 'USD', amountMinorUnits: money(2000) }
+  ];
+
+  const pageEl = (): HTMLElement => fixture.nativeElement as HTMLElement;
+  const dueCard = (): HTMLElement => pageEl().querySelector('section[aria-labelledby="due-label"]') as HTMLElement;
+
   function setup(): void {
     fixture = TestBed.createComponent(DashboardPage);
     view = fixture.componentInstance as unknown as DashboardView;
@@ -80,6 +95,7 @@ describe('DashboardPage', () => {
     monthlyIncomes = jasmine.createSpy('monthlyIncomes').and.returnValue(of(incomeRows));
     cardDueByMonth = jasmine.createSpy('cardDueByMonth').and.returnValue(of(cardDueRows));
     cardPurchases = jasmine.createSpy('cardPurchases').and.returnValue(of(purchaseRows));
+    dueThisMonth = jasmine.createSpy('dueThisMonth').and.returnValue(of([]));
     listActive = jasmine.createSpy('listActive').and.returnValue(of(activeSubscriptions));
 
     TestBed.configureTestingModule({
@@ -88,7 +104,7 @@ describe('DashboardPage', () => {
         provideZonelessChangeDetection(),
         provideRouter([]),
         { provide: ReportsService, useValue: { monthlyExpenses, monthlyIncomes, cardDueByMonth } },
-        { provide: FinancingService, useValue: { cardPurchases } },
+        { provide: FinancingService, useValue: { cardPurchases, dueThisMonth } },
         { provide: SubscriptionsService, useValue: { listActive } }
       ],
     });
@@ -379,5 +395,139 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     const link: HTMLAnchorElement | null = (fixture.nativeElement as HTMLElement).querySelector('a[href="/ledger/incomes/new"]');
     expect(link).toBeTruthy();
+  });
+  it('renders the quick actions nav before the Due card', () => {
+    setup();
+    fixture.detectChanges();
+    const nav: Element = pageEl().querySelector('nav[aria-label="Quick actions"]') as Element;
+    expect(nav).toBeTruthy();
+    expect(nav.compareDocumentPosition(dueCard()) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+  it('loads due-this-month on init and sums the Due card per currency, never mixed', () => {
+    dueThisMonth.and.returnValue(of(dueRows));
+    setup();
+    fixture.detectChanges();
+    expect(dueThisMonth).toHaveBeenCalledTimes(1);
+    expect(view.dueStatus()).toBe('ready');
+    const text: string = dueCard().textContent ?? '';
+    expect(text).toContain(formatMoney(money(600000), 'ARS'));
+    expect(text).toContain(formatMoney(money(7000), 'USD'));
+    expect(text).not.toContain(formatMoney(money(607000), 'ARS'));
+  });
+  it('splits Cards and Creditors in the Due card sub-line', () => {
+    dueThisMonth.and.returnValue(of(dueRows));
+    setup();
+    fixture.detectChanges();
+    const flat = (value: string): string => value.replace(/\s+/g, ' ');
+    const text: string = flat(dueCard().textContent ?? '');
+    expect(text).toContain(flat(`Cards ${formatMoney(money(500000), 'ARS')} · Creditors ${formatMoney(money(100000), 'ARS')}`));
+    expect(text).toContain(flat(`Cards ${formatMoney(money(5000), 'USD')} · Creditors ${formatMoney(money(2000), 'USD')}`));
+  });
+  it('expands the breakdown on toggle, listing source names with per-currency amounts', () => {
+    dueThisMonth.and.returnValue(of(dueRows));
+    setup();
+    fixture.detectChanges();
+    const button: HTMLButtonElement = dueCard().querySelector('button[aria-controls="due-breakdown"]') as HTMLButtonElement;
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(pageEl().querySelector('#due-breakdown')).toBeNull();
+    button.click();
+    fixture.detectChanges();
+    expect(view.dueExpanded()).toBeTrue();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    const items: HTMLElement[] = Array.from(pageEl().querySelectorAll('#due-breakdown li'));
+    expect(items.length).toBe(4);
+    const itemFor = (name: string): string => items.find((li) => (li.textContent ?? '').includes(name))?.textContent ?? '';
+    expect(itemFor('Visa')).toContain(formatMoney(money(500000), 'ARS'));
+    expect(itemFor('Juan')).toContain(formatMoney(money(100000), 'ARS'));
+    expect(itemFor('Amex')).toContain(formatMoney(money(5000), 'USD'));
+    expect(itemFor('Maria')).toContain(formatMoney(money(2000), 'USD'));
+    button.click();
+    fixture.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(pageEl().querySelector('#due-breakdown')).toBeNull();
+  });
+  it('shows the Due card empty state when nothing is due', () => {
+    setup();
+    fixture.detectChanges();
+    expect(dueCard().textContent).toContain('Nothing to pay this month.');
+    expect(dueCard().querySelector('button[aria-controls="due-breakdown"]')).toBeNull();
+  });
+  it('shows the Due card error state without affecting other panels', () => {
+    const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
+    dueThisMonth.and.returnValue(throwError(() => appError));
+    setup();
+    fixture.detectChanges();
+    expect(view.dueStatus()).toBe('error');
+    expect(dueCard().textContent).toContain("Could not read what's due. Try again.");
+    expect(view.monthlyStatus()).toBe('ready');
+  });
+  it('shows the Due card loading copy before the feed resolves', () => {
+    setup();
+    expect(view.dueStatus()).toBe('loading');
+    fixture.detectChanges();
+    expect(view.dueStatus()).toBe('ready');
+  });
+  it('labels the flow tabs, their group, and the sub-labels', () => {
+    setup();
+    fixture.detectChanges();
+    const group: HTMLElement = pageEl().querySelector('[aria-label="Show money spent or received"]') as HTMLElement;
+    expect(group).toBeTruthy();
+    const tabs: string[] = Array.from(group.querySelectorAll('button')).map((b) => (b.textContent ?? '').trim());
+    expect(tabs).toEqual(['Spent from bank & cash', 'Money received']);
+    expect(pageEl().textContent).toContain('Your share of what you paid from bank accounts and cash this month.');
+    view.setFlowSide('in');
+    fixture.detectChanges();
+    expect(pageEl().textContent).toContain('Money that came into your bank accounts or cash this month.');
+  });
+  it('shows the "Where your money went" heading and the empty category copy', () => {
+    setup();
+    fixture.detectChanges();
+    expect(pageEl().textContent).toContain('Where your money went');
+    expect(pageEl().textContent).not.toContain('Nothing spent from bank or cash this month.');
+  });
+  it('shows the empty category copy when nothing was spent', () => {
+    monthlyExpenses.and.returnValue(of([]));
+    setup();
+    fixture.detectChanges();
+    expect(pageEl().textContent).toContain('Where your money went');
+    expect(pageEl().textContent).toContain('Nothing spent from bank or cash this month.');
+  });
+  it('labels the card section, its legend, and the Charged / Upcoming sub-line', () => {
+    setup();
+    fixture.detectChanges();
+    const text: string = pageEl().textContent ?? '';
+    expect(text).toContain('Card bills by month');
+    expect(text).toContain('Charged to the card');
+    expect(text).toContain('Upcoming — installments not charged yet');
+    expect(text).toContain(`Charged ${formatMoney(money(500000), 'ARS')}`);
+    expect(text).toContain(`Upcoming ${formatMoney(money(500000), 'ARS')}`);
+    expect(text).toContain('Pay a card bill');
+  });
+  it('shows the card section loading, error, and empty copy', () => {
+    cardDueByMonth.and.returnValue(of([]));
+    setup();
+    expect(view.cardDueStatus()).toBe('loading');
+    fixture.detectChanges();
+    expect(pageEl().textContent).toContain('Nothing due on your cards.');
+    const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
+    cardDueByMonth.and.returnValue(throwError(() => appError));
+    const second: ComponentFixture<DashboardPage> = TestBed.createComponent(DashboardPage);
+    second.detectChanges();
+    expect((second.nativeElement as HTMLElement).textContent).toContain('Could not read card bills. Try again.');
+  });
+  it('expands a USD card and formats its purchases as USD, not ARS', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Accrued', card: 'Amex', cycleYear: null, cycleMonth: null, amountMinorUnits: money(5000), currencyCode: 'USD', cardId: 'c5' }
+    ]));
+    cardPurchases.and.returnValue(of([
+      { planId: 'p9', description: 'Headphones', totalMinorUnits: money(12000), installmentCount: 3, outstandingCount: 2, purchaseDate: '2026-06-01' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    view.toggleCardPurchases('c5');
+    fixture.detectChanges();
+    const details: HTMLElement = pageEl().querySelector('#card-purchases-c5') as HTMLElement;
+    expect(details.textContent).toContain(formatMoney(money(12000), 'USD'));
+    expect(details.textContent).not.toContain(formatArs(money(12000)));
   });
 });

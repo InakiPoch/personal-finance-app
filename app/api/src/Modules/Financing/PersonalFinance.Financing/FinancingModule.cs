@@ -19,6 +19,7 @@ using PersonalFinance.Financing.Application.Queries.GetCardPurchases;
 using PersonalFinance.Financing.Application.Queries.GetCardStatements;
 using PersonalFinance.Financing.Application.Queries.GetCreditorDetail;
 using PersonalFinance.Financing.Application.Queries.GetCreditorPayables;
+using PersonalFinance.Financing.Application.Queries.GetDueThisMonth;
 using PersonalFinance.Financing.Application.Queries.GetFuturePartyShares;
 using PersonalFinance.Financing.Application.Queries.GetInstallmentStatus;
 using PersonalFinance.Financing.Application.Queries.GetMonthlyStatement;
@@ -64,6 +65,7 @@ public sealed class FinancingModule : IModule {
         services.AddScoped<IQueryHandler<GetCardStatementsQuery, CardStatementsResponse>, GetCardStatementsHandler>();
         services.AddScoped<IQueryHandler<GetCardPurchasesQuery, CardPurchasesResponse>, GetCardPurchasesHandler>();
         services.AddScoped<IQueryHandler<GetCreditorPayablesQuery, CreditorPayablesResponse>, GetCreditorPayablesHandler>();
+        services.AddScoped<IQueryHandler<GetDueThisMonthQuery, DueThisMonthResponse>, GetDueThisMonthHandler>();
         services.AddScoped<IQueryHandler<GetCreditorDetailQuery, CreditorDetailResponse>, GetCreditorDetailHandler>();
         services.AddScoped<IQueryHandler<GetFuturePartySharesQuery, GetFuturePartySharesResponse>, GetFuturePartySharesHandler>();
         services.AddScoped<IQueryHandler<GetPendingSharesByPartyQuery, GetPendingSharesByPartyResponse>, GetPendingSharesByPartyHandler>();

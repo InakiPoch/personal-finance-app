@@ -63,17 +63,18 @@ Due-this-month data (nothing sums it today):
 - Creditor installments: `F/Application/Queries/GetCreditorPayables/GetCreditorPayablesHandler.cs:35-55`
   computes `DueNow` = Σ `(Amount − paid payments)` of unpaid installments with `DueCycle ≤ currentDueCycle`,
   where `currentDueCycle = BillingCycleCalculator.ResolveCycle(today, PaymentPlan.CreditorCutoffDay).DueCycle`
-  (cutoff 26 — so after the 26th, next month's cuotas already count as "due now"; keep that rule for consistency
-  with the Owed to Creditors page).
+  (cutoff 26 — so after the 26th, next month's cuotas already count as "due now"). That rule stays on the
+  Owed to Creditors page only; the dashboard uses the current calendar month instead (see Post-implementation notes).
 - **Bug:** that handler sums `Amount.MinorUnits` across currencies (`:49-55`) — ARS and USD mixed in one number.
 
 ## Design decisions
 
 - **One Financing query computes both parts.** Financing owns card installments, creditor installments,
   creditor payments and the `BillingCycle` rules, so the total is computed where the rules live — no SQL
-  duplicate of the creditor "due now" rule in Reporting. Extract the creditor due-now predicate into one
-  internal static helper used by both `GetCreditorPayablesHandler` and the new handler, so the dashboard
-  and the Owed to Creditors page can never disagree.
+  duplicate of the creditor "due now" rule in Reporting. The creditor due-now predicate (cutoff 26) is
+  extracted into an internal helper (`CreditorDueNowHelper`) used by `GetCreditorPayablesHandler` only; the
+  dashboard deliberately uses the current calendar month (overdue included), so the two can differ around/after
+  the 26th.
 - Card rule: unpaid (`PaidOnUtc == null`), non-reversed card installments with
   `DueCycle ≤ (today.Year, today.Month)`. Overdue ones included (older due months).
 - **Fix the currency mixing in creditor payables** at the same time: the new helper works per currency, and
@@ -124,8 +125,8 @@ Due-this-month data (nothing sums it today):
 API (Financing tests):
 - Due this month — card: unpaid installment due this month counted; due last month (overdue) counted; due next
   month excluded; paid excluded; reversed excluded; ARS and USD in separate rows.
-- Due this month — creditor: partial payment → remaining counted; matches `GetCreditorPayables` `DueNow` for the
-  same data (same helper); after-the-26th rule honoured (fake `TimeProvider`).
+- Due this month — creditor: partial payment → remaining counted; due by the current calendar month
+  (overdue included), NOT the cutoff-26 rule (fake `TimeProvider`).
 - Creditor payables: a creditor with ARS + USD installments → two rows, amounts not mixed.
 - Host: route returns 200 with the DTO shape (follow existing endpoint tests).
 
@@ -137,9 +138,19 @@ Client:
 
 ## Steps
 
-- [ ] 1. API prod — query + handler + helper extraction + payables currency + endpoint. Build clean.
-- [ ] 2. API tests — as above. All green.
-- [ ] 3. Client prod — service/types, payables currency, dashboard rework. Lint + prod build clean.
-- [ ] 4. Client specs — as above. Green.
-- [ ] 5. Doc-sync — API `TASK.md` Phase 54 / client Phase 51; API `CLAUDE.md` (new endpoint, creditor payables
+- [x] 1. API prod — query + handler + helper extraction + payables currency + endpoint. Build clean.
+- [x] 2. API tests — as above. All green.
+- [x] 3. Client prod — service/types, payables currency, dashboard rework. Lint + prod build clean.
+- [x] 4. Client specs — as above. Green.
+- [x] 5. Doc-sync — API `TASK.md` Phase 54 / client Phase 51; API `CLAUDE.md` (new endpoint, creditor payables
       now per currency); client `CLAUDE.md` (dashboard section order).
+
+## Post-implementation notes
+
+- **Hotfix (user correction):** the original plan shared the creditor cutoff-26 rule with the dashboard. "Due this
+  month" means what must be paid by the current calendar month (overdue included), so the creditor part of
+  `GetDueThisMonthHandler` uses the calendar month and diverges from Owed to Creditors "Due now" around/after the 26th.
+  `CreditorDueNowHelper` serves `GetCreditorPayables` only.
+- **Reverted attempt:** a 2x2 viewport grid layout for the dashboard was tried and reverted at the user's request;
+  the single column stays.
+- Shipped: Financing 212, Api 64 (`DueThisMonthTests`, OpenAPI-only), Architecture 15, client specs 396; lint + prod build clean; no migration.

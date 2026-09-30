@@ -104,6 +104,10 @@ internal static class EndpointExtensions {
                 .WithSummary("List recent purchases across every card.")
                 .WithDescription("Returns every payment plan, newest-first, independent of card grouping or debt state, capped at a default limit.")
                 .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.DueThisMonth, GetDueThisMonth.Handle)
+                .WithSummary("Get what is due this month across cards and creditors.")
+                .WithDescription("Read-only dashboard roll-up, one row per (source, currency): unpaid card installments due by the current month (overdue included) plus creditor remaining amounts due now (same cutoff rule as creditor payables). Zero amounts are omitted.")
+                .Produces<DueThisMonthDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Financing.CreditorPayables, GetCreditorPayables.Handle)
                 .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
                 .WithDescription("Read-only roll-up over creditor-financed payment plans, in remaining (unpaid) amounts: \"due now\" folds in arrears up to the current billing cycle, \"total owed\" adds future installments. Fully or partially paid amounts are excluded. Card-backed plans never appear.")

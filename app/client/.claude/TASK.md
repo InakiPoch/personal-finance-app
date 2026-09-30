@@ -330,6 +330,10 @@ Done. `docs/friendly-ui/slice-3-remove-shared-expense.md`. `/parties/shared-expe
 
 Done, no client change: labels come from the ledger account name, renamed API-side (API Phase 53). No spec fixture hard-coded a subscription `'… Expense'`. `docs/friendly-ui/slice-4-subscription-names.md`.
 
+## Phase 51 — Friendly UI: dashboard rework + Due this month (Slice 5)
+
+Done. `docs/friendly-ui/slice-5-dashboard.md`. Dashboard order: header (no "Personal ledger" eyebrow), quick actions (filled "+ Record an expense", "+ Record income" chip, "Recent Credit Card Purchases ›" link), Due this month card (per-currency total, Cards/Creditors sub-line, expandable breakdown, "Pay a card bill"/"Pay a creditor" links), flow (tabs "Spent from bank & cash" / "Money received", "Where your money went"), "Card bills by month" (Charged / Upcoming), Active subscriptions. USD purchase formatting bug fixed on expanded card purchases; creditor payables table formats per-row `currencyCode`; `FinancingService.dueThisMonth()`. A 2x2 viewport grid was tried and reverted (single column stays). Specs 396 green, lint + prod build clean.
+
 ---
 
 ## Verification (every phase)

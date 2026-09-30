@@ -12,6 +12,7 @@ import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
+import { DueThisMonthRow } from './types/due-this-month-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayCreditorExpense } from './types/pay-creditor-expense';
@@ -217,7 +218,7 @@ describe('FinancingService', () => {
   it('GETs the creditor payables list and unwraps the { rows } envelope', () => {
     const rows: CreditorPayableRow[] = [{
       creditorId: 'cr-1',
-      creditorName: 'Juan',
+      creditorName: 'Juan', currencyCode: 'ARS',
       dueNowMinorUnits: money(45000),
       totalOwedMinorUnits: money(45000),
       nextDueDate: '2026-03-10',
@@ -228,6 +229,18 @@ describe('FinancingService', () => {
     let result: CreditorPayableRow[] | undefined;
     service.creditorPayables().subscribe((r: CreditorPayableRow[]) => (result = r));
     const req = httpMock.expectOne(`${base}/financing/creditor-payables`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows });
+    expect(result).toEqual(rows);
+  });
+  it('GETs due-this-month and unwraps the { rows } envelope', () => {
+    const rows: DueThisMonthRow[] = [
+      { kind: 'card', sourceId: 'c1', sourceName: 'Visa', currencyCode: 'ARS', amountMinorUnits: money(500000) },
+      { kind: 'creditor', sourceId: 'cr1', sourceName: 'Juan', currencyCode: 'USD', amountMinorUnits: money(5000) }
+    ];
+    let result: DueThisMonthRow[] | undefined;
+    service.dueThisMonth().subscribe((r: DueThisMonthRow[]) => (result = r));
+    const req = httpMock.expectOne(`${base}/financing/due-this-month`);
     expect(req.request.method).toBe('GET');
     req.flush({ rows });
     expect(result).toEqual(rows);

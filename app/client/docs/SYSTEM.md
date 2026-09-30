@@ -60,7 +60,7 @@ first design pass and are a little misleading now — read them as:
 | `--ink-faint` / `text-ink-faint` | `#476594` | captions, metadata, legend text, hatch lines — ~5:1 (was ~2.8:1, failed AA) |
 | `--rule` / `border-rule` | `rgba(38,34,28,.13)` | hairline separators, input underline, card border |
 | `--rule-strong` / `bg-rule-strong` | `rgba(38,34,28,.22)` | emphasis edges (not currently used for accent ticks — see `stamp-soft`) |
-| `--stamp` / `text-stamp` `bg-stamp` | `#2f5a8c` | **the accent** (a touch brighter/bluer than `ink`). Hero figure, "Personal ledger" kicker, cycle-bar Accrued segment, the `+` on "Record an expense", focus ring, active nav underline |
+| `--stamp` / `text-stamp` `bg-stamp` | `#2f5a8c` | **the accent** (a touch brighter/bluer than `ink`). Hero figure, cycle-bar Accrued segment, the `+` on "Record an expense", focus ring, active nav underline |
 | `--stamp-soft` / `bg-stamp-soft` | `#9ec3e5` | light-blue magnitude ticks — hero underline, per-row proportion ticks in the ranked list |
 | `--ledger` / `text-ledger` | `#3f7a54` | positive / settled states only ("Nothing due — you're square") |
 | `--negative` / `text-negative` | `#a5443a` | error text (`role="alert"` lines) |
@@ -136,7 +136,9 @@ serif, `text-[2.6rem]`, **`text-stamp`** (the blue accent carries the key figure
 way a banking app colours your balance), tabular, alone above a `w-28 h-0.5
 rounded-full bg-stamp-soft` light-blue tick. Everything else is demoted — category breakdown is a
 quiet ranked column below it; card debt is a lifted `paper-raised` card; quick actions
-are `text-sm` chevron links, never buttons competing with the numbers.
+sit at the top: one filled primary button ("+ Record an expense"), a secondary chip
+("+ Record income") and a quiet chevron link, so the main action is obvious without
+competing with the numbers.
 
 When styling a new view: name its one focal element first, make it win with
 size + weight + the `stamp` accent, demote the rest.
@@ -240,8 +242,7 @@ Interactive elements: hover, focus-visible (`stamp` ring), disabled.
   nothing harsh or bright.
 - **Contrast test** — every text colour is ≥4.5:1 on its background (`ink` ~7.6:1,
   `ink-soft` ~5.6:1, `ink-faint` ~5:1, `heading` ~16:1). No text below AA.
-- **Signature test** — point to 5: cycle bar (blue Accrued / hatched Future) · blue
-  serif hero figure · ranked column with light-blue baseline ticks · "Personal ledger"
-  serif-italic kicker in the accent · warm-white canvas with lifted near-white cards.
+- **Signature test** — point to 4: cycle bar (blue Accrued / hatched Future) · blue
+  serif hero figure · ranked column with light-blue baseline ticks · warm-white canvas with lifted near-white cards.
 - **Token test** — every colour resolves to one `--paper/-raised/-inset`, `--heading`,
   `--ink*`, `--rule*`, `--stamp`, `--ledger` or `--negative`. No raw hex, no `gray-500`.

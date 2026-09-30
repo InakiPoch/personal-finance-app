@@ -12,6 +12,7 @@ public sealed record CreditorPayableAccountBreakdown(Guid AccountId, string Labe
 public sealed record CreditorPayableRow(
     Guid CreditorId,
     string CreditorName,
+    string CurrencyCode,
     long DueNowMinorUnits,
     long TotalOwedMinorUnits,
     DateOnly? NextDueDate,

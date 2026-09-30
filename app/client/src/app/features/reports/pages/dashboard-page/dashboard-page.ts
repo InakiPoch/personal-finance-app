@@ -16,6 +16,7 @@ import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
+import { DueThisMonthRow } from '../../../financing/types/due-this-month-row';
 import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
 import { ActiveSubscription } from '../../../subscriptions/types/active-subscription';
 import { ReportsService } from '../../reports-service';
@@ -27,6 +28,13 @@ type LoadStatus = 'loading' | 'ready' | 'error';
 type FlowSide = 'out' | 'in';
 type Grouping = { label: string; currencyCode: CurrencyCode; totalMinorUnits: Money };
 type CurrencyTotal = { currencyCode: CurrencyCode; totalMinorUnits: Money };
+type DueByCurrency = {
+  currencyCode: CurrencyCode;
+  total: Money;
+  cards: Money;
+  creditors: Money;
+  sources: DueThisMonthRow[];
+};
 type CardCycle = {
   card: string;
   cardId: string | null;
@@ -91,6 +99,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly monthlyStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly incomeStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly cardDueStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly dueStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly dueExpanded: WritableSignal<boolean> = signal<boolean>(false);
   protected readonly subscriptionsStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly activeSubscriptions: WritableSignal<ActiveSubscription[]> = signal<ActiveSubscription[]>([]);
 
@@ -135,6 +145,22 @@ export class DashboardPage implements OnInit, OnDestroy {
       (row: MonthlyIncomeRow) => row.amountMinorUnits
     );
     return totals.length > 0 ? totals : [{ currencyCode: 'ARS', totalMinorUnits: fromMinorUnits(0) }];
+  });
+  
+  protected readonly dueByCurrency: Signal<DueByCurrency[]> = computed(() => {
+    const byCurrency: Map<CurrencyCode, DueThisMonthRow[]> = new Map<CurrencyCode, DueThisMonthRow[]>();
+    for(const row of this.dueRows()) {
+      byCurrency.set(row.currencyCode, [...(byCurrency.get(row.currencyCode) ?? []), row]);
+    }
+    const sumKind = (rows: DueThisMonthRow[], kind: DueThisMonthRow['kind']): Money =>
+      fromMinorUnits(
+        rows.filter((row: DueThisMonthRow) => row.kind === kind).reduce((sum: number, row: DueThisMonthRow) => sum + row.amountMinorUnits, 0)
+      );
+    return Array.from(byCurrency, ([currencyCode, sources]: [CurrencyCode, DueThisMonthRow[]]) => {
+      const cards: Money = sumKind(sources, 'card');
+      const creditors: Money = sumKind(sources, 'creditor');
+      return { currencyCode, total: fromMinorUnits(cards + creditors), cards, creditors, sources };
+    });
   });
 
   protected readonly maxCategoryAmount: Signal<number> = computed(() =>
@@ -205,6 +231,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   private readonly subscriptions: SubscriptionsService = inject(SubscriptionsService);
   private readonly monthlyRows: WritableSignal<MonthlyExpenseRow[]> = signal<MonthlyExpenseRow[]>([]);
   private readonly incomeRows: WritableSignal<MonthlyIncomeRow[]> = signal<MonthlyIncomeRow[]>([]);
+  private readonly dueRows: WritableSignal<DueThisMonthRow[]> = signal<DueThisMonthRow[]>([]);
   private readonly cardDueRows: WritableSignal<CardDueRow[]> = signal<CardDueRow[]>([]);
   private readonly purchasesByCardId: Map<string, CardPurchaseRow[]> = new Map<string, CardPurchaseRow[]>();
   private readonly destroy$: Subject<void> = new Subject<void>();
@@ -217,6 +244,10 @@ export class DashboardPage implements OnInit, OnDestroy {
 
   protected setFlowSide(side: FlowSide): void {
     this.flowSide.set(side);
+  }
+
+  protected toggleDueBreakdown(): void {
+    this.dueExpanded.update((expanded: boolean) => !expanded);
   }
 
   /** Width (%) of the proportion rule behind a category row, relative to the largest. */
@@ -291,6 +322,21 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
   }
 
+  private loadDueThisMonth(): void {
+    this.dueStatus.set('loading');
+    this.financing
+      .dueThisMonth()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: DueThisMonthRow[]) => {
+          this.dueRows.set(rows);
+          this.dueStatus.set('ready');
+        },
+        error: () => this.dueStatus.set('error')
+      }
+    );
+  }
+
   private loadCardDue(): void {
     this.cardDueStatus.set('loading');
     this.reports
@@ -324,6 +370,7 @@ export class DashboardPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.loadMonthlyExpenses();
     this.loadMonthlyIncomes();
+    this.loadDueThisMonth();
     this.loadCardDue();
     this.loadActiveSubscriptions();
   }

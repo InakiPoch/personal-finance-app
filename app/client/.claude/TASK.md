@@ -342,6 +342,10 @@ Done. `docs/friendly-ui/slice-5-dashboard.md`. Month picker moved to the right e
 
 Done. `docs/friendly-ui/slice-6-closing-date.md`. Instruments page, per credit card: "Usual closing day: N [edit]" inline edit and a "Next closings" list (formatted "Oct 24", "(set)" tag on overrides, [edit] month-bounded date input, [reset] on overrides); "Next closing: Oct 24" replaces "closes N"; create-form label "Usual closing day". New presentational `card-closing-schedule` component, `closing-date-helpers.ts` (`formatClosingDate`/`daysInMonth`/`toIsoDate`), `InstrumentsService` +4 calls, `error.code` -> sentence map. Deviation: the editor closes on save and errors show below (no busy/ack handshake); a failed schedule load is silent. Specs 450/450 green (+31), lint + prod build clean.
 
+## Phase 53 — Friendly UI: rich transaction feed + reverse impact (Slice 7)
+
+Done. `docs/friendly-ui/slice-7-reverse.md`. Feed types `reports/types/transaction-feed-row.ts` + `transaction-kind.ts`; `ReportsService.transactions/transaction`; `LedgerService.listTransactions` removed. Table = Date · Type badge · Description (+from→to) · Amount · chevron, single expanded row with an "If you reverse this" panel holding `Reverse…`; confirm page fetches the row (description, badge, amount, from→to, impact), no GUID/jargon, button "Undo this transaction", error sentences keyed on `Ledger.TransactionAlreadyReversed` / `Ledger.CannotReverseAReversal` / `Http.Conflict` / any 404. Specs 464/464 (+14), lint + prod build clean. Deviations: D12 `transactions()` takes `IsoDate` from/to; D13 confirm page treats any 404 as not-found (code is `Reporting.TransactionNotFound`); D14 undone rows keep the chevron only if they have impact lines, undo entries have none; D15 "Back to transactions" link on not-found/error/success; D16 intro "Undo a transaction you added by mistake."; D17 two extra spec branches (non-404 load error, no card-credit note when flag false); D18 table spec drives the panel via the chevron; D19 polish: header "What"→"Description", Date cell nowrap, Date/Type cells vertically centered.
+
 ---
 
 ## Verification (every phase)

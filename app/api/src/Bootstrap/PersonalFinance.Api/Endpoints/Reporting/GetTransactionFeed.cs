@@ -3,11 +3,11 @@ using PersonalFinance.Api.Endpoints.DTOs;
 using PersonalFinance.Api.Endpoints.Mapping;
 using PersonalFinance.Infrastructure.Messaging;
 
-namespace PersonalFinance.Api.Endpoints.Ledger;
+namespace PersonalFinance.Api.Endpoints.Reporting;
 
-public static class GetTransactions {
+public static class GetTransactionFeed {
     public static async Task<Ok<TransactionFeedDto>> Handle(Guid? accountId, string? from, string? to, IQueryBus queryBus, CancellationToken cancellationToken) {
-        var feed = await queryBus.AskAsync(accountId.ToGetTransactionsQuery(from, to), cancellationToken);
+        var feed = await queryBus.AskAsync(accountId.ToTransactionFeedQuery(from, to), cancellationToken);
         return TypedResults.Ok(feed.ToTransactionFeedDto());
     }
 }

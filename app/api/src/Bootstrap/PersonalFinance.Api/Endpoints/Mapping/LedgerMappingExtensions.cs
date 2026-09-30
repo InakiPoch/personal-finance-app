@@ -86,28 +86,4 @@ internal static class LedgerMappingExtensions {
             .ToList();
         return new AccountBalanceDto(accountId, rows);
     }
-
-    public static GetTransactionsQuery ToGetTransactionsQuery(this Guid? accountId, string? from, string? to) {
-        return new GetTransactionsQuery(accountId, parseDateOnly(from), parseDateOnly(to));
-    }
-
-    public static TransactionFeedDto ToTransactionFeedDto(this TransactionFeedResponse response) {
-        var rows = response.Rows
-            .Select(row => new TransactionFeedRowDto(
-                row.TransactionId,
-                row.PostedOnUtc,
-                row.Description,
-                row.AmountMinorUnits,
-                row.CurrencyCode,
-                row.IsReversal,
-                row.IsReversed,
-                row.InstallmentReferenceId,
-                row.SplitReferenceId))
-            .ToList();
-        return new TransactionFeedDto(rows);
-    }
-
-    private static DateOnly? parseDateOnly(string? value) {
-        return string.IsNullOrWhiteSpace(value) ? null : DateOnly.Parse(value, CultureInfo.InvariantCulture);
-    }
 }

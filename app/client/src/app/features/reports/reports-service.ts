@@ -1,12 +1,14 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
+import { IsoDate } from '../../core/types/iso-date';
 import { MoneyFlowRow } from '../ledger/types/money-flow-row';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { MonthlyIncomeRow } from './types/monthly-income-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
+import { TransactionFeedRow } from './types/transaction-feed-row';
 
 type RowsEnvelope<T> = { rows: T[] };
 
@@ -49,5 +51,27 @@ export class ReportsService {
     return this.http
       .get<RowsEnvelope<PartyTimelineRow>>(`reports/parties/${partyId}/timeline`)
     .pipe(map((envelope: RowsEnvelope<PartyTimelineRow>) => envelope.rows));
+  }
+
+  transactions(
+    filter: { accountId?: string; from?: IsoDate; to?: IsoDate } = {},
+  ): Observable<TransactionFeedRow[]> {
+    let params: HttpParams = new HttpParams();
+    if(filter.accountId) {
+      params = params.set('accountId', filter.accountId);
+    }
+    if(filter.from) {
+      params = params.set('from', filter.from);
+    }
+    if(filter.to) {
+      params = params.set('to', filter.to);
+    }
+    return this.http
+      .get<RowsEnvelope<TransactionFeedRow>>('reports/transactions', { params })
+      .pipe(map((envelope: RowsEnvelope<TransactionFeedRow>) => envelope.rows));
+  }
+
+  transaction(id: string): Observable<TransactionFeedRow> {
+    return this.http.get<TransactionFeedRow>(`reports/transactions/${id}`);
   }
 }

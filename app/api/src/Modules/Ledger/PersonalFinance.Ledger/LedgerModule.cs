@@ -16,7 +16,6 @@ using PersonalFinance.Ledger.Application.Queries.GetAccountBalance;
 using PersonalFinance.Ledger.Application.Queries.FindAccrualTransactionIds;
 using PersonalFinance.Ledger.Application.Queries.FindPaidSubscriptionIds;
 using PersonalFinance.Ledger.Application.Queries.GetCardLiability;
-using PersonalFinance.Ledger.Application.Queries.GetTransactions;
 using PersonalFinance.Ledger.Application.Queries.ListExpenseCategories;
 using PersonalFinance.Ledger.Application.Queries.ListInstrumentAccounts;
 using PersonalFinance.Ledger.Contracts;
@@ -51,7 +50,6 @@ public sealed class LedgerModule : IModule {
         services.AddScoped<IQueryHandler<GetCardLiabilityQuery, IReadOnlyList<Money>>, GetCardLiabilityHandler>();
         services.AddScoped<IQueryHandler<ListExpenseCategoriesQuery, ExpenseCategoriesResponse>, ListExpenseCategoriesHandler>();
         services.AddScoped<IQueryHandler<ListInstrumentAccountsQuery, InstrumentAccountsResponse>, ListInstrumentAccountsHandler>();
-        services.AddScoped<IQueryHandler<GetTransactionsQuery, TransactionFeedResponse>, GetTransactionsHandler>();
         services.AddScoped<IQueryHandler<FindAccrualTransactionIdsQuery, AccrualTransactionIdsResponse>, FindAccrualTransactionIdsHandler>();
         services.AddScoped<IQueryHandler<FindPaidSubscriptionIdsQuery, PaidSubscriptionIdsResponse>, FindPaidSubscriptionIdsHandler>();
     }

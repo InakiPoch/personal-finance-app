@@ -6,62 +6,95 @@
   <table class="w-full text-left">
     <thead>
       <tr class="border-b border-rule">
-        <th
-          scope="col"
-          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-        >
-          Posted
+        <th scope="col" class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+          Date
         </th>
-        <th
-          scope="col"
-          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-        >
+        <th scope="col" class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+          Type
+        </th>
+        <th scope="col" class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
           Description
         </th>
-        <th
-          scope="col"
-          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-        >
+        <th scope="col" class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
           Amount
         </th>
         <th scope="col" class="pb-2 text-right">
-          <span class="sr-only">Reverse</span>
+          <span class="sr-only">Details</span>
         </th>
       </tr>
     </thead>
     <tbody>
-      @for(row of transactions(); track row.transactionId; let i = $index) {
-        <tr class="txn-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
-          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+      @for(row of transactions(); track row.id; let i = $index) {
+        <tr class="txn-row" [class.border-b]="expandedId() !== row.id" [class.border-rule]="expandedId() !== row.id" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 pr-3 align-middle whitespace-nowrap text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
             {{ datePart(row) }}
           </td>
-          <td class="py-2.5 text-sm text-ink">{{ row.description }}</td>
+          <td class="py-2.5 pr-3 align-middle">
+            <span class="status-badge whitespace-nowrap">{{ row.kind }}</span>
+          </td>
+          <td class="py-2.5 pr-3 align-top">
+            <div class="text-sm text-ink" [class.text-ink-faint]="isLocked(row)">{{ row.description }}</div>
+            <div class="mt-0.5 text-xs text-ink-faint">{{ route(row) }}</div>
+            @if(isLocked(row)) {
+              <div class="transactions__note mt-0.5 text-[0.6875rem] uppercase tracking-widest text-ink-faint">
+                {{ lockReason(row) }}
+              </div>
+            }
+          </td>
           <td
-            class="py-2.5 text-right text-sm [font-variant-numeric:tabular-nums_lining-nums]"
+            class="py-2.5 text-right align-top text-sm [font-variant-numeric:tabular-nums_lining-nums]"
             [class.text-ink]="!isLocked(row)"
             [class.font-medium]="!isLocked(row)"
             [class.text-ink-faint]="isLocked(row)"
           >
             {{ formatMoney(row.amountMinorUnits, row.currencyCode) }}
           </td>
-          <td class="py-2.5 text-right">
-            <div class="inline-flex items-baseline justify-end gap-2">
-              @if(isLocked(row)) {
-                <span class="transactions__note text-[0.6875rem] uppercase tracking-widest text-ink-faint">
-                  {{ lockReason(row) }}
-                </span>
-              }
+          <td class="py-2.5 pl-2 text-right align-top">
+            @if(canExpand(row)) {
               <button
                 type="button"
-                [disabled]="isLocked(row)"
-                (click)="onReverse(row.transactionId)"
-                class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                class="cursor-pointer text-ink-faint focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+                [attr.aria-expanded]="expandedId() === row.id"
+                [attr.aria-controls]="'impact-' + row.id"
+                [attr.aria-label]="'Show what happens if you reverse ' + row.description"
+                (click)="toggle(row.id)"
               >
-                Reverse
+                <span aria-hidden="true">{{ expandedId() === row.id ? '▾' : '▸' }}</span>
               </button>
-            </div>
+            }
           </td>
         </tr>
+        @if(expandedId() === row.id && canExpand(row)) {
+          <tr class="border-b border-rule">
+            <td colspan="5" class="pb-4">
+              <section
+                class="rounded-card border border-rule bg-paper-raised p-4"
+                [id]="'impact-' + row.id"
+
+              >
+                <h3 class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+                  If you reverse this
+                </h3>
+                <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-ink-soft">
+                  @for(line of row.impactLines; track $index) {
+                    <li>{{ line }}</li>
+                  }
+                </ul>
+                @if(!isLocked(row)) {
+                  <div class="mt-3 text-right">
+                    <button
+                      type="button"
+                      (click)="onReverse(row.id)"
+                      class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+                    >
+                      Reverse…
+                    </button>
+                  </div>
+                }
+              </section>
+            </td>
+          </tr>
+        }
       }
     </tbody>
   </table>

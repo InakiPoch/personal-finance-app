@@ -196,10 +196,6 @@ public sealed class CreateSubscriptionTemplateHandlerTests : IDisposable {
             throw new NotSupportedException();
         }
 
-        public Task<TransactionFeedResponse> GetTransactionsAsync(GetTransactionsQuery query, CancellationToken ct = default) {
-            throw new NotSupportedException();
-        }
-
         public Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default) {
             throw new NotSupportedException();
         }

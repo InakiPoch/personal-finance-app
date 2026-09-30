@@ -79,6 +79,8 @@ public sealed record ApiRoutes {
         public const string MonthlyExpenses = "/monthly-expenses";
         public const string MonthlyIncomes = "/monthly-incomes";
         public const string MoneyFlow = "/money-flow";
+        public const string Transactions = "/transactions";
+        public const string TransactionById = "/transactions/{id:guid}";
         public const string CardDueByMonth = "/card-due-by-month";
         public const string PartyTimeline = "/parties/{id:guid}/timeline";
         public const string DebtSummary = "/parties/debt-summary";

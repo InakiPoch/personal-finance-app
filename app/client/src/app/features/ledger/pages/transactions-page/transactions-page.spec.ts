@@ -6,8 +6,8 @@ import { Observable, of, throwError } from 'rxjs';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
-import { LedgerService } from '../../ledger-service';
-import { TransactionRow } from '../../types/transaction-row';
+import { ReportsService } from '../../../reports/reports-service';
+import { TransactionFeedRow } from '../../../reports/types/transaction-feed-row';
 import { TransactionsPage } from './transactions-page';
 
 type TransactionsView = {
@@ -16,7 +16,7 @@ type TransactionsView = {
     from: FormControl<string>;
     to: FormControl<string>;
   }>;
-  transactions: () => TransactionRow[];
+  transactions: () => TransactionFeedRow[];
   loadStatus: () => 'loading' | 'ready' | 'error';
   accounts: () => Instrument[];
   openReverse: (transactionId: string) => void;
@@ -26,8 +26,8 @@ type TransactionsView = {
 describe('TransactionsPage', () => {
   let fixture: ComponentFixture<TransactionsPage>;
   let view: TransactionsView;
-  let listTransactions: jasmine.Spy<
-    (filter?: { accountId?: string; from?: string; to?: string }) => Observable<TransactionRow[]>
+  let transactions: jasmine.Spy<
+    (filter?: { accountId?: string; from?: string; to?: string }) => Observable<TransactionFeedRow[]>
   >;
   let navigate: jasmine.Spy<(commands: unknown[]) => Promise<boolean>>;
 
@@ -38,26 +38,28 @@ describe('TransactionsPage', () => {
     { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null, nextClosingDate: null },
     { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null }
   ];
-  const feedRows: TransactionRow[] = [{
-    transactionId: 'tx-1',
+  const feedRows: TransactionFeedRow[] = [{
+    id: 'tx-1',
     postedOnUtc: '2026-09-15T10:30:00Z',
-    description: 'Manual entry',
-    amountMinorUnits: money(500000),
+    kind: 'Income',
+    description: 'Salary September',
+    fromAccounts: ['Salary'],
+    toAccounts: ['Checking'],
+    amountMinorUnits: money(90000000),
     currencyCode: 'ARS',
-    isReversal: false,
-    isReversed: false,
-    installmentReferenceId: null,
-    splitReferenceId: null
+    isUndoEntry: false,
+    isUndone: false,
+    impactLines: ['ARS 900.000 is removed from Checking.']
   }];
 
   beforeEach(() => {
-    listTransactions = jasmine.createSpy('listTransactions').and.returnValue(of(feedRows));
+    transactions = jasmine.createSpy('transactions').and.returnValue(of(feedRows));
     navigate = jasmine.createSpy('navigate').and.resolveTo(true);
     TestBed.configureTestingModule({
       imports: [TransactionsPage],
       providers: [
         provideZonelessChangeDetection(),
-        { provide: LedgerService, useValue: { listTransactions } },
+        { provide: ReportsService, useValue: { transactions } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: Router, useValue: { navigate } }
       ]
@@ -68,15 +70,20 @@ describe('TransactionsPage', () => {
   });
 
   it('creates, loads the feed on init and offers only non-credit accounts in the filter', () => {
-    expect(listTransactions).toHaveBeenCalledTimes(1);
+    expect(transactions).toHaveBeenCalledTimes(1);
     expect(view.loadStatus()).toBe('ready');
     expect(view.transactions()).toEqual(feedRows);
     expect(view.accounts().map((account: Instrument) => account.id)).toEqual(['acct-debit', 'acct-cash']);
   });
+  it('shows the plain-words subtitle and the loaded description', () => {
+    const text: string = fixture.nativeElement.textContent;
+    expect(text).toContain('Pick a movement to see what undoing it would change.');
+    expect(text).toContain('Salary September');
+  });
   it('re-fetches with the account and date filter when Apply is pressed', () => {
     view.form.setValue({ accountId: 'acct-debit', from: '2026-09-01', to: '2026-09-30' });
     view.applyFilter();
-    expect(listTransactions).toHaveBeenCalledWith({
+    expect(transactions).toHaveBeenCalledWith({
       accountId: 'acct-debit',
       from: '2026-09-01',
       to: '2026-09-30'
@@ -87,8 +94,10 @@ describe('TransactionsPage', () => {
     expect(navigate).toHaveBeenCalledWith(['ledger', 'transactions', 'tx-1', 'reverse']);
   });
   it('surfaces a load error without throwing', () => {
-    listTransactions.and.returnValue(throwError(() => new Error('boom')));
+    transactions.and.returnValue(throwError(() => new Error('boom')));
     view.applyFilter();
     expect(view.loadStatus()).toBe('error');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('[role="alert"]')).toBeTruthy();
   });
 });

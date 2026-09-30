@@ -1,5 +1,7 @@
 # Slice 7 — Reverse a Transaction: say what it is and what undoing it does
 
+> **DONE 2026-09-30** (API Phase 56 / client Phase 53). Open: From→to direction (debited→credited shipped; mock differs).
+
 > Read `00-overview.md` first. Slice 1 already renamed the nav item/page title to "Reverse a Transaction";
 > slice 4 renamed subscription accounts. Heavy API slice. API Phase 56 / client Phase 53.
 
@@ -138,9 +140,9 @@ Client:
 
 ## Steps
 
-- [ ] 1. API prod — views + SQL + explainer + endpoints (+ old feed removal). Build clean.
-- [ ] 2. API tests — as above. All green.
-- [ ] 3. Client prod — feed types, table, confirm page. Lint + prod build clean.
-- [ ] 4. Client specs — as above. Green.
-- [ ] 5. Doc-sync — API `TASK.md` Phase 56 / client Phase 53; API `CLAUDE.md` (feed moved to Reporting, explainer is
+- [x] 1. API prod — views + SQL + explainer + endpoints (+ old feed removal). Build clean.
+- [x] 2. API tests — as above. All green.
+- [x] 3. Client prod — feed types, table, confirm page. Lint + prod build clean.
+- [x] 4. Client specs — as above. Green.
+- [x] 5. Doc-sync — API `TASK.md` Phase 56 / client Phase 53; API `CLAUDE.md` (feed moved to Reporting, explainer is
       the single source of reversal wording); client `CLAUDE.md` if it documents the ledger feed.

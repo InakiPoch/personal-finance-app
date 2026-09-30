@@ -25,7 +25,7 @@ describe('CreditorPayDialog', () => {
     });
     fixture = TestBed.createComponent(CreditorPayDialog);
     fixture.componentRef.setInput('open', true);
-    fixture.componentRef.setInput('title', 'Cuota 1/3 · Sofa');
+    fixture.componentRef.setInput('title', 'Installment 1/3 · Sofa');
     fixture.componentRef.setInput('remainingMinorUnits', money(400000));
     fixture.componentRef.setInput('currency', 'ARS');
     fixture.detectChanges();
@@ -130,14 +130,14 @@ describe('CreditorPayDialog', () => {
     expect(fixture.nativeElement.textContent).toContain('Pay part of it');
     radioByValue('custom').click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Fills cuotas in order; the last one may be partly paid.');
+    expect(fixture.nativeElement.textContent).toContain('Fills installments in order; the last one may be partly paid.');
   });
   it('keeps installment-mode copy by default', () => {
     expect(fixture.nativeElement.textContent).toContain('Pay in full');
     expect(fixture.nativeElement.textContent).toContain('Pay a custom amount');
     radioByValue('custom').click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).not.toContain('Fills cuotas in order');
+    expect(fixture.nativeElement.textContent).not.toContain('Fills installments in order');
   });
   it('shows the full-debt hint and hides the currency select with a single currency', () => {
     fixture.componentRef.setInput('mode', 'full-debt');
@@ -145,7 +145,7 @@ describe('CreditorPayDialog', () => {
     fixture.detectChanges();
     radioByValue('custom').click();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('Fills the oldest cuotas first, across all purchases.');
+    expect(fixture.nativeElement.textContent).toContain('Fills the oldest installments first, across all purchases.');
     expect(currencySelect()).toBeNull();
   });
   it('shows the currency select in full-debt mode with two currencies, listing every total in "Pay in full"', () => {

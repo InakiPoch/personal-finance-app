@@ -68,7 +68,7 @@ export class MoneyFlowPage implements OnInit, OnDestroy {
   }
 
   protected onUndo(transactionId: string): void {
-    if(!window.confirm('Undo this income? This posts a reversal.')) {
+    if(!window.confirm('Undo this income?')) {
       return;
     }
     this.undoError.set(null);

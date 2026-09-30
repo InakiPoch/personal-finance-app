@@ -1,13 +1,12 @@
 <div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
   <header class="mb-10">
-    <p class="font-serif text-sm italic text-stamp">Personal ledger</p>
-    <h1 class="mt-1 font-serif text-2xl font-medium tracking-tight text-heading">Statement detail</h1>
+    <h1 class="font-serif text-2xl font-medium tracking-tight text-heading">Card bill</h1>
   </header>
   @if(loadStatus() === 'loading') {
-    <p class="text-sm text-ink-faint">Loading statement…</p>
+    <p class="text-sm text-ink-faint">Loading card bill…</p>
   } @else if(loadStatus() === 'error') {
     <p class="text-sm text-negative" role="alert">
-      Could not load the statement — check the id and try again.
+      Could not load the card bill — try again in a moment.
     </p>
   } @else if(statement(); as detail) {
     <section class="mb-12" aria-labelledby="amount-label">
@@ -27,7 +26,7 @@
         @if(detail.isPaid) {
           Paid@if(detail.paidOnUtc) { on {{ detail.paidOnUtc }}}.
         } @else {
-          Still unpaid — this is what's due for the cycle.
+          Still unpaid — this is what's due for this billing month.
         }
       </p>
     </section>
@@ -47,9 +46,9 @@
         />
       </div>
       <p class="mt-4 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-        Paying one installment uses the bank account and date from the form below. Reversing a paid
-        installment does not refund cash — the API posts a credit that is netted against your next
-        statement for this card.
+        Paying one installment uses the bank account and date from the form below. Undoing a paid
+        installment does not refund cash — it becomes a credit that reduces your next card bill
+        for this card.
       </p>
     </section>
     @if(!detail.isPaid) {
@@ -60,7 +59,7 @@
         aria-labelledby="pay-label"
       >
         <h2 id="pay-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
-          Pay the full statement
+          Pay the full card bill
         </h2>
 
         <div class="mt-6 flex flex-col gap-1.5">
@@ -122,7 +121,7 @@
             [disabled]="payStatus() === 'paying'"
             class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
           >
-            {{ payStatus() === 'paying' ? 'Recording…' : 'Pay full statement' }}
+            {{ payStatus() === 'paying' ? 'Recording…' : 'Pay full card bill' }}
           </button>
           @if(payError(); as error) {
             <p class="text-xs text-negative" role="alert">{{ payErrorText(error) }}</p>

@@ -88,12 +88,12 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly settleErrorMessages: Record<string, string> = {
     'Parties.NonPositiveAmount': 'The settlement amount must be greater than zero.',
-    'Parties.UnknownFundingAccount': 'Choose a debit account registered with the API.',
+    'Parties.UnknownFundingAccount': 'Choose a debit account from the list.',
     'Parties.PartyNotFound': 'This party no longer exists.',
     'Parties.SettlementExceedsBalance': 'The amount is more than what this party owes.',
     'Parties.InvalidCurrencyCode': 'Choose ARS or USD.',
     'Http.BadRequest': 'The settlement could not be recorded — check the values and try again.',
-    'Http.UnprocessableEntity': 'The API rejected the settlement — check the amount and account.',
+    'Http.UnprocessableEntity': 'Check the amount and account and try again.',
     'Http.Conflict': 'The amount is more than what this party owes.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'

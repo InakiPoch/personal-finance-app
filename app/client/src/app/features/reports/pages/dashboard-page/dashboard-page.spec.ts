@@ -233,6 +233,14 @@ describe('DashboardPage', () => {
     const details = (fixture.nativeElement as HTMLElement).querySelectorAll('[id^="card-purchases-"]');
     expect(details.length).toBe(1);
   });
+  it('drops the ledger "Liability" suffix from a charged card label', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Accrued', card: 'Visa Liability', cycleYear: null, cycleMonth: null, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    expect(view.cycleByCard().find((row) => row.cardId === 'c1')?.card).toBe('Visa');
+  });
   it('labels a future-only card with its name, not a GUID', () => {
     cardDueByMonth.and.returnValue(of([
       { bucket: 'Future', card: 'Naranja', ...cyc(0), amountMinorUnits: money(90000), currencyCode: 'ARS', cardId: 'c9' }

@@ -201,7 +201,7 @@ export class DashboardPage implements OnInit, OnDestroy {
         currencyByKey.set(key, row.currencyCode);
       }
       if(row.bucket === 'Accrued' || !labelByKey.has(key)) {
-        labelByKey.set(key, row.card);
+        labelByKey.set(key, row.card.replace(/ Liability$/, ''));
       }
       const totals: Map<string, number> = row.bucket === 'Accrued' ? accrued : future;
       totals.set(key, (totals.get(key) ?? 0) + row.amountMinorUnits);

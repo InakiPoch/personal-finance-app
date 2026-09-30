@@ -229,13 +229,13 @@ describe('CreditorDetailPage', () => {
     expect(view.isNotFound()).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('Could not load this creditor');
   });
-  it('opens the pay dialog on Pay, titled with the cuota and purchase', () => {
+  it('opens the pay dialog on Pay, titled with the installment and purchase', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
     setup();
     buttonByLabel('Pay').click();
     fixture.detectChanges();
     expect(payCreditorInstallment).not.toHaveBeenCalled();
-    expect(fixture.nativeElement.querySelector('dialog').textContent).toContain('Cuota 2/3 · Sofa');
+    expect(fixture.nativeElement.querySelector('dialog').textContent).toContain('Installment 2/3 · Sofa');
   });
   it('confirms the pay dialog in full and re-fetches the detail', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));
@@ -280,7 +280,7 @@ describe('CreditorDetailPage', () => {
     expect(payCreditorFullDebt).toHaveBeenCalledWith('cred-1', { amountMinorUnits: null, currencyCode: null });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('cuota(s) settled');
+    expect(fixture.nativeElement.textContent).toContain('installment(s) settled');
   });
   it('disables Pay full debt when nothing is outstanding', () => {
     const settled: CreditorDetail = {
@@ -356,7 +356,7 @@ describe('CreditorDetailPage', () => {
     expect(payCreditorExpense).toHaveBeenCalledWith('pl-1', { amountMinorUnits: null });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('2 cuota(s) settled.');
+    expect(fixture.nativeElement.textContent).toContain('2 installment(s) settled.');
   });
   it('shows a friendly message keyed off code when a pay fails', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detail));

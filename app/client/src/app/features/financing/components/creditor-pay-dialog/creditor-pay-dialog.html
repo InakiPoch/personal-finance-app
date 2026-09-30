@@ -35,7 +35,7 @@
           @if(shareExceedsRemaining(share)) {
             <p class="text-xs text-ink-faint">
               Their share ({{ formatMoney(share.shareMinorUnits, currency()) }}) is more than the
-              {{ formatMoney(remainingMinorUnits(), currency()) }} left on this cuota.
+              {{ formatMoney(remainingMinorUnits(), currency()) }} left on this installment.
             </p>
           }
         }
@@ -115,10 +115,10 @@
             </p>
           }
           @if(mode() === 'expense') {
-            <p class="text-xs text-ink-faint">Fills cuotas in order; the last one may be partly paid.</p>
+            <p class="text-xs text-ink-faint">Fills installments in order; the last one may be partly paid.</p>
           }
           @if(mode() === 'full-debt') {
-            <p class="text-xs text-ink-faint">Fills the oldest cuotas first, across all purchases.</p>
+            <p class="text-xs text-ink-faint">Fills the oldest installments first, across all purchases.</p>
           }
         </div>
       }

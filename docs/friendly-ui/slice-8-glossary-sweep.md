@@ -75,8 +75,8 @@ text, not attributes).
 
 ## Steps
 
-- [ ] 3. Client prod — sweep all templates + `.ts` strings; remove eyebrows. Lint + prod build clean.
-- [ ] 4. Client specs — guard + updated expectations. Green.
-- [ ] 5. Doc-sync — client `TASK.md` Phase 54; client `CLAUDE.md` evergreen: "UI copy follows the glossary in
+- [x] 3. Client prod — sweep all templates + `.ts` strings; remove eyebrows. Lint + prod build clean.
+- [x] 4. Client specs — guard + updated expectations. Green.
+- [x] 5. Doc-sync — client `TASK.md` Phase 54; client `CLAUDE.md` evergreen: "UI copy follows the glossary in
       `docs/friendly-ui/00-overview.md`; enforced by <guard>". Also add the glossary pointer to
       `app/client/docs/SYSTEM.md` (voice section). Closes the friendly-ui initiative.

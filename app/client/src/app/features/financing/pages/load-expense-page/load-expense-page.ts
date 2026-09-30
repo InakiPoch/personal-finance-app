@@ -132,14 +132,14 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
-    'Financing.CardNotFound': 'That card is not registered with the API yet.',
+    'Financing.CardNotFound': 'Choose a card from the list.',
     'Financing.FuturePurchaseDate': 'The purchase date cannot be in the future.',
     'Financing.BackdatedCardBankAccountRequired': 'Pick an account to settle the already-due installments from.',
-    'Ledger.AccountNotFound': 'That account is not registered with the API.',
+    'Ledger.AccountNotFound': 'Choose an account from the list.',
     'Ledger.SourceAccountNotSpendable': 'Pick a debit or cash account to pay from.',
     'Ledger.InvalidExpenseCategory': 'Enter a category for the expense.',
     'Http.BadRequest': 'The expense could not be loaded — check the values and try again.',
-    'Http.UnprocessableEntity': 'The API rejected the expense — check the amount and dates.',
+    'Http.UnprocessableEntity': 'Check the amount and dates and try again.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };

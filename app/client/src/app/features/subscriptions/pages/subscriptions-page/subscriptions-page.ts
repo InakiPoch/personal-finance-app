@@ -90,9 +90,9 @@ export class SubscriptionsPage implements OnInit, OnDestroy {
     'Subscriptions.InvalidCategory': 'Enter a category.',
     'Subscriptions.NonPositiveAmount': 'The amount must be greater than zero.',
     'Subscriptions.InvalidAnchorDay': 'The anchor day must be between 1 and 31.',
-    'Subscriptions.InvalidFundingAccount': 'Choose a funding account registered with the API.',
+    'Subscriptions.InvalidFundingAccount': 'Choose a funding account from the list.',
     'Http.BadRequest': 'The subscription could not be created — check the values and try again.',
-    'Http.UnprocessableEntity': 'The API rejected the subscription — check the amount and anchor day.',
+    'Http.UnprocessableEntity': 'Check the amount and anchor day and try again.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };

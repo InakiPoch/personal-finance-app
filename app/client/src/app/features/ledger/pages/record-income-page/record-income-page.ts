@@ -63,12 +63,12 @@ export class RecordIncomePage implements OnInit, OnDestroy {
   private readonly router: Router = inject(Router);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
-    'Ledger.AccountNotFound': 'That account is not registered with the API.',
+    'Ledger.AccountNotFound': 'Choose an account from the list.',
     'Ledger.SourceAccountNotSpendable': 'Pick a bank or cash account to receive the income.',
     'Ledger.InvalidIncomeDescription': 'Enter a description.',
     'Ledger.IncomeDateInFuture': 'The date cannot be in the future.',
     'Http.BadRequest': 'The income could not be recorded — check the values and try again.',
-    'Http.UnprocessableEntity': 'The API rejected the income — check the amount and date.',
+    'Http.UnprocessableEntity': 'Check the amount and date and try again.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };

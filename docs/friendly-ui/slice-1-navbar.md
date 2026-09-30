@@ -84,7 +84,7 @@ page and the dashboard quick action (slice 5 moves that action to the top).
 
 ## Steps
 
-- [ ] 3. Client prod — groups, styles, renames. Lint + prod build clean.
-- [ ] 4. Client specs — as above. Green.
-- [ ] 5. Doc-sync — client `TASK.md` Phase 47 line; client `CLAUDE.md` only if it documents nav structure
+- [x] 3. Client prod — groups, styles, renames. Lint + prod build clean.
+- [x] 4. Client specs — as above. Green.
+- [x] 5. Doc-sync — client `TASK.md` Phase 47 line; client `CLAUDE.md` only if it documents nav structure
       (it does list views — update names there).

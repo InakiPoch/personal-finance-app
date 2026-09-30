@@ -309,6 +309,13 @@ endpoint) and maps the new `Parties.SettlementExceedsBalance` / `Parties.Unknown
 `Financing.PartyShareAlreadyPaid` / `Financing.PartyShareNotDue` errors into the existing
 `payErrorMessages`. Closes `docs/partial-creditor-payments/`. Tests 377/377.
 
+## Phase 47 — Friendly UI: grouped navbar + renames (Slice 1)
+
+Done. `docs/friendly-ui/slice-1-navbar.md`. Client-only. `App.navGroups` replaces the flat
+`navItems`: Views / Setup / Actions blocks spread across the bar; the two action links render as
+filled buttons (`primary-nav__link--action`). Seven page titles renamed (routes unchanged, D3);
+"Recent purchases" left the nav. Tests 382/382.
+
 ---
 
 ## Verification (every phase)

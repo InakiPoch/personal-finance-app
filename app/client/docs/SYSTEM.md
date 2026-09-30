@@ -187,7 +187,9 @@ Horizontal bar, `border-bottom: 1px var(--rule)`, same `--paper` as canvas.
 Links: `0.75rem`, `letter-spacing: .12em`, `text-transform: uppercase`,
 `color: var(--ink-faint)` → `--ink-soft` on hover. Active
 (`.primary-nav__link--active`): `color: var(--ink)` + `border-bottom: 2px var(--stamp)`.
-`overflow-x: auto` for narrow screens.
+Three `<ul>` groups (Views / Setup / Actions): Setup follows Views behind a `|` divider (`border-left: --rule-strong`), Actions is pushed to the far right;
+the bar wraps on narrow screens. Action-group links (`.primary-nav__link--action`) are filled
+buttons: `bg-stamp` / `paper-raised` text, `--ink` on hover and when active.
 
 ### Inputs
 Native `<input type="month">`: `border-b border-rule bg-transparent pb-0.5 font-sans

@@ -194,6 +194,37 @@ describe('LoadExpensePage', () => {
     const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
     expect(body.currencyCode).toBe('USD');
   });
+  describe('currency toggle', () => {
+    const radio = (code: string): HTMLInputElement =>
+      Array.from<HTMLLabelElement>(fixture.nativeElement.querySelectorAll('fieldset label'))
+        .find((label: HTMLLabelElement) => label.textContent!.trim() === code)!
+        .querySelector('input')!;
+    const sign = (): string => (fixture.nativeElement.querySelector('#amount') as HTMLElement).previousElementSibling!.textContent!.trim();
+
+    it('renders ARS and USD radios with ARS checked by default', () => {      expect(radio('ARS')).toBeTruthy();
+      expect(radio('USD')).toBeTruthy();
+      expect(radio('ARS').checked).toBe(true);
+      expect(radio('USD').checked).toBe(false);
+    });
+    it('selecting USD updates the form and the card payload', () => {
+      radio('USD').click();
+      fixture.detectChanges();
+      expect(view.form.controls.currency.value).toBe('USD');
+      fillValidForm();
+      view.onSubmit();
+      const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+      expect(body.currencyCode).toBe('USD');
+    });
+    it('shows US$ for USD and $ for ARS', () => {
+      expect(sign()).toBe('$');
+      radio('USD').click();
+      fixture.detectChanges();
+      expect(sign()).toBe('US$');
+      radio('ARS').click();
+      fixture.detectChanges();
+      expect(sign()).toBe('$');
+    });
+  });
   it('rejects a whitespace-only description', () => {
     fillValidForm();
     view.form.controls.description.setValue('   ');

@@ -316,6 +316,12 @@ Done. `docs/friendly-ui/slice-1-navbar.md`. Client-only. `App.navGroups` replace
 filled buttons (`primary-nav__link--action`). Seven page titles renamed (routes unchanged, D3);
 "Recent purchases" left the nav. Tests 382/382.
 
+## Phase 48 — Friendly UI: ARS | USD currency toggle (Slice 2)
+
+Done. `docs/friendly-ui/slice-2-currency-toggle.md`. Client-only. Load an Expense's currency
+`<select>` is now a filled segmented radio pair beside the amount (`currencyOptions` field), and the
+amount sign follows the selection (`$` / `US$`). Record Income's select untouched. Tests 385/385.
+
 ---
 
 ## Verification (every phase)

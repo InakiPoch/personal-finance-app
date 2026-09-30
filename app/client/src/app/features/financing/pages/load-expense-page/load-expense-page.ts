@@ -109,6 +109,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     { value: 'debit', label: 'My debit-cash' },
     { value: 'creditor', label: 'Financed by a creditor' },
   ];
+  protected readonly currencyOptions: readonly CurrencyCode[] = ['ARS', 'USD'];
   protected readonly errorMessages: Record<string, string> = {
     positiveAmount: 'Enter an amount greater than zero.',
     atMostTwoDecimals: 'Use at most two decimal places.',

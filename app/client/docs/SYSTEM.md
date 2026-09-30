@@ -198,6 +198,15 @@ the native picker glyph can't be themed further; acceptable for a single-user to
 For `<select>` / richer date entry elsewhere, compose a headless primitive rather than
 hand-rolling — do not ship an unstyled native `<select>` as the "design".
 
+### Segmented toggle
+Two-or-three-option choice next to a value (currency on Load an Expense). A `<fieldset>` with an
+`sr-only` `<legend>`, `flex overflow-hidden rounded-card border border-rule`, holding radio
+`<label>`s (`<input type="radio" class="peer sr-only">` + a `<span>`). Options are
+`px-3 py-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink-faint`; the selected one is
+**filled** — `peer-checked:bg-stamp peer-checked:text-paper-raised` — and focus shows a
+`peer-focus-visible:ring-2 ring-inset ring-stamp`. Unlike the underlined "Paid with" picker, use it
+when a small control must pop beside a large figure.
+
 ### Dialog
 Native `<dialog>`, opened via `showModal()` (never a hand-rolled overlay/portal — the
 browser gives focus trap, Esc-to-cancel and top-layer stacking for free). The `<dialog>`

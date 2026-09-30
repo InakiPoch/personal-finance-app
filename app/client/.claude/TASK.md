@@ -326,6 +326,10 @@ amount sign follows the selection (`$` / `US$`). Record Income's select untouche
 
 Done. `docs/friendly-ui/slice-3-remove-shared-expense.md`. `/parties/shared-expense` page, route, `registerSharedExpense`, and its three types deleted. Party detail links to `/financing/load-expense?party=<id>` ("Split an expense with <name>"); Load an Expense reads `?party=` once the parties list loads and pushes one weight-1 split row if the id is known (unknown → none). Tests 380/380.
 
+## Phase 50 — Friendly UI: subscription names (Slice 4)
+
+Done, no client change: labels come from the ledger account name, renamed API-side (API Phase 53). No spec fixture hard-coded a subscription `'… Expense'`. `docs/friendly-ui/slice-4-subscription-names.md`.
+
 ---
 
 ## Verification (every phase)

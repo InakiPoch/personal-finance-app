@@ -201,3 +201,7 @@ The one ledger-touching creditor payment in the initiative: `PayCreditorInstallm
 ## Phase 52 — Friendly UI: remove the shared-expense endpoint (Slice 3) (2026-09-30)
 
 `POST /v1/parties/shared-expenses` (`PostSharedExpense`, its DTOs, mapping, route const) deleted; `RegisterSharedExpenseCommand` and its handler stay for `RecordDebitExpenseHandler`'s split path. Fixes a latent bug: that path dropped `CurrencyCode`, so USD debit splits posted to the receivable as ARS — now forwarded. `PartiesCurrencyTests` reseeded through `POST /v1/ledger/expenses`; the EUR case now asserts `Ledger.InvalidCurrencyCode`; `.http` samples converted. `docs/friendly-ui/slice-3-remove-shared-expense.md`. 454 total.
+
+## Phase 53 — Friendly UI: subscriptions named "<name> Subscription" (Slice 4) (2026-09-30)
+
+`CreateSubscriptionTemplateHandler` names the category ledger account `<name> Subscription` (was `<name> Expense`), so the dashboard list, Recent Money Movements and the later Reverse feed read it straight from data. Migration `RenameSubscriptionAccountsToSubscription` (Subscriptions context) renames existing rows by the template's `ExpenseAccountId` (never by suffix alone; `LIKE '% Expense'` guard); `Down` reverses. Cross-module SQL on `ledger_accounts`, so Ledger must be migrated first on a fresh DB (accepted). No max-length change (none exists). `SubscriptionAccountRenameMigrationTests` + handler name assertion. `docs/friendly-ui/slice-4-subscription-names.md`. 456 total.

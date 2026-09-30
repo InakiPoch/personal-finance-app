@@ -16,8 +16,9 @@ internal sealed class CreateSubscriptionTemplateHandler(SubscriptionsDbContext c
         }
         var name = command.Name.Trim();
         var expenseAccount = await ledger.CreateAccountAsync(
-            new CreateAccountCommand($"{name} Expense", AccountType.Expense, AccountKind.Expense),
-            cancellationToken);
+            new CreateAccountCommand($"{name} Subscription", AccountType.Expense, AccountKind.Expense),
+            cancellationToken
+        );
         if(expenseAccount.IsFailure) {
             return expenseAccount.Error;
         }

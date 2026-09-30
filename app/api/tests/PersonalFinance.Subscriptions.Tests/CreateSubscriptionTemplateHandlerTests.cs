@@ -50,6 +50,18 @@ public sealed class CreateSubscriptionTemplateHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_names_the_category_account_after_the_subscription() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var ledger = new FakeLedgerApi();
+        var command = new CreateSubscriptionTemplateCommand("Netflix", 1_500, "Streaming", Guid.CreateVersion7(), RecurrenceFrequency.Monthly, 5);
+
+        var result = await new CreateSubscriptionTemplateHandler(NewContext(), ledger, new FixedTimeProvider(new DateTimeOffset(2026, 3, 16, 0, 0, 0, TimeSpan.Zero))).HandleAsync(command, cancellationToken);
+
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Netflix Subscription", Assert.Single(ledger.CreatedAccounts).Name);
+    }
+
+    [Fact]
     public async Task Handle_posts_one_charge_dated_today_when_the_anchor_is_today() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var fixedNow = new DateTimeOffset(2026, 3, 5, 0, 0, 0, TimeSpan.Zero);
@@ -144,8 +156,10 @@ public sealed class CreateSubscriptionTemplateHandlerTests : IDisposable {
 
     private sealed class FakeLedgerApi : ILedgerApi {
         public List<PostTransactionCommand> PostedTransactions { get; } = [];
+        public List<CreateAccountCommand> CreatedAccounts { get; } = [];
 
         public Task<Result<Guid>> CreateAccountAsync(CreateAccountCommand command, CancellationToken ct = default) {
+            CreatedAccounts.Add(command);
             return Task.FromResult<Result<Guid>>(Guid.CreateVersion7());
         }
 

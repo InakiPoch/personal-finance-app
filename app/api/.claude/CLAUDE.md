@@ -61,7 +61,7 @@ Full rationale lives in `docs/DESIGN.md`'s decisions log and product intent in `
 **The four modules:**
 - **Ledger** — sole source of accounting truth (D1), double-entry, append-only (`Transaction`/`Entry`, RNF-4). Corrections are storno (reversal) entries, never edits/deletes (D3).
 - **Financing** — credit cards, installment plans, billing-cycle calculation from each card's cutoff date (not calendar month).
-- **Subscriptions** — recurring charges, renewal scheduling.
+- **Subscriptions** — recurring charges, renewal scheduling. Each template's category ledger account is named `<name> Subscription` (not `<name> Expense`).
 - **Parties** — third-party shared-expense tracking / running balances, layered as a management view over Ledger receivable accounts (D1) rather than a second ledger. Splits are created only through `RecordDebitExpense` (debit/cash) or a payment plan (card/creditor) — there is no standalone shared-expense endpoint.
 
 **Communication between modules** (`docs/DESIGN.md` §5.1):

@@ -98,6 +98,18 @@ public sealed class RecordDebitExpenseHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Split_expense_forwards_the_chosen_currency_to_the_parties_api() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var bankId = await SeedAccountAsync("Checking", AccountType.Asset, AccountKind.Bank, cancellationToken);
+        var result = await Handle(
+            new RecordDebitExpenseCommand(60_00, bankId, "Dinner", new DateOnly(2026, 3, 10), "Team dinner",
+                [new RecordDebitExpenseParticipant(Guid.CreateVersion7(), 1)], "USD"),
+            cancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("USD", parties.LastSharedExpense!.CurrencyCode);
+    }
+
+    [Fact]
     public async Task Rejects_a_source_account_that_is_not_bank_or_cash() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var receivableId = await SeedAccountAsync("Alice", AccountType.Asset, AccountKind.Receivable, cancellationToken);

@@ -10,21 +10,6 @@ internal static class PartyMappingExtensions {
         return new CreatePartyCommand(dto.Name);
     }
 
-    public static RegisterSharedExpenseCommand ToRegisterSharedExpenseCommand(this RegisterSharedExpenseDto dto) {
-        var participants = dto.Participants
-            .Select(participant => new SharedExpenseParticipant(participant.PartyId, participant.Weight))
-            .ToList();
-        return new RegisterSharedExpenseCommand(
-            dto.Description,
-            dto.TotalMinorUnits,
-            dto.ExpenseAccountId,
-            dto.FundingAccountId,
-            dto.IncurredOnUtc,
-            participants,
-            dto.CurrencyCode
-        );
-    }
-
     public static SettleCurrentAccountCommand ToSettleCurrentAccountCommand(this SettleCurrentAccountDto dto, Guid partyId) {
         return new SettleCurrentAccountCommand(partyId, dto.AmountMinorUnits, dto.BankAccountId, dto.SettledOnUtc, dto.CurrencyCode);
     }
@@ -82,10 +67,6 @@ internal static class PartyMappingExtensions {
     extension(Guid id) {
         public PartyResultDto ToPartyResultDto() {
             return new PartyResultDto(id);
-        }
-
-        public SharedExpenseResultDto ToSharedExpenseResultDto() {
-            return new SharedExpenseResultDto(id);
         }
 
         public SettlementResultDto ToSettlementResultDto() {

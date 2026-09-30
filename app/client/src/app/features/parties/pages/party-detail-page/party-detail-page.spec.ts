@@ -142,6 +142,12 @@ describe('PartyDetailPage', () => {
     expect(view.balance()?.name).toBe('Alice');
     expect(text()).toContain('Shared expense');
   });
+  it('links to Load an Expense with this party prefilled in the split', () => {
+    setup();
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector('a[href^="/financing/load-expense"]');
+    expect(link.getAttribute('href')).toBe('/financing/load-expense?party=p1');
+    expect(link.textContent).toContain('Split an expense with Alice');
+  });
   it('navigates to the id-driven reverse route when a timeline Reverse button is clicked', () => {
     setup();
     const navigate: jasmine.Spy = spyOn(TestBed.inject(Router), 'navigate');

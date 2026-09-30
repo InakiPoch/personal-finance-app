@@ -47,7 +47,8 @@ internal sealed class RecordDebitExpenseHandler(LedgerDbContext context, Transac
                     category.Value,
                     source.Id,
                     postedOnUtc,
-                    participants
+                    participants,
+                    command.CurrencyCode
                 ),
                 cancellationToken
             );

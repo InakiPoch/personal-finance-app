@@ -322,6 +322,10 @@ Done. `docs/friendly-ui/slice-2-currency-toggle.md`. Client-only. Load an Expens
 `<select>` is now a filled segmented radio pair beside the amount (`currencyOptions` field), and the
 amount sign follows the selection (`$` / `US$`). Record Income's select untouched. Tests 385/385.
 
+## Phase 49 — Friendly UI: remove the shared-expense page, prefill the party (Slice 3)
+
+Done. `docs/friendly-ui/slice-3-remove-shared-expense.md`. `/parties/shared-expense` page, route, `registerSharedExpense`, and its three types deleted. Party detail links to `/financing/load-expense?party=<id>` ("Split an expense with <name>"); Load an Expense reads `?party=` once the parties list loads and pushes one weight-1 split row if the id is known (unknown → none). Tests 380/380.
+
 ---
 
 ## Verification (every phase)

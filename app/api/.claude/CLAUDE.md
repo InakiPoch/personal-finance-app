@@ -62,7 +62,7 @@ Full rationale lives in `docs/DESIGN.md`'s decisions log and product intent in `
 - **Ledger** — sole source of accounting truth (D1), double-entry, append-only (`Transaction`/`Entry`, RNF-4). Corrections are storno (reversal) entries, never edits/deletes (D3).
 - **Financing** — credit cards, installment plans, billing-cycle calculation from each card's cutoff date (not calendar month).
 - **Subscriptions** — recurring charges, renewal scheduling.
-- **Parties** — third-party shared-expense tracking / running balances, layered as a management view over Ledger receivable accounts (D1) rather than a second ledger.
+- **Parties** — third-party shared-expense tracking / running balances, layered as a management view over Ledger receivable accounts (D1) rather than a second ledger. Splits are created only through `RecordDebitExpense` (debit/cash) or a payment plan (card/creditor) — there is no standalone shared-expense endpoint.
 
 **Communication between modules** (`docs/DESIGN.md` §5.1):
 - **Sync (DI-resolved `.Contracts` interface)** — default for request/response needs, e.g. Ledger→Financing and Ledger→Parties during reversal cascades (D12).

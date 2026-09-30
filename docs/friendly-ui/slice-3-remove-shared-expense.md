@@ -95,9 +95,9 @@ Client:
 
 ## Steps
 
-- [ ] 1. API prod — deletions + DESIGN.md. Build clean.
-- [ ] 2. API tests — reseed `PartiesCurrencyTests`; all projects green.
-- [ ] 3. Client prod — deletions, party link, query-param prefill. Lint + prod build clean.
-- [ ] 4. Client specs — as above. Green.
-- [ ] 5. Doc-sync — API `TASK.md` Phase 52 / client `TASK.md` Phase 49; both `CLAUDE.md` files if they list the
+- [x] 1. API prod — deletions + DESIGN.md. Build clean.
+- [x] 2. API tests — reseed `PartiesCurrencyTests`; all projects green.
+- [x] 3. Client prod — deletions, party link, query-param prefill. Lint + prod build clean.
+- [x] 4. Client specs — as above. Green.
+- [x] 5. Doc-sync — API `TASK.md` Phase 52 / client `TASK.md` Phase 49; both `CLAUDE.md` files if they list the
       endpoint/page (remove it; note "splits are created only from Load an Expense").

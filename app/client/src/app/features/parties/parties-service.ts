@@ -8,10 +8,8 @@ import { FuturePartyShare } from './types/future-party-share';
 import { Party } from './types/party';
 import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
-import { RegisterSharedExpense } from './types/register-shared-expense';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
-import { SharedExpenseResult } from './types/shared-expense-result';
 
 type RowsEnvelope<T> = { rows: T[] };
 
@@ -49,10 +47,6 @@ export class PartiesService {
 
   create(body: CreateParty): Observable<PartyResult> {
     return this.http.post<PartyResult>('parties', body);
-  }
-
-  registerSharedExpense(body: RegisterSharedExpense): Observable<SharedExpenseResult> {
-    return this.http.post<SharedExpenseResult>('parties/shared-expenses', body);
   }
 
   settle(partyId: string, body: SettleCurrentAccount): Observable<SettlementResult> {

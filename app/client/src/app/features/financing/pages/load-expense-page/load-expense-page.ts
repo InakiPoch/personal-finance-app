@@ -10,6 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Observable, Subject, map, merge, switchMap, takeUntil } from 'rxjs';
 import { pollUntil } from '../../../../core/http/poll-until';
 import { formatArs, fromMinorUnits, toMinorUnits } from '../../../../core/money/money';
@@ -123,6 +124,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   };
 
   private readonly fb: FormBuilder = inject(FormBuilder);
+  private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly financingService: FinancingService = inject(FinancingService);
   private readonly ledgerService: LedgerService = inject(LedgerService);
   private readonly creditorsService: CreditorsService = inject(CreditorsService);
@@ -298,6 +300,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         next: (rows: Party[]) => {
           this.parties.set(rows);
           this.partiesStatus.set('ready');
+          this.prefillSplitFromQuery(rows);
         },
         error: () => this.partiesStatus.set('error')
       }
@@ -383,6 +386,15 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       this.creditorAccounts.set(accounts);
       this.form.controls.creditorAccountId.setValue(accounts.length > 0 ? accounts[0].id : '');
     });
+  }
+
+  private prefillSplitFromQuery(rows: Party[]): void {
+    const partyId: string | null = this.route.snapshot.queryParamMap.get('party');
+    if(partyId && rows.some((row: Party) => row.id === partyId)) {
+      const splitRow: SplitRow = this.createSplitRow();
+      splitRow.controls.partyId.setValue(partyId);
+      this.form.controls.split.push(splitRow);
+    }
   }
 
   private createSplitRow(): SplitRow {

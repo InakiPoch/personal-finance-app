@@ -61,12 +61,12 @@
     }
     @if(partyId(); as id) {
       <a
-        [routerLink]="['/parties', 'shared-expense']"
+        routerLink="/financing/load-expense"
         [queryParams]="{ party: id }"
         class="group mt-5 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
       >
         <span class="text-stamp" aria-hidden="true">+</span>
-        Register a shared expense with this party
+        Split an expense with {{ balance()?.name ?? 'this party' }}
         <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
       </a>
     }

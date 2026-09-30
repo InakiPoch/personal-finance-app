@@ -235,12 +235,6 @@ internal static class EndpointExtensions {
                 .WithDescription("Registers a third party for shared-expense tracking.")
                 .Produces<PartyResultDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-            group.MapPost(ApiRoutes.Parties.SharedExpenses, PostSharedExpense.Handle)
-                .WithSummary("Register a shared expense.")
-                .WithDescription("Posts one multi-leg Ledger transaction splitting an expense across the caller and one or more parties.")
-                .Produces<SharedExpenseResultDto>(StatusCodes.Status201Created)
-                .ProducesProblem(StatusCodes.Status404NotFound)
-                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapPost(ApiRoutes.Parties.Settle, PostSettlement.Handle)
                 .WithSummary("Settle a party's current account.")
                 .WithDescription("Posts a Ledger settlement against the party's receivable balance. Fails if the settlement would exceed what the party owes.")

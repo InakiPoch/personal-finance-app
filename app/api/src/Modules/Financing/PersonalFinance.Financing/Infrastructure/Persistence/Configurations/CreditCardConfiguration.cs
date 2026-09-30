@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.SharedKernel;
@@ -20,6 +21,14 @@ internal sealed class CreditCardConfiguration : IEntityTypeConfiguration<CreditC
             .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
             .HasColumnName("CurrencyCode")
             .IsRequired();
+        builder.HasMany(card => card.ClosingOverrides)
+            .WithOne()
+            .HasForeignKey(closingOverride => closingOverride.CardId)
+            .IsRequired()
+            .OnDelete(DeleteBehavior.Cascade);
+        builder.Navigation(card => card.ClosingOverrides)
+            .HasField("closingOverrides")
+            .UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.Ignore(card => card.CarriedCreditBalance);
         builder.Ignore(card => card.DomainEvents);
     }

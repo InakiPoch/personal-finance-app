@@ -80,8 +80,8 @@ describe('StatementPage', () => {
   }
 
   const instruments: Instrument[] = [
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
-    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 }
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null }
   ];
 
   beforeEach(() => {

@@ -34,9 +34,9 @@ describe('TransactionsPage', () => {
   const money = (value: number): Money => value as Money;
 
   const instruments: Instrument[] = [
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
-    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null },
-    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 }
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null, nextClosingDate: null },
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null }
   ];
   const feedRows: TransactionRow[] = [{
     transactionId: 'tx-1',

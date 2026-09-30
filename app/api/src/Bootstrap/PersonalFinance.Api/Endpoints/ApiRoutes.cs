@@ -37,6 +37,9 @@ public sealed record ApiRoutes {
         public const string Base = V1 + "/instruments";
         public const string Create = "/";
         public const string List = "/";
+        public const string CardClosingDay = "/cards/{id:guid}/closing-day";
+        public const string CardClosingDates = "/cards/{id:guid}/closing-dates";
+        public const string CardClosingDate = "/cards/{id:guid}/closing-dates/{year:int}/{month:int}";
     }
 
     public sealed record Creditors {

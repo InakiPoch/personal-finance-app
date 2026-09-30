@@ -338,6 +338,10 @@ Done. `docs/friendly-ui/slice-5-dashboard.md`. Dashboard order: header (no "Pers
 
 Done. `docs/friendly-ui/slice-5-dashboard.md`. Month picker moved to the right end of the quick-actions row and drives every card (h1 "This month" or "<Month> <Year>"): Money Spent/Received + categories, Due card (`dueThisMonth(month)`), Card bills (filtered client-side to the month's cycle), Subscriptions (`subscriptions/by-month`; overdue first, "Future payments — not charged yet"). Late responses for a deselected month are dropped. Layout: `max-w-6xl`, header/quick actions/Due card full width, then a 2-column grid at lg+ (money flow left; Card bills over Subscriptions right). Specs 418 green, lint + prod build clean.
 
+## Phase 52 — Friendly UI: editable card closing dates (Slice 6)
+
+Done. `docs/friendly-ui/slice-6-closing-date.md`. Instruments page, per credit card: "Usual closing day: N [edit]" inline edit and a "Next closings" list (formatted "Oct 24", "(set)" tag on overrides, [edit] month-bounded date input, [reset] on overrides); "Next closing: Oct 24" replaces "closes N"; create-form label "Usual closing day". New presentational `card-closing-schedule` component, `closing-date-helpers.ts` (`formatClosingDate`/`daysInMonth`/`toIsoDate`), `InstrumentsService` +4 calls, `error.code` -> sentence map. Deviation: the editor closes on save and errors show below (no busy/ack handshake); a failed schedule load is silent. Specs 450/450 green (+31), lint + prod build clean.
+
 ---
 
 ## Verification (every phase)

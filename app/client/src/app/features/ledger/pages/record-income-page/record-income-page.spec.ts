@@ -36,9 +36,9 @@ describe('RecordIncomePage', () => {
   const futureIso = (): string => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
   const instruments: Instrument[] = [
-    { id: 'acct-bank', type: 'debit', name: 'Checking', cutoffDate: null },
-    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null },
-    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 }
+    { id: 'acct-bank', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null, nextClosingDate: null },
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null }
   ];
 
   function fillValidForm(): void {

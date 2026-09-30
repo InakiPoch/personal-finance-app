@@ -103,9 +103,9 @@ describe('LoadExpensePage', () => {
   }
 
   const instruments: Instrument[] = [
-    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 },
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
-    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null }
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null },
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null, nextClosingDate: null }
   ];
   const creditors: Creditor[] = [
     {

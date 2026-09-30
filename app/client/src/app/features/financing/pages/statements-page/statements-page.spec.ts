@@ -27,8 +27,8 @@ describe('StatementsPage', () => {
   const money = (value: number): Money => value as Money;
 
   const instruments: Instrument[] = [
-    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 },
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null }
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null },
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null }
   ];
   const statementRows: MonthlyStatementSummary[] = [{
     statementId: 'st-1',

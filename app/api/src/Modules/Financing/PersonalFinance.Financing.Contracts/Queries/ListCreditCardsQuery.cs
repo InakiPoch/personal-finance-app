@@ -2,7 +2,7 @@ using PersonalFinance.Abstractions.Messaging;
 
 namespace PersonalFinance.Financing.Contracts.Queries;
 
-public sealed record CreditCardRow(Guid CardId, string Name, int CutoffDay);
+public sealed record CreditCardRow(Guid CardId, string Name, int CutoffDay, DateOnly NextClosingDate);
 
 /// <summary>
 /// Every registered credit card, ordered by name.

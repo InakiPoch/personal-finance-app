@@ -143,10 +143,18 @@ Client:
 
 ## Steps
 
-- [ ] 1. API prod — domain + migration + resolver swap + commands/query + endpoints. Build clean.
-- [ ] 2. API tests — as above; all existing Financing tests (cycles, back-dated, accrual) green.
-- [ ] 3. Client prod — service, instruments page editing. Lint + prod build clean.
-- [ ] 4. Client specs — as above. Green.
-- [ ] 5. Doc-sync — API `TASK.md` Phase 55 / client Phase 52; API `CLAUDE.md` evergreen: "card closing = usual day +
+- [x] 1. API prod — domain + migration + resolver swap + commands/query + endpoints. Build clean.
+- [x] 2. API tests — as above; all existing Financing tests (cycles, back-dated, accrual) green.
+- [x] 3. Client prod — service, instruments page editing. Lint + prod build clean.
+- [x] 4. Client specs — as above. Green.
+- [x] 5. Doc-sync — API `TASK.md` Phase 55 / client Phase 52; API `CLAUDE.md` evergreen: "card closing = usual day +
       per-month overrides via `CreditCard.ClosingDayOf`; edits re-bucket open plans; months with a statement are locked";
       API `docs/DESIGN.md` billing-cycle section.
+
+## Implementation notes (2026-09-30)
+
+- New `Financing.InvalidClosingDay` (422) instead of reusing an existing code.
+- `GetCardClosingScheduleQuery` response carries a `Found` flag (unknown card -> 404), as in `GetMonthlyStatementQuery`.
+- Handlers are reached via `ICommandBus`/`IQueryBus`; `IFinancingApi` is unchanged (no fakes to update).
+- `PaymentPlan.Create` gets an optional trailing `firstCycle`; the creditor branch still uses `CreditorCutoffDay = 26`.
+- Client: the closing editor closes on save and shows errors below (no busy/ack handshake); a failed schedule load is silent.

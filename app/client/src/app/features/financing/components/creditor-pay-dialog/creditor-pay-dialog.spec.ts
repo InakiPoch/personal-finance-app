@@ -231,7 +231,7 @@ describe('CreditorPayDialog', () => {
     fixture.componentRef.setInput('partyShares', [
       { partyId: 'party-1', partyName: 'Nora', shareMinorUnits: money(200000), isPaid: false }
     ]);
-    const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null }];
+    const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null, nextClosingDate: null }];
     fixture.componentRef.setInput('bankAccounts', bankAccounts);
     fixture.detectChanges();
     expect(bankAccountSelect()).toBeNull();
@@ -249,7 +249,7 @@ describe('CreditorPayDialog', () => {
     fixture.componentRef.setInput('partyShares', [
       { partyId: 'party-1', partyName: 'Nora', shareMinorUnits: money(200000), isPaid: false }
     ]);
-    const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null }];
+    const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null, nextClosingDate: null }];
     fixture.componentRef.setInput('bankAccounts', bankAccounts);
     fixture.detectChanges();
     partyRadio('Nora').click();

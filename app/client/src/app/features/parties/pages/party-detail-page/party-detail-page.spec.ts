@@ -110,7 +110,7 @@ describe('PartyDetailPage', () => {
   }
 
   const instruments: Instrument[] = [
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null }
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null }
   ];
 
   beforeEach(() => {

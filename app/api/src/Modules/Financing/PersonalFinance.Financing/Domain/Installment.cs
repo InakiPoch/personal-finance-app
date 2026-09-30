@@ -6,8 +6,8 @@ internal sealed class Installment : Entity<Guid> {
     public Guid PaymentPlanId { get; }
     public int Sequence { get; }
     public Money Amount => Money.FromMinorUnits(AmountMinorUnits, Currency);
-    public int CycleYear { get; }
-    public int CycleMonth { get; }
+    public int CycleYear { get; private set; }
+    public int CycleMonth { get; private set; }
     public DateTimeOffset? AccruedOnUtc { get; private set; }
     public DateTimeOffset? SplitAccruedOnUtc { get; private set; }
     public DateTimeOffset? PaidOnUtc { get; private set; }
@@ -46,6 +46,15 @@ internal sealed class Installment : Entity<Guid> {
         }
         AccruedOnUtc = accruedOnUtc;
         StatementId = statement.Id;
+        return Result.Success();
+    }
+
+    internal Result MoveToCycle(BillingCycle cycle) {
+        if(IsAccrued) {
+            return Result.Failure(FinancingErrors.InstallmentAlreadyAccrued);
+        }
+        CycleYear = cycle.Year;
+        CycleMonth = cycle.Month;
         return Result.Success();
     }
 

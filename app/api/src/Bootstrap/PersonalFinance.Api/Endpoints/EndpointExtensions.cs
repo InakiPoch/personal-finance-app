@@ -168,6 +168,32 @@ internal static class EndpointExtensions {
                 .WithSummary("List registered payment instruments.")
                 .WithDescription("Unified read of every registered instrument: debit and cash accounts from Ledger plus credit cards from Financing, each tagged with its instrument type.")
                 .Produces<InstrumentsListDto>(StatusCodes.Status200OK);
+            group.MapPut(ApiRoutes.Instruments.CardClosingDay, PutCardClosingDay.Handle)
+                .WithSummary("Change a card's usual closing day.")
+                .WithDescription("Sets the day (1-31) the card closes on in every month without a specific date, then re-buckets purchases whose billing month changes. Refused with 409 if a purchase that would move is already on a card statement.")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Instruments.CardClosingDates, GetCardClosingDates.Handle)
+                .WithSummary("List a card's upcoming closing dates.")
+                .WithDescription("Closing dates from the card's current open month forward (a month is locked once anything in it was charged to a statement), flagged when a month-specific date overrides the usual day.")
+                .Produces<CardClosingDatesDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
+            group.MapPut(ApiRoutes.Instruments.CardClosingDate, PutCardClosingDate.Handle)
+                .WithSummary("Set a card's closing day for one month.")
+                .WithDescription("Overrides the closing day of one billing month that has not been charged yet, then re-buckets affected purchases. 409 if the month is locked or a charged purchase would move; 422 if the day is outside the month.")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapDelete(ApiRoutes.Instruments.CardClosingDate, DeleteCardClosingDate.Handle)
+                .WithSummary("Reset a card's closing day for one month.")
+                .WithDescription("Removes the month-specific closing day (back to the usual day), then re-buckets affected purchases. 409 if the month is locked or a charged purchase would move.")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             return endpoints;
         }
 

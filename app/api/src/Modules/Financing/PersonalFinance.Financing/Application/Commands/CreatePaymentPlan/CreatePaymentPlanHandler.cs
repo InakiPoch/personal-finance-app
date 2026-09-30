@@ -25,13 +25,17 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             return validation.Error;
         }
         int? cutoffDay;
+        BillingCycle? firstCycle = null;
         CreditCard? card = null;
         if(command.CardId is { } cardId) {
-            card = await context.CreditCards.FirstOrDefaultAsync(candidate => candidate.Id == cardId, cancellationToken);
+            card = await context.CreditCards
+                .Include(candidate => candidate.ClosingOverrides)
+                .FirstOrDefaultAsync(candidate => candidate.Id == cardId, cancellationToken);
             if(card is null) {
                 return FinancingErrors.CardNotFound;
             }
             cutoffDay = card.CutoffDay;
+            firstCycle = card.ResolveCycle(command.PurchaseDate);
         } else {
             var creditor = await context.Creditors
                 .Include(candidate => candidate.Accounts)
@@ -54,7 +58,8 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             new PhantomPennyAllocator(),
             command.Split?.Participants.Select(participant => (participant.PartyId, participant.Weight)).ToList(),
             command.CreditorId,
-            command.CreditorAccountId
+            command.CreditorAccountId,
+            firstCycle
         );
         if(plan.IsFailure) {
             return plan.Error;
@@ -105,6 +110,10 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
         return new DateTimeOffset(new DateOnly(cycle.Year, cycle.Month, day).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
     }
 
+    private static DateTimeOffset closingInstant(CreditCard card, BillingCycle cycle) {
+        return new DateTimeOffset(card.ClosingDateOf(cycle).ToDateTime(TimeOnly.MinValue), TimeSpan.Zero);
+    }
+
     private static Result stampBackdatedCreditorInstallments(PaymentPlan plan, DateOnly today) {
         var currentMonthOrdinal = ordinalOf(new BillingCycle(today.Year, today.Month));
         foreach(var installment in plan.Installments.OrderBy(candidate => candidate.Sequence)) {
@@ -124,10 +133,10 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
         var currentMonthOrdinal = ordinalOf(new BillingCycle(today.Year, today.Month));
         foreach(var installment in plan.Installments.OrderBy(candidate => candidate.Sequence)) {
             var closeCycle = installment.Cycle;
-            if(!closeCycle.IsClosedAsOf(today, card.CutoffDay)) {
+            if(!card.IsClosedAsOf(closeCycle, today)) {
                 break;
             }
-            var closeInstant = clampedCutoffInstant(closeCycle, card.CutoffDay);
+            var closeInstant = closingInstant(card, closeCycle);
             var statement = await context.MonthlyStatements.FirstOrDefaultAsync(
                 candidate => candidate.CardId == card.Id
                     && candidate.CycleYear == closeCycle.Year
@@ -166,7 +175,7 @@ internal sealed class CreatePaymentPlanHandler(FinancingDbContext context, Finan
             if(ordinalOf(installment.DueCycle) >= currentMonthOrdinal) {
                 continue;
             }
-            var dueInstant = clampedCutoffInstant(installment.DueCycle, card.CutoffDay);
+            var dueInstant = closingInstant(card, installment.DueCycle);
             var paymentLines = new List<PostTransactionLine> {
                 new(card.LiabilityAccountId, DebitOrCredit.Debit, installment.Amount),
                 new(bankAccountId!.Value, DebitOrCredit.Credit, installment.Amount)

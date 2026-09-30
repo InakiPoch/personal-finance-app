@@ -38,7 +38,7 @@ describe('CreditorDetailPage', () => {
   let instrumentsList: jasmine.Spy<() => Observable<Instrument[]>>;
 
   const money = (value: number): Money => value as Money;
-  const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null }];
+  const bankAccounts: Instrument[] = [{ id: 'bank-1', type: 'debit', name: 'Galicia', cutoffDate: null, nextClosingDate: null }];
 
   const detail: CreditorDetail = {
     creditorId: 'cred-1',

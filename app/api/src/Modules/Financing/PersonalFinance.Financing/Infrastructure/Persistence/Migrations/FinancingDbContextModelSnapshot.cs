@@ -17,6 +17,31 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");
 
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.ClosingOverride", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CardId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ClosingDay")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CycleMonth")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CycleYear")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CardId", "CycleYear", "CycleMonth")
+                        .IsUnique();
+
+                    b.ToTable("financing_card_closing_overrides", (string)null);
+                });
+
             modelBuilder.Entity("PersonalFinance.Financing.Domain.CreditCard", b =>
                 {
                     b.Property<Guid>("Id")
@@ -325,6 +350,15 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.ToTable("financing_outbox_messages", (string)null);
                 });
 
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.ClosingOverride", b =>
+                {
+                    b.HasOne("PersonalFinance.Financing.Domain.CreditCard", null)
+                        .WithMany("ClosingOverrides")
+                        .HasForeignKey("CardId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PersonalFinance.Financing.Domain.CreditorAccount", b =>
                 {
                     b.HasOne("PersonalFinance.Financing.Domain.Creditor", null)
@@ -364,6 +398,11 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                         .HasForeignKey("PaymentPlanId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("PersonalFinance.Financing.Domain.CreditCard", b =>
+                {
+                    b.Navigation("ClosingOverrides");
                 });
 
             modelBuilder.Entity("PersonalFinance.Financing.Domain.Creditor", b =>

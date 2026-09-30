@@ -49,6 +49,7 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
         var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
         Assert.Equal(2, response.Rows.Count);
         Assert.Equal("Alpha", response.Rows[0].CreditorName);
+        Assert.Equal("ARS", response.Rows[0].CurrencyCode);
         Assert.Equal(42_000, response.Rows[0].TotalOwedMinorUnits);
         Assert.Equal("Beta", response.Rows[1].CreditorName);
         Assert.Equal(9_000, response.Rows[1].TotalOwedMinorUnits);
@@ -67,6 +68,7 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
         var response = await new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(fixedNow)).HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
         var row = Assert.Single(response.Rows);
         Assert.Equal("Solo", row.CreditorName);
+        Assert.Equal("ARS", row.CurrencyCode);
         Assert.Equal(15_000, row.TotalOwedMinorUnits);
         Assert.DoesNotContain(response.Rows, candidate => candidate.TotalOwedMinorUnits == 77_777);
     }
@@ -235,8 +237,38 @@ public sealed class GetCreditorPayablesHandlerTests : IDisposable {
         Assert.Equal(new DateOnly(2026, 3, 10), row.NextDueDate);
     }
 
-    private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits) {
-        var total = Money.FromMinorUnits(totalMinorUnits, Currency.Reference);
+    [Fact]
+    public async Task Handle_splits_one_creditor_into_one_row_per_currency_without_mixing_amounts() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Dual", ["AA Bank", "ZZ Bank"], cancellationToken);
+        var aaAccountId = creditor.Row.Accounts.Single(account => account.Label == "AA Bank").Id;
+        var zzAccountId = creditor.Row.Accounts.Single(account => account.Label == "ZZ Bank").Id;
+        await using(var context = NewContext()) {
+            context.PaymentPlans.Add(CreateCreditorPlan(creditor.CreditorId, aaAccountId, new DateOnly(2026, 1, 10), 2, 20_000));
+            context.PaymentPlans.Add(CreateCreditorPlan(creditor.CreditorId, zzAccountId, new DateOnly(2026, 1, 10), 3, 9_000, Currency.Usd));
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        // Jan 15 -> current due cycle Feb 2026: only each plan's first cuota is due now.
+        var handler = new GetCreditorPayablesHandler(readContext, new FixedTimeProvider(new DateTimeOffset(2026, 1, 15, 0, 0, 0, TimeSpan.Zero)));
+        var response = await handler.HandleAsync(new GetCreditorPayablesQuery(), cancellationToken);
+        Assert.Equal(2, response.Rows.Count);
+        var ars = response.Rows.Single(row => row.CurrencyCode == "ARS");
+        Assert.Equal(10_000, ars.DueNowMinorUnits);
+        Assert.Equal(20_000, ars.TotalOwedMinorUnits);
+        var arsAccount = Assert.Single(ars.Accounts);
+        Assert.Equal("AA Bank", arsAccount.Label);
+        Assert.Equal(20_000, arsAccount.OutstandingMinorUnits);
+        var usd = response.Rows.Single(row => row.CurrencyCode == "USD");
+        Assert.Equal(3_000, usd.DueNowMinorUnits);
+        Assert.Equal(9_000, usd.TotalOwedMinorUnits);
+        var usdAccount = Assert.Single(usd.Accounts);
+        Assert.Equal("ZZ Bank", usdAccount.Label);
+        Assert.Equal(9_000, usdAccount.OutstandingMinorUnits);
+    }
+
+    private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits, Currency? currency = null) {
+        var total = Money.FromMinorUnits(totalMinorUnits, currency ?? Currency.Reference);
         return PaymentPlan.Create(
             cardId: null,
             total,

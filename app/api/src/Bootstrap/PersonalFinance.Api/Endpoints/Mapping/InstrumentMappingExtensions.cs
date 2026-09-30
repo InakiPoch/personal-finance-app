@@ -11,10 +11,14 @@ internal static class InstrumentMappingExtensions {
 
     public static InstrumentsListDto ToInstrumentsListDto(this InstrumentAccountsResponse accounts, ListCreditCardsResponse cards) {
         var rows = accounts.Rows
-            .Select(account => new InstrumentRowDto(account.AccountId, toInstrumentType(account.Kind), account.Name, null))
-            .Concat(cards.Rows.Select(card => new InstrumentRowDto(card.CardId, "credit", card.Name, card.CutoffDay)))
+            .Select(account => new InstrumentRowDto(account.AccountId, toInstrumentType(account.Kind), account.Name, null, null))
+            .Concat(cards.Rows.Select(card => new InstrumentRowDto(card.CardId, "credit", card.Name, card.CutoffDay, card.NextClosingDate)))
             .ToList();
         return new InstrumentsListDto(rows);
+    }
+
+    public static CardClosingDatesDto ToCardClosingDatesDto(this CardClosingScheduleResponse response) {
+        return new CardClosingDatesDto(response.Rows.Select(row => new CardClosingDateDto(row.Year, row.Month, row.ClosingDate, row.IsOverride, row.IsLocked)).ToList());
     }
 
     private static string toInstrumentType(string accountKind) {

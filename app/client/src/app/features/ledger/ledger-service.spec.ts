@@ -15,7 +15,6 @@ import { RecordDebitExpenseResult } from './types/record-debit-expense-result';
 import { RecordIncome } from './types/record-income';
 import { RecordIncomeResult } from './types/record-income-result';
 import { ReverseTransactionResult } from './types/reverse-transaction-result';
-import { TransactionRow } from './types/transaction-row';
 import { LedgerService } from './ledger-service';
 
 describe('LedgerService', () => {
@@ -55,43 +54,6 @@ describe('LedgerService', () => {
     expect(req.request.body).toEqual(body);
     req.flush({ transactionId: 'tx-1' });
     expect(result).toBe('tx-1');
-  });
-
-  it('GETs the transaction feed and unwraps the { rows } envelope', () => {
-    const rows: TransactionRow[] = [{
-      transactionId: 'tx-1',
-      postedOnUtc: '2026-09-15T10:30:00Z',
-      description: 'Manual entry',
-      amountMinorUnits: money(50000),
-      currencyCode: 'ARS',
-      isReversal: false,
-      isReversed: false,
-      installmentReferenceId: null,
-      splitReferenceId: null
-    }];
-    let result: TransactionRow[] | undefined;
-    service.listTransactions().subscribe((r: TransactionRow[]) => (result = r));
-    const req = httpMock.expectOne(
-      (r) => r.method === 'GET' && r.url === `${base}/ledger/transactions`,
-    );
-    expect(req.request.params.keys()).toEqual([]);
-    req.flush({ rows });
-    expect(result).toEqual(rows);
-  });
-
-  it('passes the account and date-range filter through as query params', () => {
-    let result: TransactionRow[] | undefined;
-    service
-      .listTransactions({ accountId: 'acc-1', from: '2026-09-01', to: '2026-09-30' })
-      .subscribe((r: TransactionRow[]) => (result = r));
-    const req = httpMock.expectOne(
-      (r) => r.method === 'GET' && r.url === `${base}/ledger/transactions`,
-    );
-    expect(req.request.params.get('accountId')).toBe('acc-1');
-    expect(req.request.params.get('from')).toBe('2026-09-01');
-    expect(req.request.params.get('to')).toBe('2026-09-30');
-    req.flush({ rows: [] });
-    expect(result).toEqual([]);
   });
 
   it('POSTs a reversal for a transaction id and returns the append-only result', () => {

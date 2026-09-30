@@ -80,8 +80,8 @@ describe('StatementPage', () => {
   }
 
   const instruments: Instrument[] = [
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
-    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 }
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null }
   ];
 
   beforeEach(() => {
@@ -121,10 +121,10 @@ describe('StatementPage', () => {
     expect(text).toContain('$');
     expect(text).toContain('1 of 3');
   });
-  it('shows the reversal-credit note', () => {
+  it('shows the undo-credit note', () => {
     setup();
     fixture.detectChanges();
-    expect(fixture.nativeElement.textContent).toContain('netted');
+    expect(fixture.nativeElement.textContent).toContain('reduces your next card bill');
   });
   it('navigates to the id-driven reverse route when an installment Reverse button is clicked', () => {
     setup();
@@ -137,12 +137,12 @@ describe('StatementPage', () => {
     reverseButton.click();
     expect(navigate).toHaveBeenCalledWith(['ledger', 'transactions', 'tx-acc-1', 'reverse']);
   });
-  it('labels the full-statement action "Pay full statement"', () => {
+  it('labels the full-bill action "Pay full card bill"', () => {
     setup();
     fixture.detectChanges();
     const submit: HTMLButtonElement =
       fixture.nativeElement.querySelector('.statement__pay button[type="submit"]');
-    expect(submit.textContent?.trim()).toBe('Pay full statement');
+    expect(submit.textContent?.trim()).toBe('Pay full card bill');
   });
   it('keeps the pay form invalid until an account and date are chosen', () => {
     setup();

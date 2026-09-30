@@ -35,6 +35,24 @@ internal static class SubscriptionMappingExtensions {
         return new ActiveSubscriptionsDto(rows);
     }
 
+    public static SubscriptionsByMonthDto ToSubscriptionsByMonthDto(this SubscriptionsByMonthResponse response) {
+        var rows = response.Rows
+            .Select(row => new SubscriptionByMonthRowDto(
+                row.SubscriptionId,
+                row.Name,
+                row.AmountMinorUnits,
+                row.Category,
+                row.Frequency.ToString(),
+                row.AnchorDay,
+                row.NextDueDate,
+                row.DueDate,
+                row.Status,
+                row.CurrencyCode)
+            )
+            .ToList();
+        return new SubscriptionsByMonthDto(rows);
+    }
+
     extension(Guid subscriptionId) {
         public SubscriptionResultDto ToSubscriptionResultDto() {
             return new SubscriptionResultDto(subscriptionId);

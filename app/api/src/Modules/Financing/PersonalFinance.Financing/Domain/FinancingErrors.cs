@@ -187,4 +187,19 @@ internal static class FinancingErrors {
         "Financing.PartyShareAlreadyPaid",
         "This party's share of the installment has already been paid."
     );
+
+    public static readonly Error InvalidClosingDay = new(
+        "Financing.InvalidClosingDay",
+        "The closing day must fall within the month of the billing cycle."
+    );
+
+    public static readonly Error ClosingMonthLocked = new(
+        "Financing.ClosingMonthLocked",
+        "That month's card statement has already been charged, so its closing date can no longer change."
+    );
+
+    public static readonly Error ClosingChangeMovesChargedPurchase = new(
+        "Financing.ClosingChangeMovesChargedPurchase",
+        "The change would move a purchase that is already on a card statement."
+    );
 }

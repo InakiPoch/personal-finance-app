@@ -17,6 +17,8 @@ using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.Parties.Contracts.Queries;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.Subscriptions;
+using PersonalFinance.Subscriptions.Contracts;
+using PersonalFinance.Subscriptions.Contracts.Commands;
 using Xunit;
 
 namespace PersonalFinance.Reporting.Tests;
@@ -28,6 +30,8 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
     public Guid ReportingCardId { get; private set; }
     public long AliceOwed { get; private set; }
     public long BobOwed { get; private set; }
+    public Guid FeedBankId { get; private set; }
+    public Guid FeedManualTransactionId { get; private set; }
 
     private static readonly IModule[] modules = [
         new LedgerModule(),
@@ -44,6 +48,7 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         ["PartiesDbContext"] = 3
     };
 
+    private readonly SemaphoreSlim feedSeedLock = new(1, 1);
     private IHost? host;
     private string databasePath = string.Empty;
 
@@ -144,6 +149,38 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         await PostAsync("June statement payment", At(6, 16), cardLiability, bank, 8_000);
     }
 
+    /// <summary>
+    /// Opt-in extra data for TransactionFeedTests (own card, bank, back-dated plan, subscription). Not part of the default seed so the
+    /// card and dashboard tests sharing this fixture type are unaffected. Idempotent.
+    /// </summary>
+    public async Task EnsureTransactionFeedSeedAsync() {
+        await feedSeedLock.WaitAsync();
+        try {
+            if(FeedBankId != Guid.Empty) {
+                return;
+            }
+            await SeedTransactionFeedAsync();
+        }
+        finally {
+            feedSeedLock.Release();
+        }
+    }
+
+    private async Task SeedTransactionFeedAsync() {
+        FeedBankId = await CreateAccountAsync("Feed Bank", AccountType.Asset, AccountKind.Bank);
+        var feedOther = await CreateAccountAsync("Feed Other Bank", AccountType.Asset, AccountKind.Bank);
+        var feedCardId = await CreateCreditCardAsync("Feed Visa", 15);
+        // Back-dated three months: elapsed installments are accrued and paid at creation, the closed ones still due are accrued and unpaid.
+        await CreatePaymentPlanAsync(600_000, feedCardId, 6, DateOnly.FromDateTime(DateTime.UtcNow).AddMonths(-3), "ARS", "Feed Notebook", FeedBankId);
+        FeedManualTransactionId = await PostAsync("Feed manual transfer", At(6, 20), FeedBankId, feedOther, 1_500);
+        await using var scope = host!.Services.CreateAsyncScope();
+        var commandBus = scope.ServiceProvider.GetRequiredService<ICommandBus>();
+        var subscription = await commandBus.SendAsync<Guid>(
+            new CreateSubscriptionTemplateCommand("Feed Netflix", 5_000, "Streaming Feed", FeedBankId, RecurrenceFrequency.Monthly, 1),
+            CancellationToken.None);
+        Assert.True(subscription.IsSuccess, $"CreateSubscriptionTemplate failed: {subscription.Error}");
+    }
+
     private static DateTimeOffset At(int month, int day) {
         return new DateTimeOffset(2026, month, day, 9, 0, 0, TimeSpan.Zero);
     }
@@ -194,11 +231,11 @@ public sealed class ReportingIntegrationFixture : IAsyncLifetime {
         return result.Value;
     }
 
-    private async Task CreatePaymentPlanAsync(long amountMinorUnits, Guid cardId, int installmentCount, DateOnly purchaseDate, string currencyCode = "ARS") {
+    private async Task CreatePaymentPlanAsync(long amountMinorUnits, Guid cardId, int installmentCount, DateOnly purchaseDate, string currencyCode = "ARS", string description = "Reporting fixture purchase", Guid? bankAccountId = null) {
         await using var scope = host!.Services.CreateAsyncScope();
         var financing = scope.ServiceProvider.GetRequiredService<IFinancingApi>();
         var result = await financing.CreatePaymentPlanAsync(
-            new CreatePaymentPlanCommand(amountMinorUnits, cardId, installmentCount, purchaseDate, "Reporting fixture purchase", CurrencyCode: currencyCode),
+            new CreatePaymentPlanCommand(amountMinorUnits, cardId, installmentCount, purchaseDate, description, BankAccountId: bankAccountId, CurrencyCode: currencyCode),
             CancellationToken.None);
         Assert.True(result.IsSuccess, $"CreatePaymentPlan failed: {result.Error}");
     }

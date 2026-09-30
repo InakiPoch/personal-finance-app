@@ -8,10 +8,9 @@ namespace PersonalFinance.Financing.Application.Queries.GetCardPurchases;
 
 internal sealed class GetCardPurchasesHandler(FinancingDbContext context) : IQueryHandler<GetCardPurchasesQuery, CardPurchasesResponse> {
     public async Task<CardPurchasesResponse> HandleAsync(GetCardPurchasesQuery query, CancellationToken cancellationToken) {
-        var cutoffDay = await context.CreditCards
-            .Where(card => card.Id == query.CardId)
-            .Select(card => card.CutoffDay)
-            .FirstOrDefaultAsync(cancellationToken);
+        var card = await context.CreditCards
+            .Include(candidate => candidate.ClosingOverrides)
+            .FirstOrDefaultAsync(candidate => candidate.Id == query.CardId, cancellationToken);
         var statements = await context.MonthlyStatements
             .Where(statement => statement.CardId == query.CardId)
             .Select(statement => new { statement.Id, statement.PaidOnUtc })
@@ -41,13 +40,13 @@ internal sealed class GetCardPurchasesHandler(FinancingDbContext context) : IQue
                     && !isPaid))
             .ToList();
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
-        var currentCycle = BillingCycleCalculator.ResolveCycle(today, cutoffDay);
+        var currentCycle = card?.ResolveCycle(today);
         var rows = outstanding
             .GroupBy(row => row.PlanId)
             .Select(group => new {
                 First = group.First(),
                 OutstandingCount = group.Count(),
-                IsCurrentCycle = group.Any(row => row.CycleYear == currentCycle.Year && row.CycleMonth == currentCycle.Month)
+                IsCurrentCycle = currentCycle is not null && group.Any(row => row.CycleYear == currentCycle.Year && row.CycleMonth == currentCycle.Month)
             })
             .OrderByDescending(entry => entry.IsCurrentCycle)
             .ThenByDescending(entry => entry.First.PurchaseDate)

@@ -10,7 +10,10 @@ public sealed class ErrorHttpStatusHelperTests {
     [InlineData("Financing.StatementAlreadyPaid", StatusCodes.Status409Conflict)]
     [InlineData("Ledger.Unbalanced", StatusCodes.Status422UnprocessableEntity)]
     [InlineData("Instruments.UnknownType", StatusCodes.Status400BadRequest)]
-    [InlineData("Foo.Bar", StatusCodes.Status400BadRequest)]
+    [InlineData("Financing.ClosingMonthLocked", StatusCodes.Status409Conflict)]
+    [InlineData("Financing.ClosingChangeMovesChargedPurchase", StatusCodes.Status409Conflict)]
+    [InlineData("Financing.InvalidClosingDay", StatusCodes.Status422UnprocessableEntity)]
+    [InlineData("Foo.Bar",StatusCodes.Status400BadRequest)]
     public void From_maps_an_error_code_to_its_http_status(string errorCode, int expectedStatus) {
         Assert.Equal(expectedStatus, ErrorHttpStatusHelper.From(errorCode));
     }

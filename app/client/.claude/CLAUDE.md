@@ -132,6 +132,11 @@ member.
 - User-facing messages key off the error **`code`** (`AppError.code`), never the `detail` text.
   The API always sets the HTTP status from the code — trust it.
 
+**Copy**
+- UI copy follows the glossary in `docs/friendly-ui/00-overview.md` (repo root); enforced by
+  `src/app/copy-glossary.spec.ts`, which renders every routed page (loading + error states) and
+  fails on banned terms. Identifiers, routes and type names keep their technical names.
+
 **Cleanup**
 - The one pattern: `private destroy$ = new Subject<void>()` + `takeUntil(this.destroy$)` +
   `ngOnDestroy` (`implements OnInit, OnDestroy` explicitly). Not `takeUntilDestroyed` /

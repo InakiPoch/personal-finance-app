@@ -4,6 +4,7 @@ import { Observable, map } from 'rxjs';
 import { ActiveSubscription } from './types/active-subscription';
 import { CreateSubscription } from './types/create-subscription';
 import { Frequency } from './types/frequency';
+import { MonthSubscription } from './types/month-subscription';
 import { PaySubscriptionResult } from './types/pay-subscription-result';
 import { SubscriptionResult } from './types/subscription-result';
 
@@ -16,14 +17,27 @@ export class SubscriptionsService {
   listActive(): Observable<ActiveSubscription[]> {
     return this.http
       .get<RowsEnvelope<ActiveSubscription>>('subscriptions/active')
-      .pipe(
-        map((envelope: RowsEnvelope<ActiveSubscription>) =>
-          envelope.rows.map((row: ActiveSubscription) => ({
-            ...row,
-            frequency: row.frequency.toLowerCase() as Frequency,
-          })),
-        ),
-      );
+    .pipe(
+      map((envelope: RowsEnvelope<ActiveSubscription>) =>
+        envelope.rows.map((row: ActiveSubscription) => ({
+          ...row,
+          frequency: row.frequency.toLowerCase() as Frequency
+        }))
+      )
+    );
+  }
+
+  listByMonth(month: string): Observable<MonthSubscription[]> {
+    return this.http
+      .get<RowsEnvelope<MonthSubscription>>('subscriptions/by-month', { params: { month } })
+    .pipe(
+      map((envelope: RowsEnvelope<MonthSubscription>) =>
+        envelope.rows.map((row: MonthSubscription) => ({
+          ...row,
+          frequency: row.frequency.toLowerCase() as Frequency
+        }))
+      )
+    );
   }
 
   create(body: CreateSubscription): Observable<SubscriptionResult> {

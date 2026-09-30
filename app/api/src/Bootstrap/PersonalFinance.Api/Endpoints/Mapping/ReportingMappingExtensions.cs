@@ -1,3 +1,4 @@
+using System.Globalization;
 using PersonalFinance.Api.Endpoints.DTOs;
 using PersonalFinance.Reporting.Dashboards;
 using PersonalFinance.Reporting.Reports;
@@ -65,5 +66,32 @@ internal static class ReportingMappingExtensions {
                 row.CurrencyCode))
             .ToList();
         return new MoneyFlowDto(rows);
+    }
+
+    public static TransactionFeedQuery ToTransactionFeedQuery(this Guid? accountId, string? from, string? to) {
+        return new TransactionFeedQuery(accountId, parseDateOnly(from), parseDateOnly(to));
+    }
+
+    public static TransactionFeedDto ToTransactionFeedDto(this TransactionFeedResponse response) {
+        return new TransactionFeedDto(response.Rows.Select(row => row.ToTransactionFeedRowDto()).ToList());
+    }
+
+    public static TransactionFeedRowDto ToTransactionFeedRowDto(this TransactionFeedRow row) {
+        return new TransactionFeedRowDto(
+            row.Id,
+            row.PostedOnUtc,
+            row.Kind,
+            row.Description,
+            row.FromAccounts,
+            row.ToAccounts,
+            row.AmountMinorUnits,
+            row.CurrencyCode,
+            row.IsUndoEntry,
+            row.IsUndone,
+            row.ImpactLines);
+    }
+
+    private static DateOnly? parseDateOnly(string? value) {
+        return string.IsNullOrWhiteSpace(value) ? null : DateOnly.Parse(value, CultureInfo.InvariantCulture);
     }
 }

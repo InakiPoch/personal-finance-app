@@ -43,10 +43,6 @@ internal sealed class LedgerApi(ICommandBus commandBus, IQueryBus queryBus) : IL
         return queryBus.AskAsync(query, ct);
     }
 
-    public Task<TransactionFeedResponse> GetTransactionsAsync(GetTransactionsQuery query, CancellationToken ct = default) {
-        return queryBus.AskAsync(query, ct);
-    }
-
     public Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default) {
         return queryBus.AskAsync(query, ct);
     }

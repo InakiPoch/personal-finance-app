@@ -1,6 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormArray, FormControl, FormGroup } from '@angular/forms';
+import { ActivatedRoute, Params, convertToParamMap } from '@angular/router';
 import { Observable, of, throwError } from 'rxjs';
 import { TestScheduler } from 'rxjs/testing';
 import { AppError } from '../../../../core/types/app-error';
@@ -102,9 +103,9 @@ describe('LoadExpensePage', () => {
   }
 
   const instruments: Instrument[] = [
-    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12 },
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null },
-    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null }
+    { id: 'card-credit', type: 'credit', name: 'Visa', cutoffDate: 12, nextClosingDate: null },
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+    { id: 'acct-cash', type: 'cash', name: 'Wallet', cutoffDate: null, nextClosingDate: null }
   ];
   const creditors: Creditor[] = [
     {
@@ -126,10 +127,15 @@ describe('LoadExpensePage', () => {
       .and.returnValue(of<RecordDebitExpenseResult>({ id: 'expense-1' }));
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance(100000)));
     listParties = jasmine.createSpy('list').and.returnValue(of<Party[]>(partyRoster));
+    createPage();
+  });
+
+  function createPage(queryParams: Params = {}): void {
     TestBed.configureTestingModule({
       imports: [LoadExpensePage],
       providers: [
         provideZonelessChangeDetection(),
+        { provide: ActivatedRoute, useValue: { snapshot: { queryParamMap: convertToParamMap(queryParams) } } },
         { provide: FinancingService, useValue: { createPaymentPlan } },
         {
           provide: LedgerService,
@@ -143,12 +149,29 @@ describe('LoadExpensePage', () => {
     fixture = TestBed.createComponent(LoadExpensePage);
     view = fixture.componentInstance as unknown as LoadExpenseView;
     fixture.detectChanges();
-  });
+  }
 
   it('creates and loads the party list', () => {
     expect(fixture.componentInstance).toBeTruthy();
     expect(view.partiesStatus()).toBe('ready');
     expect(view.parties()).toEqual(partyRoster);
+  });
+  describe('party query param prefill', () => {
+    it('adds no split row without the param', () => {
+      expect(view.form.controls.split.length).toBe(0);
+    });
+    it('adds one weight-1 split row for a known party', () => {
+      TestBed.resetTestingModule();
+      createPage({ party: 'p1' });
+      expect(view.form.controls.split.length).toBe(1);
+      expect(view.form.controls.split.at(0).getRawValue()).toEqual({ partyId: 'p1', weight: 1 });
+      expect(view.form.controls.mode.value).toBe('card');
+    });
+    it('ignores an unknown party id', () => {
+      TestBed.resetTestingModule();
+      createPage({ party: 'unknown' });
+      expect(view.form.controls.split.length).toBe(0);
+    });
   });
   it('offers only credit cards from the instrument list', () => {
     expect(view.form.value.cardId).toBe('');
@@ -193,6 +216,37 @@ describe('LoadExpensePage', () => {
     view.onSubmit();
     const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
     expect(body.currencyCode).toBe('USD');
+  });
+  describe('currency toggle', () => {
+    const radio = (code: string): HTMLInputElement =>
+      Array.from<HTMLLabelElement>(fixture.nativeElement.querySelectorAll('fieldset label'))
+        .find((label: HTMLLabelElement) => label.textContent!.trim() === code)!
+        .querySelector('input')!;
+    const sign = (): string => (fixture.nativeElement.querySelector('#amount') as HTMLElement).previousElementSibling!.textContent!.trim();
+
+    it('renders ARS and USD radios with ARS checked by default', () => {      expect(radio('ARS')).toBeTruthy();
+      expect(radio('USD')).toBeTruthy();
+      expect(radio('ARS').checked).toBe(true);
+      expect(radio('USD').checked).toBe(false);
+    });
+    it('selecting USD updates the form and the card payload', () => {
+      radio('USD').click();
+      fixture.detectChanges();
+      expect(view.form.controls.currency.value).toBe('USD');
+      fillValidForm();
+      view.onSubmit();
+      const body: CreatePaymentPlan = createPaymentPlan.calls.mostRecent().args[0];
+      expect(body.currencyCode).toBe('USD');
+    });
+    it('shows US$ for USD and $ for ARS', () => {
+      expect(sign()).toBe('$');
+      radio('USD').click();
+      fixture.detectChanges();
+      expect(sign()).toBe('US$');
+      radio('ARS').click();
+      fixture.detectChanges();
+      expect(sign()).toBe('$');
+    });
   });
   it('rejects a whitespace-only description', () => {
     fillValidForm();

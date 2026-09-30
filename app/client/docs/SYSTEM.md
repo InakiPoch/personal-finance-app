@@ -29,6 +29,13 @@ cash + debit, card excluded) · accrual vs commitment (devengado now vs future c
 billing cycle / cutoff ("cierre") · installments ("cuotas") · category totals ·
 receivables from parties.
 
+**Voice:** those are design terms, not UI copy. Every visible string says plainly what a
+number means or what an action will do — "card bill", "billing month", "charged to the card",
+"what you owe", "owed to you", "undo entry", "installment"; never "API", "statement",
+"accrued", "liability", "receivable", "reversal" or "cuota", and no "Personal ledger"
+eyebrow. The full glossary lives in `docs/friendly-ui/00-overview.md` (repo root); the guard
+spec `src/app/copy-glossary.spec.ts` fails if a banned term renders on a routed page.
+
 ---
 
 ## Tokens
@@ -60,7 +67,7 @@ first design pass and are a little misleading now — read them as:
 | `--ink-faint` / `text-ink-faint` | `#476594` | captions, metadata, legend text, hatch lines — ~5:1 (was ~2.8:1, failed AA) |
 | `--rule` / `border-rule` | `rgba(38,34,28,.13)` | hairline separators, input underline, card border |
 | `--rule-strong` / `bg-rule-strong` | `rgba(38,34,28,.22)` | emphasis edges (not currently used for accent ticks — see `stamp-soft`) |
-| `--stamp` / `text-stamp` `bg-stamp` | `#2f5a8c` | **the accent** (a touch brighter/bluer than `ink`). Hero figure, "Personal ledger" kicker, cycle-bar Accrued segment, the `+` on "Record an expense", focus ring, active nav underline |
+| `--stamp` / `text-stamp` `bg-stamp` | `#2f5a8c` | **the accent** (a touch brighter/bluer than `ink`). Hero figure, cycle-bar Accrued segment, the `+` on "Record an expense", focus ring, active nav underline |
 | `--stamp-soft` / `bg-stamp-soft` | `#9ec3e5` | light-blue magnitude ticks — hero underline, per-row proportion ticks in the ranked list |
 | `--ledger` / `text-ledger` | `#3f7a54` | positive / settled states only ("Nothing due — you're square") |
 | `--negative` / `text-negative` | `#a5443a` | error text (`role="alert"` lines) |
@@ -116,7 +123,10 @@ captions (set in `styles.css` base).
   for bars/tracks; `rounded-[1px]` for legend swatches. Concentric: a bar inside a
   `p-6` panel stays small-radius, never matching the card.
 - **Column width: `max-w-184`** (= 46rem / 736px), centred, single column. States "a
-  page you read top to bottom", not "a control surface". Every view keeps this measure.
+  page you read top to bottom", not "a control surface". Every view keeps this measure
+  except the dashboard: `max-w-6xl`, with header, quick actions and the Due card full
+  width, then a 2-column grid at `lg+` (money flow left; Card bills over Subscriptions
+  right), single column below `lg`.
 
 ---
 
@@ -136,7 +146,10 @@ serif, `text-[2.6rem]`, **`text-stamp`** (the blue accent carries the key figure
 way a banking app colours your balance), tabular, alone above a `w-28 h-0.5
 rounded-full bg-stamp-soft` light-blue tick. Everything else is demoted — category breakdown is a
 quiet ranked column below it; card debt is a lifted `paper-raised` card; quick actions
-are `text-sm` chevron links, never buttons competing with the numbers.
+sit at the top: one filled primary button ("+ Record an expense"), a secondary chip
+("+ Record income") and a quiet chevron link, so the main action is obvious without
+competing with the numbers. The month picker sits at the right end of that row and
+drives every card on the page.
 
 When styling a new view: name its one focal element first, make it win with
 size + weight + the `stamp` accent, demote the rest.
@@ -187,7 +200,9 @@ Horizontal bar, `border-bottom: 1px var(--rule)`, same `--paper` as canvas.
 Links: `0.75rem`, `letter-spacing: .12em`, `text-transform: uppercase`,
 `color: var(--ink-faint)` → `--ink-soft` on hover. Active
 (`.primary-nav__link--active`): `color: var(--ink)` + `border-bottom: 2px var(--stamp)`.
-`overflow-x: auto` for narrow screens.
+Three `<ul>` groups (Views / Setup / Actions): Setup follows Views behind a `|` divider (`border-left: --rule-strong`), Actions is pushed to the far right;
+the bar wraps on narrow screens. Action-group links (`.primary-nav__link--action`) are filled
+buttons: `bg-stamp` / `paper-raised` text, `--ink` on hover and when active.
 
 ### Inputs
 Native `<input type="month">`: `border-b border-rule bg-transparent pb-0.5 font-sans
@@ -195,6 +210,15 @@ text-xs text-ink-soft outline-none focus-visible:border-stamp`. **Known compromi
 the native picker glyph can't be themed further; acceptable for a single-user tool.
 For `<select>` / richer date entry elsewhere, compose a headless primitive rather than
 hand-rolling — do not ship an unstyled native `<select>` as the "design".
+
+### Segmented toggle
+Two-or-three-option choice next to a value (currency on Load an Expense). A `<fieldset>` with an
+`sr-only` `<legend>`, `flex overflow-hidden rounded-card border border-rule`, holding radio
+`<label>`s (`<input type="radio" class="peer sr-only">` + a `<span>`). Options are
+`px-3 py-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink-faint`; the selected one is
+**filled** — `peer-checked:bg-stamp peer-checked:text-paper-raised` — and focus shows a
+`peer-focus-visible:ring-2 ring-inset ring-stamp`. Unlike the underlined "Paid with" picker, use it
+when a small control must pop beside a large figure.
 
 ### Dialog
 Native `<dialog>`, opened via `showModal()` (never a hand-rolled overlay/portal — the
@@ -229,8 +253,7 @@ Interactive elements: hover, focus-visible (`stamp` ring), disabled.
   nothing harsh or bright.
 - **Contrast test** — every text colour is ≥4.5:1 on its background (`ink` ~7.6:1,
   `ink-soft` ~5.6:1, `ink-faint` ~5:1, `heading` ~16:1). No text below AA.
-- **Signature test** — point to 5: cycle bar (blue Accrued / hatched Future) · blue
-  serif hero figure · ranked column with light-blue baseline ticks · "Personal ledger"
-  serif-italic kicker in the accent · warm-white canvas with lifted near-white cards.
+- **Signature test** — point to 4: cycle bar (blue Accrued / hatched Future) · blue
+  serif hero figure · ranked column with light-blue baseline ticks · warm-white canvas with lifted near-white cards.
 - **Token test** — every colour resolves to one `--paper/-raised/-inset`, `--heading`,
   `--ink*`, `--rule*`, `--stamp`, `--ledger` or `--negative`. No raw hex, no `gray-500`.

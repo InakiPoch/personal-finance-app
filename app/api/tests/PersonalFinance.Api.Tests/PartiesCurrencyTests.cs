@@ -12,12 +12,11 @@ public sealed class PartiesCurrencyTests(ApiWebApplicationFactory factory) : ICl
     public async Task A_party_with_an_ars_and_a_usd_split_gets_two_separated_balances() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var expenseAccountId = await CreateAccountAsync(client, "Currency Dining", "Expense", "Expense", cancellationToken);
         var bankId = await CreateAccountAsync(client, "Currency Bank", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Dana", cancellationToken);
 
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 10_000, "ARS", cancellationToken);
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 6_000, "USD", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 10_000, "ARS", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 6_000, "USD", cancellationToken);
 
         var balances = await GetBalancesAsync(client, partyId, cancellationToken);
         Assert.Equal(2, balances.Count);
@@ -29,12 +28,11 @@ public sealed class PartiesCurrencyTests(ApiWebApplicationFactory factory) : ICl
     public async Task Settling_the_usd_balance_leaves_the_ars_balance_untouched() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var expenseAccountId = await CreateAccountAsync(client, "Currency Dining 2", "Expense", "Expense", cancellationToken);
         var bankId = await CreateAccountAsync(client, "Currency Bank 2", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Ezra", cancellationToken);
 
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 10_000, "ARS", cancellationToken);
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 6_000, "USD", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 10_000, "ARS", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 6_000, "USD", cancellationToken);
 
         var settleResponse = await client.PostAsJsonAsync($"/v1/parties/{partyId}/settlements", new {
             amountMinorUnits = 1_000,
@@ -50,38 +48,35 @@ public sealed class PartiesCurrencyTests(ApiWebApplicationFactory factory) : ICl
     }
 
     [Fact]
-    public async Task Rejects_an_unsupported_currency_code_on_shared_expense_with_422() {
+    public async Task Rejects_an_unsupported_currency_code_on_a_split_expense_with_422() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var expenseAccountId = await CreateAccountAsync(client, "Currency Dining 3", "Expense", "Expense", cancellationToken);
         var bankId = await CreateAccountAsync(client, "Currency Bank 3", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Farid", cancellationToken);
 
-        var response = await client.PostAsJsonAsync("/v1/parties/shared-expenses", new {
-            description = "Bad currency",
-            totalMinorUnits = 1_000,
-            expenseAccountId,
-            fundingAccountId = bankId,
-            incurredOnUtc = DateTimeOffset.UtcNow,
-            participants = new[] { new { partyId, weight = 1L } },
-            currencyCode = "EUR"
-        }, cancellationToken);
+        var response = await PostSplitExpenseAsync(client, bankId, partyId, 1_000, "EUR", cancellationToken);
 
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
         var problem = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
-        Assert.Equal("Parties.InvalidCurrencyCode", problem.GetProperty("code").GetString());
+        Assert.Equal("Ledger.InvalidCurrencyCode", problem.GetProperty("code").GetString());
+    }
+
+    [Fact]
+    public async Task The_removed_shared_expenses_route_is_gone() {
+        var response = await factory.CreateClient().PostAsJsonAsync("/v1/parties/shared-expenses", new { }, TestContext.Current.CancellationToken);
+
+        Assert.Contains(response.StatusCode, new[] { HttpStatusCode.NotFound, HttpStatusCode.MethodNotAllowed });
     }
 
     [Fact]
     public async Task Timeline_running_balance_never_crosses_currencies() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var expenseAccountId = await CreateAccountAsync(client, "Currency Dining 4", "Expense", "Expense", cancellationToken);
         var bankId = await CreateAccountAsync(client, "Currency Bank 4", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Gaia", cancellationToken);
 
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 10_000, "ARS", cancellationToken);
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 6_000, "USD", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 10_000, "ARS", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 6_000, "USD", cancellationToken);
         await client.PostAsJsonAsync($"/v1/parties/{partyId}/settlements", new {
             amountMinorUnits = 1_000,
             bankAccountId = bankId,
@@ -104,12 +99,11 @@ public sealed class PartiesCurrencyTests(ApiWebApplicationFactory factory) : ICl
     public async Task Debt_summary_reports_one_row_per_currency_for_the_same_party() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var expenseAccountId = await CreateAccountAsync(client, "Currency Dining 5", "Expense", "Expense", cancellationToken);
         var bankId = await CreateAccountAsync(client, "Currency Bank 5", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Hiro", cancellationToken);
 
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 10_000, "ARS", cancellationToken);
-        await RegisterSharedExpenseAsync(client, expenseAccountId, bankId, partyId, 6_000, "USD", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 10_000, "ARS", cancellationToken);
+        await RecordSplitExpenseAsync(client, bankId, partyId, 6_000, "USD", cancellationToken);
 
         var summary = await client.GetFromJsonAsync<JsonElement>("/v1/reports/parties/debt-summary", cancellationToken);
         var rows = summary.GetProperty("rows").EnumerateArray()
@@ -139,16 +133,20 @@ public sealed class PartiesCurrencyTests(ApiWebApplicationFactory factory) : ICl
         return body.GetProperty("id").GetGuid();
     }
 
-    private static async Task RegisterSharedExpenseAsync(HttpClient client, Guid expenseAccountId, Guid fundingAccountId, Guid partyId, long totalMinorUnits, string currencyCode, CancellationToken cancellationToken) {
-        var response = await client.PostAsJsonAsync("/v1/parties/shared-expenses", new {
+    private static async Task RecordSplitExpenseAsync(HttpClient client, Guid sourceInstrumentId, Guid partyId, long amountMinorUnits, string currencyCode, CancellationToken cancellationToken) {
+        var response = await PostSplitExpenseAsync(client, sourceInstrumentId, partyId, amountMinorUnits, currencyCode, cancellationToken);
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+    }
+
+    private static Task<HttpResponseMessage> PostSplitExpenseAsync(HttpClient client, Guid sourceInstrumentId, Guid partyId, long amountMinorUnits, string currencyCode, CancellationToken cancellationToken) {
+        return client.PostAsJsonAsync("/v1/ledger/expenses", new {
             description = $"{currencyCode} split",
-            totalMinorUnits,
-            expenseAccountId,
-            fundingAccountId,
-            incurredOnUtc = DateTimeOffset.UtcNow,
-            participants = new[] { new { partyId, weight = 1L } },
+            amountMinorUnits,
+            categoryName = "Currency Dining",
+            sourceInstrumentId,
+            purchaseDate = DateTime.UtcNow.ToString("yyyy-MM-dd"),
+            split = new[] { new { partyId, weight = 1L } },
             currencyCode
         }, cancellationToken);
-        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
     }
 }

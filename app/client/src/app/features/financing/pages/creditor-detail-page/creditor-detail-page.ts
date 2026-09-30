@@ -109,7 +109,7 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     if(target.kind === 'expense') {
       return target.group.description;
     }
-    return `Cuota ${target.row.sequence}/${target.row.installmentCount} · ${this.payTargetGroup()?.description ?? ''}`;
+    return `Installment ${target.row.sequence}/${target.row.installmentCount} · ${this.payTargetGroup()?.description ?? ''}`;
   });
   protected readonly payDialogCurrency: Signal<CurrencyCode> = computed(() => {
     if(this.payTarget()?.kind === 'full-debt') {
@@ -136,16 +136,16 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
   private readonly payErrorMessages: Record<string, string> = {
     'Financing.NotACreditorInstallment': 'That installment is on a credit-card plan, not a creditor one.',
     'Financing.InstallmentAlreadyPaid': 'That installment is already marked paid.',
-    'Financing.InstallmentAlreadyReversed': 'That installment was reversed and cannot be paid.',
-    'Financing.InstallmentNotFound': 'No installment matches that id.',
+    'Financing.InstallmentAlreadyReversed': 'That installment was undone and cannot be paid.',
+    'Financing.InstallmentNotFound': 'That installment could not be found.',
     'Financing.InvalidPaymentAmount': 'Enter a valid payment amount.',
     'Financing.PaymentExceedsRemaining': "That payment exceeds what's still remaining.",
     'Financing.NoPaymentToUndo': 'There is no payment recorded on this installment to undo.',
     'Financing.InvalidCurrencyCode': 'Choose a currency for this payment.',
     'Financing.PartyShareAlreadyPaid': "That party's share is already paid.",
-    'Financing.PartyShareNotDue': 'This cuota is not accrued for party payments yet.',
+    'Financing.PartyShareNotDue': 'This installment is not charged to the card for party payments yet.',
     'Parties.SettlementExceedsBalance': 'This party has no outstanding balance for this share — they may have already settled it on the Parties page.',
-    'Parties.UnknownFundingAccount': 'Choose a debit account registered with the API.'
+    'Parties.UnknownFundingAccount': 'Choose a debit account from the list.'
   };
   private creditorId: string | null = null;
 

@@ -150,11 +150,11 @@ task. "Source" lists the exact endpoints (see `DESIGN.md` §9 for the full trace
   balances (the debt summary alone omits parties with zero ledger movements) and
   `GET /v1/parties/pending-shares` for the pending-schedule count.
 - **Detail shows:** a party's current balance and the movement timeline (chronological, with running
-  balance) that explains how the number was reached. Actions to register a shared expense and to
-  register a settlement when someone pays.
+  balance) that explains how the number was reached. A "Split an expense with <name>" link that opens Load an Expense with this party prefilled in the
+  split (`?party=<id>`; splits are created only from Load an Expense), and an action to register a
+  settlement when someone pays.
 - **Source:** `GET /v1/parties/{id}/balance`, `GET /v1/parties/{id}/timeline` (or the reporting
-  equivalent `GET /v1/reports/parties/{id}/timeline`), `POST /v1/parties/shared-expenses`,
-  `POST /v1/parties/{id}/settlements`.
+  equivalent `GET /v1/reports/parties/{id}/timeline`), `POST /v1/parties/{id}/settlements`.
 - **Notes:** cross-debts net automatically server-side; the client shows the resulting net only.
 - **Scheduled shares (`docs/parties-card-split/slice-2b-party-future-shares.md` +
   `docs/cycle-due-month/`, all built):** the detail view also shows a **"Scheduled"** block — what the

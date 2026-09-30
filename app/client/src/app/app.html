@@ -1,10 +1,21 @@
 <nav aria-label="Primary" class="primary-nav">
-  <ul class="primary-nav__list">
-    @for(item of navItems; track item.path) {
-      <li>
-        <a [routerLink]="item.path" routerLinkActive="primary-nav__link--active">{{ item.label }}</a>
-      </li>
-    }
-  </ul>
+  @for(group of navGroups; track group.kind) {
+    <ul
+      class="primary-nav__list"
+      [class.primary-nav__list--setup]="group.kind === 'setup'"
+      [attr.aria-label]="group.label"
+    >
+      @for(item of group.items; track item.path) {
+        <li>
+          <a
+            [routerLink]="item.path"
+            routerLinkActive="primary-nav__link--active"
+            [class.primary-nav__link--action]="group.kind === 'action'"
+            >{{ item.label }}</a
+          >
+        </li>
+      }
+    </ul>
+  }
 </nav>
 <router-outlet />

@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { formatArs } from '../../../../core/money/money';
+import { formatArs, formatMoney } from '../../../../core/money/money';
 import { Money } from '../../../../core/types/money';
 import { CreditorPayableRow } from '../../types/creditor-payable-row';
 import { CreditorPayablesTable } from './creditor-payables-table';
@@ -12,7 +12,7 @@ describe('CreditorPayablesTable', () => {
   const money = (value: number): Money => value as Money;
   const rows: CreditorPayableRow[] = [{
     creditorId: 'cred-1',
-    creditorName: 'Bank A',
+    creditorName: 'Bank A', currencyCode: 'ARS',
     dueNowMinorUnits: money(300000),
     totalOwedMinorUnits: money(500000),
     nextDueDate: '2026-10-01',
@@ -23,7 +23,7 @@ describe('CreditorPayablesTable', () => {
     }]
   }, {
     creditorId: 'cred-2',
-    creditorName: 'Bank B',
+    creditorName: 'Bank B', currencyCode: 'ARS',
     dueNowMinorUnits: money(750000),
     totalOwedMinorUnits: money(900000),
     nextDueDate: null,
@@ -69,6 +69,24 @@ describe('CreditorPayablesTable', () => {
     fixture.detectChanges();
     const link: HTMLAnchorElement = fixture.nativeElement.querySelector('tbody tr.payable-row a');
     expect(link.getAttribute('href')).toBe('/financing/creditor-payables/cred-1');
+  });
+  it('renders a USD row with USD formatting, not ARS', () => {
+    const usdRow: CreditorPayableRow = { ...rows[0], creditorId: 'cred-3', creditorName: 'Bank C', currencyCode: 'USD', dueNowMinorUnits: money(5000), totalOwedMinorUnits: money(12000) };
+    fixture.componentRef.setInput('payables', [usdRow]);
+    fixture.detectChanges();
+    const text: string = fixture.nativeElement.querySelector('tbody tr.payable-row').textContent;
+    expect(text).toContain(formatMoney(money(5000), 'USD'));
+    expect(text).toContain(formatMoney(money(12000), 'USD'));
+    expect(text).not.toContain(formatArs(money(5000)));
+  });
+  it('renders the same creditor in ARS and USD as two separate rows', () => {
+    const usdRow: CreditorPayableRow = { ...rows[0], currencyCode: 'USD', dueNowMinorUnits: money(5000), totalOwedMinorUnits: money(12000) };
+    fixture.componentRef.setInput('payables', [rows[0], usdRow]);
+    fixture.detectChanges();
+    const rowEls: NodeListOf<HTMLElement> = fixture.nativeElement.querySelectorAll('tbody tr.payable-row');
+    expect(rowEls.length).toBe(2);
+    expect(rowEls[0].textContent).toContain(formatMoney(money(300000), 'ARS'));
+    expect(rowEls[1].textContent).toContain(formatMoney(money(5000), 'USD'));
   });
   it('shows an empty note when there are no creditors', () => {
     fixture.componentRef.setInput('payables', []);

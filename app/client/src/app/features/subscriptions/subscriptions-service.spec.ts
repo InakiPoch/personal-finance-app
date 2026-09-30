@@ -9,6 +9,7 @@ import { Money } from '../../core/types/money';
 import { environment } from '../../environments/environment';
 import { ActiveSubscription } from './types/active-subscription';
 import { CreateSubscription } from './types/create-subscription';
+import { MonthSubscription } from './types/month-subscription';
 import { PaySubscriptionResult } from './types/pay-subscription-result';
 import { SubscriptionResult } from './types/subscription-result';
 import { SubscriptionsService } from './subscriptions-service';
@@ -18,6 +19,7 @@ describe('SubscriptionsService', () => {
   let httpMock: HttpTestingController;
 
   const activeUrl: string = `${environment.apiUrl}/subscriptions/active`;
+  const byMonthUrl: string = `${environment.apiUrl}/subscriptions/by-month`;
   const collectionUrl: string = `${environment.apiUrl}/subscriptions`;
 
   beforeEach(() => {
@@ -67,6 +69,38 @@ describe('SubscriptionsService', () => {
         currencyCode: 'ARS'
       }
     ]);
+  });
+
+  it('GETs subscriptions by month with the month param, unwraps { rows } and lowercases frequency', () => {
+    let result: MonthSubscription[] | undefined;
+    service.listByMonth('2026-11').subscribe((rows: MonthSubscription[]) => (result = rows));
+    const req = httpMock.expectOne((r) => r.url === byMonthUrl);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('month')).toBe('2026-11');
+    const row = {
+      subscriptionId: 'sub-1',
+      name: 'Netflix',
+      amountMinorUnits: 500000,
+      category: 'Entertainment',
+      frequency: 'Monthly',
+      anchorDay: 15,
+      nextDueDate: '2026-11-15',
+      dueDate: '2026-11-15',
+      status: 'upcoming',
+      currencyCode: 'ARS'
+    };
+    req.flush({ rows: [row] });
+    expect(result).toEqual([{ ...row, amountMinorUnits: 500000 as Money, frequency: 'monthly', status: 'upcoming' } as MonthSubscription]);
+  });
+
+  it('maps a 400 on by-month to an AppError keyed off code', () => {
+    let error: AppError | undefined;
+    service.listByMonth('bad').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
+    httpMock.expectOne((r) => r.url === byMonthUrl).flush(
+      { title: 'Bad request', status: 400, detail: 'invalid month', code: 'Subscriptions.InvalidMonth' },
+      { status: 400, statusText: 'Bad Request' }
+    );
+    expect(error).toEqual({ code: 'Subscriptions.InvalidMonth', title: 'Bad request', detail: 'invalid month', status: 400, metadata: {} });
   });
 
   it('POSTs the create body and returns the new id', () => {

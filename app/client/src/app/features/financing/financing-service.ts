@@ -7,6 +7,7 @@ import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
+import { DueThisMonthRow } from './types/due-this-month-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayCreditorExpense } from './types/pay-creditor-expense';
@@ -71,6 +72,14 @@ export class FinancingService {
     return this.http
       .get<RowsEnvelope<CreditorPayableRow>>('financing/creditor-payables')
     .pipe(map((envelope: RowsEnvelope<CreditorPayableRow>) => envelope.rows));
+  }
+
+  dueThisMonth(month?: string): Observable<DueThisMonthRow[]> {
+    return this.http
+      .get<RowsEnvelope<DueThisMonthRow>>('financing/due-this-month', {
+        params: month ? { month } : {},
+      })
+    .pipe(map((envelope: RowsEnvelope<DueThisMonthRow>) => envelope.rows));
   }
 
   creditorDetail(creditorId: string): Observable<CreditorDetail> {

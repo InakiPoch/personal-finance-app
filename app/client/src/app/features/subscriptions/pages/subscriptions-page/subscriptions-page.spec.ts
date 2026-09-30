@@ -54,8 +54,8 @@ const activeRow: ActiveSubscription = {
 };
 
 const instruments: Instrument[] = [
-  { id: 'acc-1', type: 'debit', name: 'Checking', cutoffDate: null },
-  { id: 'card-1', type: 'credit', name: 'Visa', cutoffDate: 20 }
+  { id: 'acc-1', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+  { id: 'card-1', type: 'credit', name: 'Visa', cutoffDate: 20, nextClosingDate: null }
 ];
 
 describe('SubscriptionsPage', () => {

@@ -351,16 +351,16 @@ Content-Type: application/json
 ### Register a 2-way shared expense — total 9000, holder implicit (weight index 0), Alice weight 1
 ### → Dr Shared Dinner 4500 + Dr "Alice Receivable" 4500 / Cr Shared Wallet 9000, tagged SplitReferenceId
 # @name sharedDinner
-POST {{parties}}/shared-expenses
+POST {{ledger}}/expenses
 Content-Type: application/json
 
 {
   "description": "Tasting menu",
-  "totalMinorUnits": 9000,
-  "expenseAccountId": "{{p6Expense.response.body.$.accountId}}",
-  "fundingAccountId": "{{p6Funding.response.body.$.id}}",
-  "incurredOnUtc": "2026-08-30T20:00:00Z",
-  "participants": [
+  "amountMinorUnits": 9000,
+  "categoryName": "Shared Dinner",
+  "sourceInstrumentId": "{{p6Funding.response.body.$.id}}",
+  "purchaseDate": "2026-08-30",
+  "split": [
     { "partyId": "{{alice.response.body.$.id}}", "weight": 1 }
   ]
 }
@@ -372,7 +372,7 @@ GET {{parties}}/{{alice.response.body.$.id}}/balance
 GET {{parties}}/{{alice.response.body.$.id}}/timeline
 
 # Read the ledger transaction id of the shared-expense posting (the endpoint returns the SplitReferenceId, not the txn id):
-#   sqlite3 personalfinance.db "SELECT Id FROM ledger_transactions WHERE SplitReferenceId = '{{sharedDinner.response.body.$.splitReferenceId}}' AND OriginalTransactionId IS NULL;"
+#   sqlite3 personalfinance.db "SELECT Id FROM ledger_transactions WHERE SplitReferenceId = '{{sharedDinner.response.body.$.id}}' AND OriginalTransactionId IS NULL;"
 
 ### Reverse the shared-expense transaction (paste the id) — expect { "compensatingEntryPosted": false } (no installment on the debit path)
 POST {{ledger}}/transactions/REPLACE_WITH_SHARED_DINNER_TXN_ID/reversal
@@ -384,7 +384,7 @@ GET {{parties}}/{{alice.response.body.$.id}}/balance
 GET {{parties}}/{{alice.response.body.$.id}}/timeline
 
 # Metadata check — the cascade advanced the split's own counter, nothing else:
-#   sqlite3 personalfinance.db "SELECT TotalMinorUnits, AccruedReceivableMinorUnits, ReversedReceivableMinorUnits FROM parties_expense_splits WHERE Id = '{{sharedDinner.response.body.$.splitReferenceId}}';"  -- expect 9000 | 4500 | 4500
+#   sqlite3 personalfinance.db "SELECT TotalMinorUnits, AccruedReceivableMinorUnits, ReversedReceivableMinorUnits FROM parties_expense_splits WHERE Id = '{{sharedDinner.response.body.$.id}}';"  -- expect 9000 | 4500 | 4500
 
 # ---- 6b. Card-split path: accrue → pay → reverse a cycle ----------------------
 
@@ -622,16 +622,16 @@ Content-Type: application/json
 { "name": "P7 Alice" }
 
 ### 2-way shared expense — total 10000, holder implicit (weight index 0) + Alice weight 1 → Alice owes 5000
-POST {{parties}}/shared-expenses
+POST {{ledger}}/expenses
 Content-Type: application/json
 
 {
   "description": "P7 dinner",
-  "totalMinorUnits": 10000,
-  "expenseAccountId": "{{p7Shared.response.body.$.accountId}}",
-  "fundingAccountId": "{{p7Bank.response.body.$.accountId}}",
-  "incurredOnUtc": "2026-07-25T09:00:00Z",
-  "participants": [
+  "amountMinorUnits": 10000,
+  "categoryName": "P7 Shared Dining",
+  "sourceInstrumentId": "{{p7Bank.response.body.$.accountId}}",
+  "purchaseDate": "2026-07-25",
+  "split": [
     { "partyId": "{{p7Alice.response.body.$.id}}", "weight": 1 }
   ]
 }
@@ -658,16 +658,16 @@ Content-Type: application/json
 { "name": "P7 Bob" }
 
 ### 2-way shared expense — total 8000, Bob weight 1 → Bob owes 4000
-POST {{parties}}/shared-expenses
+POST {{ledger}}/expenses
 Content-Type: application/json
 
 {
   "description": "P7 concert",
-  "totalMinorUnits": 8000,
-  "expenseAccountId": "{{p7Shared.response.body.$.accountId}}",
-  "fundingAccountId": "{{p7Bank.response.body.$.accountId}}",
-  "incurredOnUtc": "2026-07-27T09:00:00Z",
-  "participants": [
+  "amountMinorUnits": 8000,
+  "categoryName": "P7 Shared Dining",
+  "sourceInstrumentId": "{{p7Bank.response.body.$.accountId}}",
+  "purchaseDate": "2026-07-27",
+  "split": [
     { "partyId": "{{p7Bob.response.body.$.id}}", "weight": 1 }
   ]
 }
@@ -799,7 +799,7 @@ Content-Type: application/json
 # {"id":"01a05dd3-575f-7132-beed-898a4241126e"}
 # NOTE: the body carries the new id; there is NO Location header — PostParty returns
 # TypedResults.Created((string?)null, ...) so the response is 201 with no Location.
-# (Same for POST /v1/instruments, POST /v1/parties/shared-expenses, POST /v1/parties/{id}/settlements.)
+# (Same for POST /v1/instruments, POST /v1/parties/{id}/settlements.)
 
 ### CORS preflight — allowed origin (appsettings Cors:AllowedOrigins = ["http://localhost:4200"])
 OPTIONS {{ledger}}/transactions
@@ -831,7 +831,7 @@ Accept: application/json
 # paths: 20 —
 #   /v1/financing/cards/{id}/future-schedule   /v1/financing/payment-plans   /v1/financing/statements/{id}/pay
 #   /v1/instruments   /v1/ledger/accounts   /v1/ledger/accounts/{id}/balance   /v1/ledger/transactions
-#   /v1/ledger/transactions/{id}/reversal   /v1/parties   /v1/parties/shared-expenses   /v1/parties/{id}/balance
+#   /v1/ledger/transactions/{id}/reversal   /v1/parties   /v1/parties/{id}/balance
 #   /v1/parties/{id}/settlements   /v1/parties/{id}/timeline   /v1/reports/card-due-by-month
 #   /v1/reports/monthly-expenses   /v1/reports/parties/debt-summary   /v1/reports/parties/{id}/timeline
 #   /v1/subscriptions   /v1/subscriptions/active   /v1/subscriptions/{id}
@@ -1271,21 +1271,21 @@ Content-Type: application/json
 # HTTP/2 201
 
 ### Seed 4 — shared expense 60000 → PF Dining, holder + Alice + Bob (1/1/1) ⇒ holder share 20000
-POST {{parties}}/shared-expenses
+POST {{ledger}}/expenses
 Content-Type: application/json
 
 {
   "description": "Cena compartida",
-  "totalMinorUnits": 60000,
-  "expenseAccountId": "01a05fde-2998-7027-9e7f-defd14915d90",
-  "fundingAccountId": "01a05fdd-c302-7f01-a653-ae8af14bdff1",
-  "incurredOnUtc": "2026-09-01T20:00:00Z",
-  "participants": [
+  "amountMinorUnits": 60000,
+  "categoryName": "PF Dining",
+  "sourceInstrumentId": "01a05fdd-c302-7f01-a653-ae8af14bdff1",
+  "purchaseDate": "2026-09-01",
+  "split": [
     { "partyId": "01a05fde-29b3-78ae-a385-9209deec08ab", "weight": 1 },
     { "partyId": "01a05fde-29df-7d89-8eaa-a716e8e03c3d", "weight": 1 }
   ]
 }
-# HTTP/2 201  {"splitReferenceId":"01a05fde-6fd7-7e19-b4b7-5f881b64a822"}
+# HTTP/2 201  {"id":"01a05fde-6fd7-7e19-b4b7-5f881b64a822"}
 #   posts one 4-leg txn:  Dr PF Dining 20000 / Dr PF Alice Rec 20000 / Dr PF Bob Rec 20000 / Cr PF Checking 60000
 
 ### US-1 AC1 (prior month) + AC4 — monthly expenses for 2026-08

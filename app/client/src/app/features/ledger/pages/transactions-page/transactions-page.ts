@@ -14,8 +14,8 @@ import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
-import { LedgerService } from '../../ledger-service';
-import { TransactionRow } from '../../types/transaction-row';
+import { ReportsService } from '../../../reports/reports-service';
+import { TransactionFeedRow } from '../../../reports/types/transaction-feed-row';
 import { TransactionsTable } from './transactions-table';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
@@ -35,7 +35,7 @@ type FeedFilterForm = FormGroup<{
 })
 export class TransactionsPage implements OnInit, OnDestroy {
   protected form!: FeedFilterForm;
-  protected readonly transactions: WritableSignal<TransactionRow[]> = signal<TransactionRow[]>([]);
+  protected readonly transactions: WritableSignal<TransactionFeedRow[]> = signal<TransactionFeedRow[]>([]);
   protected readonly loadStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly accounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type !== 'credit')
@@ -43,7 +43,7 @@ export class TransactionsPage implements OnInit, OnDestroy {
 
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly router: Router = inject(Router);
-  private readonly ledger: LedgerService = inject(LedgerService);
+  private readonly reports: ReportsService = inject(ReportsService);
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly destroy$: Subject<void> = new Subject<void>();
@@ -66,16 +66,17 @@ export class TransactionsPage implements OnInit, OnDestroy {
   private loadTransactions(): void {
     const { accountId, from, to } = this.form.getRawValue();
     this.loadStatus.set('loading');
-    this.ledger
-      .listTransactions({ accountId, from, to })
+    this.reports
+      .transactions({ accountId, from, to })
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: (rows: TransactionRow[]) => {
+        next: (rows: TransactionFeedRow[]) => {
           this.transactions.set(rows);
           this.loadStatus.set('ready');
         },
         error: () => this.loadStatus.set('error')
-      });
+      }
+    );
   }
 
   private initFilterForm(): void {

@@ -12,6 +12,7 @@ import { CreatePaymentPlan } from './types/create-payment-plan';
 import { CreatePaymentPlanResult } from './types/create-payment-plan-result';
 import { CreditorDetail } from './types/creditor-detail';
 import { CreditorPayableRow } from './types/creditor-payable-row';
+import { DueThisMonthRow } from './types/due-this-month-row';
 import { MonthlyStatement } from './types/monthly-statement';
 import { MonthlyStatementSummary } from './types/monthly-statement-summary';
 import { PayCreditorExpense } from './types/pay-creditor-expense';
@@ -217,7 +218,7 @@ describe('FinancingService', () => {
   it('GETs the creditor payables list and unwraps the { rows } envelope', () => {
     const rows: CreditorPayableRow[] = [{
       creditorId: 'cr-1',
-      creditorName: 'Juan',
+      creditorName: 'Juan', currencyCode: 'ARS',
       dueNowMinorUnits: money(45000),
       totalOwedMinorUnits: money(45000),
       nextDueDate: '2026-03-10',
@@ -231,6 +232,45 @@ describe('FinancingService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ rows });
     expect(result).toEqual(rows);
+  });
+  it('GETs due-this-month and unwraps the { rows } envelope', () => {
+    const rows: DueThisMonthRow[] = [
+      { kind: 'card', sourceId: 'c1', sourceName: 'Visa', currencyCode: 'ARS', amountMinorUnits: money(500000) },
+      { kind: 'creditor', sourceId: 'cr1', sourceName: 'Juan', currencyCode: 'USD', amountMinorUnits: money(5000) }
+    ];
+    let result: DueThisMonthRow[] | undefined;
+    service.dueThisMonth().subscribe((r: DueThisMonthRow[]) => (result = r));
+    const req = httpMock.expectOne(`${base}/financing/due-this-month`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows });
+    expect(result).toEqual(rows);
+  });
+  it('sends the month query param on due-this-month when a month is given', () => {
+    const rows: DueThisMonthRow[] = [
+      { kind: 'card', sourceId: 'c1', sourceName: 'Visa', currencyCode: 'ARS', amountMinorUnits: money(500000) }
+    ];
+    let result: DueThisMonthRow[] | undefined;
+    service.dueThisMonth('2026-11').subscribe((r: DueThisMonthRow[]) => (result = r));
+    const req = httpMock.expectOne((r) => r.url === `${base}/financing/due-this-month`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('month')).toBe('2026-11');
+    req.flush({ rows });
+    expect(result).toEqual(rows);
+  });
+  it('omits the month query param on due-this-month when no month is given', () => {
+    service.dueThisMonth().subscribe();
+    const req = httpMock.expectOne(`${base}/financing/due-this-month`);
+    expect(req.request.params.has('month')).toBeFalse();
+    req.flush({ rows: [] });
+  });
+  it('maps a 400 on due-this-month to an AppError keyed off code', () => {
+    let error: AppError | undefined;
+    service.dueThisMonth('bad').subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
+    httpMock.expectOne((r) => r.url === `${base}/financing/due-this-month`).flush(
+      { title: 'Bad request', status: 400, detail: 'invalid month', code: 'Financing.InvalidMonth' },
+      { status: 400, statusText: 'Bad Request' }
+    );
+    expect(error).toEqual({ code: 'Financing.InvalidMonth', title: 'Bad request', detail: 'invalid month', status: 400, metadata: {} });
   });
   it('GETs a creditor detail as a bare object with its purchase groups intact', () => {
     const detail: CreditorDetail = {

@@ -37,7 +37,9 @@ internal sealed class AccrueInstallments(
 
     private static async Task accrueClosedCyclesAsync(
         FinancingDbContext context, ILedgerApi ledger, IIntegrationEventDispatcher dispatcher,
-        ILogger logger, DateTimeOffset now, DateOnly today, CancellationToken cancellationToken) {
+        ILogger logger, DateTimeOffset now, DateOnly today, CancellationToken cancellationToken
+    ) {
+        await context.Set<ClosingOverride>().ToListAsync(cancellationToken);
         var pending = await (
             from installment in context.Set<Installment>()
             where installment.AccruedOnUtc == null
@@ -54,7 +56,7 @@ internal sealed class AccrueInstallments(
             if(installment.AccruedOnUtc is not null) {
                 continue;
             }
-            if(!installment.Cycle.IsClosedAsOf(today, card.CutoffDay)) {
+            if(!card.IsClosedAsOf(installment.Cycle, today)) {
                 continue;
             }
             var statement = await context.MonthlyStatements.FirstOrDefaultAsync(

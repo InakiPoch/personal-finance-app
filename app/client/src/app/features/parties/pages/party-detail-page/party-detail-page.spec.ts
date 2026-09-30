@@ -110,7 +110,7 @@ describe('PartyDetailPage', () => {
   }
 
   const instruments: Instrument[] = [
-    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null }
+    { id: 'acct-debit', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null }
   ];
 
   beforeEach(() => {
@@ -141,6 +141,12 @@ describe('PartyDetailPage', () => {
     expect(view.timelineStatus()).toBe('ready');
     expect(view.balance()?.name).toBe('Alice');
     expect(text()).toContain('Shared expense');
+  });
+  it('links to Load an Expense with this party prefilled in the split', () => {
+    setup();
+    const link: HTMLAnchorElement = fixture.nativeElement.querySelector('a[href^="/financing/load-expense"]');
+    expect(link.getAttribute('href')).toBe('/financing/load-expense?party=p1');
+    expect(link.textContent).toContain('Split an expense with Alice');
   });
   it('navigates to the id-driven reverse route when a timeline Reverse button is clicked', () => {
     setup();

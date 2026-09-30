@@ -68,7 +68,7 @@ describe('TimelineTable', () => {
       fixture.nativeElement.querySelectorAll('tbody tr button');
     expect(buttons[0].disabled).toBeFalse();
     expect(buttons[1].disabled).toBeTrue();
-    expect(fixture.nativeElement.querySelector('.timeline__note').textContent).toContain('Reversal entry');
+    expect(fixture.nativeElement.querySelector('.timeline__note').textContent).toContain('Undo entry');
   });
   it('shows an empty note when there are no rows', () => {
     fixture.componentRef.setInput('rows', []);

@@ -21,11 +21,6 @@ internal static class EndpointExtensions {
                 .Produces<PostTransactionResultDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-            group.MapGet(ApiRoutes.Ledger.Transactions, GetTransactions.Handle)
-                .WithSummary("List posted transactions, newest first.")
-                .WithDescription("Returns the Ledger transaction feed with a synthesized label per row, optionally narrowed to one account (?accountId=) and a posted-date range (?from=&to=, inclusive, yyyy-MM-dd). Each row flags whether it is itself a reversal and whether it has since been reversed.")
-                .Produces<TransactionFeedDto>(StatusCodes.Status200OK)
-                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapPost(ApiRoutes.Ledger.Reversal, ReverseTransaction.Handle)
                 .WithSummary("Reverse a posted transaction.")
                 .WithDescription("Posts a storno reversal of the given transaction, plus a compensating card-credit entry if the reversed installment was already paid. Always succeeds unless the transaction is missing or is itself a reversal.")
@@ -104,6 +99,11 @@ internal static class EndpointExtensions {
                 .WithSummary("List recent purchases across every card.")
                 .WithDescription("Returns every payment plan, newest-first, independent of card grouping or debt state, capped at a default limit.")
                 .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Financing.DueThisMonth, GetDueThisMonth.Handle)
+                .WithSummary("Get what is due this month across cards and creditors.")
+                .WithDescription("Optional month query parameter (yyyy-MM, default current month). Read-only dashboard roll-up, one row per (source, currency): unpaid card installments due by the current month (overdue included) plus creditor remaining amounts due now (same cutoff rule as creditor payables). Zero amounts are omitted.")
+                .Produces<DueThisMonthDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapGet(ApiRoutes.Financing.CreditorPayables, GetCreditorPayables.Handle)
                 .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
                 .WithDescription("Read-only roll-up over creditor-financed payment plans, in remaining (unpaid) amounts: \"due now\" folds in arrears up to the current billing cycle, \"total owed\" adds future installments. Fully or partially paid amounts are excluded. Card-backed plans never appear.")
@@ -163,6 +163,32 @@ internal static class EndpointExtensions {
                 .WithSummary("List registered payment instruments.")
                 .WithDescription("Unified read of every registered instrument: debit and cash accounts from Ledger plus credit cards from Financing, each tagged with its instrument type.")
                 .Produces<InstrumentsListDto>(StatusCodes.Status200OK);
+            group.MapPut(ApiRoutes.Instruments.CardClosingDay, PutCardClosingDay.Handle)
+                .WithSummary("Change a card's usual closing day.")
+                .WithDescription("Sets the day (1-31) the card closes on in every month without a specific date, then re-buckets purchases whose billing month changes. Refused with 409 if a purchase that would move is already on a card statement.")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapGet(ApiRoutes.Instruments.CardClosingDates, GetCardClosingDates.Handle)
+                .WithSummary("List a card's upcoming closing dates.")
+                .WithDescription("Closing dates from the card's current open month forward (a month is locked once anything in it was charged to a statement), flagged when a month-specific date overrides the usual day.")
+                .Produces<CardClosingDatesDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
+            group.MapPut(ApiRoutes.Instruments.CardClosingDate, PutCardClosingDate.Handle)
+                .WithSummary("Set a card's closing day for one month.")
+                .WithDescription("Overrides the closing day of one billing month that has not been charged yet, then re-buckets affected purchases. 409 if the month is locked or a charged purchase would move; 422 if the day is outside the month.")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapDelete(ApiRoutes.Instruments.CardClosingDate, DeleteCardClosingDate.Handle)
+                .WithSummary("Reset a card's closing day for one month.")
+                .WithDescription("Removes the month-specific closing day (back to the usual day), then re-buckets affected purchases. 409 if the month is locked or a charged purchase would move.")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             return endpoints;
         }
 
@@ -211,6 +237,11 @@ internal static class EndpointExtensions {
                 .WithSummary("List active subscriptions.")
                 .WithDescription("Returns every subscription that is currently active.")
                 .Produces<ActiveSubscriptionsDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Subscriptions.ByMonth, GetSubscriptionsByMonth.Handle)
+                .WithSummary("List the subscriptions renewing in a given month.")
+                .WithDescription("Query parameter month (yyyy-MM, required). Returns every active subscription with its occurrence date in that month and a status of paid, overdue or upcoming. Past months derive the status from non-reversed ledger charges; templates store no start or cancellation date, so active subscriptions appear in every month.")
+                .Produces<SubscriptionsByMonthDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapPost(ApiRoutes.Subscriptions.Pay, PaySubscription.Handle)
                 .WithSummary("Pay the next unpaid period.")
                 .WithDescription("Posts one period's charge dated today, marks it paid, and advances the due date by one month. A subscription several months behind stays overdue until paid again.")
@@ -234,12 +265,6 @@ internal static class EndpointExtensions {
                 .WithSummary("Create a party.")
                 .WithDescription("Registers a third party for shared-expense tracking.")
                 .Produces<PartyResultDto>(StatusCodes.Status201Created)
-                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
-            group.MapPost(ApiRoutes.Parties.SharedExpenses, PostSharedExpense.Handle)
-                .WithSummary("Register a shared expense.")
-                .WithDescription("Posts one multi-leg Ledger transaction splitting an expense across the caller and one or more parties.")
-                .Produces<SharedExpenseResultDto>(StatusCodes.Status201Created)
-                .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapPost(ApiRoutes.Parties.Settle, PostSettlement.Handle)
                 .WithSummary("Settle a party's current account.")
@@ -288,6 +313,16 @@ internal static class EndpointExtensions {
                 .WithDescription("Accounting-style monthly rows over the Ledger money-flow view — an income credit or an out-of-pocket debit (my share only), reversed pairs hidden. The month query parameter is required.")
                 .Produces<MoneyFlowDto>(StatusCodes.Status200OK)
                 .ProducesProblem(StatusCodes.Status400BadRequest);
+            group.MapGet(ApiRoutes.Reporting.Transactions, GetTransactionFeed.Handle)
+                .WithSummary("List posted transactions with plain-language descriptions, newest first.")
+                .WithDescription("Each row carries a type badge, a real description, from and to accounts and the bullet points describing what undoing it would change. Optionally narrowed to one account (?accountId=) and a posted-date range (?from=&to=, inclusive, yyyy-MM-dd).")
+                .Produces<TransactionFeedDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
+            group.MapGet(ApiRoutes.Reporting.TransactionById, GetTransactionFeedRow.Handle)
+                .WithSummary("Get one transaction explained.")
+                .WithDescription("Same row shape as the feed. 404 when the transaction does not exist.")
+                .Produces<TransactionFeedRowDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status404NotFound);
             group.MapGet(ApiRoutes.Reporting.CardDueByMonth, GetCardDueByMonth.Handle)
                 .WithSummary("Get card liability due by month.")
                 .WithDescription("Combines already-accrued card liability with the not-yet-accrued future installment schedule.")

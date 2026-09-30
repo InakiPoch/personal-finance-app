@@ -13,6 +13,7 @@ import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { MonthlyIncomeRow } from './types/monthly-income-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
+import { TransactionFeedRow } from './types/transaction-feed-row';
 import { ReportsService } from './reports-service';
 
 describe('ReportsService', () => {
@@ -140,6 +141,44 @@ describe('ReportsService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ rows });
     expect(result).toEqual(rows);
+  });
+  const feedRow: TransactionFeedRow = {
+    id: 'tx-1',
+    postedOnUtc: '2026-09-15T10:30:00Z',
+    kind: 'Income',
+    description: 'Salary',
+    fromAccounts: ['Salary'],
+    toAccounts: ['Checking'],
+    amountMinorUnits: money(90000000),
+    currencyCode: 'ARS',
+    isUndoEntry: false,
+    isUndone: false,
+    impactLines: ['ARS 900.000 is removed from Checking.']
+  };
+  it('GETs the transaction feed without params and unwraps { rows }', () => {
+    let result: TransactionFeedRow[] | undefined;
+    service.transactions().subscribe((r: TransactionFeedRow[]) => (result = r));
+    const req = httpMock.expectOne((r) => r.url === `${environment.apiUrl}/reports/transactions`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.keys()).toEqual([]);
+    req.flush({ rows: [feedRow] });
+    expect(result).toEqual([feedRow]);
+  });
+  it('passes the transaction feed account and date filter as query params', () => {
+    service.transactions({ accountId: 'acc-1', from: '2026-09-01', to: '2026-09-30' }).subscribe();
+    const req = httpMock.expectOne((r) => r.url === `${environment.apiUrl}/reports/transactions`);
+    expect(req.request.params.get('accountId')).toBe('acc-1');
+    expect(req.request.params.get('from')).toBe('2026-09-01');
+    expect(req.request.params.get('to')).toBe('2026-09-30');
+    req.flush({ rows: [] });
+  });
+  it('GETs a single transaction by id and returns the row as-is', () => {
+    let result: TransactionFeedRow | undefined;
+    service.transaction('tx-1').subscribe((r: TransactionFeedRow) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/reports/transactions/tx-1`);
+    expect(req.request.method).toBe('GET');
+    req.flush(feedRow);
+    expect(result).toEqual(feedRow);
   });
   it('maps a failed response to an AppError keyed off code', () => {
     let error: AppError | undefined;

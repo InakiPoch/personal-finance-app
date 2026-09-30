@@ -23,6 +23,7 @@ public sealed record ApiRoutes {
         public const string CardStatements = "/cards/{id:guid}/statements";
         public const string CardPurchases = "/cards/{id:guid}/purchases";
         public const string RecentPurchases = "/purchases/recent";
+        public const string DueThisMonth = "/due-this-month";
         public const string CreditorPayables = "/creditor-payables";
         public const string CreditorPayableDetail = "/creditor-payables/{creditorId:guid}";
         public const string CreditorInstallmentPayment = "/creditor-installments/{id:guid}/pay";
@@ -36,6 +37,9 @@ public sealed record ApiRoutes {
         public const string Base = V1 + "/instruments";
         public const string Create = "/";
         public const string List = "/";
+        public const string CardClosingDay = "/cards/{id:guid}/closing-day";
+        public const string CardClosingDates = "/cards/{id:guid}/closing-dates";
+        public const string CardClosingDate = "/cards/{id:guid}/closing-dates/{year:int}/{month:int}";
     }
 
     public sealed record Creditors {
@@ -54,6 +58,7 @@ public sealed record ApiRoutes {
         public const string Create = "/";
         public const string Cancel = "/{id:guid}";
         public const string Active = "/active";
+        public const string ByMonth = "/by-month";
         public const string Pay = "/{id:guid}/pay";
         public const string Unpay = "/{id:guid}/unpay";
     }
@@ -62,7 +67,6 @@ public sealed record ApiRoutes {
         public const string Base = V1 + "/parties";
         public const string Create = "/";
         public const string List = "/";
-        public const string SharedExpenses = "/shared-expenses";
         public const string Settle = "/{id:guid}/settlements";
         public const string Balance = "/{id:guid}/balance";
         public const string Timeline = "/{id:guid}/timeline";
@@ -75,6 +79,8 @@ public sealed record ApiRoutes {
         public const string MonthlyExpenses = "/monthly-expenses";
         public const string MonthlyIncomes = "/monthly-incomes";
         public const string MoneyFlow = "/money-flow";
+        public const string Transactions = "/transactions";
+        public const string TransactionById = "/transactions/{id:guid}";
         public const string CardDueByMonth = "/card-due-by-month";
         public const string PartyTimeline = "/parties/{id:guid}/timeline";
         public const string DebtSummary = "/parties/debt-summary";

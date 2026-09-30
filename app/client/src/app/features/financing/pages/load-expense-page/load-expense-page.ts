@@ -10,6 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormArray, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { ActivatedRoute } from '@angular/router';
 import { Observable, Subject, map, merge, switchMap, takeUntil } from 'rxjs';
 import { pollUntil } from '../../../../core/http/poll-until';
 import { formatArs, fromMinorUnits, toMinorUnits } from '../../../../core/money/money';
@@ -109,6 +110,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
     { value: 'debit', label: 'My debit-cash' },
     { value: 'creditor', label: 'Financed by a creditor' },
   ];
+  protected readonly currencyOptions: readonly CurrencyCode[] = ['ARS', 'USD'];
   protected readonly errorMessages: Record<string, string> = {
     positiveAmount: 'Enter an amount greater than zero.',
     atMostTwoDecimals: 'Use at most two decimal places.',
@@ -122,6 +124,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   };
 
   private readonly fb: FormBuilder = inject(FormBuilder);
+  private readonly route: ActivatedRoute = inject(ActivatedRoute);
   private readonly financingService: FinancingService = inject(FinancingService);
   private readonly ledgerService: LedgerService = inject(LedgerService);
   private readonly creditorsService: CreditorsService = inject(CreditorsService);
@@ -129,14 +132,14 @@ export class LoadExpensePage implements OnInit, OnDestroy {
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly submitErrorMessages: Record<string, string> = {
-    'Financing.CardNotFound': 'That card is not registered with the API yet.',
+    'Financing.CardNotFound': 'Choose a card from the list.',
     'Financing.FuturePurchaseDate': 'The purchase date cannot be in the future.',
     'Financing.BackdatedCardBankAccountRequired': 'Pick an account to settle the already-due installments from.',
-    'Ledger.AccountNotFound': 'That account is not registered with the API.',
+    'Ledger.AccountNotFound': 'Choose an account from the list.',
     'Ledger.SourceAccountNotSpendable': 'Pick a debit or cash account to pay from.',
     'Ledger.InvalidExpenseCategory': 'Enter a category for the expense.',
     'Http.BadRequest': 'The expense could not be loaded — check the values and try again.',
-    'Http.UnprocessableEntity': 'The API rejected the expense — check the amount and dates.',
+    'Http.UnprocessableEntity': 'Check the amount and dates and try again.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };
@@ -297,6 +300,7 @@ export class LoadExpensePage implements OnInit, OnDestroy {
         next: (rows: Party[]) => {
           this.parties.set(rows);
           this.partiesStatus.set('ready');
+          this.prefillSplitFromQuery(rows);
         },
         error: () => this.partiesStatus.set('error')
       }
@@ -382,6 +386,15 @@ export class LoadExpensePage implements OnInit, OnDestroy {
       this.creditorAccounts.set(accounts);
       this.form.controls.creditorAccountId.setValue(accounts.length > 0 ? accounts[0].id : '');
     });
+  }
+
+  private prefillSplitFromQuery(rows: Party[]): void {
+    const partyId: string | null = this.route.snapshot.queryParamMap.get('party');
+    if(partyId && rows.some((row: Party) => row.id === partyId)) {
+      const splitRow: SplitRow = this.createSplitRow();
+      splitRow.controls.partyId.setValue(partyId);
+      this.form.controls.split.push(splitRow);
+    }
   }
 
   private createSplitRow(): SplitRow {

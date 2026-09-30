@@ -6,6 +6,7 @@ import { baseUrlInterceptor } from '../../core/http/base-url.interceptor';
 import { problemDetailsInterceptor } from '../../core/http/problem-details.interceptor';
 import { AppError } from '../../core/types/app-error';
 import { environment } from '../../environments/environment';
+import { ClosingScheduleRow } from './types/closing-schedule-row';
 import { CreateInstrument } from './types/create-instrument';
 import { Instrument } from './types/instrument';
 import { InstrumentCreated } from './types/instrument-created';
@@ -33,8 +34,8 @@ describe('InstrumentsService', () => {
 
   it('GETs the instrument list and unwraps the { rows } envelope', () => {
     const rows: Instrument[] = [
-      { id: 'acc-1', type: 'debit', name: 'Checking', cutoffDate: null },
-      { id: 'card-1', type: 'credit', name: 'Visa', cutoffDate: 15 }
+      { id: 'acc-1', type: 'debit', name: 'Checking', cutoffDate: null, nextClosingDate: null },
+      { id: 'card-1', type: 'credit', name: 'Visa', cutoffDate: 15, nextClosingDate: null }
     ];
     let result: Instrument[] | undefined;
     service.list().subscribe((instruments: Instrument[]) => (result = instruments));
@@ -78,6 +79,62 @@ describe('InstrumentsService', () => {
       detail: 'unknown type',
       status: 400,
       metadata: {}
+    });
+  });
+
+  describe('closing dates', () => {
+    const cardUrl: string = `${environment.apiUrl}/instruments/cards/card-1`;
+
+    it('PUTs the usual closing day', () => {
+      let done = false;
+      service.changeUsualClosingDay('card-1', 24).subscribe(() => (done = true));
+      const req = httpMock.expectOne(`${cardUrl}/closing-day`);
+      expect(req.request.method).toBe('PUT');
+      expect(req.request.body).toEqual({ day: 24 });
+      req.flush(null, { status: 204, statusText: 'No Content' });
+      expect(done).toBe(true);
+    });
+    it('GETs the closing schedule and unwraps the { rows } envelope', () => {
+      const rows: ClosingScheduleRow[] = [
+        { year: 2026, month: 10, closingDate: '2026-10-24', isOverride: true, isLocked: false },
+        { year: 2026, month: 11, closingDate: '2026-11-20', isOverride: false, isLocked: false },
+      ];
+      let result: ClosingScheduleRow[] | undefined;
+      service.closingSchedule('card-1').subscribe((r: ClosingScheduleRow[]) => (result = r));
+      const req = httpMock.expectOne(`${cardUrl}/closing-dates`);
+      expect(req.request.method).toBe('GET');
+      req.flush({ rows });
+      expect(result).toEqual(rows);
+    });
+    it('PUTs a per-month closing date', () => {
+      service.setClosingDate('card-1', 2026, 10, 24).subscribe();
+      const req = httpMock.expectOne(`${cardUrl}/closing-dates/2026/10`);
+      expect(req.request.method).toBe('PUT');
+      expect(req.request.body).toEqual({ day: 24 });
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
+    it('DELETEs a per-month closing date', () => {
+      service.clearClosingDate('card-1', 2026, 10).subscribe();
+      const req = httpMock.expectOne(`${cardUrl}/closing-dates/2026/10`);
+      expect(req.request.method).toBe('DELETE');
+      req.flush(null, { status: 204, statusText: 'No Content' });
+    });
+    it('maps a 409 on a mutation to an AppError keyed off code', () => {
+      let error: AppError | undefined;
+      service
+        .changeUsualClosingDay('card-1', 24)
+        .subscribe({ next: () => {}, error: (e: AppError) => (error = e) });
+      httpMock.expectOne(`${cardUrl}/closing-day`).flush(
+        {
+          title: 'Conflict',
+          status: 409,
+          detail: 'charged',
+          code: 'Financing.ClosingChangeMovesChargedPurchase',
+        },
+        { status: 409, statusText: 'Conflict' },
+      );
+      expect(error?.code).toBe('Financing.ClosingChangeMovesChargedPurchase');
+      expect(error?.status).toBe(409);
     });
   });
 });

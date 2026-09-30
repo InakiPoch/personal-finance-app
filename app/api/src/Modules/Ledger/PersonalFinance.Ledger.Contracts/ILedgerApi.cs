@@ -14,6 +14,5 @@ public interface ILedgerApi {
     Task<IReadOnlyList<Money>> GetAccountBalanceAsync(GetAccountBalanceQuery query, CancellationToken ct = default);
     Task<IReadOnlyList<Money>> GetCardLiabilityAsync(GetCardLiabilityQuery query, CancellationToken ct = default);
     Task<InstrumentAccountsResponse> ListInstrumentAccountsAsync(ListInstrumentAccountsQuery query, CancellationToken ct = default);
-    Task<TransactionFeedResponse> GetTransactionsAsync(GetTransactionsQuery query, CancellationToken ct = default);
     Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default);
 }

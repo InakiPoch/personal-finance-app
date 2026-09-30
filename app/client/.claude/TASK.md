@@ -309,6 +309,47 @@ endpoint) and maps the new `Parties.SettlementExceedsBalance` / `Parties.Unknown
 `Financing.PartyShareAlreadyPaid` / `Financing.PartyShareNotDue` errors into the existing
 `payErrorMessages`. Closes `docs/partial-creditor-payments/`. Tests 377/377.
 
+## Phase 47 — Friendly UI: grouped navbar + renames (Slice 1)
+
+Done. `docs/friendly-ui/slice-1-navbar.md`. Client-only. `App.navGroups` replaces the flat
+`navItems`: Views / Setup / Actions blocks spread across the bar; the two action links render as
+filled buttons (`primary-nav__link--action`). Seven page titles renamed (routes unchanged, D3);
+"Recent purchases" left the nav. Tests 382/382.
+
+## Phase 48 — Friendly UI: ARS | USD currency toggle (Slice 2)
+
+Done. `docs/friendly-ui/slice-2-currency-toggle.md`. Client-only. Load an Expense's currency
+`<select>` is now a filled segmented radio pair beside the amount (`currencyOptions` field), and the
+amount sign follows the selection (`$` / `US$`). Record Income's select untouched. Tests 385/385.
+
+## Phase 49 — Friendly UI: remove the shared-expense page, prefill the party (Slice 3)
+
+Done. `docs/friendly-ui/slice-3-remove-shared-expense.md`. `/parties/shared-expense` page, route, `registerSharedExpense`, and its three types deleted. Party detail links to `/financing/load-expense?party=<id>` ("Split an expense with <name>"); Load an Expense reads `?party=` once the parties list loads and pushes one weight-1 split row if the id is known (unknown → none). Tests 380/380.
+
+## Phase 50 — Friendly UI: subscription names (Slice 4)
+
+Done, no client change: labels come from the ledger account name, renamed API-side (API Phase 53). No spec fixture hard-coded a subscription `'… Expense'`. `docs/friendly-ui/slice-4-subscription-names.md`.
+
+## Phase 51 — Friendly UI: dashboard rework + Due this month (Slice 5)
+
+Done. `docs/friendly-ui/slice-5-dashboard.md`. Dashboard order: header (no "Personal ledger" eyebrow), quick actions (filled "+ Record an expense", "+ Record income" chip, "Recent Credit Card Purchases ›" link), Due this month card (per-currency total, Cards/Creditors sub-line, expandable breakdown, "Pay a card bill"/"Pay a creditor" links), flow (tabs "Money Spent" / "Money received", "Where your money went"), "Card bills by month" (Charged / Upcoming), Active subscriptions. USD purchase formatting bug fixed on expanded card purchases; creditor payables table formats per-row `currencyCode`; `FinancingService.dueThisMonth()`. A 2x2 viewport grid was tried and reverted (single column stays). Specs 396 green, lint + prod build clean.
+
+## Phase 51.1 — Friendly UI: month-driven dashboard (follow-up to Slice 5)
+
+Done. `docs/friendly-ui/slice-5-dashboard.md`. Month picker moved to the right end of the quick-actions row and drives every card (h1 "This month" or "<Month> <Year>"): Money Spent/Received + categories, Due card (`dueThisMonth(month)`), Card bills (filtered client-side to the month's cycle), Subscriptions (`subscriptions/by-month`; overdue first, "Future payments — not charged yet"). Late responses for a deselected month are dropped. Layout: `max-w-6xl`, header/quick actions/Due card full width, then a 2-column grid at lg+ (money flow left; Card bills over Subscriptions right). Specs 418 green, lint + prod build clean.
+
+## Phase 52 — Friendly UI: editable card closing dates (Slice 6)
+
+Done. `docs/friendly-ui/slice-6-closing-date.md`. Instruments page, per credit card: "Usual closing day: N [edit]" inline edit and a "Next closings" list (formatted "Oct 24", "(set)" tag on overrides, [edit] month-bounded date input, [reset] on overrides); "Next closing: Oct 24" replaces "closes N"; create-form label "Usual closing day". New presentational `card-closing-schedule` component, `closing-date-helpers.ts` (`formatClosingDate`/`daysInMonth`/`toIsoDate`), `InstrumentsService` +4 calls, `error.code` -> sentence map. Deviation: the editor closes on save and errors show below (no busy/ack handshake); a failed schedule load is silent. Specs 450/450 green (+31), lint + prod build clean.
+
+## Phase 53 — Friendly UI: rich transaction feed + reverse impact (Slice 7)
+
+Done. `docs/friendly-ui/slice-7-reverse.md`. Feed types `reports/types/transaction-feed-row.ts` + `transaction-kind.ts`; `ReportsService.transactions/transaction`; `LedgerService.listTransactions` removed. Table = Date · Type badge · Description (+from→to) · Amount · chevron, single expanded row with an "If you reverse this" panel holding `Reverse…`; confirm page fetches the row (description, badge, amount, from→to, impact), no GUID/jargon, button "Undo this transaction", error sentences keyed on `Ledger.TransactionAlreadyReversed` / `Ledger.CannotReverseAReversal` / `Http.Conflict` / any 404. Specs 464/464 (+14), lint + prod build clean. Deviations: D12 `transactions()` takes `IsoDate` from/to; D13 confirm page treats any 404 as not-found (code is `Reporting.TransactionNotFound`); D14 undone rows keep the chevron only if they have impact lines, undo entries have none; D15 "Back to transactions" link on not-found/error/success; D16 intro "Undo a transaction you added by mistake."; D17 two extra spec branches (non-404 load error, no card-credit note when flag false); D18 table spec drives the panel via the chevron; D19 polish: header "What"→"Description", Date cell nowrap, Date/Type cells vertically centered.
+
+## Phase 54 — Friendly UI: plain-language sweep (Slice 8)
+
+Done. `docs/friendly-ui/slice-8-glossary-sweep.md`. Glossary applied to 27 templates/`.ts` files (card bill / billing month / installment / undo entry; no "API", "statement", "cuota"; "Personal ledger" eyebrow removed from 15 pages); error sentences now say what to do next. Guard `copy-glossary.spec.ts` renders all 16 routed pages (loading, 500, 404) and fails on banned terms. Dashboard Card bills drops the ledger " Liability" suffix from card labels. Specs 514/514 (+50), lint + prod build clean. Deviations: D20 guard cannot reach success-state copy, page-specific error sentences or interaction-only dialogs (no static check of `.ts` error maps); D21 guard sets rxjs `config.onUnhandledError` to a no-op because some pages lack a secondary-request error handler; D22 verb forms "Reverse", "Reverse…", "If you reverse this", "Reversed" badge kept (action name). Closes the friendly-ui initiative.
+
 ---
 
 ## Verification (every phase)

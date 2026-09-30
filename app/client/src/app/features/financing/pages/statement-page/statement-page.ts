@@ -63,15 +63,15 @@ export class StatementPage implements OnInit, OnDestroy {
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
   private readonly payErrorMessages: Record<string, string> = {
-    'Financing.AlreadyPaid': 'This statement has already been paid.',
-    'Financing.StatementNotFound': 'No statement matches that id.',
-    'Financing.InstallmentNotFound': 'No installment matches that id.',
+    'Financing.AlreadyPaid': 'This card bill has already been paid.',
+    'Financing.StatementNotFound': 'That card bill could not be found.',
+    'Financing.InstallmentNotFound': 'That installment could not be found.',
     'Financing.InstallmentAlreadyPaid': 'That installment has already been paid.',
-    'Financing.InstallmentAlreadyReversed': 'That installment was reversed and cannot be paid.',
-    'Financing.InstallmentNotAccrued': 'That installment has not been billed to a statement yet.',
+    'Financing.InstallmentAlreadyReversed': 'That installment was undone and cannot be paid.',
+    'Financing.InstallmentNotAccrued': 'That installment has not been charged to a card bill yet.',
     'Http.BadRequest': 'The payment could not be recorded — check the values and try again.',
-    'Http.UnprocessableEntity': 'The API rejected the payment — check the account and date.',
-    'Http.Conflict': 'This statement has already been paid.',
+    'Http.UnprocessableEntity': 'The payment could not be recorded — check the account and date and try again.',
+    'Http.Conflict': 'This card bill has already been paid.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };

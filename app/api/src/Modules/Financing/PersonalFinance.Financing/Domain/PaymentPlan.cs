@@ -42,7 +42,9 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         PhantomPennyAllocator allocator,
         IReadOnlyList<(Guid PartyId, long Weight)>? splitParticipants = null,
         Guid? creditorId = null,
-        Guid? creditorAccountId = null) {
+        Guid? creditorAccountId = null,
+        BillingCycle? firstCycle = null
+    ) {
         if(total.MinorUnits <= 0) {
             return FinancingErrors.NonPositivePlanAmount;
         }
@@ -65,11 +67,11 @@ internal sealed class PaymentPlan : AggregateRoot<Guid> {
         };
         var weights = Enumerable.Repeat(1L, installmentCount).ToArray();
         var shares = allocator.Allocate(total, weights);
-        var firstCycle = cardId is not null
-            ? BillingCycleCalculator.ResolveCycle(purchaseDate, cutoffDay!.Value)
+        var startCycle = cardId is not null
+            ? firstCycle ?? BillingCycleCalculator.ResolveCycle(purchaseDate, cutoffDay!.Value)
             : BillingCycleCalculator.ResolveCycle(purchaseDate, CreditorCutoffDay);
         for(var i = 0; i < installmentCount; i++) {
-            plan.installments.Add(Installment.Schedule(plan.Id, i + 1, shares[i], firstCycle.AddMonths(i)));
+            plan.installments.Add(Installment.Schedule(plan.Id, i + 1, shares[i], startCycle.AddMonths(i)));
         }
         if (splitParticipants is null) return plan;
         foreach(var participant in splitParticipants) {

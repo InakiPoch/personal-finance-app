@@ -21,7 +21,7 @@ describe('CreditorPayablesPage', () => {
 
   const rows: CreditorPayableRow[] = [{
     creditorId: 'cred-1',
-    creditorName: 'Bank A',
+    creditorName: 'Bank A', currencyCode: 'ARS',
     dueNowMinorUnits: money(500000),
     totalOwedMinorUnits: money(500000),
     nextDueDate: '2026-10-01',

@@ -60,9 +60,10 @@ Full rationale lives in `docs/DESIGN.md`'s decisions log and product intent in `
 
 **The four modules:**
 - **Ledger** — sole source of accounting truth (D1), double-entry, append-only (`Transaction`/`Entry`, RNF-4). Corrections are storno (reversal) entries, never edits/deletes (D3).
-- **Financing** — credit cards, installment plans, billing-cycle calculation from each card's cutoff date (not calendar month).
-- **Subscriptions** — recurring charges, renewal scheduling.
-- **Parties** — third-party shared-expense tracking / running balances, layered as a management view over Ledger receivable accounts (D1) rather than a second ledger.
+- **Financing** — credit cards, installment plans, billing-cycle calculation from each card's cutoff date (not calendar month). Card closing = a usual day plus per-month overrides resolved via `CreditCard.ClosingDayOf`; edits re-bucket open plans, and months with a statement are locked. `GET /v1/financing/due-this-month` sums what is payable by the current *calendar* month (cards + creditors, per currency, overdue included) — takes an optional `month=yyyy-MM` (other months: due on or before M, minus amounts paid before the 1st of M), deliberately not the creditor cutoff-26 "due now" rule (`CreditorDueNowHelper`, used only by creditor payables, which are one row per creditor and currency).
+- **Subscriptions** — recurring charges, renewal scheduling. Each template's category ledger account is named `<name> Subscription` (not `<name> Expense`). `GET /v1/subscriptions/by-month?month=yyyy-MM` lists active subscriptions with a month status; past-month paid status comes from the Ledger via `FindPaidSubscriptionIdsQuery` over `IQueryBus` (not `ILedgerApi`).
+- **Reporting (read-only)** — owns the rich transaction feed: `GET /v1/reports/transactions[/{id}]` (the old Ledger feed is gone). `TransactionExplainer` is the single source of reversal/undo wording and must mirror `ReversalCalculator.Decide`. Each module contributes read views (`vw_ledger_transaction_legs`, `vw_installment_labels`, `vw_subscription_names`) via its own migration; the host does not auto-migrate, so run per-module `dotnet ef database update`.
+- **Parties** — third-party shared-expense tracking / running balances, layered as a management view over Ledger receivable accounts (D1) rather than a second ledger. Splits are created only through `RecordDebitExpense` (debit/cash) or a payment plan (card/creditor) — there is no standalone shared-expense endpoint.
 
 **Communication between modules** (`docs/DESIGN.md` §5.1):
 - **Sync (DI-resolved `.Contracts` interface)** — default for request/response needs, e.g. Ledger→Financing and Ledger→Parties during reversal cascades (D12).

@@ -134,6 +134,7 @@ internal static class FinancingMappingExtensions {
             .Select(row => new CreditorPayableRowDto(
                 row.CreditorId,
                 row.CreditorName,
+                row.CurrencyCode,
                 row.DueNowMinorUnits,
                 row.TotalOwedMinorUnits,
                 row.NextDueDate,
@@ -148,6 +149,13 @@ internal static class FinancingMappingExtensions {
             )
             .ToList();
         return new CreditorPayablesDto(rows);
+    }
+
+    public static DueThisMonthDto ToDueThisMonthDto(this DueThisMonthResponse response) {
+        var rows = response.Rows
+            .Select(row => new DueThisMonthRowDto(row.Kind, row.SourceId, row.SourceName, row.CurrencyCode, row.AmountMinorUnits))
+            .ToList();
+        return new DueThisMonthDto(rows);
     }
 
     public static CreditorDetailDto ToCreditorDetailDto(this CreditorDetailResponse response) {

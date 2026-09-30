@@ -71,10 +71,9 @@ src/app/
     parties/
       parties-service.ts
       types/  (create-party.ts, party-result.ts, current-account-balance.ts,
-               current-account-timeline-row.ts, register-shared-expense.ts,
-               shared-expense-participant.ts, shared-expense-result.ts,
+               current-account-timeline-row.ts,
                settle-current-account.ts, settlement-result.ts)
-      pages/  parties-page/, party-detail-page/, shared-expense-page/
+      pages/  parties-page/, party-detail-page/
       parties.routes.ts
     reports/
       reports-service.ts
@@ -264,14 +263,9 @@ no `I-` prefix.
   response to `'monthly'`, and the create form renders `frequency` as a fixed, disabled
   control. The seam reopens here if the API adds `Weekly` / `Annually`.
 
-**Parties** (`CreatePartyDto`, `RegisterSharedExpenseDto`, `SettleCurrentAccountDto`,
+**Parties** (`CreatePartyDto`, `SettleCurrentAccountDto`,
 `CurrentAccountDTO`)
 - `CreateParty = { name: string }`, `PartyResult = { id: string }`
-- `SharedExpenseParticipant = { partyId: string; weight: number }`
-- `RegisterSharedExpense = { description: string; totalMinorUnits: Money; expenseAccountId: string;
-  fundingAccountId: string; incurredOnUtc: IsoInstant; participants: SharedExpenseParticipant[];
-  currencyCode: CurrencyCode }` (`currencyCode` added in `docs/dollar-support/slice-4-parties.md`)
-- `SharedExpenseResult = { splitReferenceId: string }`
 - `SettleCurrentAccount = { amountMinorUnits: Money; bankAccountId: string; settledOnUtc: IsoInstant;
   currencyCode: CurrencyCode }` — the settle form constrains the offered `currencyCode` to whatever
   the party's balances actually carry a positive amount in
@@ -336,7 +330,6 @@ One `@Injectable({ providedIn: 'root' })` per bounded context, each `inject(Http
   `cancel(id: string): Observable<void>`; `listActive(): Observable<ActiveSubscription[]>`
   (unwraps the `{ rows }` envelope)
 - **PartiesService** — `create(body: CreateParty): Observable<PartyResult>`;
-  `registerSharedExpense(body: RegisterSharedExpense): Observable<SharedExpenseResult>`;
   `settle(partyId: string, body: SettleCurrentAccount): Observable<SettlementResult>`;
   `getBalance(partyId: string): Observable<CurrentAccountBalance>`;
   `getTimeline(partyId: string): Observable<CurrentAccountTimelineRow[]>`
@@ -393,7 +386,7 @@ nested. Exact wire shape:
 - Observables are confined to service I/O. Subscriptions in pages use the guide's single cleanup
   pattern (`private destroy$ = new Subject<void>()` + `takeUntil(this.destroy$)` +
   `ngOnDestroy`). No async pipe.
-- **Reactive forms** for every input view (Load expense, Instruments, Pay, Shared expense,
+- **Reactive forms** for every input view (Load expense, Instruments, Pay,
   Subscription). Forms built in an `initXForm()` method via `FormBuilder`; validators as pure
   functions; error copy via an `ErrorConfig` map. Money inputs are entered in major units and
   converted with `toMinorUnits` at submit.
@@ -422,7 +415,7 @@ credit cards, each row `{ id, type, name, cutoffDate }`). `InstrumentsService.li
 `{ rows }` envelope; every form that offers a card or funding account loads it into a local
 `WritableSignal<Instrument[]>` in `ngOnInit` and derives its `<select>` options with a `computed()`
 (`type === 'credit'` for card pickers, `type === 'debit'` for bank pickers, all types for the
-Subscriptions and Shared-expense funding pickers — D13/D17). `InstrumentsPage` re-fetches the list
+Subscriptions funding pickers — D13/D17). `InstrumentsPage` re-fetches the list
 after a successful create.
 
 The former `InstrumentRegistryService` — a `localStorage`-persisted signal of instruments created
@@ -434,7 +427,7 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | # | Method | Route | Service method | View |
 |---|--------|-------|----------------|------|
 | 1 | POST | `/v1/instruments` | `InstrumentsService.create` | Instruments setup |
-| 2 | GET | `/v1/instruments` | `InstrumentsService.list` | Instruments setup + every card/funding `<select>` (Load expense, Statement pay, Subscriptions, Party settlement, Shared expense) |
+| 2 | GET | `/v1/instruments` | `InstrumentsService.list` | Instruments setup + every card/funding `<select>` (Load expense, Statement pay, Subscriptions, Party settlement) |
 | 3 | POST | `/v1/ledger/transactions` | `LedgerService.postTransaction` | (low-level; internal) |
 | 4 | POST | `/v1/ledger/transactions/{id}/reversal` | `LedgerService.reverse` | Reverse movement; Money Flow's per-row Undo (income rows only, `docs/incomes-support/slice-3-undo-income.md`) |
 | 5 | GET | `/v1/ledger/accounts/{id}/balance` | `LedgerService.getAccountBalance` | (detail widgets) |
@@ -448,7 +441,6 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 13 | DELETE | `/v1/subscriptions/{id}` | `SubscriptionsService.cancel` | Subscriptions |
 | 14 | GET | `/v1/subscriptions/active` | `SubscriptionsService.listActive` | Subscriptions |
 | 15 | POST | `/v1/parties` | `PartiesService.create` | Parties |
-| 16 | POST | `/v1/parties/shared-expenses` | `PartiesService.registerSharedExpense` | Party detail / Shared expense |
 | 17 | POST | `/v1/parties/{id}/settlements` | `PartiesService.settle` | Party detail |
 | 18 | GET | `/v1/parties/{id}/balance` | `PartiesService.getBalance` | Party detail |
 | 19 | GET | `/v1/parties/{id}/timeline` | `PartiesService.getTimeline` | (parity only — not wired to a view; D16) |
@@ -472,6 +464,10 @@ deleted in Phase 12 (**D21**); the `Instrument` type lives at `features/instrume
 | 37 | GET | `/v1/reports/money-flow` | `ReportsService.moneyFlow` | Money Flow table (§3.13; required `month` param, one row per money movement, `kind`-driven signed rendering) |
 | 38 | POST | `/v1/financing/creditor-purchases/{paymentPlanId}/pay` | `FinancingService.payCreditorExpense` | Creditor detail — per-purchase **Pay expense**, opened via the shared pay dialog in `expense` mode (display-only; body `{ amountMinorUnits: Money \| null }`, `null` = pay everything remaining, a custom amount fills that purchase's cuotas in sequence order; card plan → 409 `Financing.NotACreditorInstallment`; 0/negative or over-remaining → 400; returns `{ settledCount }`) |
 | 39 | POST | `/v1/financing/creditor-installments/{id}/pay-party` | `FinancingService.payCreditorInstallmentPartyShare` | Creditor detail — the shared pay dialog's per-party radio, `installment` mode only; body `{ partyId: string; bankAccountId: string }`, returns `{ paymentId: string }`; the **only** creditor-payment endpoint that touches the Ledger (`Dr Bank / Cr <party>`, real money); share not yet accrued → 409 `Financing.PartyShareNotDue`; unknown party → 409 `Financing.PartyNotInSplit`; already paid → 409 `Financing.PartyShareAlreadyPaid`; over-remaining → 400 `Financing.PaymentExceedsRemaining`; party has no outstanding balance → 409 `Parties.SettlementExceedsBalance`; bad bank id → 422 `Parties.UnknownFundingAccount` |
+| 40 | PUT | `/v1/instruments/cards/{id}/closing-day` | `InstrumentsService.changeUsualClosingDay` | Instruments — per-card "Usual closing day" edit (`docs/friendly-ui/slice-6-closing-date.md`) |
+| 41 | GET | `/v1/instruments/cards/{id}/closing-dates` | `InstrumentsService.closingSchedule` | Instruments — per-card "Next closings" list (`{ rows }` envelope) |
+| 42 | PUT | `/v1/instruments/cards/{id}/closing-dates/{year}/{month}` | `InstrumentsService.setClosingDate` | Instruments — per-month closing-date override |
+| 43 | DELETE | `/v1/instruments/cards/{id}/closing-dates/{year}/{month}` | `InstrumentsService.clearClosingDate` | Instruments — reset a month to the usual day |
 
 `POST /v1/ledger/accounts` (dev-only account shortcut) is intentionally **not** wired — it is
 removed outside Development.

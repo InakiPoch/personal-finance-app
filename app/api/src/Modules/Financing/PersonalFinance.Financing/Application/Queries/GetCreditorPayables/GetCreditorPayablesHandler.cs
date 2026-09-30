@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PersonalFinance.Abstractions.Messaging;
+using PersonalFinance.Financing.Application.Queries.Shared;
 using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
@@ -8,9 +9,8 @@ namespace PersonalFinance.Financing.Application.Queries.GetCreditorPayables;
 
 /// <summary>
 /// Read-only "Owed to creditors" list: every creditor-financed installment that has not been reversed,
-/// grouped by creditor, with the amount due by the current billing cycle (arrears folded in), the whole
-/// remaining debt, the earliest owed date, and the per-account breakdown. Paid installments are excluded
-/// from both money figures.
+/// grouped by (creditor, currency), with the amount due by the current billing cycle (arrears folded in), the whole
+/// remaining debt, the earliest owed date, and the per-account breakdown.
 /// </summary>
 internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, TimeProvider timeProvider) : IQueryHandler<GetCreditorPayablesQuery, CreditorPayablesResponse> {
     public async Task<CreditorPayablesResponse> HandleAsync(GetCreditorPayablesQuery query, CancellationToken cancellationToken) {
@@ -29,12 +29,11 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, Tim
                 plan.PurchaseDate,
                 PaidMinorUnits = context.Set<CreditorInstallmentPayment>()
                     .Where(payment => payment.InstallmentId == installment.Id)
-                    .Sum(payment => (long?)payment.AmountMinorUnits) ?? 0
+                .Sum(payment => (long?)payment.AmountMinorUnits) ?? 0
             }
         ).ToListAsync(cancellationToken);
         var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
-        var currentDueCycle = BillingCycleCalculator.ResolveCycle(today, PaymentPlan.CreditorCutoffDay).DueCycle;
-        var currentOrdinal = currentDueCycle.Year * 12 + currentDueCycle.Month;
+        var currentOrdinal = CreditorDueNowHelper.CurrentDueOrdinal(today);
         var creditors = await context.Creditors
             .Include(creditor => creditor.Accounts)
             .ToListAsync(cancellationToken);
@@ -43,16 +42,13 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, Tim
             .SelectMany(creditor => creditor.Accounts)
             .ToDictionary(account => account.Id, account => account.Label);
         var rows = installments
-            .GroupBy(row => row.CreditorId!.Value)
+            .GroupBy(row => new { CreditorId = row.CreditorId!.Value, row.Amount.Currency.Code })
             .Select(group => {
-                var unpaid = group.Where(row => row.Amount.MinorUnits - row.PaidMinorUnits > 0).ToList();
-                var totalOwedMinorUnits = unpaid.Sum(row => row.Amount.MinorUnits - row.PaidMinorUnits);
+                var unpaid = group.Where(row => CreditorDueNowHelper.RemainingMinorUnits(row.Amount.MinorUnits, row.PaidMinorUnits) > 0).ToList();
+                var totalOwedMinorUnits = unpaid.Sum(row => CreditorDueNowHelper.RemainingMinorUnits(row.Amount.MinorUnits, row.PaidMinorUnits));
                 var dueNowMinorUnits = unpaid
-                    .Where(row => {
-                        var dueCycle = new BillingCycle(row.CycleYear, row.CycleMonth).DueCycle;
-                        return dueCycle.Year * 12 + dueCycle.Month <= currentOrdinal;
-                    })
-                    .Sum(row => row.Amount.MinorUnits - row.PaidMinorUnits);
+                    .Where(row => CreditorDueNowHelper.IsDueNow(row.CycleYear, row.CycleMonth, currentOrdinal))
+                    .Sum(row => CreditorDueNowHelper.RemainingMinorUnits(row.Amount.MinorUnits, row.PaidMinorUnits));
                 var earliest = unpaid
                     .OrderBy(row => row.CycleYear)
                     .ThenBy(row => row.CycleMonth)
@@ -68,12 +64,13 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, Tim
                     .Select(accountGroup => new CreditorPayableAccountBreakdown(
                         accountGroup.Key,
                         accountLabelById.TryGetValue(accountGroup.Key, out var label) ? label : "",
-                        accountGroup.Sum(row => row.Amount.MinorUnits - row.PaidMinorUnits)))
+                        accountGroup.Sum(row => CreditorDueNowHelper.RemainingMinorUnits(row.Amount.MinorUnits, row.PaidMinorUnits))))
                     .OrderBy(account => account.Label)
                     .ToList();
                 return new CreditorPayableRow(
-                    group.Key,
-                    creditorNameById.TryGetValue(group.Key, out var name) ? name : "",
+                    group.Key.CreditorId,
+                    creditorNameById.TryGetValue(group.Key.CreditorId, out var name) ? name : "",
+                    group.Key.Code,
                     dueNowMinorUnits,
                     totalOwedMinorUnits,
                     nextDueDate,
@@ -81,6 +78,7 @@ internal sealed class GetCreditorPayablesHandler(FinancingDbContext context, Tim
                 );
             })
             .OrderBy(row => row.CreditorName)
+            .ThenBy(row => row.CurrencyCode)
             .ToList();
         return new CreditorPayablesResponse(rows);
     }

@@ -9,4 +9,7 @@ public sealed record DueThisMonthRow(string Kind, Guid SourceId, string SourceNa
 
 public sealed record DueThisMonthResponse(IReadOnlyList<DueThisMonthRow> Rows);
 
-public sealed record GetDueThisMonthQuery() : IQuery<DueThisMonthResponse>;
+/// <summary>
+/// <paramref name="Month"/> is any date inside the requested calendar month; null means the current month.
+/// </summary>
+public sealed record GetDueThisMonthQuery(DateOnly? Month = null) : IQuery<DueThisMonthResponse>;

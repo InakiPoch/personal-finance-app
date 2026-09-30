@@ -1,7 +1,7 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { Observable, Subject, of, throwError } from 'rxjs';
 import { formatArs, formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
@@ -9,7 +9,7 @@ import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
 import { DueThisMonthRow } from '../../../financing/types/due-this-month-row';
 import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
-import { ActiveSubscription } from '../../../subscriptions/types/active-subscription';
+import { MonthSubscription } from '../../../subscriptions/types/month-subscription';
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
@@ -25,7 +25,7 @@ type DashboardView = {
   dueStatus: () => 'loading' | 'ready' | 'error';
   dueExpanded: () => boolean;
   subscriptionsStatus: () => 'loading' | 'ready' | 'error';
-  activeSubscriptions: () => ActiveSubscription[];
+  monthSubscriptions: () => MonthSubscription[];
   expensesByCategory: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
   accruedByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
   futureByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
@@ -41,6 +41,19 @@ type DashboardView = {
   toggleDueBreakdown: () => void;
 };
 
+/** Month key relative to today, so specs never rot. */
+function monthKey(offset: number): string {
+  const date: Date = new Date();
+  const shifted: Date = new Date(date.getFullYear(), date.getMonth() + offset, 1);
+  return `${shifted.getFullYear()}-${String(shifted.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Card-due cycle fields for the month `offset` months from today. */
+function cyc(offset: number): { cycleYear: number; cycleMonth: number } {
+  const [cycleYear, cycleMonth]: number[] = monthKey(offset).split('-').map(Number);
+  return { cycleYear, cycleMonth };
+}
+
 describe('DashboardPage', () => {
   let fixture: ComponentFixture<DashboardPage>;
   let view: DashboardView;
@@ -48,8 +61,8 @@ describe('DashboardPage', () => {
   let monthlyIncomes: jasmine.Spy<(month?: string) => Observable<MonthlyIncomeRow[]>>;
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
   let cardPurchases: jasmine.Spy<(cardId: string) => Observable<CardPurchaseRow[]>>;
-  let dueThisMonth: jasmine.Spy<() => Observable<DueThisMonthRow[]>>;
-  let listActive: jasmine.Spy<() => Observable<ActiveSubscription[]>>;
+  let dueThisMonth: jasmine.Spy<(month?: string) => Observable<DueThisMonthRow[]>>;
+  let listByMonth: jasmine.Spy<(month: string) => Observable<MonthSubscription[]>>;
 
   const money = (value: number): Money => value as Money;
 
@@ -59,9 +72,9 @@ describe('DashboardPage', () => {
     { month: '2026-09', category: 'Transport', amountMinorUnits: money(45000), currencyCode: 'ARS' }
   ];
   const cardDueRows: CardDueRow[] = [
-    { bucket: 'Accrued', card: 'Visa', cycleYear: 2026, cycleMonth: 9, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
-    { bucket: 'Future', card: 'Visa', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
-    { bucket: 'Future', card: 'Amex', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(250000), currencyCode: 'ARS', cardId: 'c2' }
+    { bucket: 'Accrued', card: 'Visa', ...cyc(0), amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
+    { bucket: 'Future', card: 'Visa', ...cyc(0), amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
+    { bucket: 'Future', card: 'Amex', ...cyc(0), amountMinorUnits: money(250000), currencyCode: 'ARS', cardId: 'c2' }
   ];
   const incomeRows: MonthlyIncomeRow[] = [
     { month: '2026-09', amountMinorUnits: money(500000), currencyCode: 'ARS' }
@@ -69,10 +82,10 @@ describe('DashboardPage', () => {
   const purchaseRows: CardPurchaseRow[] = [
     { planId: 'p1', description: 'New laptop', totalMinorUnits: money(300000), installmentCount: 6, outstandingCount: 3, purchaseDate: '2026-06-01' }
   ];
-  const activeSubscriptions: ActiveSubscription[] = [
-    { subscriptionId: 's1', name: 'Netflix', amountMinorUnits: money(150000), category: 'Streaming', frequency: 'monthly', anchorDay: 5, nextDueDate: '2026-09-05', status: 'paid', currencyCode: 'ARS' },
-    { subscriptionId: 's2', name: 'Spotify', amountMinorUnits: money(80000), category: 'Streaming', frequency: 'monthly', anchorDay: 1, nextDueDate: '2026-09-01', status: 'overdue', currencyCode: 'ARS' },
-    { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', status: 'upcoming', currencyCode: 'ARS' }
+  const monthSubs: MonthSubscription[] = [
+    { subscriptionId: 's1', name: 'Netflix', amountMinorUnits: money(150000), category: 'Streaming', frequency: 'monthly', anchorDay: 5, nextDueDate: '2026-09-05', dueDate: '2026-09-05', status: 'paid', currencyCode: 'ARS' },
+    { subscriptionId: 's2', name: 'Spotify', amountMinorUnits: money(80000), category: 'Streaming', frequency: 'monthly', anchorDay: 1, nextDueDate: '2026-09-01', dueDate: '2026-09-01', status: 'overdue', currencyCode: 'ARS' },
+    { subscriptionId: 's3', name: 'iCloud', amountMinorUnits: money(20000), category: 'Storage', frequency: 'monthly', anchorDay: 28, nextDueDate: '2026-09-28', dueDate: '2026-09-28', status: 'upcoming', currencyCode: 'ARS' }
   ];
 
   const dueRows: DueThisMonthRow[] = [
@@ -85,6 +98,30 @@ describe('DashboardPage', () => {
   const pageEl = (): HTMLElement => fixture.nativeElement as HTMLElement;
   const dueCard = (): HTMLElement => pageEl().querySelector('section[aria-labelledby="due-label"]') as HTMLElement;
 
+  const h1 = (): string => (pageEl().querySelector('h1')?.textContent ?? '').trim();
+  const dueHeading = (): string => (pageEl().querySelector('#due-label')?.textContent ?? '').trim();
+  const subsCard = (): HTMLElement => pageEl().querySelector('section[aria-labelledby="subscriptions-label"]') as HTMLElement;
+  const subNames = (): string[] => Array.from(subsCard().querySelectorAll('li .text-ink')).map((el) => (el.textContent ?? '').trim()).filter((t) => ['Netflix', 'Spotify', 'iCloud', 'A', 'B', 'C', 'D'].includes(t));
+
+  /** Picks a month through the real month input, like a user would. */
+  function setMonth(month: string): void {
+    const input: HTMLInputElement = pageEl().querySelector('nav[aria-label="Quick actions"] input[type="month"]') as HTMLInputElement;
+    input.value = month;
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
+  /** One controllable Subject per month, so specs decide when each response lands. */
+  function byMonthSubjects<T>(spy: jasmine.Spy<(month: string) => Observable<T>>): Map<string, Subject<T>> {
+    const subjects: Map<string, Subject<T>> = new Map<string, Subject<T>>();
+    spy.and.callFake((month: string) => {
+      const subject: Subject<T> = new Subject<T>();
+      subjects.set(month, subject);
+      return subject;
+    });
+    return subjects;
+  }
+
   function setup(): void {
     fixture = TestBed.createComponent(DashboardPage);
     view = fixture.componentInstance as unknown as DashboardView;
@@ -96,7 +133,7 @@ describe('DashboardPage', () => {
     cardDueByMonth = jasmine.createSpy('cardDueByMonth').and.returnValue(of(cardDueRows));
     cardPurchases = jasmine.createSpy('cardPurchases').and.returnValue(of(purchaseRows));
     dueThisMonth = jasmine.createSpy('dueThisMonth').and.returnValue(of([]));
-    listActive = jasmine.createSpy('listActive').and.returnValue(of(activeSubscriptions));
+    listByMonth = jasmine.createSpy('listByMonth').and.returnValue(of([]));
 
     TestBed.configureTestingModule({
       imports: [DashboardPage],
@@ -105,7 +142,7 @@ describe('DashboardPage', () => {
         provideRouter([]),
         { provide: ReportsService, useValue: { monthlyExpenses, monthlyIncomes, cardDueByMonth } },
         { provide: FinancingService, useValue: { cardPurchases, dueThisMonth } },
-        { provide: SubscriptionsService, useValue: { listActive } }
+        { provide: SubscriptionsService, useValue: { listByMonth } }
       ],
     });
   });
@@ -139,13 +176,19 @@ describe('DashboardPage', () => {
       { label: 'Amex', currencyCode: 'ARS', totalMinorUnits: 250000 }
     ]);
   });
-  it('refetches monthly expenses and incomes, but not card dues, when the month changes', () => {
+  it('refetches monthly expenses, incomes, due and subscriptions, but not card dues, when the month changes', () => {
     setup();
     fixture.detectChanges();
     expect(monthlyExpenses).toHaveBeenCalledTimes(1);
     expect(monthlyIncomes).toHaveBeenCalledTimes(1);
-    view.onMonthChange('2026-01');
+    expect(dueThisMonth).toHaveBeenCalledOnceWith(monthKey(0));
+    expect(listByMonth).toHaveBeenCalledOnceWith(monthKey(0));
+    setMonth('2026-01');
     expect(view.selectedMonth()).toBe('2026-01');
+    expect(dueThisMonth).toHaveBeenCalledTimes(2);
+    expect(dueThisMonth.calls.mostRecent().args).toEqual(['2026-01']);
+    expect(listByMonth).toHaveBeenCalledTimes(2);
+    expect(listByMonth.calls.mostRecent().args).toEqual(['2026-01']);
     expect(monthlyExpenses).toHaveBeenCalledTimes(2);
     expect(monthlyExpenses.calls.mostRecent().args).toEqual(['2026-01']);
     expect(monthlyIncomes).toHaveBeenCalledTimes(2);
@@ -175,7 +218,7 @@ describe('DashboardPage', () => {
   it('collapses one card into a single row when Accrued and Future carry different labels', () => {
     cardDueByMonth.and.returnValue(of([
       { bucket: 'Accrued', card: 'Visa', cycleYear: null, cycleMonth: null, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' },
-      { bucket: 'Future', card: '9F3A0B7C-GUID', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' }
+      { bucket: 'Future', card: '9F3A0B7C-GUID', ...cyc(0), amountMinorUnits: money(500000), currencyCode: 'ARS', cardId: 'c1' }
     ]));
     setup();
     fixture.detectChanges();
@@ -192,7 +235,7 @@ describe('DashboardPage', () => {
   });
   it('labels a future-only card with its name, not a GUID', () => {
     cardDueByMonth.and.returnValue(of([
-      { bucket: 'Future', card: 'Naranja', cycleYear: 2026, cycleMonth: 11, amountMinorUnits: money(90000), currencyCode: 'ARS', cardId: 'c9' }
+      { bucket: 'Future', card: 'Naranja', ...cyc(0), amountMinorUnits: money(90000), currencyCode: 'ARS', cardId: 'c9' }
     ]));
     setup();
     fixture.detectChanges();
@@ -239,7 +282,7 @@ describe('DashboardPage', () => {
   it('does not render an expand button for a card row without a cardId', () => {
     cardDueByMonth.and.returnValue(of([
       ...cardDueRows,
-      { bucket: 'Future', card: 'MercadoPago', cycleYear: 2026, cycleMonth: 10, amountMinorUnits: money(10000), currencyCode: 'ARS', cardId: null }
+      { bucket: 'Future', card: 'MercadoPago', ...cyc(0), amountMinorUnits: money(10000), currencyCode: 'ARS', cardId: null }
     ]));
     setup();
     fixture.detectChanges();
@@ -247,10 +290,11 @@ describe('DashboardPage', () => {
     expect(buttons.some((button) => (button.textContent ?? '').includes('MercadoPago'))).toBeFalse();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('MercadoPago');
   });
-  it('renders one row per active subscription with its badge, renewal date, and flat cost', () => {
+  it('renders one row per subscription with its badge, due date, and flat cost', () => {
+    listByMonth.and.returnValue(of(monthSubs));
     setup();
     fixture.detectChanges();
-    expect(view.activeSubscriptions()).toEqual(activeSubscriptions);
+    expect(view.monthSubscriptions().length).toBe(3);
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
     expect(text).toContain('Netflix');
     expect(text).toContain('2026-09-05');
@@ -314,8 +358,8 @@ describe('DashboardPage', () => {
     expect(softwareRow?.textContent ?? '').toContain('USD');
   });
   it('renders a USD subscription through the currency-driven formatter, not the hardcoded ARS one', () => {
-    listActive.and.returnValue(of([
-      { ...activeSubscriptions[0], subscriptionId: 's-usd', name: 'GitHub', amountMinorUnits: money(1200), currencyCode: 'USD' }
+    listByMonth.and.returnValue(of([
+      { ...monthSubs[0], subscriptionId: 's-usd', name: 'GitHub', amountMinorUnits: money(1200), currencyCode: 'USD' }
     ]));
     setup();
     fixture.detectChanges();
@@ -331,7 +375,7 @@ describe('DashboardPage', () => {
   });
   it('shows an error state when the subscriptions feed fails, without affecting the other panels', () => {
     const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
-    listActive.and.returnValue(throwError(() => appError));
+    listByMonth.and.returnValue(throwError(() => appError));
     setup();
     fixture.detectChanges();
     expect(view.subscriptionsStatus()).toBe('error');
@@ -339,8 +383,7 @@ describe('DashboardPage', () => {
     expect(view.cardDueStatus()).toBe('ready');
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('Could not read subscriptions');
   });
-  it('shows an empty state when there are no active subscriptions', () => {
-    listActive.and.returnValue(of([]));
+  it('shows an empty state when there are no subscriptions for the month', () => {
     setup();
     fixture.detectChanges();
     expect((fixture.nativeElement as HTMLElement).textContent).toContain('No subscriptions to track.');
@@ -407,7 +450,7 @@ describe('DashboardPage', () => {
     dueThisMonth.and.returnValue(of(dueRows));
     setup();
     fixture.detectChanges();
-    expect(dueThisMonth).toHaveBeenCalledTimes(1);
+    expect(dueThisMonth).toHaveBeenCalledOnceWith(monthKey(0));
     expect(view.dueStatus()).toBe('ready');
     const text: string = dueCard().textContent ?? '';
     expect(text).toContain(formatMoney(money(600000), 'ARS'));
@@ -473,7 +516,7 @@ describe('DashboardPage', () => {
     const group: HTMLElement = pageEl().querySelector('[aria-label="Show money spent or received"]') as HTMLElement;
     expect(group).toBeTruthy();
     const tabs: string[] = Array.from(group.querySelectorAll('button')).map((b) => (b.textContent ?? '').trim());
-    expect(tabs).toEqual(['Spent from bank & cash', 'Money received']);
+    expect(tabs).toEqual(['Money Spent', 'Money received']);
     expect(pageEl().textContent).toContain('Your share of what you paid from bank accounts and cash this month.');
     view.setFlowSide('in');
     fixture.detectChanges();
@@ -529,5 +572,213 @@ describe('DashboardPage', () => {
     const details: HTMLElement = pageEl().querySelector('#card-purchases-c5') as HTMLElement;
     expect(details.textContent).toContain(formatMoney(money(12000), 'USD'));
     expect(details.textContent).not.toContain(formatArs(money(12000)));
+  });
+
+  describe('month-driven view', () => {
+    const pastMonth = '2020-03';
+    const futureMonth = '2099-12';
+
+    it('puts the month picker in the quick-actions nav, not in the flow section', () => {
+      setup();
+      fixture.detectChanges();
+      const input: HTMLInputElement | null = pageEl().querySelector('nav[aria-label="Quick actions"] input[type="month"]');
+      expect(input).toBeTruthy();
+      expect(input?.value).toBe(monthKey(0));
+      expect(pageEl().querySelector('section[aria-labelledby="flow-tile-label"] input[type="month"]')).toBeNull();
+    });
+    it('titles the page "This month" for the current month', () => {
+      setup();
+      fixture.detectChanges();
+      expect(h1()).toBe('This month');
+    });
+    it('titles the page "<Month> <Year>" for another month', () => {
+      setup();
+      fixture.detectChanges();
+      setMonth(pastMonth);
+      expect(h1()).toBe('March 2020');
+      setMonth(futureMonth);
+      expect(h1()).toBe('December 2099');
+      setMonth(monthKey(0));
+      expect(h1()).toBe('This month');
+    });
+    it('ignores an empty month selection', () => {
+      setup();
+      fixture.detectChanges();
+      view.onMonthChange('');
+      expect(view.selectedMonth()).toBe(monthKey(0));
+      expect(monthlyExpenses).toHaveBeenCalledTimes(1);
+      expect(monthlyIncomes).toHaveBeenCalledTimes(1);
+      expect(dueThisMonth).toHaveBeenCalledTimes(1);
+      expect(listByMonth).toHaveBeenCalledTimes(1);
+    });
+    it('passes the picked month to every month-scoped feed and leaves card bills alone', () => {
+      setup();
+      fixture.detectChanges();
+      setMonth(pastMonth);
+      expect(monthlyExpenses.calls.mostRecent().args).toEqual([pastMonth]);
+      expect(monthlyIncomes.calls.mostRecent().args).toEqual([pastMonth]);
+      expect(dueThisMonth.calls.mostRecent().args).toEqual([pastMonth]);
+      expect(listByMonth.calls.mostRecent().args).toEqual([pastMonth]);
+      expect(cardDueByMonth).toHaveBeenCalledTimes(1);
+    });
+
+    describe('card bills filtered client-side', () => {
+      const rows: CardDueRow[] = [
+        { bucket: 'Accrued', card: 'Visa', ...{ cycleYear: null, cycleMonth: null }, amountMinorUnits: money(100), currencyCode: 'ARS', cardId: 'c1' },
+        { bucket: 'Future', card: 'Visa', ...cyc(0), amountMinorUnits: money(200), currencyCode: 'ARS', cardId: 'c1' },
+        { bucket: 'Future', card: 'Visa', ...cyc(1), amountMinorUnits: money(400), currencyCode: 'ARS', cardId: 'c1' },
+        { bucket: 'Future', card: 'Amex', ...cyc(1), amountMinorUnits: money(800), currencyCode: 'ARS', cardId: 'c2' }
+      ];
+      const totals = (): Record<string, number> =>
+        Object.fromEntries(view.cycleByCard().map((card) => [card.card, card.total]));
+
+      beforeEach(() => cardDueByMonth.and.returnValue(of(rows)));
+
+      it('for the current month keeps its cycle rows plus the null-cycle Accrued rows', () => {
+        setup();
+        fixture.detectChanges();
+        expect(totals()).toEqual({ Visa: 300 });
+      });
+      it('for another month keeps only rows of that cycle and drops null-cycle Accrued rows', () => {
+        setup();
+        fixture.detectChanges();
+        setMonth(monthKey(1));
+        expect(totals()).toEqual({ Visa: 400, Amex: 800 });
+        expect(cardDueByMonth).toHaveBeenCalledTimes(1);
+      });
+      it('shows the empty copy for a month with no cycle rows', () => {
+        setup();
+        fixture.detectChanges();
+        setMonth(pastMonth);
+        expect(view.cycleByCard()).toEqual([]);
+        expect(pageEl().textContent).toContain('Nothing due on your cards.');
+      });
+    });
+
+    describe('stale responses', () => {
+      it('drops a late success for a month that is no longer selected', () => {
+        const expenses = byMonthSubjects(monthlyExpenses);
+        const incomes = byMonthSubjects(monthlyIncomes);
+        const due = byMonthSubjects(dueThisMonth as jasmine.Spy<(month: string) => Observable<DueThisMonthRow[]>>);
+        const subs = byMonthSubjects(listByMonth);
+        setup();
+        fixture.detectChanges();
+        const current: string = monthKey(0);
+        setMonth(pastMonth);
+        expenses.get(current)?.next(monthlyRows);
+        incomes.get(current)?.next(incomeRows);
+        due.get(current)?.next(dueRows);
+        subs.get(current)?.next(monthSubs);
+        expect(view.monthlyStatus()).toBe('loading');
+        expect(view.incomeStatus()).toBe('loading');
+        expect(view.dueStatus()).toBe('loading');
+        expect(view.subscriptionsStatus()).toBe('loading');
+        expect(view.expensesByCategory()).toEqual([]);
+        expect(view.monthSubscriptions()).toEqual([]);
+        expenses.get(pastMonth)?.next([]);
+        due.get(pastMonth)?.next([]);
+        subs.get(pastMonth)?.next([]);
+        expect(view.monthlyStatus()).toBe('ready');
+        expect(view.dueStatus()).toBe('ready');
+        expect(view.subscriptionsStatus()).toBe('ready');
+      });
+      it('drops a late error for a month that is no longer selected', () => {
+        const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
+        const expenses = byMonthSubjects(monthlyExpenses);
+        const incomes = byMonthSubjects(monthlyIncomes);
+        const due = byMonthSubjects(dueThisMonth as jasmine.Spy<(month: string) => Observable<DueThisMonthRow[]>>);
+        const subs = byMonthSubjects(listByMonth);
+        setup();
+        fixture.detectChanges();
+        const current: string = monthKey(0);
+        setMonth(pastMonth);
+        expenses.get(current)?.error(appError);
+        incomes.get(current)?.error(appError);
+        due.get(current)?.error(appError);
+        subs.get(current)?.error(appError);
+        expect(view.monthlyStatus()).toBe('loading');
+        expect(view.incomeStatus()).toBe('loading');
+        expect(view.dueStatus()).toBe('loading');
+        expect(view.subscriptionsStatus()).toBe('loading');
+      });
+      it('still applies an error for the month that is selected', () => {
+        const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
+        const expenses = byMonthSubjects(monthlyExpenses);
+        const incomes = byMonthSubjects(monthlyIncomes);
+        const due = byMonthSubjects(dueThisMonth as jasmine.Spy<(month: string) => Observable<DueThisMonthRow[]>>);
+        const subs = byMonthSubjects(listByMonth);
+        setup();
+        fixture.detectChanges();
+        setMonth(pastMonth);
+        expenses.get(pastMonth)?.error(appError);
+        incomes.get(pastMonth)?.error(appError);
+        due.get(pastMonth)?.error(appError);
+        subs.get(pastMonth)?.error(appError);
+        expect(view.monthlyStatus()).toBe('error');
+        expect(view.incomeStatus()).toBe('error');
+        expect(view.dueStatus()).toBe('error');
+        expect(view.subscriptionsStatus()).toBe('error');
+      });
+    });
+
+    describe('Due card copy', () => {
+      it('asks the total-owed question for the current month', () => {
+        setup();
+        fixture.detectChanges();
+        expect(dueHeading()).toBe('How much do I owe in total for this month?');
+      });
+      it('asks the installments-only question for another month', () => {
+        setup();
+        fixture.detectChanges();
+        setMonth(futureMonth);
+        expect(dueHeading()).toBe('How much would I owe that month, based only on installments?');
+        setMonth(pastMonth);
+        expect(dueHeading()).toBe('How much would I owe that month, based only on installments?');
+      });
+      it('uses the short empty copy for another month and the "this month" copy for the current one', () => {
+        setup();
+        fixture.detectChanges();
+        expect(dueCard().textContent).toContain('Nothing to pay this month.');
+        setMonth(futureMonth);
+        expect(dueCard().textContent).toContain('Nothing to pay.');
+        expect(dueCard().textContent).not.toContain('Nothing to pay this month.');
+      });
+    });
+
+    describe('subscriptions card', () => {
+      const sub = (id: string, name: string, status: MonthSubscription['status'], dueDate: string): MonthSubscription => ({
+        ...monthSubs[0], subscriptionId: id, name, status, dueDate
+      });
+
+      it('shows each row due date', () => {
+        listByMonth.and.returnValue(of([sub('a', 'A', 'upcoming', '2026-10-17')]));
+        setup();
+        fixture.detectChanges();
+        expect(subsCard().textContent).toContain('2026-10-17');
+      });
+      it('lists overdue rows first and keeps the original order otherwise', () => {
+        listByMonth.and.returnValue(of([
+          sub('a', 'A', 'upcoming', '2026-09-20'),
+          sub('b', 'B', 'overdue', '2026-09-01'),
+          sub('c', 'C', 'paid', '2026-09-05'),
+          sub('d', 'D', 'overdue', '2026-09-02')
+        ]));
+        setup();
+        fixture.detectChanges();
+        expect(subNames()).toEqual(['B', 'D', 'A', 'C']);
+      });
+      it('notes future payments only for a future month', () => {
+        setup();
+        fixture.detectChanges();
+        const note = 'Future payments — not charged yet';
+        expect(subsCard().textContent).not.toContain(note);
+        setMonth(futureMonth);
+        expect(subsCard().textContent).toContain(note);
+        setMonth(pastMonth);
+        expect(subsCard().textContent).not.toContain(note);
+        setMonth(monthKey(0));
+        expect(subsCard().textContent).not.toContain(note);
+      });
+    });
   });
 });

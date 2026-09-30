@@ -74,9 +74,11 @@ export class FinancingService {
     .pipe(map((envelope: RowsEnvelope<CreditorPayableRow>) => envelope.rows));
   }
 
-  dueThisMonth(): Observable<DueThisMonthRow[]> {
+  dueThisMonth(month?: string): Observable<DueThisMonthRow[]> {
     return this.http
-      .get<RowsEnvelope<DueThisMonthRow>>('financing/due-this-month')
+      .get<RowsEnvelope<DueThisMonthRow>>('financing/due-this-month', {
+        params: month ? { month } : {},
+      })
     .pipe(map((envelope: RowsEnvelope<DueThisMonthRow>) => envelope.rows));
   }
 

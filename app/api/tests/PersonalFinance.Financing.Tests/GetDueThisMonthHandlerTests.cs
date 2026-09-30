@@ -163,6 +163,98 @@ public sealed class GetDueThisMonthHandlerTests : IDisposable {
         Assert.Empty((await RunAsync(fixedNow, cancellationToken)).Rows);
     }
 
+    [Fact]
+    public async Task Handle_treats_an_explicit_current_month_like_no_month() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", cancellationToken);
+        var plan = CreateCardPlan(cardId, overduePurchase, 2, 20_000, Currency.Reference);
+        var first = plan.Installments.OrderBy(installment => installment.Sequence).First();
+        first.ApplyPayment(first.Amount.MinorUnits, new DateTimeOffset(2026, 6, 1, 0, 0, 0, TimeSpan.Zero));
+        await SeedPlansAsync([plan, CreateCardPlan(cardId, dueNextMonthPurchase, 1, 1_000, Currency.Reference)], cancellationToken);
+        var implicitRow = Assert.Single((await RunAsync(fixedNow, cancellationToken)).Rows);
+        var explicitRow = Assert.Single((await RunAsync(fixedNow, cancellationToken, new DateOnly(2026, 6, 1))).Rows);
+        Assert.Equal(10_000, implicitRow.AmountMinorUnits);
+        Assert.Equal(implicitRow, explicitRow);
+    }
+
+    [Fact]
+    public async Task Handle_for_a_future_month_counts_earlier_unpaid_and_that_month_but_not_later_ones() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", cancellationToken);
+        await SeedPlansAsync([
+            CreateCardPlan(cardId, overduePurchase, 1, 5_000, Currency.Reference),                    // due Feb, unpaid
+            CreateCardPlan(cardId, new DateOnly(2026, 7, 10), 1, 3_000, Currency.Reference),          // due Aug (= M)
+            CreateCardPlan(cardId, new DateOnly(2026, 8, 10), 1, 9_000, Currency.Reference)           // due Sep (after M)
+        ], cancellationToken);
+        var row = Assert.Single((await RunAsync(fixedNow, cancellationToken, new DateOnly(2026, 8, 1))).Rows);
+        Assert.Equal(8_000, row.AmountMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_for_a_future_month_excludes_an_installment_already_paid_today() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", cancellationToken);
+        var paid = CreateCardPlan(cardId, overduePurchase, 1, 5_000, Currency.Reference);
+        paid.Installments.Single().ApplyPayment(5_000, new DateTimeOffset(2026, 6, 10, 0, 0, 0, TimeSpan.Zero));
+        await SeedPlansAsync([paid, CreateCardPlan(cardId, new DateOnly(2026, 7, 10), 1, 3_000, Currency.Reference)], cancellationToken);
+        var row = Assert.Single((await RunAsync(fixedNow, cancellationToken, new DateOnly(2026, 8, 1))).Rows);
+        Assert.Equal(3_000, row.AmountMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_for_a_past_month_counts_installments_paid_during_or_after_it_but_not_before_it() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", cancellationToken);
+        var paidBefore = CreateCardPlan(cardId, overduePurchase, 1, 1_000, Currency.Reference);          // due Feb
+        paidBefore.Installments.Single().ApplyPayment(1_000, new DateTimeOffset(2026, 2, 15, 0, 0, 0, TimeSpan.Zero));
+        var paidDuring = CreateCardPlan(cardId, new DateOnly(2026, 2, 10), 1, 2_000, Currency.Reference); // due Mar
+        paidDuring.Installments.Single().ApplyPayment(2_000, new DateTimeOffset(2026, 3, 20, 0, 0, 0, TimeSpan.Zero));
+        var paidAfter = CreateCardPlan(cardId, new DateOnly(2026, 1, 12), 1, 4_000, Currency.Reference); // due Feb
+        paidAfter.Installments.Single().ApplyPayment(4_000, new DateTimeOffset(2026, 4, 5, 0, 0, 0, TimeSpan.Zero));
+        await SeedPlansAsync([paidBefore, paidDuring, paidAfter], cancellationToken);
+        var row = Assert.Single((await RunAsync(fixedNow, cancellationToken, new DateOnly(2026, 3, 1))).Rows);
+        Assert.Equal(6_000, row.AmountMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_for_a_past_month_only_subtracts_creditor_payments_made_before_that_month_began() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Felipe", ["Felipe Bank"], cancellationToken);
+        var plan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], overduePurchase, 1, 10_000, Currency.Reference);
+        var installment = plan.Installments.Single();
+        installment.ApplyPayment(4_000, new DateTimeOffset(2026, 2, 10, 0, 0, 0, TimeSpan.Zero)); // before March
+        installment.ApplyPayment(3_000, new DateTimeOffset(2026, 4, 10, 0, 0, 0, TimeSpan.Zero)); // after March
+        await SeedPlansAsync([plan], cancellationToken);
+        var row = Assert.Single((await RunAsync(fixedNow, cancellationToken, new DateOnly(2026, 3, 1))).Rows);
+        Assert.Equal(6_000, row.AmountMinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_for_a_future_month_never_counts_reversed_installments() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", cancellationToken);
+        var creditor = await SeedCreditorAsync("Felipe", ["Felipe Bank"], cancellationToken);
+        var cardPlan = CreateCardPlan(cardId, overduePurchase, 1, 5_000, Currency.Reference);
+        cardPlan.Installments.Single().MarkReversed();
+        var creditorPlan = CreateCreditorPlan(creditor.CreditorId, creditor.AccountIds[0], overduePurchase, 1, 7_000, Currency.Reference);
+        creditorPlan.Installments.Single().MarkReversed();
+        await SeedPlansAsync([cardPlan, creditorPlan], cancellationToken);
+        Assert.Empty((await RunAsync(fixedNow, cancellationToken, new DateOnly(2026, 8, 1))).Rows);
+    }
+
+    [Fact]
+    public async Task Handle_for_a_non_current_month_keeps_ars_and_usd_separate() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", cancellationToken);
+        await SeedPlansAsync([
+            CreateCardPlan(cardId, overduePurchase, 1, 5_000, Currency.Reference),
+            CreateCardPlan(cardId, new DateOnly(2026, 7, 10), 1, 3_000, Currency.Usd)
+        ], cancellationToken);
+        var rows = (await RunAsync(fixedNow, cancellationToken, new DateOnly(2026, 8, 1))).Rows;
+        Assert.Equal(5_000, rows.Single(row => row.CurrencyCode == "ARS").AmountMinorUnits);
+        Assert.Equal(3_000, rows.Single(row => row.CurrencyCode == "USD").AmountMinorUnits);
+    }
+
     private static PaymentPlan CreateCreditorPlan(Guid creditorId, Guid creditorAccountId, DateOnly purchaseDate, int installmentCount, long totalMinorUnits, Currency currency) {
         return PaymentPlan.Create(
             cardId: null,
@@ -204,9 +296,9 @@ public sealed class GetDueThisMonthHandlerTests : IDisposable {
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<DueThisMonthResponse> RunAsync(DateTimeOffset now, CancellationToken cancellationToken) {
+    private async Task<DueThisMonthResponse> RunAsync(DateTimeOffset now, CancellationToken cancellationToken, DateOnly? month = null) {
         await using var context = NewContext();
-        return await new GetDueThisMonthHandler(context, new FixedTimeProvider(now)).HandleAsync(new GetDueThisMonthQuery(), cancellationToken);
+        return await new GetDueThisMonthHandler(context, new FixedTimeProvider(now)).HandleAsync(new GetDueThisMonthQuery(month), cancellationToken);
     }
 
     private async Task<(Guid CreditorId, IReadOnlyList<Guid> AccountIds, CreditorRow Row)> SeedCreditorAsync(string name, string[] accountLabels, CancellationToken cancellationToken) {

@@ -116,7 +116,10 @@ captions (set in `styles.css` base).
   for bars/tracks; `rounded-[1px]` for legend swatches. Concentric: a bar inside a
   `p-6` panel stays small-radius, never matching the card.
 - **Column width: `max-w-184`** (= 46rem / 736px), centred, single column. States "a
-  page you read top to bottom", not "a control surface". Every view keeps this measure.
+  page you read top to bottom", not "a control surface". Every view keeps this measure
+  except the dashboard: `max-w-6xl`, with header, quick actions and the Due card full
+  width, then a 2-column grid at `lg+` (money flow left; Card bills over Subscriptions
+  right), single column below `lg`.
 
 ---
 
@@ -138,7 +141,8 @@ rounded-full bg-stamp-soft` light-blue tick. Everything else is demoted — cate
 quiet ranked column below it; card debt is a lifted `paper-raised` card; quick actions
 sit at the top: one filled primary button ("+ Record an expense"), a secondary chip
 ("+ Record income") and a quiet chevron link, so the main action is obvious without
-competing with the numbers.
+competing with the numbers. The month picker sits at the right end of that row and
+drives every card on the page.
 
 When styling a new view: name its one focal element first, make it win with
 size + weight + the `stamp` accent, demote the rest.

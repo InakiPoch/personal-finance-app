@@ -9,6 +9,7 @@ using PersonalFinance.Subscriptions.Application.Commands.CreateSubscriptionTempl
 using PersonalFinance.Subscriptions.Application.Commands.PaySubscription;
 using PersonalFinance.Subscriptions.Application.Commands.UnpaySubscription;
 using PersonalFinance.Subscriptions.Application.Queries.GetActiveSubscriptions;
+using PersonalFinance.Subscriptions.Application.Queries.GetSubscriptionsByMonth;
 using PersonalFinance.Subscriptions.Contracts;
 using PersonalFinance.Subscriptions.Contracts.Commands;
 using PersonalFinance.Subscriptions.Contracts.Queries;
@@ -33,5 +34,6 @@ public sealed class SubscriptionsModule : IModule {
         services.AddScoped<ICommandHandler<PaySubscriptionCommand, Guid>, PaySubscriptionHandler>();
         services.AddScoped<ICommandHandler<UnpaySubscriptionCommand, Guid>, UnpaySubscriptionHandler>();
         services.AddScoped<IQueryHandler<GetActiveSubscriptionsQuery, ActiveSubscriptionsResponse>, GetActiveSubscriptionsHandler>();
+        services.AddScoped<IQueryHandler<GetSubscriptionsByMonthQuery, SubscriptionsByMonthResponse>, GetSubscriptionsByMonthHandler>();
     }
 }

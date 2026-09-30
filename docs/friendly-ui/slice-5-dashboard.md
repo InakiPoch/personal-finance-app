@@ -154,3 +154,21 @@ Client:
 - **Reverted attempt:** a 2x2 viewport grid layout for the dashboard was tried and reverted at the user's request;
   the single column stays.
 - Shipped: Financing 212, Api 64 (`DueThisMonthTests`, OpenAPI-only), Architecture 15, client specs 396; lint + prod build clean; no migration.
+
+## Follow-up: month-driven dashboard (API Phase 54.1 / client Phase 51.1)
+
+The month picker moved to the right end of the quick-actions row and now drives every card; h1 is "This month" or "<Month> <Year>". No migration.
+
+API
+- `GET /v1/financing/due-this-month?month=yyyy-MM` (optional). Current/omitted month = unchanged rule. Any other month = "Rule X": installments due on or before M (cards via `BillingCycle.DueCycle`, creditors via calendar cycle ordinal) excluding amounts paid before 00:00 UTC on the 1st of M. A past month still counts installments paid during/after it; a future month excludes what is already paid today. Creditor payments are filtered in memory (SQLite cannot compare `DateTimeOffset`).
+- New `GET /v1/subscriptions/by-month?month=yyyy-MM` (month required; malformed -> `MonthQueryHelper.Parse` -> `FormatException` -> 400 via `GlobalExceptionHandler`). Row = active-subscription fields + `dueDate` (`RecurrenceRule.CurrentOccurrence`, anchor day clamped) + status paid|overdue|upcoming: future = upcoming, current = `subscriptions/active` rule, past = Ledger lookup.
+- New Ledger query `FindPaidSubscriptionIdsQuery(ids, month)`: paid iff a non-reversal transaction with a `SubscriptionReference` was posted in that UTC month and has no storno. Subscriptions calls it through `IQueryBus`, deliberately NOT `ILedgerApi` (adding a method there would break five test fakes).
+- Limitations: `SubscriptionTemplate` stores no creation/cancel date, so active templates show in every month (even before they existed) and cancelled ones never show in past months; a late payment counts as paid in the month it was posted. Fix = a migration adding dates (not done).
+
+Client
+- Due card copy: current month "How much do I owe in total for this month?" / "Nothing to pay this month."; other months "How much would I owe that month, based only on installments?" / "Nothing to pay.".
+- Card bills are filtered client-side to the selected month's cycle. Deviation: already-charged rows carry no cycle in the view, so they show only for the current month; a past month shows Charged 0 and only matching Upcoming rows. Per-card expanded purchases are NOT month-filtered.
+- Subscriptions come from by-month (overdue first; future month shows "Future payments — not charged yet"). Categories sort currency first, then amount descending. Late responses for a no-longer-selected month are dropped.
+- Layout: container `max-w-6xl`; header, quick actions and Due card full width; below, a 2-column grid at lg+ (left money flow, right Card bills over Subscriptions, Subscriptions fills the column height); single column below lg. (Supersedes the single-column note above; the 2x2 viewport grid stays reverted.)
+
+Tests: Financing 219, Subscriptions 67, Ledger 70, Api 69, Architecture 15; client specs 418; lint + prod build clean.

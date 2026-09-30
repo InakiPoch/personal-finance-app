@@ -106,8 +106,9 @@ internal static class EndpointExtensions {
                 .Produces<RecentPurchasesDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Financing.DueThisMonth, GetDueThisMonth.Handle)
                 .WithSummary("Get what is due this month across cards and creditors.")
-                .WithDescription("Read-only dashboard roll-up, one row per (source, currency): unpaid card installments due by the current month (overdue included) plus creditor remaining amounts due now (same cutoff rule as creditor payables). Zero amounts are omitted.")
-                .Produces<DueThisMonthDto>(StatusCodes.Status200OK);
+                .WithDescription("Optional month query parameter (yyyy-MM, default current month). Read-only dashboard roll-up, one row per (source, currency): unpaid card installments due by the current month (overdue included) plus creditor remaining amounts due now (same cutoff rule as creditor payables). Zero amounts are omitted.")
+                .Produces<DueThisMonthDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapGet(ApiRoutes.Financing.CreditorPayables, GetCreditorPayables.Handle)
                 .WithSummary("List outstanding balances owed to creditors, grouped by creditor.")
                 .WithDescription("Read-only roll-up over creditor-financed payment plans, in remaining (unpaid) amounts: \"due now\" folds in arrears up to the current billing cycle, \"total owed\" adds future installments. Fully or partially paid amounts are excluded. Card-backed plans never appear.")
@@ -215,6 +216,11 @@ internal static class EndpointExtensions {
                 .WithSummary("List active subscriptions.")
                 .WithDescription("Returns every subscription that is currently active.")
                 .Produces<ActiveSubscriptionsDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Subscriptions.ByMonth, GetSubscriptionsByMonth.Handle)
+                .WithSummary("List the subscriptions renewing in a given month.")
+                .WithDescription("Query parameter month (yyyy-MM, required). Returns every active subscription with its occurrence date in that month and a status of paid, overdue or upcoming. Past months derive the status from non-reversed ledger charges; templates store no start or cancellation date, so active subscriptions appear in every month.")
+                .Produces<SubscriptionsByMonthDto>(StatusCodes.Status200OK)
+                .ProducesProblem(StatusCodes.Status400BadRequest);
             group.MapPost(ApiRoutes.Subscriptions.Pay, PaySubscription.Handle)
                 .WithSummary("Pay the next unpaid period.")
                 .WithDescription("Posts one period's charge dated today, marks it paid, and advances the due date by one month. A subscription several months behind stays overdue until paid again.")

@@ -332,7 +332,11 @@ Done, no client change: labels come from the ledger account name, renamed API-si
 
 ## Phase 51 — Friendly UI: dashboard rework + Due this month (Slice 5)
 
-Done. `docs/friendly-ui/slice-5-dashboard.md`. Dashboard order: header (no "Personal ledger" eyebrow), quick actions (filled "+ Record an expense", "+ Record income" chip, "Recent Credit Card Purchases ›" link), Due this month card (per-currency total, Cards/Creditors sub-line, expandable breakdown, "Pay a card bill"/"Pay a creditor" links), flow (tabs "Spent from bank & cash" / "Money received", "Where your money went"), "Card bills by month" (Charged / Upcoming), Active subscriptions. USD purchase formatting bug fixed on expanded card purchases; creditor payables table formats per-row `currencyCode`; `FinancingService.dueThisMonth()`. A 2x2 viewport grid was tried and reverted (single column stays). Specs 396 green, lint + prod build clean.
+Done. `docs/friendly-ui/slice-5-dashboard.md`. Dashboard order: header (no "Personal ledger" eyebrow), quick actions (filled "+ Record an expense", "+ Record income" chip, "Recent Credit Card Purchases ›" link), Due this month card (per-currency total, Cards/Creditors sub-line, expandable breakdown, "Pay a card bill"/"Pay a creditor" links), flow (tabs "Money Spent" / "Money received", "Where your money went"), "Card bills by month" (Charged / Upcoming), Active subscriptions. USD purchase formatting bug fixed on expanded card purchases; creditor payables table formats per-row `currencyCode`; `FinancingService.dueThisMonth()`. A 2x2 viewport grid was tried and reverted (single column stays). Specs 396 green, lint + prod build clean.
+
+## Phase 51.1 — Friendly UI: month-driven dashboard (follow-up to Slice 5)
+
+Done. `docs/friendly-ui/slice-5-dashboard.md`. Month picker moved to the right end of the quick-actions row and drives every card (h1 "This month" or "<Month> <Year>"): Money Spent/Received + categories, Due card (`dueThisMonth(month)`), Card bills (filtered client-side to the month's cycle), Subscriptions (`subscriptions/by-month`; overdue first, "Future payments — not charged yet"). Late responses for a deselected month are dropped. Layout: `max-w-6xl`, header/quick actions/Due card full width, then a 2-column grid at lg+ (money flow left; Card bills over Subscriptions right). Specs 418 green, lint + prod build clean.
 
 ---
 

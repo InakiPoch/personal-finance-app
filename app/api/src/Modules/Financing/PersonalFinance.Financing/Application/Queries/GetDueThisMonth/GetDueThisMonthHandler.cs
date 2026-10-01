@@ -14,7 +14,7 @@ namespace PersonalFinance.Financing.Application.Queries.GetDueThisMonth;
 /// </summary>
 internal sealed class GetDueThisMonthHandler(FinancingDbContext context, TimeProvider timeProvider) : IQueryHandler<GetDueThisMonthQuery, DueThisMonthResponse> {
     public async Task<DueThisMonthResponse> HandleAsync(GetDueThisMonthQuery query, CancellationToken cancellationToken) {
-        var today = DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var today = query.Today ?? DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
         var requested = query.Month ?? today;
         var requestedOrdinal = requested.Year * 12 + requested.Month;
         var isCurrentMonth = requestedOrdinal == today.Year * 12 + today.Month;

@@ -352,6 +352,10 @@ Done. `docs/friendly-ui/slice-8-glossary-sweep.md`. Glossary applied to 27 templ
 
 ---
 
+## Phase 54.1 — Hotfix: Due this month sends local today (2026-09-30)
+
+Done. `FinancingService.dueThisMonth(month, today)` + Dashboard `localTodayKey()` send `today=yyyy-MM-dd`; specs updated. Client 514/514, lint clean. Pairs with API Phase 56.1.
+
 ## Verification (every phase)
 
 - **Build:** `pnpm ng build` — 0 errors, within the 500 kB warning / 1 MB error initial-JS budget.

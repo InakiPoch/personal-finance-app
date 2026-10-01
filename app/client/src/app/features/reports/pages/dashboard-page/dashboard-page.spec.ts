@@ -42,6 +42,11 @@ type DashboardView = {
 };
 
 /** Month key relative to today, so specs never rot. */
+function localToday(): string {
+  const now: Date = new Date();
+  return `${monthKey(0)}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 function monthKey(offset: number): string {
   const date: Date = new Date();
   const shifted: Date = new Date(date.getFullYear(), date.getMonth() + offset, 1);
@@ -61,7 +66,7 @@ describe('DashboardPage', () => {
   let monthlyIncomes: jasmine.Spy<(month?: string) => Observable<MonthlyIncomeRow[]>>;
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
   let cardPurchases: jasmine.Spy<(cardId: string) => Observable<CardPurchaseRow[]>>;
-  let dueThisMonth: jasmine.Spy<(month?: string) => Observable<DueThisMonthRow[]>>;
+  let dueThisMonth: jasmine.Spy<(month?: string, today?: string) => Observable<DueThisMonthRow[]>>;
   let listByMonth: jasmine.Spy<(month: string) => Observable<MonthSubscription[]>>;
 
   const money = (value: number): Money => value as Money;
@@ -181,12 +186,12 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     expect(monthlyExpenses).toHaveBeenCalledTimes(1);
     expect(monthlyIncomes).toHaveBeenCalledTimes(1);
-    expect(dueThisMonth).toHaveBeenCalledOnceWith(monthKey(0));
+    expect(dueThisMonth).toHaveBeenCalledOnceWith(monthKey(0), localToday());
     expect(listByMonth).toHaveBeenCalledOnceWith(monthKey(0));
     setMonth('2026-01');
     expect(view.selectedMonth()).toBe('2026-01');
     expect(dueThisMonth).toHaveBeenCalledTimes(2);
-    expect(dueThisMonth.calls.mostRecent().args).toEqual(['2026-01']);
+    expect(dueThisMonth.calls.mostRecent().args).toEqual(['2026-01', localToday()]);
     expect(listByMonth).toHaveBeenCalledTimes(2);
     expect(listByMonth.calls.mostRecent().args).toEqual(['2026-01']);
     expect(monthlyExpenses).toHaveBeenCalledTimes(2);
@@ -458,7 +463,7 @@ describe('DashboardPage', () => {
     dueThisMonth.and.returnValue(of(dueRows));
     setup();
     fixture.detectChanges();
-    expect(dueThisMonth).toHaveBeenCalledOnceWith(monthKey(0));
+    expect(dueThisMonth).toHaveBeenCalledOnceWith(monthKey(0), localToday());
     expect(view.dueStatus()).toBe('ready');
     const text: string = dueCard().textContent ?? '';
     expect(text).toContain(formatMoney(money(600000), 'ARS'));
@@ -625,7 +630,7 @@ describe('DashboardPage', () => {
       setMonth(pastMonth);
       expect(monthlyExpenses.calls.mostRecent().args).toEqual([pastMonth]);
       expect(monthlyIncomes.calls.mostRecent().args).toEqual([pastMonth]);
-      expect(dueThisMonth.calls.mostRecent().args).toEqual([pastMonth]);
+      expect(dueThisMonth.calls.mostRecent().args).toEqual([pastMonth, localToday()]);
       expect(listByMonth.calls.mostRecent().args).toEqual([pastMonth]);
       expect(cardDueByMonth).toHaveBeenCalledTimes(1);
     });

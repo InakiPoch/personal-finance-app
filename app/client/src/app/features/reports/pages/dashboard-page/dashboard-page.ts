@@ -44,6 +44,11 @@ type CardCycle = {
   total: Money;
 };
 
+function localTodayKey(): string {
+  const now: Date = new Date();
+  return `${currentMonthKey()}-${String(now.getDate()).padStart(2, '0')}`;
+}
+
 function currentMonthKey(): string {
   const now: Date = new Date();
   return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
@@ -365,7 +370,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     const month: string = this.selectedMonth();
     this.dueStatus.set('loading');
     this.financing
-      .dueThisMonth(month)
+      .dueThisMonth(month, localTodayKey())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows: DueThisMonthRow[]) => {

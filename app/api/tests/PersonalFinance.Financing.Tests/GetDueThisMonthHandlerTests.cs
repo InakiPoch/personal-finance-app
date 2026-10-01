@@ -178,6 +178,18 @@ public sealed class GetDueThisMonthHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_for_the_local_current_month_excludes_installments_paid_this_month_when_utc_already_rolled_over() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync("Visa", cancellationToken);
+        var plan = CreateCardPlan(cardId, new DateOnly(2026, 8, 10), 1, 5_000, Currency.Reference); // due Sep
+        plan.Installments.Single().ApplyPayment(5_000, new DateTimeOffset(2026, 9, 15, 0, 0, 0, TimeSpan.Zero));
+        await SeedPlansAsync([plan], cancellationToken);
+        // Sep 30 23:03 in UTC-3 is already Oct 1 02:03 UTC; the client asks for September.
+        var utcRolledOver = new DateTimeOffset(2026, 10, 1, 2, 3, 0, TimeSpan.Zero);
+        Assert.Empty((await RunAsync(utcRolledOver, cancellationToken, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 30))).Rows);
+    }
+
+    [Fact]
     public async Task Handle_for_a_future_month_counts_earlier_unpaid_and_that_month_but_not_later_ones() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var cardId = await SeedCardAsync("Visa", cancellationToken);
@@ -296,9 +308,9 @@ public sealed class GetDueThisMonthHandlerTests : IDisposable {
         await context.SaveChangesAsync(cancellationToken);
     }
 
-    private async Task<DueThisMonthResponse> RunAsync(DateTimeOffset now, CancellationToken cancellationToken, DateOnly? month = null) {
+    private async Task<DueThisMonthResponse> RunAsync(DateTimeOffset now, CancellationToken cancellationToken, DateOnly? month = null, DateOnly? today = null) {
         await using var context = NewContext();
-        return await new GetDueThisMonthHandler(context, new FixedTimeProvider(now)).HandleAsync(new GetDueThisMonthQuery(month), cancellationToken);
+        return await new GetDueThisMonthHandler(context, new FixedTimeProvider(now)).HandleAsync(new GetDueThisMonthQuery(month, today), cancellationToken);
     }
 
     private async Task<(Guid CreditorId, IReadOnlyList<Guid> AccountIds, CreditorRow Row)> SeedCreditorAsync(string name, string[] accountLabels, CancellationToken cancellationToken) {

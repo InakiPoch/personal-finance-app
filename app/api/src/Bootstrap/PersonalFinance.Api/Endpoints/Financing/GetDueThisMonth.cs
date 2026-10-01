@@ -7,9 +7,9 @@ using PersonalFinance.Infrastructure.Messaging;
 namespace PersonalFinance.Api.Endpoints.Financing;
 
 public static class GetDueThisMonth {
-    public static async Task<Ok<DueThisMonthDto>> Handle(string? month, IQueryBus queryBus, CancellationToken cancellationToken) {
+    public static async Task<Ok<DueThisMonthDto>> Handle(string? month, DateOnly? today, IQueryBus queryBus, CancellationToken cancellationToken) {
         var requested = month is null ? (DateOnly?)null : MonthQueryHelper.Parse(month);
-        var response = await queryBus.AskAsync(new GetDueThisMonthQuery(requested), cancellationToken);
+        var response = await queryBus.AskAsync(new GetDueThisMonthQuery(requested, today), cancellationToken);
         return TypedResults.Ok(response.ToDueThisMonthDto());
     }
 }

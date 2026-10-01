@@ -11,5 +11,6 @@ public sealed record DueThisMonthResponse(IReadOnlyList<DueThisMonthRow> Rows);
 
 /// <summary>
 /// <paramref name="Month"/> is any date inside the requested calendar month; null means the current month.
+/// <paramref name="Today"/> is the caller's local date; null falls back to the UTC date.
 /// </summary>
-public sealed record GetDueThisMonthQuery(DateOnly? Month = null) : IQuery<DueThisMonthResponse>;
+public sealed record GetDueThisMonthQuery(DateOnly? Month = null, DateOnly? Today = null) : IQuery<DueThisMonthResponse>;

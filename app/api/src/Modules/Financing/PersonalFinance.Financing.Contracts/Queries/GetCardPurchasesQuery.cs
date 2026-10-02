@@ -9,4 +9,8 @@ public sealed record CardPurchaseRow(Guid PlanId, string Description, long Total
 /// </summary>
 public sealed record CardPurchasesResponse(Guid CardId, IReadOnlyList<CardPurchaseRow> Rows);
 
-public sealed record GetCardPurchasesQuery(Guid CardId) : IQuery<CardPurchasesResponse>;
+/// <summary>
+/// <paramref name="Month"/> is any date inside the dashboard's selected month; null keeps every outstanding purchase.
+/// <paramref name="Today"/> is the local date; null falls back to the UTC date.
+/// </summary>
+public sealed record GetCardPurchasesQuery(Guid CardId, DateOnly? Month = null, DateOnly? Today = null) : IQuery<CardPurchasesResponse>;

@@ -27,6 +27,7 @@ import { PayInstallment } from './types/pay-installment';
 import { PayInstallmentResult } from './types/pay-installment-result';
 import { PayStatement } from './types/pay-statement';
 import { PayStatementResult } from './types/pay-statement-result';
+import { CardPurchaseRow } from './types/card-purchase-row';
 import { RecentPurchaseRow } from './types/recent-purchase-row';
 import { FinancingService } from './financing-service';
 
@@ -261,6 +262,22 @@ describe('FinancingService', () => {
     service.dueThisMonth().subscribe();
     const req = httpMock.expectOne(`${base}/financing/due-this-month`);
     expect(req.request.params.has('month')).toBeFalse();
+    req.flush({ rows: [] });
+  });
+  it('GETs a card purchases list with the month and today query params and unwraps the { rows } envelope', () => {
+    let result: CardPurchaseRow[] | undefined;
+    service.cardPurchases('c1', '2026-11', '2026-10-02').subscribe((r: CardPurchaseRow[]) => (result = r));
+    const req = httpMock.expectOne((r) => r.url === `${base}/financing/cards/c1/purchases`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('month')).toBe('2026-11');
+    expect(req.request.params.get('today')).toBe('2026-10-02');
+    req.flush({ rows: [] });
+    expect(result).toEqual([]);
+  });
+  it('omits the query params on card purchases when none are given', () => {
+    service.cardPurchases('c1').subscribe();
+    const req = httpMock.expectOne(`${base}/financing/cards/c1/purchases`);
+    expect(req.request.params.keys()).toEqual([]);
     req.flush({ rows: [] });
   });
   it('maps a 400 on due-this-month to an AppError keyed off code', () => {

@@ -6,7 +6,7 @@ using PersonalFinance.Financing.Infrastructure.Persistence;
 
 namespace PersonalFinance.Financing.Application.Queries.GetCardPurchases;
 
-internal sealed class GetCardPurchasesHandler(FinancingDbContext context) : IQueryHandler<GetCardPurchasesQuery, CardPurchasesResponse> {
+internal sealed class GetCardPurchasesHandler(FinancingDbContext context, TimeProvider timeProvider) : IQueryHandler<GetCardPurchasesQuery, CardPurchasesResponse> {
     public async Task<CardPurchasesResponse> HandleAsync(GetCardPurchasesQuery query, CancellationToken cancellationToken) {
         var card = await context.CreditCards
             .Include(candidate => candidate.ClosingOverrides)
@@ -33,13 +33,24 @@ internal sealed class GetCardPurchasesHandler(FinancingDbContext context) : IQue
                 installment.CycleMonth
             }
         ).ToListAsync(cancellationToken);
+        var today = query.Today ?? DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        var selected = query.Month is { } month ? new BillingCycle(month.Year, month.Month) : null;
+        var isCurrentMonth = selected is not null && selected == new BillingCycle(today.Year, today.Month);
         var outstanding = installments
-            .Where(row => row.AccruedOnUtc is null
-                || (row.StatementId is not null
+            .Where(row => {
+                var isAccruedUnpaid = row.StatementId is not null
                     && isPaidByStatementId.TryGetValue(row.StatementId.Value, out var isPaid)
-                    && !isPaid))
+                    && !isPaid;
+                if(selected is null) {
+                    return row.AccruedOnUtc is null || isAccruedUnpaid;
+                }
+                if(row.AccruedOnUtc is not null) {
+                    return isCurrentMonth && isAccruedUnpaid;
+                }
+                var due = new BillingCycle(row.CycleYear, row.CycleMonth).DueCycle;
+                return due == selected || (isCurrentMonth && due == selected.AddMonths(1));
+            })
             .ToList();
-        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.UtcDateTime);
         var currentCycle = card?.ResolveCycle(today);
         var rows = outstanding
             .GroupBy(row => row.PlanId)

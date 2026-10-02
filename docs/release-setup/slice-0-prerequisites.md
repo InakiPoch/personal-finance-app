@@ -49,10 +49,10 @@ Triage outcome, recorded in this doc under "Findings":
 
 ## Done when
 
-- [ ] `docker run --rm hello-world` works **without sudo**.
-- [ ] `docker compose version` and `docker buildx version` print versions.
-- [ ] gitleaks report reviewed; findings (or "none") written below.
-- [ ] Email/personal-data review done; owner signed off on public history.
+- [x] `docker run --rm hello-world` works **without sudo**.
+- [x] `docker compose version` and `docker buildx version` print versions.
+- [x] gitleaks report reviewed; findings (or "none") written below.
+- [x] Email/personal-data review done; owner signed off on public history.
 
 ## Findings
 
@@ -61,6 +61,8 @@ Triage outcome, recorded in this doc under "Findings":
 - gitleaks over `--all` history: no findings (`[]`).
 - No `*.db*` / `*.bak` ever committed.
 - Commit emails: GitHub noreply addresses + `inakipoch106@gmail.com` (341/376 commits). Owner accepted it being public; no history rewrite. (A rewrite would not remove it anyway: GitHub keeps `refs/pull/*/head` pointing at the old commits.)
+- Personal-data review of `docs/`, `*.http`, fixtures: done by owner; real-looking lines removed from `PersonalFinance.Api.http` (`3733e5a`).
+- Work branch `chore/deploy-groundwork`: 0 commits behind `origin/dev`, 2 ahead (`dfc035d`, `3733e5a`).
 
 ## Out of scope
 

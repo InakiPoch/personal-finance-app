@@ -253,8 +253,8 @@
                   </div>
                 }
                 <div aria-hidden="true" class="mt-2 flex h-2.5 overflow-hidden rounded-xs bg-paper-inset">
-                  <span class="bg-stamp" [style.width.%]="segmentWidth(card.accrued, card.total)"></span>
-                  <span class="cycle-future" [style.width.%]="segmentWidth(card.future, card.total)"></span>
+                  <span class="bg-stamp" [style.width.%]="segmentWidth(card.accrued, card.barTotal)"></span>
+                  <span class="cycle-future" [style.width.%]="segmentWidth(card.future, card.barTotal)"></span>
                 </div>
                 <div class="mt-1.5 flex justify-between text-[0.6875rem] text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]">
                   <span>Charged {{ formatMoney(card.accrued, card.currencyCode) }}</span>

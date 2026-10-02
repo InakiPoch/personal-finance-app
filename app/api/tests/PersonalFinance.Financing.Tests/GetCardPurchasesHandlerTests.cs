@@ -43,7 +43,7 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCardPurchasesHandler(readContext).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
+        var response = await new GetCardPurchasesHandler(readContext, TimeProvider.System).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
         Assert.Empty(response.Rows);
     }
 
@@ -59,7 +59,7 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCardPurchasesHandler(readContext).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
+        var response = await new GetCardPurchasesHandler(readContext, TimeProvider.System).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
         Assert.Contains(response.Rows, row => row.PlanId == planId);
     }
 
@@ -78,7 +78,7 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCardPurchasesHandler(readContext).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
+        var response = await new GetCardPurchasesHandler(readContext, TimeProvider.System).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
         Assert.Contains(response.Rows, row => row.PlanId == planId);
     }
 
@@ -94,7 +94,7 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCardPurchasesHandler(readContext).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
+        var response = await new GetCardPurchasesHandler(readContext, TimeProvider.System).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
         var row = Assert.Single(response.Rows, row => row.PlanId == planId);
         Assert.Equal(3, row.OutstandingCount);
         Assert.Equal(3, row.InstallmentCount);
@@ -117,7 +117,7 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
             await context.SaveChangesAsync(cancellationToken);
         }
         await using var readContext = NewContext();
-        var response = await new GetCardPurchasesHandler(readContext).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
+        var response = await new GetCardPurchasesHandler(readContext, TimeProvider.System).HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
         var currentCycleIndex = response.Rows.ToList().FindIndex(row => row.PlanId == currentCyclePlanId);
         var otherCycleIndex = response.Rows.ToList().FindIndex(row => row.PlanId == otherCyclePlanId);
         Assert.True(currentCycleIndex >= 0 && otherCycleIndex >= 0);
@@ -125,10 +125,75 @@ public sealed class GetCardPurchasesHandlerTests : IDisposable {
     }
 
     [Fact]
+    public async Task Handle_with_month_previews_a_next_month_due_purchase_in_the_current_month_and_its_due_month_but_not_after() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync(15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreatePlan(cardId, 15, new DateOnly(2026, 9, 30), 1);
+            planId = plan.Id;
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        var today = new DateOnly(2026, 10, 2);
+        await using var readContext = NewContext();
+        var handler = new GetCardPurchasesHandler(readContext, TimeProvider.System);
+        var october = await handler.HandleAsync(new GetCardPurchasesQuery(cardId, new DateOnly(2026, 10, 1), today), cancellationToken);
+        var november = await handler.HandleAsync(new GetCardPurchasesQuery(cardId, new DateOnly(2026, 11, 1), today), cancellationToken);
+        var omitted = await handler.HandleAsync(new GetCardPurchasesQuery(cardId), cancellationToken);
+        var december = await handler.HandleAsync(new GetCardPurchasesQuery(cardId, new DateOnly(2026, 12, 1), today), cancellationToken);
+        Assert.Contains(october.Rows, row => row.PlanId == planId);
+        Assert.DoesNotContain(december.Rows, row => row.PlanId == planId);
+        Assert.Contains(november.Rows, row => row.PlanId == planId);
+        Assert.Contains(omitted.Rows, row => row.PlanId == planId);
+    }
+
+    [Fact]
+    public async Task Handle_with_month_counts_only_installments_due_in_that_month() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync(15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreatePlan(cardId, 15, new DateOnly(2026, 9, 30), 3);
+            planId = plan.Id;
+            context.PaymentPlans.Add(plan);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        await using var readContext = NewContext();
+        var response = await new GetCardPurchasesHandler(readContext, TimeProvider.System)
+            .HandleAsync(new GetCardPurchasesQuery(cardId, new DateOnly(2026, 12, 1), new DateOnly(2026, 10, 2)), cancellationToken);
+        var row = Assert.Single(response.Rows, row => row.PlanId == planId);
+        Assert.Equal(1, row.OutstandingCount);
+    }
+
+    [Fact]
+    public async Task Handle_with_month_includes_an_accrued_unpaid_purchase_only_in_the_current_month() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var cardId = await SeedCardAsync(15, cancellationToken);
+        Guid planId;
+        await using(var context = NewContext()) {
+            var plan = CreatePlan(cardId, 15, new DateOnly(2026, 9, 10), 1);
+            planId = plan.Id;
+            var statement = MonthlyStatement.Open(cardId, BillingCycleCalculator.ResolveCycle(plan.PurchaseDate, 15), Currency.Reference);
+            plan.Installments[0].MarkAccrued(DateTimeOffset.UtcNow, statement);
+            context.PaymentPlans.Add(plan);
+            context.MonthlyStatements.Add(statement);
+            await context.SaveChangesAsync(cancellationToken);
+        }
+        var today = new DateOnly(2026, 10, 2);
+        await using var readContext = NewContext();
+        var handler = new GetCardPurchasesHandler(readContext, TimeProvider.System);
+        var current = await handler.HandleAsync(new GetCardPurchasesQuery(cardId, today, today), cancellationToken);
+        var other = await handler.HandleAsync(new GetCardPurchasesQuery(cardId, new DateOnly(2026, 11, 1), today), cancellationToken);
+        Assert.Contains(current.Rows, row => row.PlanId == planId);
+        Assert.DoesNotContain(other.Rows, row => row.PlanId == planId);
+    }
+
+    [Fact]
     public async Task Handle_returns_no_rows_for_an_unknown_card() {
         var cancellationToken = TestContext.Current.CancellationToken;
         await using var context = NewContext();
-        var response = await new GetCardPurchasesHandler(context).HandleAsync(new GetCardPurchasesQuery(Guid.NewGuid()), cancellationToken);
+        var response = await new GetCardPurchasesHandler(context, TimeProvider.System).HandleAsync(new GetCardPurchasesQuery(Guid.NewGuid()), cancellationToken);
         Assert.Empty(response.Rows);
     }
 

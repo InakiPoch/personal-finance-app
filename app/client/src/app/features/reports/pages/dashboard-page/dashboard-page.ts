@@ -42,6 +42,7 @@ type CardCycle = {
   accrued: Money;
   future: Money;
   total: Money;
+  barTotal: Money;
 };
 
 function localTodayKey(): string {
@@ -185,8 +186,12 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly monthCardRows: Signal<CardDueRow[]> = computed(() => {
     const [year, month]: number[] = this.selectedMonth().split('-').map(Number);
     const current: boolean = this.isCurrentMonth();
+    const nextYear: number = month === 12 ? year + 1 : year;
+    const nextMonth: number = month === 12 ? 1 : month + 1;
     return this.cardDueRows().filter((row: CardDueRow) =>
-      row.cycleYear === null ? current && row.bucket === 'Accrued' : row.cycleYear === year && row.cycleMonth === month
+      row.cycleYear === null
+        ? current && row.bucket === 'Accrued'
+      : (row.cycleYear === year && row.cycleMonth === month) || (current && row.cycleYear === nextYear && row.cycleMonth === nextMonth)
     );
   });
 
@@ -240,7 +245,8 @@ export class DashboardPage implements OnInit, OnDestroy {
         currencyCode: currencyByKey.get(key) ?? 'ARS',
         accrued: fromMinorUnits(accruedMinor),
         future: fromMinorUnits(futureMinor),
-        total: fromMinorUnits(accruedMinor + futureMinor)
+        total: fromMinorUnits(this.isCurrentMonth() ? accruedMinor : accruedMinor + futureMinor),
+        barTotal: fromMinorUnits(accruedMinor + futureMinor)
       };
     });
   });
@@ -264,6 +270,9 @@ export class DashboardPage implements OnInit, OnDestroy {
       return;
     }
     this.selectedMonth.set(month);
+    this.expandedCardId.set(null);
+    this.expandedPurchases.set([]);
+    this.purchasesByCardId.clear();
     this.loadMonthlyExpenses();
     this.loadMonthlyIncomes();
     this.loadDueThisMonth();
@@ -299,6 +308,7 @@ export class DashboardPage implements OnInit, OnDestroy {
       return;
     }
     this.expandedCardId.set(cardId);
+    const month: string = this.selectedMonth();
     const cached: CardPurchaseRow[] | undefined = this.purchasesByCardId.get(cardId);
     if(cached) {
       this.expandedPurchases.set(cached);
@@ -307,10 +317,13 @@ export class DashboardPage implements OnInit, OnDestroy {
     }
     this.purchasesStatus.set('loading');
     this.financing
-      .cardPurchases(cardId)
+      .cardPurchases(cardId, month, localTodayKey())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows: CardPurchaseRow[]) => {
+          if(month !== this.selectedMonth() || this.expandedCardId() !== cardId) {
+            return;
+          }
           this.purchasesByCardId.set(cardId, rows);
           this.expandedPurchases.set(rows);
           this.purchasesStatus.set('ready');

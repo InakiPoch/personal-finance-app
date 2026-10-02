@@ -56,9 +56,11 @@ export class FinancingService {
     .pipe(map((envelope: RowsEnvelope<MonthlyStatementSummary>) => envelope.rows));
   }
 
-  cardPurchases(cardId: string): Observable<CardPurchaseRow[]> {
+  cardPurchases(cardId: string, month?: string, today?: string): Observable<CardPurchaseRow[]> {
     return this.http
-      .get<RowsEnvelope<CardPurchaseRow>>(`financing/cards/${cardId}/purchases`)
+      .get<RowsEnvelope<CardPurchaseRow>>(`financing/cards/${cardId}/purchases`, {
+        params: { ...(month ? { month } : {}), ...(today ? { today } : {}) }
+      })
     .pipe(map((envelope: RowsEnvelope<CardPurchaseRow>) => envelope.rows));
   }
 

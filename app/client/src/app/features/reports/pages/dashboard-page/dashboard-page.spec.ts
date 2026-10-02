@@ -31,7 +31,7 @@ type DashboardView = {
   futureByCard: () => Array<{ label: string; currencyCode: string; totalMinorUnits: number }>;
   monthlyTotalsByCurrency: () => Array<{ currencyCode: string; totalMinorUnits: number }>;
   incomeTotalsByCurrency: () => Array<{ currencyCode: string; totalMinorUnits: number }>;
-  cycleByCard: () => Array<{ card: string; cardId: string | null; currencyCode: string; accrued: number; future: number; total: number }>;
+  cycleByCard: () => Array<{ card: string; cardId: string | null; currencyCode: string; accrued: number; future: number; total: number; barTotal: number }>;
   onMonthChange: (month: string) => void;
   setFlowSide: (side: 'out' | 'in') => void;
   expandedCardId: () => string | null;
@@ -65,7 +65,7 @@ describe('DashboardPage', () => {
   let monthlyExpenses: jasmine.Spy<(month?: string) => Observable<MonthlyExpenseRow[]>>;
   let monthlyIncomes: jasmine.Spy<(month?: string) => Observable<MonthlyIncomeRow[]>>;
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
-  let cardPurchases: jasmine.Spy<(cardId: string) => Observable<CardPurchaseRow[]>>;
+  let cardPurchases: jasmine.Spy<(cardId: string, month?: string, today?: string) => Observable<CardPurchaseRow[]>>;
   let dueThisMonth: jasmine.Spy<(month?: string, today?: string) => Observable<DueThisMonthRow[]>>;
   let listByMonth: jasmine.Spy<(month: string) => Observable<MonthSubscription[]>>;
 
@@ -213,7 +213,7 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     view.toggleCardPurchases('c1');
     fixture.detectChanges();
-    expect(cardPurchases).toHaveBeenCalledOnceWith('c1');
+    expect(cardPurchases).toHaveBeenCalledOnceWith('c1', view.selectedMonth(), jasmine.any(String));
     expect(view.expandedCardId()).toBe('c1');
     expect(view.expandedPurchases()).toEqual(purchaseRows);
     const text: string = (fixture.nativeElement as HTMLElement).textContent ?? '';
@@ -234,9 +234,39 @@ describe('DashboardPage', () => {
     expect(cards[0].future).toBe(500000);
     view.toggleCardPurchases('c1');
     fixture.detectChanges();
-    expect(cardPurchases).toHaveBeenCalledOnceWith('c1');
+    expect(cardPurchases).toHaveBeenCalledOnceWith('c1', view.selectedMonth(), jasmine.any(String));
     const details = (fixture.nativeElement as HTMLElement).querySelectorAll('[id^="card-purchases-"]');
     expect(details.length).toBe(1);
+  });
+  it('previews next month Future rows as Upcoming in the current month with the header showing Charged only', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Accrued', card: 'Visa', cycleYear: null, cycleMonth: null, amountMinorUnits: money(300000), currencyCode: 'ARS', cardId: 'c1' },
+      { bucket: 'Future', card: 'Visa', ...cyc(1), amountMinorUnits: money(100000), currencyCode: 'ARS', cardId: 'c1' },
+      { bucket: 'Future', card: 'Macro', ...cyc(1), amountMinorUnits: money(80000), currencyCode: 'ARS', cardId: 'c2' },
+      { bucket: 'Future', card: 'Visa', ...cyc(2), amountMinorUnits: money(999), currencyCode: 'ARS', cardId: 'c1' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    const visa = view.cycleByCard().find((card) => card.cardId === 'c1');
+    expect(visa?.accrued).toBe(300000);
+    expect(visa?.future).toBe(100000);
+    expect(visa?.total).toBe(300000);
+    expect(visa?.barTotal).toBe(400000);
+    const macro = view.cycleByCard().find((card) => card.cardId === 'c2');
+    expect(macro?.total).toBe(0);
+    expect(macro?.future).toBe(80000);
+  });
+  it('keeps total as accrued plus future in a non-current month and ignores the following month', () => {
+    cardDueByMonth.and.returnValue(of([
+      { bucket: 'Future', card: 'Visa', ...cyc(1), amountMinorUnits: money(100000), currencyCode: 'ARS', cardId: 'c1' },
+      { bucket: 'Future', card: 'Visa', ...cyc(2), amountMinorUnits: money(50000), currencyCode: 'ARS', cardId: 'c1' }
+    ]));
+    setup();
+    fixture.detectChanges();
+    (view as unknown as { onMonthChange: (m: string) => void }).onMonthChange(monthKey(1));
+    const visa = view.cycleByCard().find((card) => card.cardId === 'c1');
+    expect(visa?.total).toBe(100000);
+    expect(visa?.barTotal).toBe(100000);
   });
   it('drops the ledger "Liability" suffix from a charged card label', () => {
     cardDueByMonth.and.returnValue(of([
@@ -283,6 +313,17 @@ describe('DashboardPage', () => {
     expect(view.expandedCardId()).toBeNull();
     expect(view.expandedPurchases()).toEqual([]);
     expect(cardPurchases).toHaveBeenCalledTimes(1);
+  });
+  it('collapses and refetches purchases for the new month instead of reusing the cache', () => {
+    setup();
+    fixture.detectChanges();
+    view.toggleCardPurchases('c1');
+    view.onMonthChange('2030-01');
+    expect(view.expandedCardId()).toBeNull();
+    expect(view.expandedPurchases()).toEqual([]);
+    view.toggleCardPurchases('c1');
+    expect(cardPurchases).toHaveBeenCalledTimes(2);
+    expect(cardPurchases.calls.mostRecent().args[1]).toBe('2030-01');
   });
   it('ignores a toggle for a card row with no cardId', () => {
     setup();
@@ -647,10 +688,10 @@ describe('DashboardPage', () => {
 
       beforeEach(() => cardDueByMonth.and.returnValue(of(rows)));
 
-      it('for the current month keeps its cycle rows plus the null-cycle Accrued rows', () => {
+      it('for the current month shows Charged only in the header and previews next month as Upcoming', () => {
         setup();
         fixture.detectChanges();
-        expect(totals()).toEqual({ Visa: 300 });
+        expect(totals()).toEqual({ Visa: 100, Amex: 0 });
       });
       it('for another month keeps only rows of that cycle and drops null-cycle Accrued rows', () => {
         setup();

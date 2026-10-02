@@ -56,7 +56,11 @@ Triage outcome, recorded in this doc under "Findings":
 
 ## Findings
 
-_(fill in during implementation)_
+2026-10-02:
+- Docker 29.8.2, Compose 5.6.0, Buildx 0.37.2; `hello-world` runs without sudo.
+- gitleaks over `--all` history: no findings (`[]`).
+- No `*.db*` / `*.bak` ever committed.
+- Commit emails: GitHub noreply addresses + `inakipoch106@gmail.com` (341/376 commits). Owner accepted it being public; no history rewrite. (A rewrite would not remove it anyway: GitHub keeps `refs/pull/*/head` pointing at the old commits.)
 
 ## Out of scope
 

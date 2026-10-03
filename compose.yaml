@@ -1,0 +1,13 @@
+name: personal-finance
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+    environment:
+      App__PublicUrl: "http://localhost:8080"
+    volumes:
+      - pf-data:/data
+    restart: unless-stopped
+volumes:
+  pf-data: {}

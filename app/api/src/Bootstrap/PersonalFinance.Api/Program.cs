@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using PersonalFinance.Api;
 using PersonalFinance.Api.Endpoints;
 using PersonalFinance.Api.Handlers;
+using PersonalFinance.Api.Helpers;
 using PersonalFinance.Api.OpenApi;
 using PersonalFinance.Infrastructure.DependencyInjection;
 using Scalar.AspNetCore;
@@ -28,6 +29,9 @@ builder.Services.AddModules(builder.Configuration);
 
 builder.Services.AddOutboxProcessing();
 
+var migrateOnStartup = builder.Configuration.GetValue<bool>("Database:MigrateOnStartup");
+var contextTypes = migrateOnStartup ? DatabaseMigrationHelper.GetOrderedContextTypes(builder.Services) : [];
+
 var app = builder.Build();
 
 app.UseExceptionHandler();
@@ -42,6 +46,8 @@ if(app.Environment.IsDevelopment()) {
 
 app.UseHttpsRedirection();
 
+app.UseStaticFiles();
+
 app.UseCors(ClientCorsOptions.PolicyName);
 
 app.MapModuleEndpoints();
@@ -49,5 +55,18 @@ app.MapModuleEndpoints();
 app.MapHealthChecks("/health", new HealthCheckOptions {
     ResponseWriter = HealthCheckResponseWriterHelper.Write
 });
+
+// A mistyped API path must stay a 404.
+app.MapFallback("/v1/{**rest}", () => Results.NotFound());
+app.MapFallbackToFile("index.html");
+
+if(migrateOnStartup) {
+    await DatabaseMigrationHelper.MigrateAsync(app.Services, contextTypes, app.Logger);
+}
+
+var publicUrl = app.Configuration["App:PublicUrl"];
+if(!string.IsNullOrWhiteSpace(publicUrl)) {
+    app.Lifetime.ApplicationStarted.Register(() => app.Logger.LogInformation("Personal Finance is ready at {Url}", publicUrl));
+}
 
 app.Run();

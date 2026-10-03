@@ -165,12 +165,21 @@ Checks:
 ## Done when
 
 - [ ] All checks above pass from a clean clone.
-- [ ] API + client test suites green.
-- [ ] api `CLAUDE.md` "the host does not auto-migrate" line updated; TASK.md ledger line added.
+- [x] API + client test suites green.
+- [x] api `CLAUDE.md` "the host does not auto-migrate" line updated; TASK.md ledger line added.
 
 ## Findings
 
-_(fill in: actual image tags used, `/v1/instruments` response shape, migration-lock behaviour, dist path, any surprises)_
+2026-10-03:
+- Images (resolved at build): `node:22-alpine` (Node 22.23.3), `sdk:10.0` (SDK 10.0.401, satisfies `global.json` 10.0.111 — no pinning), `aspnet:10.0-noble-chiseled-extra` (tag exists; runs as UID 1654; `/data` owned by it, WAL files created fine). Final image ≈ 304 MB. The Dockerfile is the doc sketch unchanged plus a `# ponytail:` note on skipped layer caching.
+- pnpm 11.8.0 via corepack works on alpine; `strictDepBuilds` + `allowBuilds` caused no problem. Needs network at the `pnpm install` step. Dist path `dist/client/browser` confirmed.
+- `GET /v1/instruments` on an empty DB → `200 {"rows":[]}`. `POST /v1/instruments {"type":"debit","name":"Checking"}` → `201 {"id","type"}`; list rows are `{id,type,name,cutoffDate,nextClosingDate}`.
+- **Blocker found and fixed:** `SqliteConnectionStringHelper.Resolve` evaluated `SolutionRootLocatorHelper.FindSolutionRoot()` eagerly, even with `ConnectionStrings__PersonalFinanceDb` set, and threw in the image (no `.sln`). The fallback is now lazy.
+- **Migration lock:** killing the container mid-migration (reproduced 5/5, during Financing) leaves a stale `__EFMigrationsLock` row; the next start then hung forever polling `INSERT OR IGNORE INTO "__EFMigrationsLock"` — container "Up", `/health` dead, `restart: unless-stopped` never fires. DB itself stayed intact (integrity + FK checks clean). Fixed with a startup guard (`DROP TABLE IF EXISTS "__EFMigrationsLock"` before each context; safe: one process, one file) plus regression test `DatabaseMigrationHelperTests`. Manual recovery for older images: `docker compose stop`, then `docker run --rm -v personal-finance_pf-data:/data alpine sh -c 'apk add -q sqlite && sqlite3 /data/personalfinance.db "delete from __EFMigrationsLock"'`, then `docker compose up -d` (Slice 4 README troubleshooting).
+- **Not reproduced:** a kill inside the non-transactional `PRAGMA foreign_keys = 0` of `AllowCardlessCreditorFinancedPlan` (EF warning 20410, a table rebuild) — a half-applied migration there is untested and the guard does not cover it. README must say: back up the volume before upgrading.
+- Noise: `Failed to determine the https port for redirect` is logged once (Slice 3 removes it); `The WebRootPath was not found` on static paths in `dotnet run` without `wwwroot` (harmless, dev only); EF logs every SQL command at info level, burying the ready line — consider `Logging__LogLevel__Microsoft.EntityFrameworkCore.Database.Command=Warning` in the image/compose (not done).
+- Cold build ≈ 60 s; the clean-clone compose build measured 6.8 s only because layers were cached.
+- Regression: API 570 green, client lint clean, client 519/519, `dotnet run` + `ng serve` dev loops unchanged.
 
 ## Out of scope
 

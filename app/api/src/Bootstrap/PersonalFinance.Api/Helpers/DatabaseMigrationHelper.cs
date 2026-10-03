@@ -27,6 +27,7 @@ internal static class DatabaseMigrationHelper {
         foreach(var contextType in contextTypes) {
             try {
                 var context = (DbContext)scope.ServiceProvider.GetRequiredService(contextType);
+                await context.Database.ExecuteSqlRawAsync("DROP TABLE IF EXISTS \"__EFMigrationsLock\"");
                 await context.Database.MigrateAsync();
                 logger.LogInformation("Database migrated for {Context}", contextType.Name);
             } catch(Exception exception) {

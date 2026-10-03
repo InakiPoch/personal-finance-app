@@ -225,3 +225,7 @@ Done. `docs/friendly-ui/slice-7-reverse.md`. Reporting owns the feed: `Sql/trans
 ## Phase 56.1 — Hotfix: Due this month wrong near UTC midnight (2026-09-30)
 
 Done. `GET /v1/financing/due-this-month` takes optional `today=yyyy-MM-dd`; `GetDueThisMonthHandler` uses it (fallback UTC date) to decide the current month, so a UTC-3 evening on the last day no longer treats the local month as past and re-counts amounts paid that month. Regression test in `GetDueThisMonthHandlerTests`. Financing 256 green, no migration.
+
+## Phase 57 — Release setup, Slice 1: runnable container (2026-10-03)
+
+Done pending clean-clone re-run + browser walk-through. `Database:MigrateOnStartup` (default off) migrates all four modules in order via `DatabaseMigrationHelper` with a stale-`__EFMigrationsLock` drop; static hosting + SPA fallback (`/v1/**` stays 404); ready log line from `App:PublicUrl`; lazy solution-root lookup in `SqliteConnectionStringHelper`; root `Dockerfile`, `.dockerignore`, `compose.yaml`. API 570 green, no migration.

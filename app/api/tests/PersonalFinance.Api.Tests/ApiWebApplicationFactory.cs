@@ -10,10 +10,10 @@ namespace PersonalFinance.Api.Tests;
 public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>, IAsyncLifetime {
     private readonly string databasePath = Path.Combine(Path.GetTempPath(), $"pf-api-{Guid.CreateVersion7():N}.db");
 
-    private IReadOnlyList<Type> contextTypes = [];
+    public IReadOnlyList<Type> ContextTypes { get; private set; } = [];
 
     public async ValueTask InitializeAsync() {
-        await DatabaseMigrationHelper.MigrateAsync(Services, contextTypes, NullLogger.Instance);
+        await DatabaseMigrationHelper.MigrateAsync(Services, ContextTypes, NullLogger.Instance);
     }
 
     public override async ValueTask DisposeAsync() {
@@ -30,7 +30,7 @@ public sealed class ApiWebApplicationFactory : WebApplicationFactory<Program>, I
         builder.UseSetting("Sqlite:BusyTimeoutMs", "5000");
         builder.UseSetting("Sqlite:ForeignKeys", "true");
         builder.ConfigureServices(services => {
-            contextTypes = DatabaseMigrationHelper.GetOrderedContextTypes(services);
+            ContextTypes = DatabaseMigrationHelper.GetOrderedContextTypes(services);
             var appHostedServices = services
                 .Where(descriptor => descriptor.ServiceType == typeof(IHostedService)
                     && descriptor.ImplementationType?.Namespace?.StartsWith("PersonalFinance.", StringComparison.Ordinal) == true)

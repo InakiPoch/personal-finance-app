@@ -229,3 +229,7 @@ Done. `GET /v1/financing/due-this-month` takes optional `today=yyyy-MM-dd`; `Get
 ## Phase 57 — Release setup, Slice 1: runnable container (2026-10-03)
 
 Done pending clean-clone re-run + browser walk-through. `Database:MigrateOnStartup` (default off) migrates all four modules in order via `DatabaseMigrationHelper` with a stale-`__EFMigrationsLock` drop; static hosting + SPA fallback (`/v1/**` stays 404); ready log line from `App:PublicUrl`; lazy solution-root lookup in `SqliteConnectionStringHelper`; root `Dockerfile`, `.dockerignore`, `compose.yaml`. API 570 green, no migration.
+
+## Phase 58 — Release setup, Slice 2: smoke script + CI (2026-10-03)
+
+Done pending CI run on the PR to `dev`. `scripts/smoke.sh` (compose up, `/health`, SPA at `/` and `/reports`, `/v1` 404, instrument create, persistence across `down`/`up`, reset on `down -v`; own project `pf-smoke`), `docker-smoke` job + `workflow_call` in `ci.yml`. No API/client code change.

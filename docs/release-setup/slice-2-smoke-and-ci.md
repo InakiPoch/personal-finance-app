@@ -41,14 +41,20 @@ Action SHA pinning: not required here (CI is read-only, `permissions: contents: 
 
 ## Done when
 
-- [ ] `bash scripts/smoke.sh` passes locally from a clean clone.
-- [ ] Temporarily break something (e.g. comment out `MapFallbackToFile`) → script fails at step 4 with a readable message. Revert.
+- [~] `bash scripts/smoke.sh` passes locally (working tree; clean-clone run pending commit).
+- [x] Temporarily break something (e.g. comment out `MapFallbackToFile`) → script fails at step 4 with a readable message. Revert.
 - [ ] `docker-smoke` green on the PR to `dev`; CI duration noted in Findings.
-- [ ] TASK.md ledger line.
+- [x] TASK.md ledger line.
 
 ## Findings
 
-_(fill in: CI duration, any flakiness, final instrument POST body used)_
+2026-10-03:
+- Instrument POST body: `{"type":"debit","name":"Checking"}` → 201. Empty list matched with `"rows":[]`.
+- Local run (cached layers): `SMOKE OK` in 38 s. Cold CI build is slower (Slice 1 measured ~60 s cold for the image alone).
+- The script runs under its own compose project `pf-smoke` (`COMPOSE_PROJECT_NAME`, overrides the top-level `name`), so its `down -v` never touches the real `personal-finance_pf-data` volume. It still needs host port 8080 free.
+- Break test (`MapFallbackToFile` commented out): fails at step 3 (`GET / serves the SPA`), not step 4 — `UseStaticFiles` alone does not serve `index.html` at `/`, so the fallback serves both. Message is readable; `SMOKE FAIL: …` is repeated as the last line because 200 log lines of EF SQL otherwise bury it.
+- Environment gotcha (not a script bug): `failed to add the host <=> sandbox pair interfaces: operation not supported` means the running kernel has no matching `/lib/modules` (veth missing) — reboot into the installed kernel.
+- CI duration / flakiness of `docker-smoke`: pending the PR to `dev`.
 
 ## Out of scope
 

@@ -26,4 +26,5 @@ ENV ASPNETCORE_HTTP_PORTS=8080 \
     Database__MigrateOnStartup=true
 LABEL org.opencontainers.image.source="https://github.com/InakiPoch/personal-finance-app"
 EXPOSE 8080
+EXPOSE 8443
 ENTRYPOINT ["dotnet", "PersonalFinance.Api.dll"]

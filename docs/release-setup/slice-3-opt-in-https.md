@@ -44,7 +44,7 @@ Trust step (documented in README in Slice 4, written here so it can be tested no
 ```sh
 docker compose cp app:/data/https/personal-finance.crt .
 # Linux (system): sudo trust anchor personal-finance.crt   (Arch/Fedora)  |  Debian/Ubuntu: copy to /usr/local/share/ca-certificates/ + update-ca-certificates
-# Chrome/Brave on Linux use NSS: certutil -d sql:$HOME/.pki/nssdb -A -t "C,," -n personal-finance -i personal-finance.crt
+# Chrome/Brave on Linux use NSS: certutil -d sql:$HOME/.pki/nssdb -A -t "P,," -n personal-finance -i personal-finance.crt   # "P" (trusted peer), NOT "C": NSS rejects our CA:FALSE leaf as a trusted CA
 # Firefox: Settings → Certificates → Import
 # macOS: Keychain Access → import → Always Trust
 # Windows: certmgr.msc → Trusted Root Certification Authorities → Import
@@ -59,16 +59,21 @@ Verify which of these actually make a *self-signed leaf* trusted in Brave on thi
 
 ## Done when
 
-- [ ] Default compose: behaviour identical to Slice 1; no HTTPS redirect warning in logs.
-- [ ] HTTPS enabled: `smoke.sh` passes with `BASE_URL=https://localhost:8443 CURL_OPTS=-k`; `http://localhost:8080` redirects to 8443.
-- [ ] Restart keeps the same cert (fingerprint unchanged across `down`/`up`); `down -v` generates a new one.
-- [ ] After the trust step, Brave opens `https://localhost:8443` with no warning.
-- [ ] Helper unit tests green; full API suite green.
-- [ ] TASK.md ledger line.
+- [x] Default compose: behaviour identical to Slice 1; no HTTPS redirect warning in logs.
+- [x] HTTPS enabled: `smoke.sh` passes with `BASE_URL=https://localhost:8443 CURL_OPTS=-k`; `http://localhost:8080` redirects to 8443.
+- [x] Restart keeps the same cert (fingerprint unchanged across `down`/`up`); `down -v` generates a new one.
+- [x] After the trust step, Brave opens `https://localhost:8443` with no warning.
+- [x] Helper unit tests green; full API suite green.
+- [x] TASK.md ledger line.
 
 ## Findings
 
-_(fill in: leaf vs CA decision, which trust commands actually worked)_
+- **Decision: keep the self-signed leaf; no local CA needed.**
+- **Trust gotcha:** NSS `-t "C,,"` (trusted CA) does NOT work for our `CA:FALSE` leaf (`certutil -V` says "issuer is not recognized", Brave still warns). `-t "P,,"` (trusted peer) works: `certutil -V` is valid and Brave opens `https://localhost:8443` with no warning (confirmed on this CachyOS machine). curl/openssl accept the leaf via `--cacert`.
+- **Untested:** only the Linux Chrome/Brave NSS path was tried; system trust (`trust anchor`), Firefox, macOS and Windows commands are unverified.
+- Cert `notBefore` is backdated ~5 min for clock skew. The PFX loads with default key-storage flags (no fix needed).
+- **Verification (docker, project `pf-https-test`):** default compose smoke OK with no https-port warning; HTTPS smoke OK via `BASE_URL=https://localhost:8443 CURL_OPTS=-k bash scripts/smoke.sh <compose-dir>` against a throwaway uncommented compose copy (`smoke.sh` unchanged); 8080 returns 307 to `https://localhost:8443`; fingerprint stable across `down`/`up`, new after `down -v`; `docker compose cp app:/data/https/personal-finance.crt .` works on the chiseled image.
+- **Tests:** 5 new helper tests (SAN/EKU/validity, public-only PEM crt, reuse, regenerate <30d, reuse at 31d); API 570 -> 575 green. No migration, no client change.
 
 ## Out of scope
 

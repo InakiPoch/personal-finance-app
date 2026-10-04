@@ -1,3 +1,4 @@
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using PersonalFinance.Api;
 using PersonalFinance.Api.Endpoints;
@@ -32,7 +33,24 @@ builder.Services.AddOutboxProcessing();
 var migrateOnStartup = builder.Configuration.GetValue<bool>("Database:MigrateOnStartup");
 var contextTypes = migrateOnStartup ? DatabaseMigrationHelper.GetOrderedContextTypes(builder.Services) : [];
 
+X509Certificate2? httpsCertificate = null;
+var httpsGenerated = false;
+var httpsEnabled = builder.Configuration.GetValue<bool>("Https:Enabled");
+if(httpsEnabled) {
+    var certDirectory = builder.Configuration["Https:CertDirectory"] ?? "/data/https";
+    (httpsCertificate, httpsGenerated) = SelfSignedCertificateHelper.LoadOrCreate(certDirectory, DateTimeOffset.UtcNow);
+    builder.Services.AddHttpsRedirection(options => options.HttpsPort = 8443);
+    builder.WebHost.ConfigureKestrel(kestrel => {
+        kestrel.ListenAnyIP(8080);
+        kestrel.ListenAnyIP(8443, listen => listen.UseHttps(httpsCertificate));
+    });
+}
+
 var app = builder.Build();
+
+if(httpsGenerated) {
+    app.Logger.LogInformation("Generated self-signed HTTPS certificate (expires {Expires:u})", httpsCertificate!.NotAfter);
+}
 
 app.UseExceptionHandler();
 
@@ -44,7 +62,9 @@ if(app.Environment.IsDevelopment()) {
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
+if(httpsEnabled) {
+    app.UseHttpsRedirection();
+}
 
 app.UseStaticFiles();
 

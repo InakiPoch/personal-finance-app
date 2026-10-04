@@ -233,3 +233,7 @@ Done pending clean-clone re-run + browser walk-through. `Database:MigrateOnStart
 ## Phase 58 — Release setup, Slice 2: smoke script + CI (2026-10-03)
 
 Done pending CI run on the PR to `dev`. `scripts/smoke.sh` (compose up, `/health`, SPA at `/` and `/reports`, `/v1` 404, instrument create, persistence across `down`/`up`, reset on `down -v`; own project `pf-smoke`), `docker-smoke` job + `workflow_call` in `ci.yml`. No API/client code change.
+
+## Phase 59 — Release setup, Slice 3: opt-in HTTPS (2026-10-04)
+
+Done. `SelfSignedCertificateHelper` (host `Helpers/`, `LoadOrCreate(dir, now)`: reuse `/data/https/personal-finance.pfx` if >30 days left, else ECDSA P-256 localhost cert + PEM `.crt`); `Https:Enabled` (default off) / `Https:CertDirectory` configure Kestrel (8080 + 8443) and `UseHttpsRedirection`; `EXPOSE 8443` and commented HTTPS lines in `compose.yaml`. Trust: NSS needs `-t "P,,"`. API 575 green, no migration, no client change.

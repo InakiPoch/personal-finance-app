@@ -23,7 +23,8 @@ COPY --from=web /src/app/client/dist/client/browser ./wwwroot
 COPY --from=api --chown=1654:1654 /data /data
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     ConnectionStrings__PersonalFinanceDb="Data Source=/data/personalfinance.db" \
-    Database__MigrateOnStartup=true
+    Database__MigrateOnStartup=true \
+    Logging__LogLevel__Microsoft.EntityFrameworkCore=Warning
 LABEL org.opencontainers.image.source="https://github.com/InakiPoch/personal-finance-app"
 EXPOSE 8080
 EXPOSE 8443

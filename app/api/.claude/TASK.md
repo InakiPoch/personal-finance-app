@@ -225,3 +225,19 @@ Done. `docs/friendly-ui/slice-7-reverse.md`. Reporting owns the feed: `Sql/trans
 ## Phase 56.1 — Hotfix: Due this month wrong near UTC midnight (2026-09-30)
 
 Done. `GET /v1/financing/due-this-month` takes optional `today=yyyy-MM-dd`; `GetDueThisMonthHandler` uses it (fallback UTC date) to decide the current month, so a UTC-3 evening on the last day no longer treats the local month as past and re-counts amounts paid that month. Regression test in `GetDueThisMonthHandlerTests`. Financing 256 green, no migration.
+
+## Phase 57 — Release setup, Slice 1: runnable container (2026-10-03)
+
+Done pending clean-clone re-run + browser walk-through. `Database:MigrateOnStartup` (default off) migrates all four modules in order via `DatabaseMigrationHelper` with a stale-`__EFMigrationsLock` drop; static hosting + SPA fallback (`/v1/**` stays 404); ready log line from `App:PublicUrl`; lazy solution-root lookup in `SqliteConnectionStringHelper`; root `Dockerfile`, `.dockerignore`, `compose.yaml`. API 570 green, no migration.
+
+## Phase 58 — Release setup, Slice 2: smoke script + CI (2026-10-03)
+
+Done pending CI run on the PR to `dev`. `scripts/smoke.sh` (compose up, `/health`, SPA at `/` and `/reports`, `/v1` 404, instrument create, persistence across `down`/`up`, reset on `down -v`; own project `pf-smoke`), `docker-smoke` job + `workflow_call` in `ci.yml`. No API/client code change.
+
+## Phase 59 — Release setup, Slice 3: opt-in HTTPS (2026-10-04)
+
+Done. `SelfSignedCertificateHelper` (host `Helpers/`, `LoadOrCreate(dir, now)`: reuse `/data/https/personal-finance.pfx` if >30 days left, else ECDSA P-256 localhost cert + PEM `.crt`); `Https:Enabled` (default off) / `Https:CertDirectory` configure Kestrel (8080 + 8443) and `UseHttpsRedirection`; `EXPOSE 8443` and commented HTTPS lines in `compose.yaml`. Trust: NSS needs `-t "P,,"`. API 575 green, no migration, no client change.
+
+## Phase 60 — Release setup, Slice 4: projection and user docs (2026-10-04)
+
+Done. `scripts/project-main.sh <out-dir>` projects `HEAD` by allowlist (781 files), strips specs and `.http`, then runs a leak guard (forbidden paths, files >5 MB); projected tree passes `smoke.sh`. User-facing root `README.md` (backup/restore round-trip verified) and MIT `LICENSE`; root `.gitignore` now covers client `dist`/`.angular`. No API/client code change.

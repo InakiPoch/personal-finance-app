@@ -414,3 +414,7 @@ FodyWeavers.xsd
 .atl/
 **/.atl
 app/api/personalfinance.db.bak
+
+# Angular build output (app/client/.gitignore is not projected to main)
+app/client/dist/
+app/client/.angular/

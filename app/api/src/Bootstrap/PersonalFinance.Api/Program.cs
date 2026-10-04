@@ -1,7 +1,9 @@
+using System.Security.Cryptography.X509Certificates;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using PersonalFinance.Api;
 using PersonalFinance.Api.Endpoints;
 using PersonalFinance.Api.Handlers;
+using PersonalFinance.Api.Helpers;
 using PersonalFinance.Api.OpenApi;
 using PersonalFinance.Infrastructure.DependencyInjection;
 using Scalar.AspNetCore;
@@ -28,7 +30,27 @@ builder.Services.AddModules(builder.Configuration);
 
 builder.Services.AddOutboxProcessing();
 
+var migrateOnStartup = builder.Configuration.GetValue<bool>("Database:MigrateOnStartup");
+var contextTypes = migrateOnStartup ? DatabaseMigrationHelper.GetOrderedContextTypes(builder.Services) : [];
+
+X509Certificate2? httpsCertificate = null;
+var httpsGenerated = false;
+var httpsEnabled = builder.Configuration.GetValue<bool>("Https:Enabled");
+if(httpsEnabled) {
+    var certDirectory = builder.Configuration["Https:CertDirectory"] ?? "/data/https";
+    (httpsCertificate, httpsGenerated) = SelfSignedCertificateHelper.LoadOrCreate(certDirectory, DateTimeOffset.UtcNow);
+    builder.Services.AddHttpsRedirection(options => options.HttpsPort = 8443);
+    builder.WebHost.ConfigureKestrel(kestrel => {
+        kestrel.ListenAnyIP(8080);
+        kestrel.ListenAnyIP(8443, listen => listen.UseHttps(httpsCertificate));
+    });
+}
+
 var app = builder.Build();
+
+if(httpsGenerated) {
+    app.Logger.LogInformation("Generated self-signed HTTPS certificate (expires {Expires:u})", httpsCertificate!.NotAfter);
+}
 
 app.UseExceptionHandler();
 
@@ -40,7 +62,11 @@ if(app.Environment.IsDevelopment()) {
     app.MapScalarApiReference();
 }
 
-app.UseHttpsRedirection();
+if(httpsEnabled) {
+    app.UseHttpsRedirection();
+}
+
+app.UseStaticFiles();
 
 app.UseCors(ClientCorsOptions.PolicyName);
 
@@ -49,5 +75,18 @@ app.MapModuleEndpoints();
 app.MapHealthChecks("/health", new HealthCheckOptions {
     ResponseWriter = HealthCheckResponseWriterHelper.Write
 });
+
+// A mistyped API path must stay a 404.
+app.MapFallback("/v1/{**rest}", () => Results.NotFound());
+app.MapFallbackToFile("index.html");
+
+if(migrateOnStartup) {
+    await DatabaseMigrationHelper.MigrateAsync(app.Services, contextTypes, app.Logger);
+}
+
+var publicUrl = app.Configuration["App:PublicUrl"];
+if(!string.IsNullOrWhiteSpace(publicUrl)) {
+    app.Lifetime.ApplicationStarted.Register(() => app.Logger.LogInformation("Personal Finance is ready at {Url}", publicUrl));
+}
 
 app.Run();

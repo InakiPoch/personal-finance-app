@@ -1,0 +1,148 @@
+name: Release
+
+# vX.Y.Z      -> projects the tagged dev commit onto `main` + GitHub Release
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+env:
+  REPO_SSH: git@github.com:InakiPoch/personal-finance-app.git
+  FORBIDDEN: '(^|/)tests?/|(^|/)docs/|(^|/)\.claude/|(^|/)\.github/|(^|/)(CLAUDE|TASK|AGENTS)\.md$|\.spec\.ts$|\.http$|\.Tests\.csproj$|\.sln$|\.db(-wal|-shm|-journal)?$|\.bak$|(^|/)\.env$|(^|/)node_modules/|(^|/)(bin|obj)/'
+
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      tag: ${{ steps.resolve.outputs.tag }}
+      sha: ${{ steps.resolve.outputs.sha }}
+      target: ${{ steps.resolve.outputs.target }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          fetch-depth: 0
+      - name: Validate tag and resolve target
+        id: resolve
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          printf '%s' "$TAG" | grep -Eq '^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$' \
+            || { echo "::error::tag '$TAG' is not vX.Y.Z or vX.Y.Z-rc.N"; exit 1; }
+          SHA=$(git rev-parse "$TAG^{commit}")
+          git merge-base --is-ancestor "$SHA" origin/dev \
+            || { echo "::error::$TAG ($SHA) is not on dev history"; exit 1; }
+          case "$TAG" in *-rc.*) TARGET=release-test ;; *) TARGET=main ;; esac
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+          echo "Releasing $TAG ($SHA) -> $TARGET"
+
+  verify:
+    needs: guard
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    needs: [guard, verify]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      sha: ${{ steps.push.outputs.sha }}
+    steps:
+      - name: Checkout tagged commit
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+          persist-credentials: false
+      - name: Project (allowlist + leak guard)
+        run: bash scripts/project-main.sh "$RUNNER_TEMP/out"
+      - name: Smoke-test the projected tree (gate)
+        run: bash "$GITHUB_WORKSPACE/scripts/smoke.sh" "$RUNNER_TEMP/out"
+      - name: Commit and push projection
+        id: push
+        env:
+          DEPLOY_KEY: ${{ secrets.RELEASE_DEPLOY_KEY }}
+          TAG: ${{ needs.guard.outputs.tag }}
+          SOURCE_SHA: ${{ needs.guard.outputs.sha }}
+          TARGET: ${{ needs.guard.outputs.target }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -eu
+          [ -n "$DEPLOY_KEY" ] || { echo "::error::secret RELEASE_DEPLOY_KEY is not set"; exit 1; }
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/release_key
+          chmod 600 ~/.ssh/release_key
+          ssh-keyscan github.com >> ~/.ssh/known_hosts 2>/dev/null
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/release_key -o IdentitiesOnly=yes"
+
+          if git ls-remote --exit-code --heads "$REPO_SSH" "$TARGET" >/dev/null 2>&1; then
+            git clone --depth 1 --branch "$TARGET" "$REPO_SSH" "$RUNNER_TEMP/target"
+          else
+            git clone --depth 1 --branch main "$REPO_SSH" "$RUNNER_TEMP/target"
+            git -C "$RUNNER_TEMP/target" switch -c "$TARGET"
+          fi
+
+          rsync -a --delete --exclude .git "$RUNNER_TEMP/out/" "$RUNNER_TEMP/target/"
+          cd "$RUNNER_TEMP/target"
+
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "Nothing to release: $TARGET already matches $TAG"
+            echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git add -A
+          printf 'chore(release): %s\n\nSource-Tag: %s\nSource-Commit: %s\nWorkflow-Run: %s\n' \
+            "$TAG" "$TAG" "$SOURCE_SHA" "$RUN_URL" > "$RUNNER_TEMP/msg"
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -F "$RUNNER_TEMP/msg"
+          git push origin "$TARGET"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  smoke-main:
+    needs: [guard, publish]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout published commit (what a stranger gets)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ needs.publish.outputs.sha }}
+          path: published
+          persist-credentials: false
+      - name: Checkout tagged source (only for scripts/smoke.sh)
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+        with:
+          ref: ${{ needs.guard.outputs.sha }}
+          path: src
+          persist-credentials: false
+      - name: Hygiene check on tracked files
+        run: |
+          leaks=$(cd published && git ls-files | grep -E "$FORBIDDEN" || true)
+          [ -z "$leaks" ] || { echo "::error::forbidden files landed:"; echo "$leaks"; exit 1; }
+      - name: Smoke-test the published tree
+        run: bash src/scripts/smoke.sh published
+
+  github-release:
+    needs: [guard, smoke-main]
+    if: needs.guard.outputs.target == 'main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ needs.guard.outputs.tag }}
+        run: gh release create "$TAG" --verify-tag --generate-notes --title "$TAG"

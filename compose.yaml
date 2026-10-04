@@ -1,0 +1,16 @@
+name: personal-finance
+services:
+  app:
+    build: .
+    ports:
+      - "127.0.0.1:8080:8080"
+      # - "127.0.0.1:8443:8443"   # HTTPS (also set Https__Enabled below)
+    environment:
+      App__PublicUrl: "http://localhost:8080"
+      # Https__Enabled: "true"
+      # App__PublicUrl: "https://localhost:8443"
+    volumes:
+      - pf-data:/data
+    restart: unless-stopped
+volumes:
+  pf-data: {}

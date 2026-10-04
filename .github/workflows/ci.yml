@@ -2,9 +2,11 @@ name: CI
 
 on:
   push:
+    branches: ['**']
   pull_request:
     branches: [main, dev]
   workflow_dispatch:
+  workflow_call:
 
 permissions:
   contents: read
@@ -67,3 +69,11 @@ jobs:
         run: pnpm ng test --watch=false --browsers=ChromeHeadless --no-progress
         env:
           CHROME_BIN: /usr/bin/google-chrome
+  docker-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+      - name: Smoke test (compose up, SPA, API, persistence, reset)
+        run: bash scripts/smoke.sh

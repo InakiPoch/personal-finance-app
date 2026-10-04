@@ -861,8 +861,6 @@ Accept: application/json
 # re-runs on every GET /health with a fresh DI scope, so no wait is needed between observations.
 #
 # Manual run 2026-09-01 (host on the `https` profile; DB = personalfinance.db at the solution root).
-# Full transcript + exact SQL:
-#   /tmp/claude-1000/-home-ipoch-Documents-PersonalFinanceApp-app-api/98e7d405-4489-48b1-9216-b928d807e946/scratchpad/rnf7-proof.md
 #
 # 1) host stopped — inject one pending row, OccurredOnUtc ~45 s old (inside the 5-min window):
 #    sqlite3 personalfinance.db "INSERT INTO financing_outbox_messages

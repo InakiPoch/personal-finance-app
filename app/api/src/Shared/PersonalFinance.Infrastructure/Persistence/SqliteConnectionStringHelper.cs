@@ -9,11 +9,9 @@ public static class SqliteConnectionStringHelper {
     private const string legacyEnvironmentVariable = "PF_SQLITE_CONNECTION";
 
     public static string Resolve(string? configured) {
-        var resolved = firstNonBlank(
-            configured,
-            Environment.GetEnvironmentVariable(legacyEnvironmentVariable),
-            $"Data Source={Path.Combine(SolutionRootLocatorHelper.FindSolutionRoot(), DatabaseFileName)}"
-        );
+        // The solution-root lookup is the last resort and must stay lazy: the Docker image has no .sln.
+        var resolved = firstNonBlank(configured, Environment.GetEnvironmentVariable(legacyEnvironmentVariable))
+            ?? $"Data Source={Path.Combine(SolutionRootLocatorHelper.FindSolutionRoot(), DatabaseFileName)}";
         return normalize(resolved);
     }
 
@@ -21,13 +19,13 @@ public static class SqliteConnectionStringHelper {
         return Resolve(Environment.GetEnvironmentVariable($"ConnectionStrings__{ConnectionName}"));
     }
 
-    private static string firstNonBlank(params string?[] candidates) {
+    private static string? firstNonBlank(params string?[] candidates) {
         foreach(var candidate in candidates) {
             if(!string.IsNullOrWhiteSpace(candidate)) {
                 return candidate;
             }
         }
-        throw new InvalidOperationException("No SQLite connection string could be resolved.");
+        return null;
     }
 
     private static string normalize(string connectionString) {

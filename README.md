@@ -4,7 +4,7 @@ A self-hosted personal finance tracker: bank and cash accounts, credit cards wit
 
 ## Requirements
 
-Git and Docker (with Compose v2). Nothing else.
+Git and Docker (with Compose v2).
 
 ## Quick start
 
@@ -15,18 +15,18 @@ docker compose up -d
 docker compose logs -f
 ```
 
-The first run builds the app from source, which takes a few minutes. When the log shows `Personal Finance is ready at http://localhost:8080`, press `Ctrl+C` to leave the log view and open that URL.
+The first run builds the app from source. When the log shows `Personal Finance is ready at http://localhost:8080`, press `Ctrl+C` to leave the log view and open that URL.
 
 ## Your data
 
-- Everything lives in the Docker volume `personal-finance_pf-data`, never in the repository folder. The app starts empty.
-- The port is bound to `127.0.0.1` only, so the app is **not** reachable from your LAN. This matters: the app has no authentication, so anyone who can reach the port can read and change your finances. Do not expose it to a network.
+- Everything lives in the Docker volume `personal-finance_pf-data`.
+- The port is bound to `127.0.0.1` only. The app has no authentication, so anyone who can reach the port can read and change your finances. Do not expose it to a network.
 
 ## Stop / start
 
 ```sh
-docker compose down     # stop and remove the container, keeps your data
-docker compose up -d    # start again
+docker compose down
+docker compose up -d
 ```
 
 ## Backup / restore
@@ -35,8 +35,7 @@ Stop the app first. The database runs in WAL mode, and copying it while it is ru
 
 ```sh
 docker compose stop
-docker run --rm -v personal-finance_pf-data:/data -v "$PWD":/backup alpine \
-  tar czf /backup/pf-backup-$(date +%F).tgz -C /data .
+docker run --rm -v personal-finance_pf-data:/data -v "$PWD":/backup alpine tar czf /backup/pf-backup-$(date +%F).tgz -C /data .
 docker compose start
 ```
 
@@ -71,7 +70,7 @@ Without `--build` the old image keeps running. Database migrations run automatic
 
 ## HTTPS (optional)
 
-HTTP on `localhost` is already treated as a secure context by browsers, so you only need this if you want `https://`. The app generates a self-signed certificate on first start and keeps it in the data volume, so browsers warn until you trust it.
+The app generates a self-signed certificate on first start and keeps it in the data volume, so browsers warn until you trust it.
 
 1. In `compose.yaml`, uncomment the three HTTPS lines: the `8443` port mapping, `Https__Enabled` and the `https://localhost:8443` `App__PublicUrl`. Comment out the `http://localhost:8080` `App__PublicUrl` line above it so only one is active.
 2. `docker compose up -d`. Port 8080 now redirects to `https://localhost:8443`.
@@ -97,8 +96,7 @@ HTTP on `localhost` is already treated as a secure context by browsers, so you o
 - **The container is "Up" but the page never loads and the log stops during migrations:** a stale migration lock from an interrupted start (only on images built before this was fixed; the current image clears it automatically). Back up, then:
   ```sh
   docker compose stop
-  docker run --rm -v personal-finance_pf-data:/data alpine sh -c \
-    'apk add -q sqlite && sqlite3 /data/personalfinance.db "delete from __EFMigrationsLock"'
+  docker run --rm -v personal-finance_pf-data:/data alpine sh -c 'apk add -q sqlite && sqlite3 /data/personalfinance.db "delete from __EFMigrationsLock"'
   docker compose up -d
   ```
 

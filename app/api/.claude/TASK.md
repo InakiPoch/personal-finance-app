@@ -237,3 +237,7 @@ Done pending CI run on the PR to `dev`. `scripts/smoke.sh` (compose up, `/health
 ## Phase 59 — Release setup, Slice 3: opt-in HTTPS (2026-10-04)
 
 Done. `SelfSignedCertificateHelper` (host `Helpers/`, `LoadOrCreate(dir, now)`: reuse `/data/https/personal-finance.pfx` if >30 days left, else ECDSA P-256 localhost cert + PEM `.crt`); `Https:Enabled` (default off) / `Https:CertDirectory` configure Kestrel (8080 + 8443) and `UseHttpsRedirection`; `EXPOSE 8443` and commented HTTPS lines in `compose.yaml`. Trust: NSS needs `-t "P,,"`. API 575 green, no migration, no client change.
+
+## Phase 60 — Release setup, Slice 4: projection and user docs (2026-10-04)
+
+Done. `scripts/project-main.sh <out-dir>` projects `HEAD` by allowlist (781 files), strips specs and `.http`, then runs a leak guard (forbidden paths, files >5 MB); projected tree passes `smoke.sh`. User-facing root `README.md` (backup/restore round-trip verified) and MIT `LICENSE`; root `.gitignore` now covers client `dist`/`.angular`. No API/client code change.

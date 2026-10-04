@@ -108,7 +108,15 @@ MIT (decision Q9), year 2026. Confirm with the owner the exact copyright holder 
 
 ## Findings
 
-_(fill in: final file count, any allowlist additions, backup method chosen, appsettings.Development decision)_
+2026-10-04:
+- **Final file count: 781** (`find <out> -type f`; `fd` shows fewer because it honours `.gitignore`). Top level: `app`, `compose.yaml`, `Dockerfile`, `.dockerignore`, `.gitignore`, `LICENSE`, `README.md`. No allowlist additions needed; the re-check against `git ls-files` matched the Dockerfile COPY lines.
+- **Smoke on the projected tree:** `bash scripts/smoke.sh <out>` → `SMOKE OK` (no `.sln`, tests or specs).
+- **Leak guard:** a committed `app/api/src/docs/n.md` on a scratch branch fails the projection with the path listed. Note: planted `.http` / `*.spec.ts` files do **not** trip it, because the strip step removes them before the guard runs. The guard's `.http`/`.spec.ts` patterns only matter for such files outside the stripped dirs.
+- **Backup method:** the README `tar` text, verbatim: backup → `down -v` → `up --no-start` → restore → `up -d` brought the created instrument back. `docker compose cp` not needed. The tarball is written by root inside the alpine container, so it is root-owned on the host.
+- **`appsettings.Development.json`:** kept (only loaded under `ASPNETCORE_ENVIRONMENT=Development`; removal is cosmetic).
+- **`.gitignore`:** root file did not cover `app/client/dist` or `.angular/cache` (the client `.gitignore` is not projected) → added both.
+- **LICENSE holder:** `InakiPoch` (placeholder, owner to confirm).
+- Not done here: the owner's top-to-bottom README read-through; the HTTPS README steps beyond the Slice 3 Linux NSS path.
 
 ## Out of scope
 

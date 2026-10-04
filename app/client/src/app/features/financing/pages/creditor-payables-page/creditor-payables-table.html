@@ -1,0 +1,64 @@
+@if(payables().length === 0) {
+  <p class="text-sm text-ink-soft">You don't owe any creditors.</p>
+} @else {
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b border-rule">
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Creditor
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Next due
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Due now / Total
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      @for(row of payables(); track row.creditorId + '|' + row.currencyCode; let i = $index) {
+        <tr class="payable-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 text-sm text-ink">
+            <a
+              [routerLink]="['/financing', 'creditor-payables', row.creditorId]"
+              class="group inline-flex items-center gap-1 transition-colors hover:text-stamp"
+            >
+              {{ row.creditorName }}
+              <span
+                aria-hidden="true"
+                class="transition-transform group-hover:translate-x-0.5"
+              >&rsaquo;</span>
+            </a>
+            @if(row.accounts.length > 0) {
+              <span class="block text-[0.6875rem] text-ink-faint">
+                {{ accountsLabel(row) }}
+              </span>
+            }
+          </td>
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+            @if(row.nextDueDate) {
+              {{ row.nextDueDate }}
+            } @else {
+              —
+            }
+          </td>
+          <td class="py-2.5 text-right [font-variant-numeric:tabular-nums_lining-nums]">
+            <span class="block text-sm text-ink">{{ formatMoney(row.dueNowMinorUnits, row.currencyCode) }}</span>
+            <span class="block text-[0.6875rem] text-ink-faint">
+              {{ formatMoney(row.totalOwedMinorUnits, row.currencyCode) }} total
+            </span>
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

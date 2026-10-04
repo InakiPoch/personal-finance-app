@@ -1,0 +1,63 @@
+@if(purchases().length === 0) {
+  <p class="text-sm text-ink-soft">No purchases loaded yet.</p>
+} @else {
+  <table class="w-full text-left">
+    <thead>
+      <tr class="border-b border-rule">
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Purchase
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Card
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Date
+        </th>
+        <th
+          scope="col"
+          class="pb-2 text-right text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+        >
+          Amount
+        </th>
+      </tr>
+    </thead>
+    <tbody>
+      @for(purchase of purchases(); track purchase.planId; let i = $index) {
+        <tr class="purchase-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
+          <td class="py-2.5 text-sm text-ink">
+            {{ purchase.description }}
+            @if(purchase.isCreditorPayment) {
+              <span aria-hidden="true" class="text-stamp">&bull;</span>
+              <span class="sr-only">Creditor payment</span>
+            }
+            <span class="block text-[0.6875rem] text-ink-faint">
+              {{ paidLabel(purchase) }}
+              @if(hasPending(purchase)) {
+                &middot; {{ pendingLabel(purchase) }}
+              }
+              &middot; {{ nextPaymentLabel(purchase) }}
+            </span>
+          </td>
+          <td class="py-2.5 text-sm text-ink-soft">
+            {{ purchase.cardName }}
+          </td>
+          <td class="py-2.5 text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ purchase.purchaseDate }}
+          </td>
+          <td class="py-2.5 text-right text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+            {{ formatMoney(purchase.totalMinorUnits, purchase.currencyCode) }}
+          </td>
+        </tr>
+      }
+    </tbody>
+  </table>
+}

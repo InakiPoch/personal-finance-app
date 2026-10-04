@@ -1,0 +1,33 @@
+/*
+ * Row entrance — occasional-surface level, see docs/SYSTEM.md "Motion".
+ * Active-subscription rows fade up 4px when the list loads, staggered via
+ * [style.animation-delay.ms] on each row.
+ */
+.sub-row {
+  animation: row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sub-row {
+    animation: none;
+  }
+}
+
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  padding: 0.0625rem 0.5rem;
+  font-size: 0.6875rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ledger);
+}

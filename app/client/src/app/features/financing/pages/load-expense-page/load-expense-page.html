@@ -1,0 +1,445 @@
+<div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
+  <header class="mb-10">
+    <h1 class="font-serif text-2xl font-medium tracking-tight text-heading">
+      Load an Expense
+    </h1>
+    <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+      Enter the purchase as it happened. The billing month and each person's share are worked out for you.
+    </p>
+  </header>
+  <form [formGroup]="form" (ngSubmit)="onSubmit()">
+    <section class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="purchase-label">
+      <h2 id="purchase-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+        The purchase
+      </h2>
+      <fieldset class="mt-6 flex flex-col gap-2">
+        <legend class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+          Paid with
+        </legend>
+        <div class="flex gap-1">
+          @for(option of modeOptions; track option.value) {
+            <label class="cursor-pointer">
+              <input type="radio" [value]="option.value" formControlName="mode" class="peer sr-only" />
+              <span
+                class="block border-b-2 border-transparent px-3 py-1.5 text-sm text-ink-faint transition-colors peer-hover:text-ink-soft peer-checked:border-stamp peer-checked:font-medium peer-checked:text-heading peer-focus-visible:border-stamp"
+              >
+                {{ option.label }}
+              </span>
+            </label>
+          }
+        </div>
+      </fieldset>
+      <div class="mt-6 flex flex-col gap-1.5">
+        <label for="amount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+          Amount
+        </label>
+        <div class="flex items-end gap-3">
+          <div class="flex min-w-0 flex-1 items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+            <span class="font-serif text-xl text-stamp" aria-hidden="true">{{ form.controls.currency.value === 'USD' ? 'US$' : '$' }}</span>
+            <input
+              type="number"
+              id="amount"
+              min="0"
+              step="0.01"
+              inputmode="decimal"
+              placeholder="0.00"
+              formControlName="amount"
+              class="w-full bg-transparent pb-1 font-serif text-[1.75rem] leading-none text-ink outline-none [font-variant-numeric:tabular-nums_lining-nums] placeholder:text-ink-faint"
+            />
+          </div>
+          <fieldset class="flex shrink-0 overflow-hidden rounded-card border border-rule">
+            <legend class="sr-only">Currency</legend>
+            @for(code of currencyOptions; track code) {
+              <label class="cursor-pointer">
+                <input type="radio" [value]="code" formControlName="currency" class="peer sr-only" />
+                <span
+                  class="block px-3 py-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink-faint transition-colors peer-hover:text-ink-soft peer-checked:bg-stamp peer-checked:text-paper-raised peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-stamp"
+                >
+                  {{ code }}
+                </span>
+              </label>
+            }
+          </fieldset>
+        </div>
+        <div class="mt-2 h-0.5 w-28 rounded-full bg-stamp-soft" aria-hidden="true"></div>
+        @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['positiveAmount'] }}</p>
+        }
+        @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['atMostTwoDecimals'] }}</p>
+        }
+      </div>
+      <div class="mt-6 flex flex-col gap-1.5">
+        <label for="description" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+          Description
+        </label>
+        <input
+          type="text"
+          id="description"
+          maxlength="120"
+          placeholder="What did you buy?"
+          formControlName="description"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        />
+        @if(form.controls.description.touched && form.controls.description.hasError('required')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+        }
+        @if(form.controls.description.touched && form.controls.description.hasError('noBlank')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['noBlank'] }}</p>
+        }
+        @if(form.controls.description.touched && form.controls.description.hasError('maxlength')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['maxlength'] }}</p>
+        }
+        @if(form.controls.description.touched && form.controls.description.hasError('noNewline')) {
+          <p class="text-xs text-negative" role="alert">{{ errorMessages['noNewline'] }}</p>
+        }
+      </div>
+      @if(form.controls.mode.value === 'card') {
+        <div class="mt-6 flex flex-col gap-1.5">
+          <label for="cardId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+            Card
+          </label>
+          <div class="relative">
+            <select
+              id="cardId"
+              formControlName="cardId"
+              class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+            >
+              <option value="">Choose a card</option>
+              @for(card of creditCards(); track card.id) {
+                <option [value]="card.id">{{ card.name }}</option>
+              }
+            </select>
+            <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+              &#9662;
+            </span>
+          </div>
+          @if(creditCards().length === 0) {
+            <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+              No credit cards registered yet — add one on the Instruments page.
+            </p>
+          }
+          @if(form.controls.cardId.touched && form.controls.cardId.hasError('required')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+          }
+        </div>
+        @if(needsBankAccount()) {
+          <div class="mt-6 flex flex-col gap-1.5">
+            <label for="bankAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Paid from
+            </label>
+            <div class="relative">
+              <select
+                id="bankAccountId"
+                formControlName="bankAccountId"
+                class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+              >
+                <option value="">Choose an account</option>
+                @for(account of bankAndCashInstruments(); track account.id) {
+                  <option [value]="account.id">{{ account.name }}</option>
+                }
+              </select>
+              <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+                &#9662;
+              </span>
+            </div>
+            <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+              This purchase has installments that are already due — they are settled from this account.
+            </p>
+            @if(bankAndCashInstruments().length === 0) {
+              <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+                No debit or cash accounts registered yet — add one on the Instruments page.
+              </p>
+            }
+            @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+            }
+          </div>
+        }
+      } @else if(form.controls.mode.value === 'creditor') {
+        <div class="mt-6 grid gap-6 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label for="creditorId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Creditor
+            </label>
+            <div class="relative">
+              <select
+                id="creditorId"
+                formControlName="creditorId"
+                class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+              >
+                <option value="">Choose a creditor</option>
+                @for(creditor of creditors(); track creditor.id) {
+                  <option [value]="creditor.id">{{ creditor.name }}</option>
+                }
+              </select>
+              <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+                &#9662;
+              </span>
+            </div>
+            @if(creditors().length === 0) {
+              <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+                No creditors registered yet — add one on the Creditors page.
+              </p>
+            }
+            @if(form.controls.creditorId.touched && form.controls.creditorId.hasError('required')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+            }
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="creditorAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Account to pay
+            </label>
+            <div class="relative">
+              <select
+                id="creditorAccountId"
+                formControlName="creditorAccountId"
+                class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+              >
+                <option value="">Choose an account</option>
+                @for(account of creditorAccounts(); track account.id) {
+                  <option [value]="account.id">{{ account.label }}</option>
+                }
+              </select>
+              <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+                &#9662;
+              </span>
+            </div>
+            @if(form.controls.creditorAccountId.touched && form.controls.creditorAccountId.hasError('required')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+            }
+          </div>
+        </div>
+      } @else {
+        <div class="mt-6 flex flex-col gap-1.5">
+          <label for="sourceInstrumentId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+            Paid from
+          </label>
+          <div class="relative">
+            <select
+              id="sourceInstrumentId"
+              formControlName="sourceInstrumentId"
+              class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+            >
+              <option value="">Choose an account</option>
+              @for(account of bankAndCashInstruments(); track account.id) {
+                <option [value]="account.id">{{ account.name }}</option>
+              }
+            </select>
+            <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+              &#9662;
+            </span>
+          </div>
+          @if(bankAndCashInstruments().length === 0) {
+            <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+              No debit or cash accounts registered yet — add one on the Instruments page.
+            </p>
+          }
+          @if(form.controls.sourceInstrumentId.touched && form.controls.sourceInstrumentId.hasError('required')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+          }
+        </div>
+        <div class="mt-6 flex flex-col gap-1.5">
+          <label for="categoryName" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+            Category
+          </label>
+          <input
+            type="text"
+            id="categoryName"
+            list="expense-category-options"
+            placeholder="Groceries, Transport, …"
+            formControlName="categoryName"
+            class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+          />
+          <datalist id="expense-category-options">
+            @for(category of expenseCategories(); track category) {
+              <option [value]="category"></option>
+            }
+          </datalist>
+          <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+            Pick an existing category or type a new one.
+          </p>
+          @if(form.controls.categoryName.touched && form.controls.categoryName.hasError('required')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['required'] }}</p>
+          }
+          @if(form.controls.categoryName.touched && form.controls.categoryName.hasError('noBlank')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['noBlank'] }}</p>
+          }
+        </div>
+      }
+      <div class="mt-6 grid gap-6 sm:grid-cols-2">
+        @if(form.controls.mode.value !== 'debit') {
+          <div class="flex flex-col gap-1.5">
+            <label for="installmentCount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+              Installments
+            </label>
+            <input
+              type="number"
+              id="installmentCount"
+              min="1"
+              step="1"
+              inputmode="numeric"
+              formControlName="installmentCount"
+              class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+            />
+            @if(form.controls.installmentCount.touched && form.controls.installmentCount.hasError('positiveInteger')) {
+              <p class="text-xs text-negative" role="alert">{{ errorMessages['positiveInteger'] }}</p>
+            }
+          </div>
+        }
+        <div class="flex flex-col gap-1.5">
+          <label for="purchaseDate" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+            Purchase date
+          </label>
+          <input
+            type="date"
+            id="purchaseDate"
+            formControlName="purchaseDate"
+            class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+          />
+          @if(form.controls.purchaseDate.touched && form.controls.purchaseDate.hasError('isoDate')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['isoDate'] }}</p>
+          }
+          @if(form.controls.purchaseDate.touched && form.controls.purchaseDate.hasError('notFuture')) {
+            <p class="text-xs text-negative" role="alert">{{ errorMessages['notFuture'] }}</p>
+          }
+        </div>
+      </div>
+    </section>
+    <section class="mb-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="split-label">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <h2 id="split-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+          Split
+        </h2>
+        <span class="text-xs text-ink-faint">optional</span>
+      </div>
+      <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+        Add the parties who owe you a share. Each person's share is rounded to the cent and added to what they owe you; their balances update below once confirmed.
+      </p>
+      @if(partiesStatus() === 'loading') {
+        <p class="mt-6 text-sm text-ink-faint">Loading parties…</p>
+      } @else if(partiesStatus() === 'error') {
+        <p class="mt-6 text-sm text-negative" role="alert">
+          Could not load parties — a split cannot be added right now.
+        </p>
+      } @else {
+        <div formArrayName="split" class="mt-6 flex flex-col">
+          @for(splitControl of form.controls.split.controls; track $index; let i = $index) {
+            <div
+              class="split-row grid grid-cols-[1fr_auto_auto] items-baseline gap-3 border-b border-rule py-2.5 first:pt-0 last:border-0"
+              [formGroupName]="i"
+            >
+              <div class="relative">
+                <select
+                  formControlName="partyId"
+                  aria-label="Party"
+                  class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+                >
+                  <option value="">Choose a party</option>
+                  @for(party of parties(); track party.id) {
+                    <option [value]="party.id">{{ party.name }}</option>
+                  }
+                </select>
+                <span class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint" aria-hidden="true">
+                  &#9662;
+                </span>
+              </div>
+              <input
+                type="number"
+                min="1"
+                step="1"
+                inputmode="numeric"
+                formControlName="weight"
+                aria-label="Weight"
+                class="w-16 border-b border-rule bg-transparent pb-1 text-right font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+              />
+              <button
+                type="button"
+                (click)="removeSplitRow(i)"
+                class="text-xs text-ink-faint transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+              >
+                Remove
+              </button>
+            </div>
+          }
+        </div>
+        <button
+          type="button"
+          [disabled]="parties().length === 0"
+          (click)="addSplitRow()"
+          class="group mt-4 inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:opacity-60"
+        >
+          <span class="text-stamp" aria-hidden="true">+</span>
+          Add participant
+        </button>
+      }
+    </section>
+    <div class="flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="submitStatus() === 'submitting'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        <span aria-hidden="true">+</span>
+        {{ submitStatus() === 'submitting' ? 'Loading…' : 'Load expense' }}
+      </button>
+      @if(submitError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ submitErrorText(error) }}</p>
+      }
+    </div>
+  </form>
+  @if(submitStatus() === 'confirmed' && confirmedPlanId(); as planId) {
+    <section
+      class="conf-panel mt-12 rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+      aria-labelledby="confirmed-label"
+    >
+      <h2 id="confirmed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+        Confirmed
+      </h2>
+      @if(confirmedDescription(); as description) {
+        <p class="mt-4 font-serif text-lg text-ink">
+          "{{ description }}" — {{ confirmedKind() === 'expense' ? 'expense recorded' : 'payment plan created' }}.
+        </p>
+      }
+      <p class="mt-1 text-xs text-ink-faint">
+        {{ confirmedKind() === 'expense' ? 'Expense' : 'Plan' }}
+        <code class="text-ink [font-variant-numeric:tabular-nums_lining-nums]">{{ planId }}</code>
+      </p>
+      @if(reconciliations().length > 0) {
+        <h3 class="mt-6 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">
+          Party balances
+        </h3>
+        <ul class="mt-3">
+          @for(row of reconciliations(); track row.partyId; let i = $index) {
+            <li
+              class="conf-row flex items-baseline justify-between gap-4 border-b border-rule py-2.5 last:border-0"
+              [style.animation-delay.ms]="i * 40"
+            >
+              <span class="text-sm text-ink-soft">{{ row.partyName }}</span>
+              @switch(row.status) {
+                @case('reconciling') {
+                  <span class="text-xs text-ink-faint">reconciling…</span>
+                }
+                @case('reconciled') {
+                  @if(row.balanceMinorUnits !== null) {
+                    <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                      {{ formatArs(row.balanceMinorUnits) }}
+                    </span>
+                  }
+                }
+                @case('stalled') {
+                  <span class="max-w-[28ch] text-right text-xs text-ink-faint text-pretty">
+                    still updating what they owe you — refresh shortly
+                  </span>
+                }
+                @case('scheduled') {
+                  <span class="text-xs text-ink-faint">scheduled — charged monthly</span>
+                }
+              }
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+</div>

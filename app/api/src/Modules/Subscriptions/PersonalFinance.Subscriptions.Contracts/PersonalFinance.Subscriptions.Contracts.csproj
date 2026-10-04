@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\Shared\PersonalFinance.Abstractions\PersonalFinance.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Shared\PersonalFinance.SharedKernel\PersonalFinance.SharedKernel.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,26 @@
+/*
+ * Occasional-surface entrances only — see docs/SYSTEM.md "Motion".
+ * The register rows fade up on load (staggered via [style.animation-delay.ms]);
+ * the credit-only cutoff field fades in when "Credit card" is picked.
+ */
+.reg-row {
+  animation: row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.reveal {
+  animation: row-in 180ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reg-row,
+  .reveal {
+    animation: none;
+  }
+}

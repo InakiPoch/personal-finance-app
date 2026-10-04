@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <PropertyGroup>
+    <RootNamespace>PersonalFinance.Api</RootNamespace>
+    <AssemblyName>PersonalFinance.Api</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="PersonalFinance.Api.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
+    <PackageReference Include="Scalar.AspNetCore" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\Modules\Ledger\PersonalFinance.Ledger\PersonalFinance.Ledger.csproj" />
+    <ProjectReference Include="..\..\Modules\Ledger\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Financing\PersonalFinance.Financing\PersonalFinance.Financing.csproj" />
+    <ProjectReference Include="..\..\Modules\Financing\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Subscriptions\PersonalFinance.Subscriptions\PersonalFinance.Subscriptions.csproj" />
+    <ProjectReference Include="..\..\Modules\Subscriptions\PersonalFinance.Subscriptions.Contracts\PersonalFinance.Subscriptions.Contracts.csproj" />
+    <ProjectReference Include="..\..\Modules\Parties\PersonalFinance.Parties\PersonalFinance.Parties.csproj" />
+    <ProjectReference Include="..\..\Modules\Parties\PersonalFinance.Parties.Contracts\PersonalFinance.Parties.Contracts.csproj" />
+    <ProjectReference Include="..\..\Reporting\PersonalFinance.Reporting\PersonalFinance.Reporting.csproj" />
+    <ProjectReference Include="..\..\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

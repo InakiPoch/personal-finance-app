@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <ItemGroup>
+    <InternalsVisibleTo Include="PersonalFinance.Financing.Tests" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Infrastructure/Persistence/ReadViews/*.sql" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PersonalFinance.Financing.Contracts\PersonalFinance.Financing.Contracts.csproj" />
+    <ProjectReference Include="..\..\Ledger\PersonalFinance.Ledger.Contracts\PersonalFinance.Ledger.Contracts.csproj" />
+    <ProjectReference Include="..\..\Parties\PersonalFinance.Parties.Contracts\PersonalFinance.Parties.Contracts.csproj" />
+    <ProjectReference Include="..\..\..\Shared\PersonalFinance.Abstractions\PersonalFinance.Abstractions.csproj" />
+    <ProjectReference Include="..\..\..\Shared\PersonalFinance.SharedKernel\PersonalFinance.SharedKernel.csproj" />
+    <ProjectReference Include="..\..\..\Shared\PersonalFinance.Infrastructure\PersonalFinance.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,13 @@
+.git
+**/bin
+**/obj
+**/node_modules
+**/dist
+**/.angular
+**/tests
+**/*.spec.ts
+**/*.db*
+docs
+**/docs
+**/.claude
+.github

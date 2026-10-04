@@ -1,0 +1,5 @@
+/*
+ * No page-level styles — layout and type are Tailwind utilities on the
+ * template (docs/SYSTEM.md tokens), and the only motion (timeline row
+ * fade-up) lives with its rows in timeline-table.css.
+ */

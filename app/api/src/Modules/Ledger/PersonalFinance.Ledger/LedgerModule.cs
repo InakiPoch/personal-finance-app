@@ -1,0 +1,56 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using PersonalFinance.Abstractions.Messaging;
+using PersonalFinance.Abstractions.Modularity;
+using PersonalFinance.Infrastructure.Idempotency;
+using PersonalFinance.Infrastructure.Outbox;
+using PersonalFinance.Ledger.Application;
+using PersonalFinance.Ledger.Application.Commands.CreateAccount;
+using PersonalFinance.Ledger.Application.Commands.GetOrCreateExpenseCategory;
+using PersonalFinance.Ledger.Application.Commands.PostReceivable;
+using PersonalFinance.Ledger.Application.Commands.PostTransaction;
+using PersonalFinance.Ledger.Application.Commands.RecordDebitExpense;
+using PersonalFinance.Ledger.Application.Commands.RecordIncome;
+using PersonalFinance.Ledger.Application.Commands.ReverseTransaction;
+using PersonalFinance.Ledger.Application.Queries.GetAccountBalance;
+using PersonalFinance.Ledger.Application.Queries.FindAccrualTransactionIds;
+using PersonalFinance.Ledger.Application.Queries.FindPaidSubscriptionIds;
+using PersonalFinance.Ledger.Application.Queries.GetCardLiability;
+using PersonalFinance.Ledger.Application.Queries.ListExpenseCategories;
+using PersonalFinance.Ledger.Application.Queries.ListInstrumentAccounts;
+using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Ledger.Contracts.Commands;
+using PersonalFinance.Ledger.Contracts.Queries;
+using PersonalFinance.Ledger.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Infrastructure.Persistence.Inbox;
+using PersonalFinance.Ledger.Infrastructure.Persistence.Outbox;
+using PersonalFinance.Ledger.Infrastructure.PublicApi;
+using PersonalFinance.SharedKernel;
+
+namespace PersonalFinance.Ledger;
+
+public sealed class LedgerModule : IModule {
+    public string Name => "Ledger";
+
+    public void Register(IServiceCollection services, IConfiguration configuration) {
+        services.AddDbContext<LedgerDbContext>();
+        services.AddScoped<ILedgerApi, LedgerApi>();
+        services.AddScoped<IOutboxStore, LedgerOutboxStore>();
+        services.AddScoped<IOutboxWriter, LedgerOutboxWriter>();
+        services.AddScoped<IInboxStore, LedgerInboxStore>();
+        services.AddScoped<TransactionWriter>();
+        services.AddScoped<ICommandHandler<PostTransactionCommand, Guid>, PostTransactionHandler>();
+        services.AddScoped<ICommandHandler<PostReceivableCommand, Guid>, PostReceivableHandler>();
+        services.AddScoped<ICommandHandler<ReverseTransactionCommand, ReverseTransactionResult>, ReverseTransactionHandler>();
+        services.AddScoped<ICommandHandler<CreateAccountCommand, Guid>, CreateAccountHandler>();
+        services.AddScoped<ICommandHandler<GetOrCreateExpenseCategoryCommand, Guid>, GetOrCreateExpenseCategoryHandler>();
+        services.AddScoped<ICommandHandler<RecordDebitExpenseCommand, Guid>, RecordDebitExpenseHandler>();
+        services.AddScoped<ICommandHandler<RecordIncomeCommand, Guid>, RecordIncomeHandler>();
+        services.AddScoped<IQueryHandler<GetAccountBalanceQuery, IReadOnlyList<Money>>, GetAccountBalanceHandler>();
+        services.AddScoped<IQueryHandler<GetCardLiabilityQuery, IReadOnlyList<Money>>, GetCardLiabilityHandler>();
+        services.AddScoped<IQueryHandler<ListExpenseCategoriesQuery, ExpenseCategoriesResponse>, ListExpenseCategoriesHandler>();
+        services.AddScoped<IQueryHandler<ListInstrumentAccountsQuery, InstrumentAccountsResponse>, ListInstrumentAccountsHandler>();
+        services.AddScoped<IQueryHandler<FindAccrualTransactionIdsQuery, AccrualTransactionIdsResponse>, FindAccrualTransactionIdsHandler>();
+        services.AddScoped<IQueryHandler<FindPaidSubscriptionIdsQuery, PaidSubscriptionIdsResponse>, FindPaidSubscriptionIdsHandler>();
+    }
+}

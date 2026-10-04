@@ -1,0 +1,350 @@
+<div class="mx-auto max-w-6xl px-5 py-10 sm:px-8">
+  <header class="mb-10">
+    <h1 class="font-serif text-2xl font-medium tracking-tight text-heading">{{ pageTitle() }}</h1>
+  </header>
+  <nav aria-label="Quick actions" class="mb-10 flex flex-wrap items-center justify-between gap-x-4 gap-y-3">
+    <div class="flex flex-wrap items-center gap-x-4 gap-y-3">
+      <a
+        [routerLink]="'/financing/load-expense'"
+        class="inline-flex items-center gap-1.5 rounded-card bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-colors hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+      >
+        <span aria-hidden="true">+</span>
+        Record an expense
+      </a>
+      <a
+        [routerLink]="'/ledger/incomes/new'"
+        class="inline-flex items-center gap-1.5 rounded-card border border-rule bg-paper-raised px-4 py-2 text-sm text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+      >
+        <span aria-hidden="true" class="text-stamp">+</span>
+        Record income
+      </a>
+      <a [routerLink]="'/financing/recent-purchases'" class="group inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink">
+        Recent Credit Card Purchases
+        <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+      </a>
+    </div>
+    <label class="flex items-baseline gap-2 text-xs text-ink-faint">
+      <span class="uppercase tracking-[0.12em]">Month</span>
+      <input
+        type="month"
+        id="month"
+        name="month"
+        #monthInput
+        [value]="selectedMonth()"
+        (change)="onMonthChange(monthInput.value)"
+        class="border-b border-rule bg-transparent pb-0.5 font-sans text-xs text-ink-soft outline-none focus-visible:border-stamp"
+      />
+    </label>
+  </nav>
+  <section class="mb-8 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="due-label">
+    <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+      <h2 id="due-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+        {{ isCurrentMonth() ? 'How much do I owe in total for this month?' : 'How much would I owe that month, based only on installments?' }}
+      </h2>
+      <div class="flex flex-wrap gap-x-4 gap-y-1">
+        <a [routerLink]="'/financing/statements'" class="group inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink">
+          Pay a card bill
+          <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+        </a>
+        <a [routerLink]="'/financing/creditor-payables'" class="group inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink">
+          Pay a creditor
+          <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+        </a>
+      </div>
+    </div>
+    @if(dueStatus() === 'loading') {
+      <p class="mt-6 text-sm text-ink-faint">Adding up what's due…</p>
+    } @else if(dueStatus() === 'error') {
+      <p role="alert" class="mt-6 text-sm text-negative">Could not read what's due. Try again.</p>
+    } @else if(dueByCurrency().length === 0) {
+      <p class="mt-6 text-sm text-ledger">{{ isCurrentMonth() ? 'Nothing to pay this month.' : 'Nothing to pay.' }}</p>
+    } @else {
+      <div class="mt-5 flex flex-wrap gap-x-10 gap-y-5">
+        @for(due of dueByCurrency(); track due.currencyCode) {
+          <div>
+            <p class="flex items-baseline gap-2 font-serif text-[2rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]">
+              {{ formatMoney(due.total, due.currencyCode) }}
+              <span class="font-sans text-xs font-normal uppercase tracking-widest text-ink-faint">{{ due.currencyCode }}</span>
+            </p>
+            <p class="mt-2 text-[0.8125rem] text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]">
+              Cards {{ formatMoney(due.cards, due.currencyCode) }} · Creditors {{ formatMoney(due.creditors, due.currencyCode) }}
+            </p>
+          </div>
+        }
+      </div>
+      <button
+        type="button"
+        class="mt-5 flex cursor-pointer items-center gap-1.5 text-xs text-ink-soft transition-colors hover:text-ink"
+        [attr.aria-expanded]="dueExpanded()"
+        aria-controls="due-breakdown"
+        (click)="toggleDueBreakdown()"
+      >
+        <span aria-hidden="true" class="text-ink-faint">{{ dueExpanded() ? '▾' : '▸' }}</span>
+        {{ dueExpanded() ? 'Hide breakdown' : 'Show breakdown' }}
+      </button>
+      @if(dueExpanded()) {
+        <div id="due-breakdown" class="mt-3 flex flex-col gap-4 border-t border-rule pt-3">
+          @for(due of dueByCurrency(); track due.currencyCode) {
+            <ul class="flex flex-col gap-2">
+              @for(source of due.sources; track source.kind + '|' + source.sourceId) {
+                <li class="flex items-baseline justify-between gap-4">
+                  <span class="text-xs text-ink-soft">
+                    {{ source.sourceName }}
+                    <span class="text-ink-faint">— {{ source.kind === 'card' ? 'card' : 'creditor' }}</span>
+                  </span>
+                  <span class="flex items-baseline gap-1.5 text-xs text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                    {{ formatMoney(source.amountMinorUnits, source.currencyCode) }}
+                    <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ source.currencyCode }}</span>
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        </div>
+      }
+    }
+  </section>
+  <div class="grid gap-8 lg:grid-cols-2">
+    <section aria-labelledby="flow-tile-label">
+      <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+        <h2 id="flow-tile-label" class="sr-only">Money this month</h2>
+        <div class="flex gap-1" role="group" aria-label="Show money spent or received">
+          <button
+            type="button"
+            [attr.aria-pressed]="flowSide() === 'out'"
+            (click)="setFlowSide('out')"
+            class="border-b-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+            [class.border-stamp]="flowSide() === 'out'"
+            [class.text-heading]="flowSide() === 'out'"
+            [class.border-transparent]="flowSide() !== 'out'"
+            [class.text-ink-faint]="flowSide() !== 'out'"
+          >
+            Money Spent
+          </button>
+          <button
+            type="button"
+            [attr.aria-pressed]="flowSide() === 'in'"
+            (click)="setFlowSide('in')"
+            class="border-b-2 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.14em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+            [class.border-stamp]="flowSide() === 'in'"
+            [class.text-heading]="flowSide() === 'in'"
+            [class.border-transparent]="flowSide() !== 'in'"
+            [class.text-ink-faint]="flowSide() !== 'in'"
+          >
+            Money received
+          </button>
+        </div>
+      </div>
+      @if(flowSide() === 'out') {
+        @if(monthlyStatus() === 'loading') {
+          <p class="mt-6 text-sm text-ink-faint">Totalling the month…</p>
+        } @else if(monthlyStatus() === 'error') {
+          <p role="alert" class="mt-6 text-sm text-negative">Could not total this month. Try again.</p>
+        } @else {
+          @for(currencyTotal of monthlyTotalsByCurrency(); track currencyTotal.currencyCode) {
+            <p class="mt-4 flex items-baseline gap-2 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]">
+              {{ formatMoney(currencyTotal.totalMinorUnits, currencyTotal.currencyCode) }}
+              <span class="font-sans text-xs font-normal uppercase tracking-widest text-ink-faint">{{ currencyTotal.currencyCode }}</span>
+            </p>
+          }
+          <div class="mt-3 h-0.5 w-28 rounded-full bg-stamp-soft"></div>
+          <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+            Your share of what you paid from bank accounts and cash this month. Card purchases count
+            when you pay the card bill; money others owe you isn't included.
+          </p>
+          <h3 class="mt-8 text-xs font-semibold uppercase tracking-[0.14em] text-heading">Where your money went</h3>
+          @if(expensesByCategory().length === 0) {
+            <p class="mt-3 text-sm text-ink-soft">Nothing spent from bank or cash this month.</p>
+          } @else {
+            <ul class="mt-3">
+              @for(row of expensesByCategory(); track row.label; let i = $index) {
+                <li class="cat-row relative flex items-baseline justify-between gap-4 py-2.5" [style.animation-delay.ms]="i * 40">
+                  <span
+                    aria-hidden="true"
+                    class="absolute bottom-0 left-0 h-0.5 rounded-full bg-stamp-soft"
+                    [style.width.%]="barWidth(row.totalMinorUnits)"
+                  ></span>
+                  <span class="text-sm text-ink-soft">{{ row.label }}</span>
+                  <span class="flex items-baseline gap-1.5 text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                    {{ formatMoney(row.totalMinorUnits, row.currencyCode) }}
+                    <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ row.currencyCode }}</span>
+                  </span>
+                </li>
+              }
+            </ul>
+          }
+        }
+      } @else {
+        @if(incomeStatus() === 'loading') {
+          <p class="mt-6 text-sm text-ink-faint">Totalling the month…</p>
+        } @else if(incomeStatus() === 'error') {
+          <p role="alert" class="mt-6 text-sm text-negative">Could not total this month. Try again.</p>
+        } @else {
+          @for(currencyTotal of incomeTotalsByCurrency(); track currencyTotal.currencyCode) {
+            <p class="mt-4 flex items-baseline gap-2 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-ledger [font-variant-numeric:tabular-nums_lining-nums]">
+              {{ formatMoney(currencyTotal.totalMinorUnits, currencyTotal.currencyCode) }}
+              <span class="font-sans text-xs font-normal uppercase tracking-widest text-ink-faint">{{ currencyTotal.currencyCode }}</span>
+            </p>
+          }
+          <div class="mt-3 h-0.5 w-28 rounded-full bg-stamp-soft"></div>
+          <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+            Money that came into your bank accounts or cash this month.
+          </p>
+        }
+      }
+    </section>
+    <div class="flex flex-col gap-8">
+      <section class="rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="card-debt-label">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+          <h2 id="card-debt-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+            Card bills by month
+          </h2>
+          <a [routerLink]="'/financing/statements'" class="group inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink">
+            Pay a card bill
+            <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+          </a>
+        </div>
+        @if(cardDueStatus() === 'loading') {
+          <p class="mt-6 text-sm text-ink-faint">Reading card bills…</p>
+        } @else if(cardDueStatus() === 'error') {
+          <p role="alert" class="mt-6 text-sm text-negative">Could not read card bills. Try again.</p>
+        } @else if(cycleByCard().length === 0) {
+          <p class="mt-6 text-sm text-ledger">Nothing due on your cards.</p>
+        } @else {
+          <div class="mt-5 flex flex-wrap items-center gap-x-5 gap-y-1 text-[0.6875rem] text-ink-faint">
+            <span class="flex items-center gap-1.5">
+              <span aria-hidden="true" class="h-2 w-2 rounded-[1px] bg-stamp"></span>
+              Charged to the card — on your next bill
+            </span>
+            <span class="flex items-center gap-1.5">
+              <span aria-hidden="true" class="cycle-future h-2 w-4 rounded-[1px]"></span>
+              Upcoming — installments not charged yet
+            </span>
+          </div>
+          <ul class="mt-5 flex flex-col gap-5">
+            @for(card of cycleByCard(); track (card.cardId ?? card.card) + '|' + card.currencyCode) {
+              <li>
+                @if(card.cardId; as cardId) {
+                  <button
+                    type="button"
+                    class="flex w-full cursor-pointer items-baseline justify-between gap-4 text-left"
+                    [attr.aria-expanded]="expandedCardId() === cardId"
+                    [attr.aria-controls]="'card-purchases-' + cardId"
+                    (click)="toggleCardPurchases(cardId)"
+                  >
+                    <span class="flex items-center gap-1.5 text-sm text-ink">
+                      <span aria-hidden="true" class="text-ink-faint">{{ expandedCardId() === cardId ? '▾' : '▸' }}</span>
+                      {{ card.card }}
+                      <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ card.currencyCode }}</span>
+                    </span>
+                    <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                      {{ formatMoney(card.total, card.currencyCode) }}
+                    </span>
+                  </button>
+                } @else {
+                  <div class="flex items-baseline justify-between gap-4">
+                    <span class="text-sm text-ink">
+                      {{ card.card }}
+                      <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ card.currencyCode }}</span>
+                    </span>
+                    <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                      {{ formatMoney(card.total, card.currencyCode) }}
+                    </span>
+                  </div>
+                }
+                <div aria-hidden="true" class="mt-2 flex h-2.5 overflow-hidden rounded-xs bg-paper-inset">
+                  <span class="bg-stamp" [style.width.%]="segmentWidth(card.accrued, card.barTotal)"></span>
+                  <span class="cycle-future" [style.width.%]="segmentWidth(card.future, card.barTotal)"></span>
+                </div>
+                <div class="mt-1.5 flex justify-between text-[0.6875rem] text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]">
+                  <span>Charged {{ formatMoney(card.accrued, card.currencyCode) }}</span>
+                  <span>Upcoming {{ formatMoney(card.future, card.currencyCode) }}</span>
+                </div>
+                @if(card.cardId; as cardId) {
+                  @if(expandedCardId() === cardId) {
+                    <div [id]="'card-purchases-' + cardId" class="mt-3 border-t border-rule pt-3">
+                      @if(purchasesStatus() === 'loading') {
+                        <p class="text-xs text-ink-faint">Reading purchases…</p>
+                      } @else if(purchasesStatus() === 'error') {
+                        <p role="alert" class="text-xs text-negative">Could not read purchases. Try again.</p>
+                      } @else if(expandedPurchases().length === 0) {
+                        <p class="text-xs text-ink-soft">No outstanding purchases on this card.</p>
+                      } @else {
+                        <ul class="flex flex-col gap-2.5">
+                          @for(purchase of expandedPurchases(); track purchase.planId) {
+                            <li class="flex items-baseline justify-between gap-4">
+                              <span class="text-xs text-ink-soft">
+                                {{ purchase.description }}
+                                <span class="text-ink-faint">
+                                  — {{ purchase.installmentCount - purchase.outstandingCount }} of {{ purchase.installmentCount }} installments paid
+                                </span>
+                              </span>
+                              <span class="text-xs text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                                {{ formatMoney(purchase.totalMinorUnits, card.currencyCode) }}
+                              </span>
+                            </li>
+                          }
+                        </ul>
+                      }
+                    </div>
+                  }
+                }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+      <section class="flex-1 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="subscriptions-label">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+          <h2 id="subscriptions-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+            Active subscriptions
+          </h2>
+          <a [routerLink]="'/subscriptions'" class="group inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink">
+            Manage subscriptions
+            <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+          </a>
+        </div>
+        @if(isFutureMonth()) {
+          <p class="mt-2 text-[0.6875rem] text-ink-faint">Future payments — not charged yet</p>
+        }
+        @if(subscriptionsStatus() === 'loading') {
+          <p class="mt-6 text-sm text-ink-faint">Reading subscriptions…</p>
+        } @else if(subscriptionsStatus() === 'error') {
+          <p role="alert" class="mt-6 text-sm text-negative">Could not read subscriptions. Try again.</p>
+        } @else if(monthSubscriptions().length === 0) {
+          <p class="mt-6 text-sm text-ledger">No subscriptions to track.</p>
+        } @else {
+          <ul class="mt-5 flex flex-col">
+            @for(subscription of monthSubscriptions(); track subscription.subscriptionId; let i = $index) {
+              <li class="sub-row flex items-center justify-between gap-4 border-b border-rule py-2.5 last:border-0" [style.animation-delay.ms]="i * 40">
+                <div class="flex flex-col gap-0.5">
+                  <span class="text-sm text-ink">{{ subscription.name }}</span>
+                  <span class="text-[0.6875rem] text-ink-faint [font-variant-numeric:tabular-nums_lining-nums]">
+                    {{ subscription.dueDate }}
+                  </span>
+                </div>
+                <div class="flex flex-col items-end gap-0.5">
+                  <span class="flex items-baseline gap-1.5 text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                    {{ formatMoney(subscription.amountMinorUnits, subscription.currencyCode) }}
+                    <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ subscription.currencyCode }}</span>
+                  </span>
+                  @switch(subscription.status) {
+                    @case('paid') {
+                      <span class="status-badge">Paid</span>
+                    }
+                    @case('overdue') {
+                      <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-negative">Overdue</span>
+                    }
+                    @default {
+                      <span class="text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint">Upcoming</span>
+                    }
+                  }
+                </div>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+    </div>
+  </div>
+</div>

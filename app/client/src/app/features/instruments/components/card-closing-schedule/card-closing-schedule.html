@@ -1,0 +1,125 @@
+<div class="flex items-baseline justify-between gap-4">
+  <div class="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+    <span class="text-sm text-ink">{{ cardName() }}</span>
+    @if(editingInHeader() && schedule()[0]; as first) {
+      <input
+        type="date"
+        [min]="minDate(first)"
+        [max]="maxDate(first)"
+        [attr.aria-label]="'Next closing date for ' + cardName()"
+        [formControl]="dateControl"
+        class="border-b border-rule bg-transparent pb-0.5 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+      />
+      <button
+        type="button"
+        [disabled]="busy() || dateControl.invalid"
+        [attr.aria-label]="'Save next closing date for ' + cardName()"
+        (click)="saveMonth(first)"
+        class="rounded-md bg-stamp px-3 py-1 text-xs font-medium text-paper-raised transition-colors hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:opacity-60"
+      >
+        Save
+      </button>
+      <button
+        type="button"
+        [attr.aria-label]="'Cancel editing next closing date for ' + cardName()"
+        (click)="cancelMonthEdit()"
+        class="text-xs text-ink-soft underline-offset-2 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+      >
+        Cancel
+      </button>
+    } @else {
+      <span class="text-xs text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+        Next closing: {{ nextClosingText() }}
+      </span>
+      @if(schedule()[0]; as first) {
+        <button
+          type="button"
+          [disabled]="busy()"
+          [attr.aria-label]="'Edit next closing date for ' + cardName()"
+          (click)="startMonthEdit(first, true)"
+          class="rounded-md border border-stamp px-2.5 py-0.5 text-xs font-medium text-stamp transition-colors hover:bg-stamp hover:text-paper-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:opacity-60"
+        >
+          Edit
+        </button>
+      }
+    }
+  </div>
+  <span class="text-xs uppercase tracking-[0.12em] text-ink-faint">{{ typeLabel() }}</span>
+</div>
+
+<div class="mt-2 flex flex-col gap-2 text-xs text-ink-soft">
+  @if(schedule().length > 0) {
+  <details class="group">
+    <summary
+      class="flex w-fit cursor-pointer list-none items-center gap-1.5 text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp [&::-webkit-details-marker]:hidden"
+    >
+      <span aria-hidden="true" class="transition-transform group-open:rotate-90">▸</span>
+      Next closings
+    </summary>
+        <ul class="mt-2 flex flex-col gap-2">
+          @for(row of schedule(); track monthKey(row)) {
+            <li class="flex min-h-8 flex-wrap items-center gap-x-3 gap-y-1">
+              @if(editingMonth() === monthKey(row) && !editingInHeader()) {
+                <input
+                  type="date"
+                  [min]="minDate(row)"
+                  [max]="maxDate(row)"
+                  [attr.aria-label]="'Closing date for ' + formatDate(row) + ' on ' + cardName()"
+                  [formControl]="dateControl"
+                  class="border-b border-rule bg-transparent pb-0.5 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+                />
+                <button
+                  type="button"
+                  [disabled]="busy() || dateControl.invalid"
+                  (click)="saveMonth(row)"
+                  class="rounded-md bg-stamp px-3 py-1 text-xs font-medium text-paper-raised transition-colors hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:opacity-60"
+                >
+                  Save
+                </button>
+                <button
+                  type="button"
+                  (click)="cancelMonthEdit()"
+                  class="text-xs text-ink-soft underline-offset-2 hover:text-ink hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+                >
+                  Cancel
+                </button>
+              } @else {
+                <span class="w-14 shrink-0 text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                  {{ formatDate(row) }}
+                </span>
+                <span class="w-10 shrink-0 text-[0.6875rem] uppercase tracking-[0.12em] text-stamp">
+                  @if(row.isOverride) {
+                    (set)
+                  }
+                </span>
+                <button
+                  type="button"
+                  [disabled]="busy()"
+                  [attr.aria-label]="'Edit closing date ' + formatDate(row) + ' for ' + cardName()"
+                  (click)="startMonthEdit(row)"
+                  class="rounded-md border border-stamp px-2.5 py-0.5 text-xs font-medium text-stamp transition-colors hover:bg-stamp hover:text-paper-raised focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:opacity-60"
+                >
+                  Edit
+                </button>
+                @if(row.isOverride) {
+                  <button
+                    type="button"
+                    [disabled]="busy()"
+                    [attr.aria-label]="'Reset closing date ' + formatDate(row) + ' for ' + cardName()"
+                    (click)="resetMonth(row)"
+                    class="rounded-md border border-rule px-2.5 py-0.5 text-xs font-medium text-ink-soft transition-colors hover:border-ink hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:opacity-60"
+                  >
+                    Reset
+                  </button>
+                }
+              }
+            </li>
+          }
+        </ul>
+  </details>
+  }
+
+  @if(errorText(); as text) {
+    <p class="text-xs text-negative" role="alert">{{ text }}</p>
+  }
+</div>

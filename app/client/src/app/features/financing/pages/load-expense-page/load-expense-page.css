@@ -1,0 +1,29 @@
+/*
+ * Occasional-surface entrances only — see docs/SYSTEM.md "Motion".
+ * A split row fades up when "Add participant" is clicked; the confirmation
+ * panel and its reconciled balance rows fade up once the plan is created
+ * (rows staggered via [style.animation-delay.ms]).
+ */
+.split-row,
+.conf-panel {
+  animation: row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+.conf-row {
+  animation: row-in 220ms cubic-bezier(0.23, 1, 0.32, 1) both;
+}
+
+@keyframes row-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .split-row,
+  .conf-panel,
+  .conf-row {
+    animation: none;
+  }
+}

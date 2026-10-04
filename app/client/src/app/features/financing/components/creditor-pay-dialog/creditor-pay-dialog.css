@@ -1,0 +1,12 @@
+.dialog-reset {
+  margin: auto;
+  padding: 0;
+  border: none;
+  background: transparent;
+  max-width: none;
+  max-height: none;
+}
+
+.dialog-reset::backdrop {
+  background: rgba(15, 15, 15, 0.4);
+}

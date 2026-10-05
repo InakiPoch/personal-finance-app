@@ -61,17 +61,35 @@ Also confirm on github.com: landing page shows `main` with the user README; `dev
 
 ## Done when
 
-- [ ] Repo public; gitleaks re-run clean.
-- [ ] Deploy-key (or GitHub App) bypass proven on `release-test`, then `main-release-only` active.
-- [ ] `git push origin HEAD:main` from the owner's machine is rejected.
-- [ ] `release-tags` and `dev-safety` active.
-- [ ] Anonymous clone + `docker compose up` works end to end.
+- [x] Repo public; gitleaks re-run clean.
+- [x] Deploy-key (or GitHub App) bypass proven on `release-test`, then `main-release-only` active.
+- [x] `git push origin HEAD:main` from the owner's machine is rejected.
+- [x] `release-tags` and `dev-safety` active.
+- [x] Anonymous clone + `docker compose up` works end to end.
 - [ ] Next release (whenever it happens — e.g. `v1.0.1`) passes through the protected `main` without workflow changes. Until then this box stays open.
-- [ ] Overview acceptance checklist fully ticked; TASK.md ledger line; memory note updated.
+- [x] TASK.md ledger line; memory note updated.
+- [ ] Overview acceptance checklist fully ticked (open: HTTPS opt-in, README backup round-trip, workflow push through protected `main` — see the `v1.0.1` box).
 
 ## Findings
 
-_(fill in: ruleset JSON bodies, bypass mechanism used, anything surprising about public visibility)_
+_(2026-10-04)_
+
+- **Pre-flight:** gitleaks over `--all` (351 commits): no leaks; no `*.db`/`*.bak` ever committed; commit emails unchanged from Slice 0. Repo description + topics `personal-finance`, `dotnet`, `angular`, `sqlite`, `docker` set. Default branch `main`. Repo flipped to public.
+- **Bypass mechanism: Deploy keys work, no GitHub App needed.** Ruleset body used for the proof (`release-test-protect`, deleted afterwards) and, with a different `name` and `include`, for `main-release-only`:
+  ```json
+  {"name":"main-release-only","target":"branch","enforcement":"active",
+   "conditions":{"ref_name":{"include":["refs/heads/main"],"exclude":[]}},
+   "rules":[{"type":"update"},{"type":"deletion"},{"type":"non_fast_forward"}],
+   "bypass_actors":[{"actor_id":null,"actor_type":"DeployKey","bypass_mode":"always"}]}
+  ```
+  Create with `gh api -X POST repos/InakiPoch/personal-finance-app/rulesets --input <file>`.
+- `dev-safety` (id `24476127`): `{"name":"dev-safety","target":"branch","enforcement":"active","conditions":{"ref_name":{"include":["refs/heads/dev"],"exclude":[]}},"rules":[{"type":"deletion"},{"type":"non_fast_forward"}]}`. No PR/status-check requirement (left off, as decided).
+- `release-tags` (id `24476269`): `{"name":"release-tags","target":"tag","enforcement":"active","conditions":{"ref_name":{"include":["refs/tags/v*"],"exclude":[]}},"rules":[{"type":"deletion"},{"type":"update"}]}`. Created last, after `v1.0.0` was verified (provenance: tag on `dev`, `main` commit trailers match, Release published, no forbidden files). It also matches rc tags, so rc dry runs are no longer deletable; use a new version number for any further dry run, or disable the ruleset first. Not exercised by a deletion attempt. `main-release-only` id `24476126`.
+- **The first rc push proves nothing.** `v1.0.1-rc.1` merely *created* `release-test` (the ruleset has no `creation` rule). The proof is `v1.0.1-rc.2`: the workflow fast-forwarded the already-protected `release-test` (`aff1872` -> `365360d`) while the owner's own fast-forward push to it was rejected ("Cannot update this protected ref"). Both rc runs needed a real README diff, otherwise `publish` exits "Nothing to release" without pushing.
+- After activation, the owner's push of a new commit to `main` is rejected (`push declined due to repository rule violations`).
+- Stranger test (credential-free clone, `smoke.sh` copied from `dev`): `SMOKE OK`. Gotcha: `compose.yaml` sets `name: personal-finance`, so any clone shares the volume `personal-finance_pf-data` with an existing install; `smoke.sh` is unaffected (own `pf-smoke` project).
+- First Windows clone failed with `500 ... requested API version`: outdated Docker Desktop, fixed by updating it. README Troubleshooting now documents it.
+- Open: the next release (`v1.0.1`) must pass through protected `main` via the deploy key; the bypass is proven on `release-test` only.
 
 ## Out of scope
 

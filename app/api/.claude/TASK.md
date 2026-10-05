@@ -245,3 +245,7 @@ Done. `scripts/project-main.sh <out-dir>` projects `HEAD` by allowlist (781 file
 ## Phase 61 — Release setup, Slice 5: release workflow (2026-10-04)
 
 Done. `.github/workflows/release.yml` (tag `v*` only; `guard` -> `verify` (reusable `ci.yml`) -> `publish` (project, smoke the projection, deploy-key push of one commit with `Source-Tag`/`Source-Commit`/`Workflow-Run` trailers) -> `smoke-main` -> `github-release`; `-rc.N` tags target `release-test`, no Release); `ci.yml` push trigger limited to branches; container EF log level set to `Warning` in the `Dockerfile`. `v1.0.0-rc.1` dry run and off-`dev` `v1.0.0-rc.2` negative test passed; `v1.0.0` released (`main` `d8f1dc0`). No API/client code change.
+
+## Phase 62 — Release setup, Slice 6: go public and protect main (2026-10-04)
+
+Done, except the next release passing through protected `main`. Repo public (gitleaks clean); rulesets `main-release-only` (update/deletion/non_fast_forward, Deploy-key bypass), `dev-safety` (deletion/non_fast_forward) and `release-tags` (deletion/update on `v*`) active. Deploy-key bypass proven on `release-test` with `v1.0.1-rc.2` after an owner push was rejected; an owner push to `main` is rejected. Anonymous clone + `smoke.sh` passed on `main` (`v1.0.0`). README Troubleshooting gained the Docker Desktop API-version note. No API/client code change.

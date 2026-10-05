@@ -85,12 +85,12 @@ This folder **supersedes** those documents wherever they disagree. The biggest d
 
 ## Acceptance checklist for the whole initiative
 
-- [ ] Fresh machine with only Git + Docker: `git clone https://github.com/InakiPoch/personal-finance-app && cd personal-finance-app && docker compose up` → app at `http://localhost:8080`, empty data.
-- [ ] `/`, `/reports` (deep route), `/health`, `GET /v1/instruments` (empty) all respond correctly.
-- [ ] `docker compose down` + `up` keeps data; `down -v` + `up` resets it.
+- [x] Fresh machine with only Git + Docker: `git clone https://github.com/InakiPoch/personal-finance-app && cd personal-finance-app && docker compose up` → app at `http://localhost:8080`, empty data.
+- [x] `/`, `/reports` (deep route), `/health`, `GET /v1/instruments` (empty) all respond correctly.
+- [x] `docker compose down` + `up` keeps data; `down -v` + `up` resets it.
 - [ ] README backup → reset → restore round-trips data.
 - [x] `git ls-files` on `main` has no `tests/`, `*.spec.ts`, `docs/`, `.claude/`, `CLAUDE.md`, `TASK.md`, `.github/`, `*.http`, `*.sln`, `*.db*`.
 - [x] Each `main` commit names its source tag + SHA.
-- [ ] Port bound to `127.0.0.1` only.
+- [x] Port bound to `127.0.0.1` only.
 - [ ] HTTPS opt-in works with the documented steps.
-- [ ] A human push to `main` is rejected; the release workflow can still push.
+- [ ] A human push to `main` is rejected (verified); the release workflow can still push (deploy-key bypass proven on `release-test`; confirm on the next release, e.g. `v1.0.1`).

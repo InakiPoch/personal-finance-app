@@ -92,6 +92,7 @@ The app generates a self-signed certificate on first start and keeps it in the d
 ## Troubleshooting
 
 - **Logs:** `docker compose logs app`.
+- **`500 Internal Server Error` / "check if the server supports the requested API version" on Windows or macOS:** Docker Desktop is outdated or its engine is not running yet. Update Docker Desktop, restart it, wait until the engine is running, and retry.
 - **Port 8080 is in use:** change the left side of the port mapping in `compose.yaml` (for example `127.0.0.1:9090:8080`) and set `App__PublicUrl` to the same port.
 - **The container is "Up" but the page never loads and the log stops during migrations:** a stale migration lock from an interrupted start (only on images built before this was fixed; the current image clears it automatically). Back up, then:
   ```sh

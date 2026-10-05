@@ -241,3 +241,7 @@ Done. `SelfSignedCertificateHelper` (host `Helpers/`, `LoadOrCreate(dir, now)`: 
 ## Phase 60 — Release setup, Slice 4: projection and user docs (2026-10-04)
 
 Done. `scripts/project-main.sh <out-dir>` projects `HEAD` by allowlist (781 files), strips specs and `.http`, then runs a leak guard (forbidden paths, files >5 MB); projected tree passes `smoke.sh`. User-facing root `README.md` (backup/restore round-trip verified) and MIT `LICENSE`; root `.gitignore` now covers client `dist`/`.angular`. No API/client code change.
+
+## Phase 61 — Release setup, Slice 5: release workflow (2026-10-04)
+
+Done. `.github/workflows/release.yml` (tag `v*` only; `guard` -> `verify` (reusable `ci.yml`) -> `publish` (project, smoke the projection, deploy-key push of one commit with `Source-Tag`/`Source-Commit`/`Workflow-Run` trailers) -> `smoke-main` -> `github-release`; `-rc.N` tags target `release-test`, no Release); `ci.yml` push trigger limited to branches; container EF log level set to `Warning` in the `Dockerfile`. `v1.0.0-rc.1` dry run and off-`dev` `v1.0.0-rc.2` negative test passed; `v1.0.0` released (`main` `d8f1dc0`). No API/client code change.

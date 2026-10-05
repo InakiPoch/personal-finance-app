@@ -76,16 +76,21 @@ Failure semantics:
 
 ## Done when
 
-- [ ] Dry run to `release-test` succeeded and was inspected; scratch branch + tag deleted.
-- [ ] The off-`dev` rc tag failed in `guard` without touching any branch.
-- [ ] `v1.0.0` released: `main` = init commit + one `chore(release): v1.0.0` commit with Source-Tag/Source-Commit trailers.
-- [ ] `git ls-files` on `main` passes the overview's hygiene checklist.
-- [ ] GitHub Release `v1.0.0` exists with generated notes.
-- [ ] TASK.md ledger line; overview acceptance items ticked.
+- [x] Dry run to `release-test` succeeded and was inspected; scratch branch + tag deleted.
+- [x] The off-`dev` rc tag failed in `guard` without touching any branch.
+- [x] `v1.0.0` released: `main` = init commit + one `chore(release): v1.0.0` commit with Source-Tag/Source-Commit trailers.
+- [x] `git ls-files` on `main` passes the overview's hygiene checklist.
+- [x] GitHub Release `v1.0.0` exists with generated notes.
+- [x] TASK.md ledger line; overview acceptance items ticked.
 
 ## Findings
 
-_(fill in: run durations, any action SHAs chosen, dry-run observations)_
+- Run durations: `v1.0.0-rc.1` ~5 min (guard 6 s, verify ~1.5 min with jobs in parallel, publish ~1.5 min, smoke-main ~1.5 min); `v1.0.0` run `37241951413` ~5 min 16 s, all jobs green.
+- Action SHAs: only `actions/checkout`, pinned to `fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09` (`v5`); everything else is plain shell. `ci.yml` actions stay on tags (out of scope).
+- `ci.yml` push trigger narrowed to branches: a tag push would otherwise start a standalone CI run in the same `ci-${{ github.ref }}` concurrency group as the reusable one called by `verify`, and one would cancel the other.
+- Dry run: `release-test` got one `chore(release): v1.0.0-rc.1` commit by `github-actions[bot]` (781 files, no forbidden paths, no Release). Off-`dev` `v1.0.0-rc.2` failed in `guard` ("is not on dev history"), later jobs skipped, nothing touched. `release-test` and the rc tags were deleted.
+- Dry-run finding: the `docker compose up` log was ~3,400 lines because EF Core logged every SQL command at `Information`, burying the `Personal Finance is ready at …` line. Fixed in the `Dockerfile` (`Logging__LogLevel__Microsoft.EntityFrameworkCore=Warning`, container only) before `v1.0.0`.
+- Real release: `main` = init commit `9b0d48a` + `d8f1dc0 chore(release): v1.0.0` (Source-Commit `061e5d7`, on `dev`); GitHub Release `v1.0.0` created with generated notes; `main` has the same 781 files and passes the hygiene checklist.
 
 ## Out of scope
 

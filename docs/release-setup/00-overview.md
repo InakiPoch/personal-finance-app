@@ -89,8 +89,8 @@ This folder **supersedes** those documents wherever they disagree. The biggest d
 - [ ] `/`, `/reports` (deep route), `/health`, `GET /v1/instruments` (empty) all respond correctly.
 - [ ] `docker compose down` + `up` keeps data; `down -v` + `up` resets it.
 - [ ] README backup → reset → restore round-trips data.
-- [ ] `git ls-files` on `main` has no `tests/`, `*.spec.ts`, `docs/`, `.claude/`, `CLAUDE.md`, `TASK.md`, `.github/`, `*.http`, `*.sln`, `*.db*`.
-- [ ] Each `main` commit names its source tag + SHA.
+- [x] `git ls-files` on `main` has no `tests/`, `*.spec.ts`, `docs/`, `.claude/`, `CLAUDE.md`, `TASK.md`, `.github/`, `*.http`, `*.sln`, `*.db*`.
+- [x] Each `main` commit names its source tag + SHA.
 - [ ] Port bound to `127.0.0.1` only.
 - [ ] HTTPS opt-in works with the documented steps.
 - [ ] A human push to `main` is rejected; the release workflow can still push.

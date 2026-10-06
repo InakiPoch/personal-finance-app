@@ -29,6 +29,8 @@ docker compose down
 docker compose up -d
 ```
 
+The container restarts on its own after a reboot or a Docker restart. If `docker compose up` only prints `Running` and nothing else, the app is already up: open `http://localhost:8080` (or run `docker compose logs` to see the `ready` line).
+
 ## Backup / restore
 
 Stop the app first. The database runs in WAL mode, and copying it while it is running can produce a corrupt backup.

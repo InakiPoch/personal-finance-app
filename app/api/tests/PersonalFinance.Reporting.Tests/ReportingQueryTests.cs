@@ -29,7 +29,7 @@ public sealed class ReportingQueryTests(ReportingIntegrationFixture fixture) : I
     public async Task MonthlyIncomes_returns_one_row_per_currency_for_the_selected_month() {
         var response = await AskAsync(new MonthlyIncomesQuery("2026-05"));
         Assert.Equal(2, response.Rows.Count);
-        Assert.Equal(15_000, response.Rows.Single(row => row.CurrencyCode == "ARS").AmountMinorUnits);
+        Assert.Equal(15_000 + fixture.AliceOwed, response.Rows.Single(row => row.CurrencyCode == "ARS").AmountMinorUnits); // salary + Alice settlement (settlements are received)
         Assert.Equal(200_00, response.Rows.Single(row => row.CurrencyCode == "USD").AmountMinorUnits);
         Assert.All(response.Rows, row => Assert.Equal("2026-05", row.Month));
     }

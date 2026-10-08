@@ -70,4 +70,4 @@ Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `
 
 ### Domain docs
 
-Single-context: one root `GLOSSARY.md` + `docs/adr/` spanning both `app/api` and `app/client`. See `docs/agents/domain.md`.
+Single-context: one `docs/GLOSSARY.md` + `docs/adr/` spanning both `app/api` and `app/client`. See `docs/agents/domain.md`.

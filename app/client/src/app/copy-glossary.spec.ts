@@ -14,7 +14,7 @@ import { routes as partiesRoutes } from './features/parties/parties.routes';
 import { routes as reportsRoutes } from './features/reports/reports.routes';
 import { routes as subscriptionsRoutes } from './features/subscriptions/subscriptions.routes';
 
-/** Glossary guard (docs/friendly-ui/00-overview.md): banned jargon must never reach rendered page text. */
+/** Glossary guard (docs/GLOSSARY.md, UI vocabulary): banned jargon must never reach rendered page text. */
 const BANNED: RegExp = /\b(API|accrued?|accrual|liability|receivable|storno|reversal|cuota|Personal ledger)\b/i;
 const BANNED_STATEMENT: RegExp = /\bstatements?\b/i;
 

@@ -62,9 +62,7 @@ const timelineRows: PartyTimelineRow[] = [{
     currencyCode: 'ARS'
   }];
 
-// The API's future-shares rows carry the DUE cycle (statement-close month + 1 — "when the
-// money moves"), per docs/cycle-due-month Slice 1: a purchase whose statements close in
-// Sep/Oct surfaces here as Oct/Nov. The page renders cycleMonth verbatim.
+// The API's future-shares rows carry the DUE cycle
 const futureShareRows: FuturePartyShare[] = [
   {
     cycleYear: 2026,

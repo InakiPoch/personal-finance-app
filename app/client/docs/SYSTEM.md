@@ -33,7 +33,7 @@ receivables from parties.
 number means or what an action will do — "card bill", "billing month", "charged to the card",
 "what you owe", "owed to you", "undo entry", "installment"; never "API", "statement",
 "accrued", "liability", "receivable", "reversal" or "cuota", and no "Personal ledger"
-eyebrow. The full glossary lives in `docs/friendly-ui/00-overview.md` (repo root); the guard
+eyebrow. The full glossary lives in `docs/GLOSSARY.md`; the guard
 spec `src/app/copy-glossary.spec.ts` fails if a banned term renders on a routed page.
 
 ---

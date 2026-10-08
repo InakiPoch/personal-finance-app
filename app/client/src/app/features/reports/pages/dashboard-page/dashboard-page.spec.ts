@@ -7,6 +7,7 @@ import { AppError } from '../../../../core/types/app-error';
 import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
+import { OwedToYouRow } from '../../types/owed-to-you-row';
 import { DueThisMonthRow } from '../../../financing/types/due-this-month-row';
 import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
 import { MonthSubscription } from '../../../subscriptions/types/month-subscription';
@@ -67,6 +68,7 @@ describe('DashboardPage', () => {
   let cardDueByMonth: jasmine.Spy<() => Observable<CardDueRow[]>>;
   let cardPurchases: jasmine.Spy<(cardId: string, month?: string, today?: string) => Observable<CardPurchaseRow[]>>;
   let dueThisMonth: jasmine.Spy<(month?: string, today?: string) => Observable<DueThisMonthRow[]>>;
+  let owedToYou: jasmine.Spy<(month: string, today: string) => Observable<OwedToYouRow[]>>;
   let listByMonth: jasmine.Spy<(month: string) => Observable<MonthSubscription[]>>;
 
   const money = (value: number): Money => value as Money;
@@ -138,6 +140,7 @@ describe('DashboardPage', () => {
     cardDueByMonth = jasmine.createSpy('cardDueByMonth').and.returnValue(of(cardDueRows));
     cardPurchases = jasmine.createSpy('cardPurchases').and.returnValue(of(purchaseRows));
     dueThisMonth = jasmine.createSpy('dueThisMonth').and.returnValue(of([]));
+    owedToYou = jasmine.createSpy('owedToYou').and.returnValue(of([]));
     listByMonth = jasmine.createSpy('listByMonth').and.returnValue(of([]));
 
     TestBed.configureTestingModule({
@@ -145,7 +148,7 @@ describe('DashboardPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: ReportsService, useValue: { monthlyExpenses, monthlyIncomes, cardDueByMonth } },
+        { provide: ReportsService, useValue: { monthlyExpenses, monthlyIncomes, cardDueByMonth, owedToYou } },
         { provide: FinancingService, useValue: { cardPurchases, dueThisMonth } },
         { provide: SubscriptionsService, useValue: { listByMonth } }
       ],
@@ -542,6 +545,43 @@ describe('DashboardPage', () => {
     fixture.detectChanges();
     expect(button.getAttribute('aria-expanded')).toBe('false');
     expect(pageEl().querySelector('#due-breakdown')).toBeNull();
+  });
+  describe('Owed to you card', () => {
+    const owedCard = (): HTMLElement => pageEl().querySelector('section[aria-labelledby="owed-label"]') as HTMLElement;
+    const owedRows: OwedToYouRow[] = [
+      { partyId: 'p1', partyName: 'Alice', currencyCode: 'ARS', amountMinorUnits: money(50000) },
+      { partyId: 'p1', partyName: 'Alice', currencyCode: 'USD', amountMinorUnits: money(2000) }
+    ];
+
+    it('loads for the selected month with the local today and refetches on month change', () => {
+      setup();
+      fixture.detectChanges();
+      expect(owedToYou).toHaveBeenCalledOnceWith(monthKey(0), localToday());
+      setMonth('2026-01');
+      expect(owedToYou.calls.mostRecent().args).toEqual(['2026-01', localToday()]);
+    });
+    it('lists each party per currency, never mixed', () => {
+      owedToYou.and.returnValue(of(owedRows));
+      setup();
+      fixture.detectChanges();
+      const text: string = owedCard().textContent ?? '';
+      expect(text).toContain('Alice');
+      expect(text).toContain(formatMoney(money(50000), 'ARS'));
+      expect(text).toContain(formatMoney(money(2000), 'USD'));
+    });
+    it('says "No debts to settle" when empty', () => {
+      setup();
+      fixture.detectChanges();
+      expect(owedCard().textContent).toContain('No debts to settle');
+    });
+    it('shows an error state without affecting other panels', () => {
+      const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
+      owedToYou.and.returnValue(throwError(() => appError));
+      setup();
+      fixture.detectChanges();
+      expect(owedCard().textContent).toContain("Could not read what's owed to you.");
+      expect(view.monthlyStatus()).toBe('ready');
+    });
   });
   it('shows the Due card empty state when nothing is due', () => {
     setup();

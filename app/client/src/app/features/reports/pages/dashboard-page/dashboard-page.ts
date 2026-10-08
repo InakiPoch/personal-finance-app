@@ -21,6 +21,7 @@ import { SubscriptionsService } from '../../../subscriptions/subscriptions-servi
 import { MonthSubscription } from '../../../subscriptions/types/month-subscription';
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
+import { OwedToYouRow } from '../../types/owed-to-you-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
 import { MonthlyIncomeRow } from '../../types/monthly-income-row';
 
@@ -105,6 +106,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly incomeStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly cardDueStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly dueStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly owedStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly owedRows: WritableSignal<OwedToYouRow[]> = signal<OwedToYouRow[]>([]);
   protected readonly dueExpanded: WritableSignal<boolean> = signal<boolean>(false);
   protected readonly subscriptionsStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly monthSubscriptions: WritableSignal<MonthSubscription[]> = signal<MonthSubscription[]>([]);
@@ -276,6 +279,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.loadMonthlyExpenses();
     this.loadMonthlyIncomes();
     this.loadDueThisMonth();
+    this.loadOwedToYou();
     this.loadSubscriptionsByMonth();
   }
 
@@ -402,6 +406,29 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
   }
 
+  private loadOwedToYou(): void {
+    const month: string = this.selectedMonth();
+    this.owedStatus.set('loading');
+    this.reports
+      .owedToYou(month, localTodayKey())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: OwedToYouRow[]) => {
+          if(month !== this.selectedMonth()) {
+            return;
+          }
+          this.owedRows.set(rows);
+          this.owedStatus.set('ready');
+        },
+        error: () => {
+          if(month === this.selectedMonth()) {
+            this.owedStatus.set('error');
+          }
+        }
+      }
+    );
+  }
+
   private loadCardDue(): void {
     this.cardDueStatus.set('loading');
     this.reports
@@ -446,6 +473,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.loadMonthlyExpenses();
     this.loadMonthlyIncomes();
     this.loadDueThisMonth();
+    this.loadOwedToYou();
     this.loadCardDue();
     this.loadSubscriptionsByMonth();
   }

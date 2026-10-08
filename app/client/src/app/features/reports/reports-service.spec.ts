@@ -11,6 +11,7 @@ import { MoneyFlowRow } from '../ledger/types/money-flow-row';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { MonthlyIncomeRow } from './types/monthly-income-row';
+import { OwedToYouRow } from './types/owed-to-you-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
 import { TransactionFeedRow } from './types/transaction-feed-row';
@@ -112,6 +113,19 @@ describe('ReportsService', () => {
     expect(req.request.method).toBe('GET');
     req.flush({ rows: cardDueRows });
     expect(result).toEqual(cardDueRows);
+  });
+  it('GETs parties/owed-to-you with month and today and unwraps { rows }', () => {
+    const rows: OwedToYouRow[] = [
+      { partyId: 'p1', partyName: 'Alice', currencyCode: 'ARS', amountMinorUnits: money(250000) },
+    ];
+    let result: OwedToYouRow[] | undefined;
+    service.owedToYou('2026-10', '2026-10-08').subscribe((r: OwedToYouRow[]) => (result = r));
+    const req = httpMock.expectOne((request) => request.url === `${environment.apiUrl}/reports/parties/owed-to-you`);
+    expect(req.request.method).toBe('GET');
+    expect(req.request.params.get('month')).toBe('2026-10');
+    expect(req.request.params.get('today')).toBe('2026-10-08');
+    req.flush({ rows });
+    expect(result).toEqual(rows);
   });
   it('GETs parties/debt-summary and unwraps { rows }', () => {
     const rows: PartyDebtRow[] = [

@@ -7,6 +7,7 @@ SELECT
     m.PostedOnUtc              AS MovementOnUtc,
     CASE
         WHEN m.IsReversal = 1          THEN 'Reversal'
+        WHEN t.Description LIKE 'Lent to %' THEN 'Lent to ' || p.Name
         WHEN m.MovementMinorUnits > 0  THEN 'Shared expense'
         ELSE 'Settlement'
     END                        AS Description,
@@ -14,4 +15,5 @@ SELECT
     m.RunningBalanceMinorUnits,
     m.CurrencyCode
 FROM parties_parties p
-INNER JOIN vw_receivable_account_movements m ON m.AccountId = p.ReceivableAccountId;
+INNER JOIN vw_receivable_account_movements m ON m.AccountId = p.ReceivableAccountId
+LEFT JOIN ledger_transactions t ON t.Id = m.TransactionId;

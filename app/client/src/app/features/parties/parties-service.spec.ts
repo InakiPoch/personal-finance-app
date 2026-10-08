@@ -12,6 +12,7 @@ import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
 import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
+import { RecordLoan } from './types/record-loan';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
 import { PartiesService } from './parties-service';
@@ -93,6 +94,22 @@ describe('PartiesService', () => {
     expect(req.request.body).toEqual(body);
     req.flush({ ledgerTransactionId: 'tx-1' });
     expect(result).toEqual({ ledgerTransactionId: 'tx-1' });
+  });
+  it('POSTs a loan to the party loans route', () => {
+    const body: RecordLoan = {
+      amountMinorUnits: money(12000),
+      currencyCode: 'USD',
+      sourceAccountId: 'acc-1',
+      lentOn: '2026-09-02',
+      description: 'Rent help'
+    };
+    let result: unknown;
+    service.recordLoan('p1', body).subscribe((r: unknown) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/loans`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ ledgerTransactionId: 'tx-9' });
+    expect(result).toEqual({ ledgerTransactionId: 'tx-9' });
   });
   it('maps a 409 on a settlement to an AppError keyed off code', () => {
     let error: AppError | undefined;

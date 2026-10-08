@@ -68,6 +68,7 @@ public sealed record ApiRoutes {
         public const string Create = "/";
         public const string List = "/";
         public const string Settle = "/{id:guid}/settlements";
+        public const string Loans = "/{id:guid}/loans";
         public const string Balance = "/{id:guid}/balance";
         public const string Timeline = "/{id:guid}/timeline";
         public const string FutureShares = "/{id:guid}/future-shares";

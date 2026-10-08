@@ -5,9 +5,11 @@ import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
 import { FuturePartyShare } from './types/future-party-share';
+import { LoanResult } from './types/loan-result';
 import { Party } from './types/party';
 import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
+import { RecordLoan } from './types/record-loan';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
 
@@ -47,6 +49,10 @@ export class PartiesService {
 
   create(body: CreateParty): Observable<PartyResult> {
     return this.http.post<PartyResult>('parties', body);
+  }
+
+  recordLoan(partyId: string, body: RecordLoan): Observable<LoanResult> {
+    return this.http.post<LoanResult>(`parties/${partyId}/loans`, body);
   }
 
   settle(partyId: string, body: SettleCurrentAccount): Observable<SettlementResult> {

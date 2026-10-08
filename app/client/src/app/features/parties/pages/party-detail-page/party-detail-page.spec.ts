@@ -13,6 +13,8 @@ import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
+import { LoanResult } from '../../types/loan-result';
+import { RecordLoan } from '../../types/record-loan';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { SettlementResult } from '../../types/settlement-result';
 import { PartiesService } from '../../parties-service';
@@ -34,6 +36,16 @@ type PartyDetailView = {
   settleStatus: () => 'idle' | 'settling' | 'settled' | 'error';
   settleError: () => AppError | null;
   onSubmit: () => void;
+  loanForm: FormGroup<{
+    amount: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
+    sourceAccountId: FormControl<string>;
+    lentOn: FormControl<string>;
+    description: FormControl<string>;
+  }>;
+  loanStatus: () => 'idle' | 'saving' | 'saved' | 'error';
+  loanError: () => AppError | null;
+  onLoanSubmit: () => void;
 };
 
 const money = (value: number): Money => value as Money;
@@ -86,6 +98,7 @@ describe('PartyDetailPage', () => {
   let getBalance: jasmine.Spy<(id: string) => Observable<CurrentAccountBalance>>;
   let partyTimeline: jasmine.Spy<(id: string) => Observable<PartyTimelineRow[]>>;
   let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
+  let recordLoan: jasmine.Spy<(id: string, body: RecordLoan) => Observable<LoanResult>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
 
   function setup(): void {
@@ -115,6 +128,7 @@ describe('PartyDetailPage', () => {
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance));
     partyTimeline = jasmine.createSpy('partyTimeline').and.returnValue(of(timelineRows));
     futureShares = jasmine.createSpy('futureShares').and.returnValue(of<FuturePartyShare[]>([]));
+    recordLoan = jasmine.createSpy('recordLoan').and.returnValue(of<LoanResult>({ ledgerTransactionId: 'tx-2' }));
     settle = jasmine
       .createSpy('settle')
       .and.returnValue(of<SettlementResult>({ ledgerTransactionId: 'tx-1' }));
@@ -123,7 +137,7 @@ describe('PartyDetailPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { getBalance, futureShares, settle } },
+        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
@@ -219,6 +233,50 @@ describe('PartyDetailPage', () => {
     setup();
     expect(view.futureShares().length).toBe(0);
     expect(text()).toContain('Nothing scheduled');
+  });
+  it('keeps the loan form invalid until amount, account, date and a one-line description are set', () => {
+    setup();
+    expect(view.loanForm.valid).toBe(false);
+    const valid = { amount: 100, currency: 'ARS' as CurrencyCode, sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: 'Rent help' };
+    view.loanForm.setValue(valid);
+    expect(view.loanForm.valid).toBe(true);
+    view.loanForm.patchValue({ amount: 0 });
+    expect(view.loanForm.valid).toBe(false);
+    view.loanForm.patchValue({ amount: 100, description: '' });
+    expect(view.loanForm.valid).toBe(false);
+    view.loanForm.patchValue({ description: 'x'.repeat(121) });
+    expect(view.loanForm.valid).toBe(false);
+    view.loanForm.patchValue({ description: 'two\nlines' });
+    expect(view.loanForm.valid).toBe(false);
+    view.loanForm.patchValue({ description: 'ok', lentOn: '2999-01-01' });
+    expect(view.loanForm.valid).toBe(false);
+  });
+  it('submits a minor-units loan then re-fetches balance and timeline', () => {
+    setup();
+    getBalance.calls.reset();
+    partyTimeline.calls.reset();
+    view.loanForm.setValue({ amount: 25, currency: 'USD', sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: ' Rent help ' });
+    view.onLoanSubmit();
+    const [id, body]: [string, RecordLoan] = recordLoan.calls.mostRecent().args;
+    expect(id).toBe('p1');
+    expect(body).toEqual({ amountMinorUnits: money(2500), currencyCode: 'USD', sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: 'Rent help' });
+    expect(view.loanStatus()).toBe('saved');
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('shows a message keyed off the AppError code when the loan is rejected', () => {
+    const appError: AppError = { code: 'Parties.LoanDateInFuture', title: 'x', detail: 'x', status: 422, metadata: {} };
+    recordLoan.and.returnValue(throwError(() => appError));
+    setup();
+    view.loanForm.setValue({ amount: 25, currency: 'ARS', sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: 'Loan' });
+    view.onLoanSubmit();
+    fixture.detectChanges();
+    expect(view.loanStatus()).toBe('error');
+    expect(text()).toContain('The loan date cannot be in the future.');
+  });
+  it('renders the Record a loan form', () => {
+    setup();
+    expect(text()).toContain('Record a loan');
   });
   it('renders settleErrorText keyed off the AppError code on a 409', () => {
     const appError: AppError = {

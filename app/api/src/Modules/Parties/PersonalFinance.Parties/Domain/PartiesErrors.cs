@@ -38,6 +38,16 @@ internal static class PartiesErrors {
         "A settlement cannot exceed the party's outstanding balance."
     );
 
+    public static readonly Error InvalidLoanDescription = new(
+        "Parties.InvalidLoanDescription",
+        "A loan needs a single-line description of at most 120 characters."
+    );
+
+    public static readonly Error LoanDateInFuture = new(
+        "Parties.LoanDateInFuture",
+        "A loan cannot be dated in the future."
+    );
+
     public static readonly Error InvalidCurrencyCode = new(
         "Parties.InvalidCurrencyCode",
         "Currency code must be ARS or USD."

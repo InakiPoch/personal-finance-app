@@ -81,6 +81,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly loanSourceAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash')
   );
+  protected readonly scheduledExpanded: WritableSignal<boolean> = signal(false);
   protected readonly partyId: WritableSignal<string | null> = signal<string | null>(null);
   protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
@@ -131,6 +132,10 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
   };
   private readonly destroy$: Subject<void> = new Subject<void>();
+
+  protected toggleScheduled(): void {
+    this.scheduledExpanded.update((open: boolean) => !open);
+  }
 
   protected onSubmit(): void {
     const id: string | null = this.partyId();

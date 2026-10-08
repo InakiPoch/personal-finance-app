@@ -104,28 +104,6 @@
       }
     }
   </section>
-  <section aria-labelledby="owed-label" class="border-t border-rule pt-6">
-    <h2 id="owed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">Owed to you</h2>
-    @if(owedStatus() === 'loading') {
-      <p class="mt-4 text-sm text-ink-faint">Adding up what's owed to you…</p>
-    } @else if(owedStatus() === 'error') {
-      <p role="alert" class="mt-4 text-sm text-negative">Could not read what's owed to you. Try again.</p>
-    } @else if(owedRows().length === 0) {
-      <p class="mt-4 text-sm text-ledger">No debts to settle</p>
-    } @else {
-      <ul class="mt-4 flex flex-col gap-2">
-        @for(row of owedRows(); track row.partyId + '|' + row.currencyCode) {
-          <li class="flex items-baseline justify-between gap-4">
-            <a [routerLink]="['/parties', row.partyId]" class="text-sm text-ink-soft transition-colors hover:text-ink">{{ row.partyName }}</a>
-            <span class="flex items-baseline gap-1.5 text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-              {{ formatMoney(row.amountMinorUnits, row.currencyCode) }}
-              <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ row.currencyCode }}</span>
-            </span>
-          </li>
-        }
-      </ul>
-    }
-  </section>
   <div class="grid gap-8 lg:grid-cols-2">
     <section aria-labelledby="flow-tile-label">
       <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
@@ -311,6 +289,36 @@
                     </div>
                   }
                 }
+              </li>
+            }
+          </ul>
+        }
+      </section>
+      <section class="rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="owed-label">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+          <h2 id="owed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+            Owed to you
+          </h2>
+          <a [routerLink]="'/parties'" class="group inline-flex items-center gap-1 text-xs text-ink-soft transition-colors hover:text-ink">
+            Manage parties
+            <span aria-hidden="true" class="transition-transform group-hover:translate-x-0.5">&rsaquo;</span>
+          </a>
+        </div>
+        @if(owedStatus() === 'loading') {
+          <p class="mt-6 text-sm text-ink-faint">Adding up what's owed to you…</p>
+        } @else if(owedStatus() === 'error') {
+          <p role="alert" class="mt-6 text-sm text-negative">Could not read what's owed to you. Try again.</p>
+        } @else if(owedRows().length === 0) {
+          <p class="mt-6 text-sm text-ledger">No debts to settle</p>
+        } @else {
+          <ul class="mt-5 flex flex-col">
+            @for(row of owedRows(); track row.partyId + '|' + row.currencyCode; let i = $index) {
+              <li class="sub-row flex items-center justify-between gap-4 border-b border-rule py-2.5 last:border-0" [style.animation-delay.ms]="i * 40">
+                <a [routerLink]="['/parties', row.partyId]" class="text-sm text-ink transition-colors hover:text-ink-soft">{{ row.partyName }}</a>
+                <span class="flex items-baseline gap-1.5 text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                  {{ formatMoney(row.amountMinorUnits, row.currencyCode) }}
+                  <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ row.currencyCode }}</span>
+                </span>
               </li>
             }
           </ul>

@@ -111,6 +111,11 @@ describe('MoneyFlowTable', () => {
     expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Lent to Lola');
     expect(fixture.nativeElement.querySelector('tbody button')?.textContent?.trim()).toBe('Undo');
   });
+  it('flags a settlement income row "Paid back by <party>" and offers Undo on it', () => {
+    render([{ ...incomeRow, transactionId: 'tx-6', flag: 'PaidBackBy', partyName: 'Lola' }]);
+    expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Paid back by Lola');
+    expect(fixture.nativeElement.querySelector('tbody button')?.textContent?.trim()).toBe('Undo');
+  });
   it('flags a shared expense "Shared with <party>" without an Undo button', () => {
     render([sharedRow]);
     expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Shared with Ines');

@@ -36,7 +36,8 @@ export class MoneyFlowTable {
     if(row.flag === null) {
       return null;
     }
-    return `${row.flag === 'LentTo' ? 'Lent to' : 'Shared with'} ${row.partyName ?? ''}`.trim();
+    const label = { LentTo: 'Lent to', SharedWith: 'Shared with', PaidBackBy: 'Paid back by' }[row.flag];
+    return `${label} ${row.partyName ?? ''}`.trim();
   }
 
   protected isUndoable(row: MoneyFlowRow): boolean {

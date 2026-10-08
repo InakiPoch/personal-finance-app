@@ -33,6 +33,7 @@ type PartyDetailView = {
   balanceStatus: () => 'loading' | 'ready' | 'error';
   timelineStatus: () => 'loading' | 'ready' | 'error';
   futureSharesStatus: () => 'loading' | 'ready' | 'error';
+  toggleScheduled: () => void;
   settleStatus: () => 'idle' | 'settling' | 'settled' | 'error';
   settleError: () => AppError | null;
   onSubmit: () => void;
@@ -104,6 +105,11 @@ describe('PartyDetailPage', () => {
   function setup(): void {
     fixture = TestBed.createComponent(PartyDetailPage);
     view = fixture.componentInstance as unknown as PartyDetailView;
+    fixture.detectChanges();
+  }
+
+  function expandScheduled(): void {
+    view.toggleScheduled();
     fixture.detectChanges();
   }
 
@@ -220,6 +226,7 @@ describe('PartyDetailPage', () => {
   it('renders each scheduled share under its due month, verbatim from the API', () => {
     futureShares.and.returnValue(of<FuturePartyShare[]>(futureShareRows));
     setup();
+    expandScheduled();
     expect(futureShares).toHaveBeenCalledWith('p1');
     expect(view.futureSharesStatus()).toBe('ready');
     expect(view.futureShares().length).toBe(2);
@@ -231,6 +238,7 @@ describe('PartyDetailPage', () => {
   });
   it('shows the empty note when the party has no scheduled shares', () => {
     setup();
+    expandScheduled();
     expect(view.futureShares().length).toBe(0);
     expect(text()).toContain('Nothing scheduled');
   });

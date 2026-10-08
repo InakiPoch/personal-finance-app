@@ -335,6 +335,10 @@ internal static class EndpointExtensions {
                 .WithSummary("Get outstanding debt by party.")
                 .WithDescription("Nets every party's Ledger movements to one outstanding-balance row per party.")
                 .Produces<DebtByPartyDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Reporting.OwedToYou, GetOwedToYou.Handle)
+                .WithSummary("Get what each party owes you as of a month.")
+                .WithDescription("Receivable balances dated on or before the month end plus Scheduled shares due by that month, per party and currency; only positive amounts.")
+                .Produces<OwedToYouDto>(StatusCodes.Status200OK);
             return endpoints;
         }
     }

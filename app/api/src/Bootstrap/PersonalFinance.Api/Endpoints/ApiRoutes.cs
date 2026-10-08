@@ -84,5 +84,6 @@ public sealed record ApiRoutes {
         public const string CardDueByMonth = "/card-due-by-month";
         public const string PartyTimeline = "/parties/{id:guid}/timeline";
         public const string DebtSummary = "/parties/debt-summary";
+        public const string OwedToYou = "/parties/owed-to-you";
     }
 }

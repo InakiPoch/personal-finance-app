@@ -17,6 +17,10 @@ internal sealed class GetPendingSharesByPartyHandler(FinancingDbContext context)
             where plan.SplitParticipants.Any()
             select new { installment, PlanId = plan.Id }
         ).ToListAsync(cancellationToken);
+        if(query.ThroughMonth is { } through) {
+            var throughOrdinal = through.Year * 12 + through.Month;
+            pending = pending.Where(row => row.installment.DueCycle.Year * 12 + row.installment.DueCycle.Month <= throughOrdinal).ToList();
+        }
         if(pending.Count == 0) {
             return new GetPendingSharesByPartyResponse([]);
         }
@@ -27,7 +31,7 @@ internal sealed class GetPendingSharesByPartyHandler(FinancingDbContext context)
             .GroupBy(participant => participant.PaymentPlanId)
             .ToDictionary(group => group.Key, group => group.OrderBy(participant => participant.PartyId).ToList());
         var allocator = new PhantomPennyAllocator();
-        var accumulatorByParty = new Dictionary<Guid, PartyPendingAccumulator>();
+        var accumulatorByParty = new Dictionary<(Guid PartyId, string Currency), PartyPendingAccumulator>();
         foreach(var row in pending) {
             if(!participantsByPlan.TryGetValue(row.PlanId, out var participants)) {
                 continue;
@@ -39,17 +43,18 @@ internal sealed class GetPendingSharesByPartyHandler(FinancingDbContext context)
                 if(share.MinorUnits <= 0) {
                     continue;
                 }
-                var partyId = participants[index].PartyId;
-                if(!accumulatorByParty.TryGetValue(partyId, out var accumulator)) {
+                var key = (participants[index].PartyId, share.Currency.Code);
+                if(!accumulatorByParty.TryGetValue(key, out var accumulator)) {
                     accumulator = new PartyPendingAccumulator(share.Currency.Code);
-                    accumulatorByParty[partyId] = accumulator;
+                    accumulatorByParty[key] = accumulator;
                 }
                 accumulator.Add(share.MinorUnits);
             }
         }
         var rows = accumulatorByParty
-            .Select(pair => new PendingSharesByPartyRow(pair.Key, pair.Value.Count, pair.Value.TotalMinorUnits, pair.Value.CurrencyCode))
+            .Select(pair => new PendingSharesByPartyRow(pair.Key.PartyId, pair.Value.Count, pair.Value.TotalMinorUnits, pair.Value.CurrencyCode))
             .OrderBy(row => row.PartyId)
+            .ThenBy(row => row.CurrencyCode, StringComparer.Ordinal)
             .ToList();
         return new GetPendingSharesByPartyResponse(rows);
     }

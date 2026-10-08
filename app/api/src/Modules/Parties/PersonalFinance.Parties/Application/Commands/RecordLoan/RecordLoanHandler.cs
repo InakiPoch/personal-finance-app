@@ -30,7 +30,7 @@ internal sealed class RecordLoanHandler(PartiesDbContext context, ILedgerApi led
             return PartiesErrors.UnknownFundingAccount;
         }
         var amount = Money.FromMinorUnits(command.AmountMinorUnits, Currency.FromCode(command.CurrencyCode));
-        // The "Lent to " prefix is what vw_current_account_timeline keys on to label the row.
+        // Display only: loans are detected structurally (Dr Receivable / Cr Bank|Cash, no Expense leg), not by this text.
         return await ledger.PostTransactionAsync(
             new PostTransactionCommand(
                 [

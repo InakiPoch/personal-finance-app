@@ -67,7 +67,7 @@ public sealed class DebitExpenseTests(ApiWebApplicationFactory factory) : IClass
         var monthly = await client.GetFromJsonAsync<JsonElement>("/v1/reports/monthly-expenses", cancellationToken);
         var dining = monthly.GetProperty("rows").EnumerateArray()
             .Single(row => row.GetProperty("category").GetString() == "Dining");
-        Assert.Equal(150_00, dining.GetProperty("amountMinorUnits").GetInt64());
+        Assert.Equal(300_00, dining.GetProperty("amountMinorUnits").GetInt64());
     }
 
     [Fact]

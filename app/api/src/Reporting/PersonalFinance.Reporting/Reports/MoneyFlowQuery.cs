@@ -10,13 +10,15 @@ public sealed record MoneyFlowRow(
     string AccountName,
     string Kind,
     long AmountMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    string? Flag,
+    string? PartyName
 );
 
 /// <summary>
 /// One monthly, accounting-style row per live (non-reversed, non-reversal) transaction that
-/// moves my money — an income credit or an out-of-pocket debit (my share only, matching
-/// <c>vw_ledger_monthly_expenses</c>). Newest first.
+/// moves my money — an income credit or the full amount that left Bank/Cash (matching
+/// <c>vw_ledger_monthly_expenses</c>). Party movements carry a <c>Flag</c> ("LentTo" / "SharedWith") and the party name. Newest first.
 /// </summary>
 public sealed record MoneyFlowResponse(IReadOnlyList<MoneyFlowRow> Rows);
 
@@ -49,7 +51,9 @@ internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactor
             reader.GetString(3),
             isIncome ? "Income" : "Outcome",
             isIncome ? incomeMinorUnits : outcomeMinorUnits,
-            reader.GetString(6)
+            reader.GetString(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7),
+            reader.IsDBNull(8) ? null : reader.GetString(8).Replace(",", ", ")
         );
     }
 }

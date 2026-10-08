@@ -42,7 +42,9 @@ public sealed record MoneyFlowRowDto(
     string AccountName,
     string Kind,
     long AmountMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    string? Flag,
+    string? PartyName
 );
 
 public sealed record MoneyFlowDto(IReadOnlyList<MoneyFlowRowDto> Rows);

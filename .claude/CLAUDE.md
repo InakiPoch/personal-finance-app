@@ -9,7 +9,11 @@ This is a monorepo with two independently-built sub-projects. Each has its own d
 - `app/api/` — .NET 10 backend. Details: `app/api/.claude/CLAUDE.md`
 - `app/client/` — Angular 20 frontend. Details: `app/client/.claude/CLAUDE.md`
 
-There is no root `package.json`, no Docker/Compose setup, and no CONTRIBUTING.md — do not assume tooling that isn't there. The root `README.md` is currently empty.
+There is no root `package.json` and no CONTRIBUTING.md — do not assume tooling that isn't there. Docker lives in root `compose.yaml` + `scripts/smoke.sh`. Per-project task ledgers are `app/api/.claude/TASK.md` and `app/client/.claude/TASK.md`.
+
+## Live data (guarded by `.claude/hooks/guard-live-data.sh`)
+
+The user's real DB is the Docker named volume `personal-finance_pf-data` (compose project `personal-finance`), not `app/api/personalfinance.db`. Backups: `~/pf-backups/`. Run destructive Docker/DB steps only under `COMPOSE_PROJECT_NAME=pf-scratch`; checkpoint SQLite before touching `-wal`/`-shm`.
 
 ## Subagents
 

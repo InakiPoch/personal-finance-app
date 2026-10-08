@@ -36,8 +36,12 @@ export class MoneyFlowTable {
     if(row.flag === null) {
       return null;
     }
-    const label = { LentTo: 'Lent to', SharedWith: 'Shared with', PaidBackBy: 'Paid back by' }[row.flag];
-    return `${label} ${row.partyName ?? ''}`.trim();
+    const labels: Record<NonNullable<MoneyFlowRow['flag']>, string> = {
+      LentTo: 'Lent to',
+      SharedWith: 'Shared with',
+      PaidBackBy: 'Paid back by'
+    };
+    return `${labels[row.flag]} ${row.partyName ?? ''}`.trim();
   }
 
   protected isUndoable(row: MoneyFlowRow): boolean {

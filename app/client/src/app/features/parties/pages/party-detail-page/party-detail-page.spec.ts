@@ -259,7 +259,7 @@ describe('PartyDetailPage', () => {
     view.onLoanSubmit();
     const [id, body]: [string, RecordLoan] = recordLoan.calls.mostRecent().args;
     expect(id).toBe('p1');
-    expect(body).toEqual({ amountMinorUnits: money(2500), currencyCode: 'USD', sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: 'Rent help' });
+    expect(body).toEqual({ amountMinorUnits: money(2500), currencyCode: 'USD', sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: 'Rent help', today: new Date().toLocaleDateString('sv-SE') });
     expect(view.loanStatus()).toBe('saved');
     expect(getBalance).toHaveBeenCalledTimes(1);
     expect(partyTimeline).toHaveBeenCalledTimes(1);
@@ -274,9 +274,9 @@ describe('PartyDetailPage', () => {
     expect(view.loanStatus()).toBe('error');
     expect(text()).toContain('The loan date cannot be in the future.');
   });
-  it('renders the Record a loan form', () => {
+  it('renders the Money lent form', () => {
     setup();
-    expect(text()).toContain('Record a loan');
+    expect(text()).toContain('Money lent');
   });
   it('renders settleErrorText keyed off the AppError code on a 409', () => {
     const appError: AppError = {

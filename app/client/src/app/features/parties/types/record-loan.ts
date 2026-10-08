@@ -9,4 +9,6 @@ export type RecordLoan = {
   sourceAccountId: string;
   lentOn: IsoDate;
   description: string;
+  /** The caller's local date; the API uses it for the "not in the future" check. */
+  today: IsoDate;
 };

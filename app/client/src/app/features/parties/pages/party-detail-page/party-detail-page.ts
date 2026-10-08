@@ -107,28 +107,28 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private readonly reports: ReportsService = inject(ReportsService);
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
-  private readonly settleErrorMessages: Record<string, string> = {
-    'Parties.NonPositiveAmount': 'The settlement amount must be greater than zero.',
-    'Parties.UnknownFundingAccount': 'Choose a debit account from the list.',
+  private readonly sharedErrorMessages: Record<string, string> = {
     'Parties.PartyNotFound': 'This party no longer exists.',
-    'Parties.SettlementExceedsBalance': 'The amount is more than what this party owes.',
     'Parties.InvalidCurrencyCode': 'Choose ARS or USD.',
-    'Http.BadRequest': 'The settlement could not be recorded — check the values and try again.',
-    'Http.UnprocessableEntity': 'Check the amount and account and try again.',
-    'Http.Conflict': 'The amount is more than what this party owes.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };
+  private readonly settleErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
+    'Parties.NonPositiveAmount': 'The settlement amount must be greater than zero.',
+    'Parties.UnknownFundingAccount': 'Choose a debit account from the list.',
+    'Parties.SettlementExceedsBalance': 'The amount is more than what this party owes.',
+    'Http.BadRequest': 'The settlement could not be recorded — check the values and try again.',
+    'Http.UnprocessableEntity': 'Check the amount and account and try again.',
+    'Http.Conflict': 'The amount is more than what this party owes.'
+  };
   private readonly loanErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
     'Parties.NonPositiveAmount': 'The loan amount must be greater than zero.',
     'Parties.UnknownFundingAccount': 'Choose a bank or cash account from the list.',
-    'Parties.PartyNotFound': 'This party no longer exists.',
-    'Parties.InvalidCurrencyCode': 'Choose ARS or USD.',
     'Parties.InvalidLoanDescription': 'Add a one-line description of up to 120 characters.',
     'Parties.LoanDateInFuture': 'The loan date cannot be in the future.',
-    'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.',
-    'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
-    'Http.NetworkError': 'Could not reach the server. Check your connection.'
+    'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
   };
   private readonly destroy$: Subject<void> = new Subject<void>();
 
@@ -188,7 +188,8 @@ export class PartyDetailPage implements OnInit, OnDestroy {
       currencyCode: raw.currency,
       sourceAccountId: raw.sourceAccountId,
       lentOn: raw.lentOn as IsoDate,
-      description: raw.description.trim()
+      description: raw.description.trim(),
+      today: new Date().toLocaleDateString('sv-SE') as IsoDate
     };
     this.loanError.set(null);
     this.loanStatus.set('saving');

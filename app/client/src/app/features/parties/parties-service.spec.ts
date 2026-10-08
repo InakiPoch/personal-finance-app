@@ -101,7 +101,8 @@ describe('PartiesService', () => {
       currencyCode: 'USD',
       sourceAccountId: 'acc-1',
       lentOn: '2026-09-02',
-      description: 'Rent help'
+      description: 'Rent help',
+      today: '2026-09-02'
     };
     let result: unknown;
     service.recordLoan('p1', body).subscribe((r: unknown) => (result = r));

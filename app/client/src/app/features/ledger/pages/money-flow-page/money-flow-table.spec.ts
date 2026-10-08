@@ -33,7 +33,7 @@ describe('MoneyFlowTable', () => {
     partyName: null
   };
 
-  const loanRow: MoneyFlowRow = { ...outcomeRow, transactionId: 'tx-4', description: 'Lent to Lola: Rent help', flag: 'LentTo', partyName: 'Lola' };
+  const loanRow: MoneyFlowRow = { ...outcomeRow, transactionId: 'tx-4', description: 'Rent help', flag: 'LentTo', partyName: 'Lola' };
   const sharedRow: MoneyFlowRow = { ...outcomeRow, transactionId: 'tx-5', description: 'Dinner', flag: 'SharedWith', partyName: 'Ines' };
 
   function render(rows: MoneyFlowRow[], footerTotals: MoneyFlowCurrencyTotal[] = []): void {

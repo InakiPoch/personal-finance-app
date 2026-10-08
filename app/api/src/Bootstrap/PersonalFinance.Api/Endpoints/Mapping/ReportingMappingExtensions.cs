@@ -63,7 +63,9 @@ internal static class ReportingMappingExtensions {
                 row.AccountName,
                 row.Kind,
                 row.AmountMinorUnits,
-                row.CurrencyCode))
+                row.CurrencyCode,
+                row.Flag,
+                row.PartyName))
             .ToList();
         return new MoneyFlowDto(rows);
     }

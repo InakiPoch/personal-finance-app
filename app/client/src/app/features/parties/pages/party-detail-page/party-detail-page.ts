@@ -15,6 +15,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { formatMoney, fromMinorUnits, toMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { CurrencyCode } from '../../../../core/types/currency-code';
+import { IsoDate } from '../../../../core/types/iso-date';
 import { IsoInstant } from '../../../../core/types/iso-instant';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
@@ -24,13 +25,15 @@ import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
 import { PartyCurrencyBalance } from '../../types/party-currency-balance';
+import { RecordLoan } from '../../types/record-loan';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
-import { atMostTwoDecimals, positiveAmount } from '../../validation-helpers';
+import { atMostTwoDecimals, notFutureDate, positiveAmount, singleLine } from '../../validation-helpers';
 import { TimelineTable } from './timeline-table';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SettleStatus = 'idle' | 'settling' | 'settled' | 'error';
+type LoanStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const MONTH_LABELS: readonly string[] = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -43,6 +46,14 @@ type SettlementForm = FormGroup<{
   settledOnUtc: FormControl<string>;
 }>;
 
+type LoanForm = FormGroup<{
+  amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
+  sourceAccountId: FormControl<string>;
+  lentOn: FormControl<string>;
+  description: FormControl<string>;
+}>;
+
 @Component({
   selector: 'app-party-detail-page',
   imports: [ReactiveFormsModule, RouterLink, TimelineTable],
@@ -52,6 +63,7 @@ type SettlementForm = FormGroup<{
 })
 export class PartyDetailPage implements OnInit, OnDestroy {
   protected form!: SettlementForm;
+  protected loanForm!: LoanForm;
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
   protected readonly zeroMinorUnits: Money = fromMinorUnits(0);
   protected readonly balance: WritableSignal<CurrentAccountBalance | null> =
@@ -63,6 +75,13 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly futureSharesStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly settleStatus: WritableSignal<SettleStatus> = signal<SettleStatus>('idle');
   protected readonly settleError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly loanStatus: WritableSignal<LoanStatus> = signal<LoanStatus>('idle');
+  protected readonly loanError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly loanCurrencies: readonly CurrencyCode[] = ['ARS', 'USD'];
+  protected readonly loanSourceAccounts: Signal<Instrument[]> = computed(() =>
+    this.instruments().filter((instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash')
+  );
+  protected readonly scheduledExpanded: WritableSignal<boolean> = signal(false);
   protected readonly partyId: WritableSignal<string | null> = signal<string | null>(null);
   protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
@@ -76,7 +95,10 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
     positiveAmount: 'Enter an amount greater than zero.',
-    atMostTwoDecimals: 'Use at most two decimal places.'
+    atMostTwoDecimals: 'Use at most two decimal places.',
+    maxlength: 'Use at most 120 characters.',
+    singleLine: 'Keep the description on one line.',
+    notFutureDate: 'The loan date cannot be in the future.'
   };
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
@@ -86,19 +108,34 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private readonly reports: ReportsService = inject(ReportsService);
   private readonly instrumentsService: InstrumentsService = inject(InstrumentsService);
   private readonly instruments: WritableSignal<Instrument[]> = signal<Instrument[]>([]);
-  private readonly settleErrorMessages: Record<string, string> = {
-    'Parties.NonPositiveAmount': 'The settlement amount must be greater than zero.',
-    'Parties.UnknownFundingAccount': 'Choose a debit account from the list.',
+  private readonly sharedErrorMessages: Record<string, string> = {
     'Parties.PartyNotFound': 'This party no longer exists.',
-    'Parties.SettlementExceedsBalance': 'The amount is more than what this party owes.',
     'Parties.InvalidCurrencyCode': 'Choose ARS or USD.',
-    'Http.BadRequest': 'The settlement could not be recorded — check the values and try again.',
-    'Http.UnprocessableEntity': 'Check the amount and account and try again.',
-    'Http.Conflict': 'The amount is more than what this party owes.',
     'Http.ServerError': 'Something went wrong on the server. Try again in a moment.',
     'Http.NetworkError': 'Could not reach the server. Check your connection.'
   };
+  private readonly settleErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
+    'Parties.NonPositiveAmount': 'The settlement amount must be greater than zero.',
+    'Parties.UnknownFundingAccount': 'Choose a debit account from the list.',
+    'Parties.SettlementExceedsBalance': 'The amount is more than what this party owes.',
+    'Http.BadRequest': 'The settlement could not be recorded — check the values and try again.',
+    'Http.UnprocessableEntity': 'Check the amount and account and try again.',
+    'Http.Conflict': 'The amount is more than what this party owes.'
+  };
+  private readonly loanErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
+    'Parties.NonPositiveAmount': 'The loan amount must be greater than zero.',
+    'Parties.UnknownFundingAccount': 'Choose a bank or cash account from the list.',
+    'Parties.InvalidLoanDescription': 'Add a one-line description of up to 120 characters.',
+    'Parties.LoanDateInFuture': 'The loan date cannot be in the future.',
+    'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
+  };
   private readonly destroy$: Subject<void> = new Subject<void>();
+
+  protected toggleScheduled(): void {
+    this.scheduledExpanded.update((open: boolean) => !open);
+  }
 
   protected onSubmit(): void {
     const id: string | null = this.partyId();
@@ -136,6 +173,51 @@ export class PartyDetailPage implements OnInit, OnDestroy {
         }
       }
     );
+  }
+
+  protected onLoanSubmit(): void {
+    const id: string | null = this.partyId();
+    if(this.loanForm.invalid || id === null) {
+      this.loanForm.markAllAsTouched();
+      return;
+    }
+    const raw: {
+      amount: number | null;
+      currency: CurrencyCode;
+      sourceAccountId: string;
+      lentOn: string;
+      description: string;
+    } = this.loanForm.getRawValue();
+    const body: RecordLoan = {
+      amountMinorUnits: toMinorUnits(raw.amount as number),
+      currencyCode: raw.currency,
+      sourceAccountId: raw.sourceAccountId,
+      lentOn: raw.lentOn as IsoDate,
+      description: raw.description.trim(),
+      today: new Date().toLocaleDateString('sv-SE') as IsoDate
+    };
+    this.loanError.set(null);
+    this.loanStatus.set('saving');
+    this.partiesService
+      .recordLoan(id, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.loanStatus.set('saved');
+          this.loanForm.reset({ amount: null, currency: 'ARS', sourceAccountId: '', lentOn: '', description: '' });
+          this.loadBalance(id);
+          this.loadTimeline(id);
+        },
+        error: (error: AppError) => {
+          this.loanError.set(error);
+          this.loanStatus.set('error');
+        }
+      }
+    );
+  }
+
+  protected loanErrorText(error: AppError): string {
+    return this.loanErrorMessages[error.code] ?? 'The loan could not be recorded.';
   }
 
   protected settleErrorText(error: AppError): string {
@@ -202,6 +284,20 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     );
   }
 
+  private initLoanForm(): void {
+    this.loanForm = this.fb.group({
+      amount: this.fb.control<number | null>(null, {
+        validators: [positiveAmount, atMostTwoDecimals],
+      }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
+      sourceAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
+      lentOn: this.fb.nonNullable.control('', { validators: [Validators.required, notFutureDate] }),
+      description: this.fb.nonNullable.control('', {
+        validators: [Validators.required, Validators.pattern(/\S/), Validators.maxLength(120), singleLine]
+      })
+    });
+  }
+
   private initSettlementForm(): void {
     this.form = this.fb.group({
       amount: this.fb.control<number | null>(null, {
@@ -215,6 +311,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     this.initSettlementForm();
+    this.initLoanForm();
     this.loadInstruments();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {

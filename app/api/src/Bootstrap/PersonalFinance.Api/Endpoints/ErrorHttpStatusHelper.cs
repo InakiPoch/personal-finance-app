@@ -75,6 +75,8 @@ internal static class ErrorHttpStatusHelper {
             "Parties.InvalidParticipants" => StatusCodes.Status422UnprocessableEntity,
             "Parties.NonPositiveAmount" => StatusCodes.Status422UnprocessableEntity,
             "Parties.UnknownFundingAccount" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidLoanDescription" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.LoanDateInFuture" => StatusCodes.Status422UnprocessableEntity,
             "Parties.InvalidCurrencyCode" => StatusCodes.Status422UnprocessableEntity,
             "Instruments.CutoffRequired" => StatusCodes.Status422UnprocessableEntity,
 

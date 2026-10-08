@@ -273,6 +273,12 @@ internal static class EndpointExtensions {
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapPost(ApiRoutes.Parties.Loans, PostLoan.Handle)
+                .WithSummary("Record a loan to a party.")
+                .WithDescription("Posts Dr party receivable / Cr the Bank or Cash source account, dated the given 'Lent on' day. Fails if the party is unknown (404), the amount is not positive, the currency is not ARS/USD, the source is not a Bank/Cash account, the description is blank, multi-line or over 120 characters, or the date is in the future (422).")
+                .Produces<LoanResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapGet(ApiRoutes.Parties.List, GetParties.Handle)
                 .WithSummary("List registered parties.")
                 .WithDescription("Returns every registered party, ordered by name.")
@@ -335,6 +341,10 @@ internal static class EndpointExtensions {
                 .WithSummary("Get outstanding debt by party.")
                 .WithDescription("Nets every party's Ledger movements to one outstanding-balance row per party.")
                 .Produces<DebtByPartyDto>(StatusCodes.Status200OK);
+            group.MapGet(ApiRoutes.Reporting.OwedToYou, GetOwedToYou.Handle)
+                .WithSummary("Get what each party owes you as of a month.")
+                .WithDescription("Receivable balances dated on or before the month end plus Scheduled shares due by that month, per party and currency; only positive amounts.")
+                .Produces<OwedToYouDto>(StatusCodes.Status200OK);
             return endpoints;
         }
     }

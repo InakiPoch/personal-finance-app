@@ -17,6 +17,7 @@ public sealed class ReportingModule : IModule {
         services.AddScoped<IQueryHandler<CardDueByMonthQuery, CardDueByMonthResponse>, CardDueByMonthHandler>();
         services.AddScoped<IQueryHandler<GetPartyTimelineQuery, PartyTimelineResponse>, GetPartyTimelineHandler>();
         services.AddScoped<IQueryHandler<GetDebtByPartyQuery, DebtByPartyResponse>, GetDebtByPartyHandler>();
+        services.AddScoped<IQueryHandler<ReceivableBalancesAsOfQuery, ReceivableBalancesAsOfResponse>, ReceivableBalancesAsOfHandler>();
         services.AddScoped<IQueryHandler<MoneyFlowQuery, MoneyFlowResponse>, MoneyFlowHandler>();
         services.AddScoped<IQueryHandler<TransactionFeedQuery, TransactionFeedResponse>, TransactionFeedHandler>();
         services.AddScoped<IQueryHandler<GetTransactionFeedRowQuery, TransactionFeedRow?>, TransactionFeedHandler>();

@@ -68,6 +68,7 @@ public sealed record ApiRoutes {
         public const string Create = "/";
         public const string List = "/";
         public const string Settle = "/{id:guid}/settlements";
+        public const string Loans = "/{id:guid}/loans";
         public const string Balance = "/{id:guid}/balance";
         public const string Timeline = "/{id:guid}/timeline";
         public const string FutureShares = "/{id:guid}/future-shares";
@@ -84,5 +85,6 @@ public sealed record ApiRoutes {
         public const string CardDueByMonth = "/card-due-by-month";
         public const string PartyTimeline = "/parties/{id:guid}/timeline";
         public const string DebtSummary = "/parties/debt-summary";
+        public const string OwedToYou = "/parties/owed-to-you";
     }
 }

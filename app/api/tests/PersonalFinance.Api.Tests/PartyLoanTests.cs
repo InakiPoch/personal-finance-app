@@ -41,6 +41,43 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
+    public async Task The_future_check_uses_the_callers_local_today_when_provided() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var bankId = await CreateAccountAsync(client, "Loan Bank Local", "Asset", "Bank", cancellationToken);
+        var partyId = await CreatePartyAsync(client, "Tina", cancellationToken);
+        var tomorrow = DateTime.UtcNow.Date.AddDays(1).ToString("yyyy-MM-dd");
+
+        var rejected = await PostLoanAsync(client, partyId, bankId, 1_000, "ARS", "Loan", tomorrow, cancellationToken);
+        var accepted = await client.PostAsJsonAsync($"/v1/parties/{partyId}/loans", new {
+            amountMinorUnits = 1_000,
+            sourceAccountId = bankId,
+            lentOn = tomorrow,
+            description = "Loan",
+            currencyCode = "ARS",
+            today = tomorrow
+        }, cancellationToken);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, rejected.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
+    }
+
+    [Fact]
+    public async Task The_description_is_stored_verbatim_and_a_comma_in_the_party_name_survives_in_money_flow() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var bankId = await CreateAccountAsync(client, "Loan Bank Verbatim", "Asset", "Bank", cancellationToken);
+        var partyId = await CreatePartyAsync(client, "Smith, John", cancellationToken);
+        await PostLoanAsync(client, partyId, bankId, 2_000, "ARS", "Rent help", "2024-04-05", cancellationToken);
+
+        var flow = await client.GetFromJsonAsync<JsonElement>("/v1/reports/money-flow?month=2024-04", cancellationToken);
+        var row = Assert.Single(flow.GetProperty("rows").EnumerateArray());
+
+        Assert.Equal("Rent help", row.GetProperty("description").GetString());
+        Assert.Equal("Smith, John", row.GetProperty("partyName").GetString());
+    }
+
+    [Fact]
     public async Task A_partial_settlement_pays_down_the_loan() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();

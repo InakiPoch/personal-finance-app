@@ -21,7 +21,7 @@ internal sealed class RecordLoanHandler(PartiesDbContext context, ILedgerApi led
         if(party is null) {
             return PartiesErrors.PartyNotFound;
         }
-        if(command.LentOn > DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime)) {
+        if(command.LentOn > (command.Today ?? DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))) {
             return PartiesErrors.LoanDateInFuture;
         }
         // Only Bank/Cash instrument accounts may fund a loan.
@@ -30,7 +30,7 @@ internal sealed class RecordLoanHandler(PartiesDbContext context, ILedgerApi led
             return PartiesErrors.UnknownFundingAccount;
         }
         var amount = Money.FromMinorUnits(command.AmountMinorUnits, Currency.FromCode(command.CurrencyCode));
-        // Display only: loans are detected structurally (Dr Receivable / Cr Bank|Cash, no Expense leg), not by this text.
+        // The description is the user's text verbatim: loans are detected structurally (Dr Receivable / Cr Bank|Cash, no Expense leg).
         return await ledger.PostTransactionAsync(
             new PostTransactionCommand(
                 [
@@ -38,7 +38,7 @@ internal sealed class RecordLoanHandler(PartiesDbContext context, ILedgerApi led
                     new PostTransactionLine(command.SourceAccountId, DebitOrCredit.Credit, amount)
                 ],
                 command.LentOn.ToDateTime(TimeOnly.MinValue, DateTimeKind.Utc),
-                Description: $"Lent to {party.Name}: {command.Description.Trim()}"
+                Description: command.Description.Trim()
             ),
             cancellationToken
         );

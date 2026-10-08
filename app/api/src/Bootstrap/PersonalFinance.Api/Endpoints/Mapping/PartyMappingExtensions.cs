@@ -15,7 +15,7 @@ internal static class PartyMappingExtensions {
     }
 
     public static RecordLoanCommand ToRecordLoanCommand(this RecordLoanDto dto, Guid partyId) {
-        return new RecordLoanCommand(partyId, dto.AmountMinorUnits, dto.SourceAccountId, dto.LentOn, dto.Description, dto.CurrencyCode);
+        return new RecordLoanCommand(partyId, dto.AmountMinorUnits, dto.SourceAccountId, dto.LentOn, dto.Description, dto.CurrencyCode, dto.Today);
     }
 
     public static CurrentAccountBalanceDto ToCurrentAccountBalanceDto(this CurrentAccountBalanceResponse response) {

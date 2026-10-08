@@ -4,6 +4,7 @@
 # Usage: scripts/smoke.sh [compose-dir]   (default: current directory)
 # Env:   BASE_URL (default http://localhost:8080), CURL_OPTS (e.g. -k for self-signed HTTPS),
 #        COMPOSE_PROJECT_NAME (default pf-smoke, so the user's real volume is never touched).
+# shellcheck disable=SC2086  # CURL_OPTS is intentionally word-split (e.g. "-k --max-time 5")
 set -u
 
 cd "${1:-.}" || { echo "SMOKE FAIL: cannot cd to '${1:-.}'"; exit 1; }

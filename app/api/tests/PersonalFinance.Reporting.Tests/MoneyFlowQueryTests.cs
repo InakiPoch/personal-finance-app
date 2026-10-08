@@ -10,7 +10,7 @@ namespace PersonalFinance.Reporting.Tests;
 /// <summary>
 /// Drives <see cref="MoneyFlowQuery"/> through the shared <see cref="IQueryBus"/> against the
 /// seeded throwaway database — the accounting-style "money in / money out" table behind Slice 2
-/// of <c>docs/incomes-support/</c>.
+/// of <c>docs/adr/0012-income-and-money-flow-model.md</c>.
 /// </summary>
 public sealed class MoneyFlowQueryTests(ReportingIntegrationFixture fixture) : IClassFixture<ReportingIntegrationFixture> {
     [Fact]

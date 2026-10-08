@@ -9,7 +9,11 @@ This is a monorepo with two independently-built sub-projects. Each has its own d
 - `app/api/` — .NET 10 backend. Details: `app/api/.claude/CLAUDE.md`
 - `app/client/` — Angular 20 frontend. Details: `app/client/.claude/CLAUDE.md`
 
-There is no root `package.json`, no Docker/Compose setup, and no CONTRIBUTING.md — do not assume tooling that isn't there. The root `README.md` is currently empty.
+There is no root `package.json` and no CONTRIBUTING.md — do not assume tooling that isn't there. Docker lives in root `compose.yaml` + `scripts/smoke.sh`. Per-project task ledgers are `app/api/.claude/TASK.md` and `app/client/.claude/TASK.md`.
+
+## Live data (guarded by `.claude/hooks/guard-live-data.sh`)
+
+The user's real DB is the Docker named volume `personal-finance_pf-data` (compose project `personal-finance`), not `app/api/personalfinance.db`. Backups: `~/pf-backups/`. Run destructive Docker/DB steps only under `COMPOSE_PROJECT_NAME=pf-scratch`; checkpoint SQLite before touching `-wal`/`-shm`.
 
 ## Subagents
 
@@ -53,3 +57,17 @@ Both jobs must pass; there is no cross-stack integration step in CI.
 - **API surface**: all HTTP endpoints are versioned under `/v1` and live in the API host project (`src/Bootstrap/PersonalFinance.Api`), not inside the backend's module projects — see `app/api/.claude/CLAUDE.md` for the modular-monolith layering (`.Contracts` boundaries, CQRS, Outbox).
 - **Design system**: the client's visual direction ("warm homebanking") is specified in `app/client/docs/SYSTEM.md` and is authoritative for all views — extend it rather than diverging.
 - **Product/technical design docs**: each sub-project has its own `docs/PRD.md` and `docs/DESIGN.md` (API's are in Spanish); consult the relevant sub-project's docs for product scope and design decisions rather than this file.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`InakiPoch/personal-finance-app`), accessed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `docs/GLOSSARY.md` + `docs/adr/` spanning both `app/api` and `app/client`. See `docs/agents/domain.md`.

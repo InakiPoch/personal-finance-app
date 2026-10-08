@@ -75,5 +75,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+      - name: Lint shell scripts
+        run: shellcheck scripts/*.sh
       - name: Smoke test (compose up, SPA, API, persistence, reset)
         run: bash scripts/smoke.sh

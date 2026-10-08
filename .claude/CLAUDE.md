@@ -57,3 +57,17 @@ Both jobs must pass; there is no cross-stack integration step in CI.
 - **API surface**: all HTTP endpoints are versioned under `/v1` and live in the API host project (`src/Bootstrap/PersonalFinance.Api`), not inside the backend's module projects — see `app/api/.claude/CLAUDE.md` for the modular-monolith layering (`.Contracts` boundaries, CQRS, Outbox).
 - **Design system**: the client's visual direction ("warm homebanking") is specified in `app/client/docs/SYSTEM.md` and is authoritative for all views — extend it rather than diverging.
 - **Product/technical design docs**: each sub-project has its own `docs/PRD.md` and `docs/DESIGN.md` (API's are in Spanish); consult the relevant sub-project's docs for product scope and design decisions rather than this file.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in GitHub Issues (`InakiPoch/personal-finance-app`), accessed via the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default five-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `GLOSSARY.md` + `docs/adr/` spanning both `app/api` and `app/client`. See `docs/agents/domain.md`.

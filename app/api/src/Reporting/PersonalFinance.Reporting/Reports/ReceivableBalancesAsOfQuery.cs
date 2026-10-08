@@ -5,18 +5,14 @@ namespace PersonalFinance.Reporting.Reports;
 public sealed record ReceivableBalanceRow(Guid PartyId, string CurrencyCode, long BalanceMinorUnits);
 
 /// <summary>
-/// Net receivable balance per (party, currency) over every movement dated on or before the end of the
-/// requested month (UTC). Zero and negative balances are omitted.
+/// Net receivable balance per (party, currency) over every movement dated on or before the end of the requested month
 /// </summary>
 public sealed record ReceivableBalancesAsOfResponse(IReadOnlyList<ReceivableBalanceRow> Rows);
 
-/// <param name="Month">Any date inside the requested calendar month.</param>
 public sealed record ReceivableBalancesAsOfQuery(DateOnly Month) : IQuery<ReceivableBalancesAsOfResponse>;
 
-internal sealed class ReceivableBalancesAsOfHandler(IReadDbConnectionFactory connectionFactory)
-    : IQueryHandler<ReceivableBalancesAsOfQuery, ReceivableBalancesAsOfResponse> {
+internal sealed class ReceivableBalancesAsOfHandler(IReadDbConnectionFactory connectionFactory) : IQueryHandler<ReceivableBalancesAsOfQuery, ReceivableBalancesAsOfResponse> {
     public async Task<ReceivableBalancesAsOfResponse> HandleAsync(ReceivableBalancesAsOfQuery query, CancellationToken cancellationToken) {
-        // Filtered in memory: SQLite cannot compare DateTimeOffset text across offsets reliably.
         var endExclusive = new DateTimeOffset(query.Month.Year, query.Month.Month, 1, 0, 0, 0, TimeSpan.Zero).AddMonths(1);
         await using var connection = connectionFactory.CreateOpenConnection();
         await using var command = connection.CreateCommand();

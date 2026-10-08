@@ -131,7 +131,7 @@ describe('ReportsService', () => {
   });
   it('GETs parties/debt-summary and unwraps { rows }', () => {
     const rows: PartyDebtRow[] = [
-      { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: money(250000), currencyCode: 'ARS' },
+      { partyId: 'p1', partyName: 'Alice', netBalanceMinorUnits: money(250000), currencyCode: 'ARS' }
     ];
     let result: PartyDebtRow[] | undefined;
     service.debtSummary().subscribe((r: PartyDebtRow[]) => (result = r));

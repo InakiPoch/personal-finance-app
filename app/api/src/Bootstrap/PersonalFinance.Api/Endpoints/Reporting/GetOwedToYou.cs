@@ -8,10 +8,6 @@ using PersonalFinance.Reporting.Reports;
 
 namespace PersonalFinance.Api.Endpoints.Reporting;
 
-/// <summary>
-/// Dashboard "Owed to you". Composed in the host so each module keeps its boundary: Reporting supplies the
-/// receivable balances as of the month end (views only), Financing supplies the Scheduled shares due by then.
-/// </summary>
 public static class GetOwedToYou {
     public static async Task<Ok<OwedToYouDto>> Handle(string month, DateOnly? today, IQueryBus queryBus, TimeProvider timeProvider, CancellationToken cancellationToken) {
         var requested = MonthQueryHelper.Parse(month);

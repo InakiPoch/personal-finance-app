@@ -16,16 +16,14 @@ public sealed record MoneyFlowRow(
 );
 
 /// <summary>
-/// One monthly, accounting-style row per live (non-reversed, non-reversal) transaction that
-/// moves my money — an income credit or the full amount that left Bank/Cash (matching
-/// <c>vw_ledger_monthly_expenses</c>). Party movements carry a <c>Flag</c> ("LentTo" / "SharedWith") and the party name. Newest first.
+/// One monthly, accounting-style row per live transaction that moves my money — an income credit or the full amount that left Bank/Cash. 
+/// Party movements carry a <c>Flag</c> ("LentTo" / "SharedWith") and the party name. Newest first.
 /// </summary>
 public sealed record MoneyFlowResponse(IReadOnlyList<MoneyFlowRow> Rows);
 
 public sealed record MoneyFlowQuery(string Month) : IQuery<MoneyFlowResponse>;
 
-internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactory)
-    : IQueryHandler<MoneyFlowQuery, MoneyFlowResponse> {
+internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactory) : IQueryHandler<MoneyFlowQuery, MoneyFlowResponse> {
     public async Task<MoneyFlowResponse> HandleAsync(MoneyFlowQuery query, CancellationToken cancellationToken) {
         await using var connection = connectionFactory.CreateOpenConnection();
         await using var command = connection.CreateCommand();
@@ -40,7 +38,6 @@ internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactor
         if(rows.All(row => row.PartyName is null)) {
             return new MoneyFlowResponse(rows);
         }
-        // The view yields receivable account ids (comma-safe); names come from the Parties-owned timeline view.
         var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         await using var namesCommand = connection.CreateCommand();
         namesCommand.CommandText = ReportingSqlHelper.Load("party_names_by_receivable_account.sql");
@@ -69,7 +66,7 @@ internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactor
             isIncome ? incomeMinorUnits : outcomeMinorUnits,
             reader.GetString(6),
             reader.IsDBNull(7) ? null : reader.GetString(7),
-            reader.IsDBNull(8) ? null : reader.GetString(8) // account ids until resolved
+            reader.IsDBNull(8) ? null : reader.GetString(8)
         );
     }
 }

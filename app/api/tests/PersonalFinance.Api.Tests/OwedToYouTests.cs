@@ -30,9 +30,7 @@ public sealed class OwedToYouTests(ApiWebApplicationFactory factory) : IClassFix
             settledOnUtc = DateTimeOffset.UtcNow,
             currencyCode = "USD"
         }, cancellationToken);
-
         var rows = await GetRowsAsync(client, MonthOffset(0), partyId, cancellationToken);
-
         Assert.Equal(2, rows.Count);
         Assert.Equal("Owed Ana", rows[0].GetProperty("partyName").GetString());
         Assert.Equal(5_000, AmountFor(rows, "ARS"));
@@ -106,7 +104,7 @@ public sealed class OwedToYouTests(ApiWebApplicationFactory factory) : IClassFix
         return body.GetProperty("rows").EnumerateArray()
             .Where(row => row.GetProperty("partyId").GetGuid() == partyId)
             .OrderBy(row => row.GetProperty("currencyCode").GetString())
-            .ToList();
+        .ToList();
     }
 
     private static async Task<Guid> CreateBankAsync(HttpClient client, string name, CancellationToken cancellationToken) {

@@ -22,10 +22,8 @@ public sealed class SpentBankCashTests(ApiWebApplicationFactory factory) : IClas
             split = new[] { new { partyId, weight = 1 } }
         }, cancellationToken);
         response.EnsureSuccessStatusCode();
-
         var spent = await SpentAsync(client, "2025-01", "Spent Dinner", cancellationToken);
         var row = Assert.Single(await MoneyFlowAsync(client, "2025-01", cancellationToken));
-
         Assert.Equal(100_00, spent);
         Assert.Equal(100_00, row.GetProperty("amountMinorUnits").GetInt64());
         Assert.Equal("Outcome", row.GetProperty("kind").GetString());
@@ -40,10 +38,8 @@ public sealed class SpentBankCashTests(ApiWebApplicationFactory factory) : IClas
         var bankId = await RegisterDebitAsync(client, "Spent Bank 2", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Tomas", cancellationToken);
         await PostLoanAsync(client, partyId, bankId, 30_00, "2025-02-05", cancellationToken);
-
         var spent = await SpentAsync(client, "2025-02", "Lent to parties", cancellationToken);
         var row = Assert.Single(await MoneyFlowAsync(client, "2025-02", cancellationToken));
-
         Assert.Equal(30_00, spent);
         Assert.Equal(30_00, row.GetProperty("amountMinorUnits").GetInt64());
         Assert.Equal("LentTo", row.GetProperty("flag").GetString());
@@ -59,10 +55,8 @@ public sealed class SpentBankCashTests(ApiWebApplicationFactory factory) : IClas
         var loan = await PostLoanAsync(client, partyId, bankId, 45_00, "2025-03-05", cancellationToken);
         var row = Assert.Single(await MoneyFlowAsync(client, "2025-03", cancellationToken));
         Assert.Equal(loan, row.GetProperty("transactionId").GetGuid());
-
         var reverse = await client.PostAsync($"/v1/ledger/transactions/{loan}/reversal", null, cancellationToken);
         reverse.EnsureSuccessStatusCode();
-
         Assert.Equal(0, await SpentAsync(client, "2025-03", "Lent to parties", cancellationToken));
         Assert.Empty(await MoneyFlowAsync(client, "2025-03", cancellationToken));
     }
@@ -80,9 +74,7 @@ public sealed class SpentBankCashTests(ApiWebApplicationFactory factory) : IClas
             description = "Coffee"
         }, cancellationToken);
         response.EnsureSuccessStatusCode();
-
         var row = Assert.Single(await MoneyFlowAsync(client, "2025-04", cancellationToken));
-
         Assert.Equal(JsonValueKind.Null, row.GetProperty("flag").ValueKind);
         Assert.Equal(JsonValueKind.Null, row.GetProperty("partyName").ValueKind);
     }
@@ -91,7 +83,7 @@ public sealed class SpentBankCashTests(ApiWebApplicationFactory factory) : IClas
         var monthly = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/monthly-expenses?month={month}", cancellationToken);
         return monthly.GetProperty("rows").EnumerateArray()
             .Where(row => row.GetProperty("category").GetString() == category)
-            .Sum(row => row.GetProperty("amountMinorUnits").GetInt64());
+        .Sum(row => row.GetProperty("amountMinorUnits").GetInt64());
     }
 
     private static async Task<List<JsonElement>> MoneyFlowAsync(HttpClient client, string month, CancellationToken cancellationToken) {

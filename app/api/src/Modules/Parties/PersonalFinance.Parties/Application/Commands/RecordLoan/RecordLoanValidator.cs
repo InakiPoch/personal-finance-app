@@ -21,8 +21,6 @@ internal static class RecordLoanValidator {
         if(string.IsNullOrEmpty(description) || description.Length > MaxDescriptionLength || description.Contains('\n') || description.Contains('\r')) {
             return Result.Failure(PartiesErrors.InvalidLoanDescription);
         }
-        return command.SourceAccountId == Guid.Empty
-            ? Result.Failure(PartiesErrors.UnknownFundingAccount)
-            : Result.Success();
+        return command.SourceAccountId == Guid.Empty ? Result.Failure(PartiesErrors.UnknownFundingAccount) : Result.Success();
     }
 }

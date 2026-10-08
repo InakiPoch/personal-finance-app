@@ -15,9 +15,7 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var bankId = await CreateAccountAsync(client, "Loan Bank 1", "Asset", "Bank", cancellationToken);
         await FundAsync(client, bankId, 50_000, cancellationToken);
         var partyId = await CreatePartyAsync(client, "Lola", cancellationToken);
-
         var response = await PostLoanAsync(client, partyId, bankId, 12_000, "ARS", "Rent help", null, cancellationToken);
-
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         Assert.Equal(12_000, await PartyBalanceAsync(client, partyId, "ARS", cancellationToken));
         Assert.Equal(38_000, await AccountBalanceAsync(client, bankId, cancellationToken));
@@ -30,9 +28,7 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var bankId = await CreateAccountAsync(client, "Loan Bank 2", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Mateo", cancellationToken);
         var lentOn = DateTime.UtcNow.Date.AddDays(-3);
-
         await PostLoanAsync(client, partyId, bankId, 5_000, "USD", "Trip", lentOn.ToString("yyyy-MM-dd"), cancellationToken);
-
         var timeline = await client.GetFromJsonAsync<JsonElement>($"/v1/parties/{partyId}/timeline", cancellationToken);
         var row = Assert.Single(timeline.GetProperty("rows").EnumerateArray());
         Assert.Equal("Lent to Mateo", row.GetProperty("description").GetString());
@@ -47,7 +43,6 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var bankId = await CreateAccountAsync(client, "Loan Bank Local", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Tina", cancellationToken);
         var tomorrow = DateTime.UtcNow.Date.AddDays(1).ToString("yyyy-MM-dd");
-
         var rejected = await PostLoanAsync(client, partyId, bankId, 1_000, "ARS", "Loan", tomorrow, cancellationToken);
         var accepted = await client.PostAsJsonAsync($"/v1/parties/{partyId}/loans", new {
             amountMinorUnits = 1_000,
@@ -57,7 +52,6 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
             currencyCode = "ARS",
             today = tomorrow
         }, cancellationToken);
-
         Assert.Equal(HttpStatusCode.UnprocessableEntity, rejected.StatusCode);
         Assert.Equal(HttpStatusCode.Created, accepted.StatusCode);
     }
@@ -69,10 +63,8 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var bankId = await CreateAccountAsync(client, "Loan Bank Verbatim", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Smith, John", cancellationToken);
         await PostLoanAsync(client, partyId, bankId, 2_000, "ARS", "Rent help", "2024-04-05", cancellationToken);
-
         var flow = await client.GetFromJsonAsync<JsonElement>("/v1/reports/money-flow?month=2024-04", cancellationToken);
         var row = Assert.Single(flow.GetProperty("rows").EnumerateArray());
-
         Assert.Equal("Rent help", row.GetProperty("description").GetString());
         Assert.Equal("Smith, John", row.GetProperty("partyName").GetString());
     }
@@ -84,14 +76,12 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var bankId = await CreateAccountAsync(client, "Loan Bank 3", "Asset", "Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Nora", cancellationToken);
         await PostLoanAsync(client, partyId, bankId, 10_000, "ARS", "Loan", null, cancellationToken);
-
         var settle = await client.PostAsJsonAsync($"/v1/parties/{partyId}/settlements", new {
             amountMinorUnits = 4_000,
             bankAccountId = bankId,
             settledOnUtc = DateTimeOffset.UtcNow,
             currencyCode = "ARS"
         }, cancellationToken);
-
         Assert.Equal(HttpStatusCode.Created, settle.StatusCode);
         Assert.Equal(6_000, await PartyBalanceAsync(client, partyId, "ARS", cancellationToken));
     }
@@ -105,9 +95,7 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var response = await PostLoanAsync(client, partyId, bankId, 7_000, "ARS", "Loan", null, cancellationToken);
         var loan = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         var transactionId = loan.GetProperty("ledgerTransactionId").GetGuid();
-
         var reverse = await client.PostAsync($"/v1/ledger/transactions/{transactionId}/reversal", null, cancellationToken);
-
         Assert.True(reverse.IsSuccessStatusCode, await reverse.Content.ReadAsStringAsync(cancellationToken));
         Assert.Equal(0, await PartyBalanceAsync(client, partyId, "ARS", cancellationToken));
         Assert.Equal(0, await AccountBalanceAsync(client, bankId, cancellationToken));
@@ -118,9 +106,7 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var bankId = await CreateAccountAsync(client, "Loan Bank 5", "Asset", "Bank", cancellationToken);
-
         var response = await PostLoanAsync(client, Guid.NewGuid(), bankId, 1_000, "ARS", "Loan", null, cancellationToken);
-
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
     }
 
@@ -141,9 +127,7 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         var partyId = await CreatePartyAsync(client, "Pia", cancellationToken);
         var text = description == "LONG" ? new string('x', 121) : description;
         var lentOn = DateTime.UtcNow.Date.AddDays(daysAhead).ToString("yyyy-MM-dd");
-
         var response = await PostLoanAsync(client, partyId, sourceId, amount, currency, text, lentOn, cancellationToken);
-
         Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
     }
 

@@ -24,13 +24,11 @@ internal sealed class RecordLoanHandler(PartiesDbContext context, ILedgerApi led
         if(command.LentOn > (command.Today ?? DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))) {
             return PartiesErrors.LoanDateInFuture;
         }
-        // Only Bank/Cash instrument accounts may fund a loan.
         var instruments = await ledger.ListInstrumentAccountsAsync(new ListInstrumentAccountsQuery(), cancellationToken);
         if(instruments.Rows.All(row => row.AccountId != command.SourceAccountId)) {
             return PartiesErrors.UnknownFundingAccount;
         }
         var amount = Money.FromMinorUnits(command.AmountMinorUnits, Currency.FromCode(command.CurrencyCode));
-        // The description is the user's text verbatim: loans are detected structurally (Dr Receivable / Cr Bank|Cash, no Expense leg).
         return await ledger.PostTransactionAsync(
             new PostTransactionCommand(
                 [

@@ -1,4 +1,4 @@
-<div class="mx-auto max-w-184 px-5 py-10 sm:px-8">
+<div class="mx-auto max-w-6xl px-5 py-10 sm:px-8">
   <header class="mb-10">
     <h1 class="font-serif text-2xl font-medium tracking-tight text-heading">Party detail</h1>
     <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
@@ -12,7 +12,9 @@
       Back to parties
     </a>
   </header>
-  <section class="mb-12" aria-labelledby="balance-label">
+  <div class="grid gap-12 lg:grid-cols-2 lg:items-start">
+  <div class="flex flex-col gap-12">
+  <section aria-labelledby="balance-label">
     <h2 id="balance-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Current-account balance
     </h2>
@@ -69,7 +71,7 @@
       </a>
     }
   </section>
-  <section class="mb-12" aria-labelledby="timeline-label">
+  <section aria-labelledby="timeline-label">
     <h2 id="timeline-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Timeline
     </h2>
@@ -89,10 +91,21 @@
       An undo entry shows up as its own negative row.
     </p>
   </section>
-  <section class="mb-12" aria-labelledby="scheduled-label">
+  <section aria-labelledby="scheduled-label">
     <h2 id="scheduled-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
-      Scheduled
+      <button
+        type="button"
+        class="flex w-full cursor-pointer items-center gap-1.5 text-left uppercase tracking-[0.14em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+        [attr.aria-expanded]="scheduledExpanded()"
+        aria-controls="scheduled-body"
+        (click)="toggleScheduled()"
+      >
+        <span aria-hidden="true" class="text-ink-faint">{{ scheduledExpanded() ? "▾" : "▸" }}</span>
+        Scheduled
+      </button>
     </h2>
+    @if(scheduledExpanded()) {
+    <div id="scheduled-body">
     <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
       Upcoming installment shares this party will owe on card-split and creditor-financed plans.
       Each becomes a posted movement above when its due month arrives.
@@ -126,7 +139,11 @@
         }
       </ul>
     }
+    </div>
+    }
   </section>
+  </div>
+  <div class="flex flex-col gap-8">
   <form
     class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
     [formGroup]="form"
@@ -243,4 +260,127 @@
       }
     </div>
   </form>
+  <form
+    class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+    [formGroup]="loanForm"
+    (ngSubmit)="onLoanSubmit()"
+    aria-labelledby="loan-label"
+  >
+    <h2 id="loan-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Money lent
+    </h2>
+    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+      Money you lend this person from one of your accounts. It adds to what they owe you.
+    </p>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="loanAmount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Amount</label>
+      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+        <input
+          type="number"
+          id="loanAmount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        <select
+          id="loanCurrency"
+          formControlName="currency"
+          aria-label="Currency"
+          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+        >
+          @for(code of loanCurrencies; track code) {
+            <option [value]="code">{{ code }}</option>
+          }
+        </select>
+      </div>
+      @if(loanForm.controls.amount.touched && loanForm.controls.amount.hasError('positiveAmount')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(loanForm.controls.amount.touched && loanForm.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="loanSourceAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">From account</label>
+      <div class="relative">
+        <select
+          id="loanSourceAccountId"
+          formControlName="sourceAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
+          <option value="">Choose an account</option>
+          @for(instrument of loanSourceAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }}</option>
+          }
+        </select>
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
+      </div>
+      @if(loanForm.controls.sourceAccountId.touched && loanForm.controls.sourceAccountId.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="lentOn" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Lent on</label>
+      <input
+        type="date"
+        id="lentOn"
+        formControlName="lentOn"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(loanForm.controls.lentOn.touched && loanForm.controls.lentOn.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(loanForm.controls.lentOn.hasError('notFutureDate')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['notFutureDate'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="loanDescription" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Description</label>
+      <input
+        type="text"
+        id="loanDescription"
+        maxlength="121"
+        formControlName="description"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(loanForm.controls.description.touched && (loanForm.controls.description.hasError('required') || loanForm.controls.description.hasError('pattern'))) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(loanForm.controls.description.hasError('maxlength')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['maxlength'] }}</p>
+      }
+      @if(loanForm.controls.description.hasError('singleLine')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['singleLine'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="loanStatus() === 'saving'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        {{ loanStatus() === 'saving' ? 'Recording…' : 'Record loan' }}
+      </button>
+      @if(loanStatus() === 'saved') {
+        <p class="text-[0.8125rem] text-ledger" role="status">Loan recorded.</p>
+      }
+      @if(loanError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ loanErrorText(error) }}</p>
+      }
+    </div>
+  </form>
+  </div>
+  </div>
 </div>

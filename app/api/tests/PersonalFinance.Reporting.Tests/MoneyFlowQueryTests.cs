@@ -23,11 +23,13 @@ public sealed class MoneyFlowQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
-    public async Task A_split_debit_expense_appears_as_one_outcome_row_at_the_holders_share() {
+    public async Task A_split_debit_expense_appears_as_one_outcome_row_at_the_full_amount_flagged_shared_with() {
         var response = await AskAsync(new MoneyFlowQuery("2026-05"));
         var row = Assert.Single(response.Rows, row => row.Description == "Alice dinner");
         Assert.Equal("Outcome", row.Kind);
-        Assert.Equal(5_000, row.AmountMinorUnits);
+        Assert.Equal(10_000, row.AmountMinorUnits);
+        Assert.Equal("SharedWith", row.Flag);
+        Assert.Equal("Alice Reporting", row.PartyName);
     }
 
     [Fact]

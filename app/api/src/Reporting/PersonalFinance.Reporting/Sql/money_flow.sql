@@ -5,7 +5,9 @@ SELECT
     AccountName,
     IncomeMinorUnits,
     OutcomeMinorUnits,
-    CurrencyCode
+    CurrencyCode,
+    Flag,
+    ReceivableAccountIds
 FROM vw_ledger_money_flow
 WHERE Month = $month
 ORDER BY PostedOnUtc DESC, TransactionId DESC;

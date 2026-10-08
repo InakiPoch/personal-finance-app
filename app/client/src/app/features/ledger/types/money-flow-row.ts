@@ -9,4 +9,6 @@ export type MoneyFlowRow = {
   kind: 'Income' | 'Outcome';
   amountMinorUnits: Money;
   currencyCode: CurrencyCode;
+  flag: 'LentTo' | 'SharedWith' | 'PaidBackBy' | null;
+  partyName: string | null;
 };

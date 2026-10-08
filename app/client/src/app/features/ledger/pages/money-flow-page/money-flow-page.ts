@@ -68,7 +68,7 @@ export class MoneyFlowPage implements OnInit, OnDestroy {
   }
 
   protected onUndo(transactionId: string): void {
-    if(!window.confirm('Undo this income?')) {
+    if(!window.confirm('Undo this entry?')) {
       return;
     }
     this.undoError.set(null);
@@ -93,8 +93,8 @@ export class MoneyFlowPage implements OnInit, OnDestroy {
 
   protected undoErrorText(error: AppError): string {
     return error.status === 409
-      ? 'That income was already undone — the row will refresh.'
-      : 'Could not undo that income — try again in a moment.';
+      ? 'That entry was already undone — the row will refresh.'
+      : 'Could not undo that entry — try again in a moment.';
   }
 
   private loadMoneyFlow(): void {

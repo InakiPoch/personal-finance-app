@@ -47,7 +47,9 @@ describe('MoneyFlowPage', () => {
       accountName: 'Galicia',
       kind: 'Income',
       amountMinorUnits: money(85000000),
-      currencyCode: 'ARS'
+      currencyCode: 'ARS',
+      flag: null,
+      partyName: null
     },
     {
       transactionId: 'tx-2',
@@ -56,7 +58,9 @@ describe('MoneyFlowPage', () => {
       accountName: 'Galicia',
       kind: 'Outcome',
       amountMinorUnits: money(4530000),
-      currencyCode: 'ARS'
+      currencyCode: 'ARS',
+      flag: null,
+      partyName: null
     }
   ];
 
@@ -117,7 +121,9 @@ describe('MoneyFlowPage', () => {
         accountName: 'Galicia',
         kind: 'Income',
         amountMinorUnits: money(5000),
-        currencyCode: 'USD'
+        currencyCode: 'USD',
+        flag: null,
+        partyName: null
       }
     ]));
     setup();
@@ -179,6 +185,6 @@ describe('MoneyFlowPage', () => {
     undoButton()?.click();
     fixture.detectChanges();
     expect(moneyFlow).toHaveBeenCalledTimes(1);
-    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Could not undo that income');
+    expect((fixture.nativeElement as HTMLElement).textContent).toContain('Could not undo that entry');
   });
 });

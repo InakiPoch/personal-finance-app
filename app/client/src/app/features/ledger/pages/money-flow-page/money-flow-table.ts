@@ -32,8 +32,24 @@ export class MoneyFlowTable {
     return row.date.slice(0, 10);
   }
 
+  protected flagLabel(row: MoneyFlowRow): string | null {
+    if(row.flag === null) {
+      return null;
+    }
+    const labels: Record<NonNullable<MoneyFlowRow['flag']>, string> = {
+      LentTo: 'Lent to',
+      SharedWith: 'Shared with',
+      PaidBackBy: 'Paid back by'
+    };
+    return `${labels[row.flag]} ${row.partyName ?? ''}`.trim();
+  }
+
+  protected isUndoable(row: MoneyFlowRow): boolean {
+    return row.kind === 'Income' || row.flag === 'LentTo';
+  }
+
   protected onUndo(row: MoneyFlowRow): void {
-    if(row.kind === 'Income') {
+    if(this.isUndoable(row)) {
       this.undo.emit(row.transactionId);
     }
   }

@@ -10,31 +10,46 @@ public sealed record MoneyFlowRow(
     string AccountName,
     string Kind,
     long AmountMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    string? Flag,
+    string? PartyName
 );
 
 /// <summary>
-/// One monthly, accounting-style row per live (non-reversed, non-reversal) transaction that
-/// moves my money — an income credit or an out-of-pocket debit (my share only, matching
-/// <c>vw_ledger_monthly_expenses</c>). Newest first.
+/// One monthly, accounting-style row per live transaction that moves my money — an income credit or the full amount that left Bank/Cash. 
+/// Party movements carry a <c>Flag</c> ("LentTo" / "SharedWith") and the party name. Newest first.
 /// </summary>
 public sealed record MoneyFlowResponse(IReadOnlyList<MoneyFlowRow> Rows);
 
 public sealed record MoneyFlowQuery(string Month) : IQuery<MoneyFlowResponse>;
 
-internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactory)
-    : IQueryHandler<MoneyFlowQuery, MoneyFlowResponse> {
+internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactory) : IQueryHandler<MoneyFlowQuery, MoneyFlowResponse> {
     public async Task<MoneyFlowResponse> HandleAsync(MoneyFlowQuery query, CancellationToken cancellationToken) {
         await using var connection = connectionFactory.CreateOpenConnection();
         await using var command = connection.CreateCommand();
         command.CommandText = ReportingSqlHelper.Load("money_flow.sql");
         command.Parameters.AddWithValue("$month", query.Month);
         var rows = new List<MoneyFlowRow>();
-        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
-        while(await reader.ReadAsync(cancellationToken)) {
-            rows.Add(map(reader));
+        await using(var reader = await command.ExecuteReaderAsync(cancellationToken)) {
+            while(await reader.ReadAsync(cancellationToken)) {
+                rows.Add(map(reader));
+            }
         }
-        return new MoneyFlowResponse(rows);
+        if(rows.All(row => row.PartyName is null)) {
+            return new MoneyFlowResponse(rows);
+        }
+        var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        await using var namesCommand = connection.CreateCommand();
+        namesCommand.CommandText = ReportingSqlHelper.Load("party_names_by_receivable_account.sql");
+        await using var namesReader = await namesCommand.ExecuteReaderAsync(cancellationToken);
+        while(await namesReader.ReadAsync(cancellationToken)) {
+            names[namesReader.GetString(0)] = namesReader.GetString(1);
+        }
+        return new MoneyFlowResponse(rows.Select(row => row.PartyName is null ? row : row with { PartyName = resolveNames(row.PartyName, names) }).ToList());
+    }
+
+    private static string resolveNames(string accountIds, Dictionary<string, string> names) {
+        return string.Join(", ", accountIds.Split(',').Select(id => names.GetValueOrDefault(id, id)).Distinct().Order(StringComparer.Ordinal));
     }
 
     private static MoneyFlowRow map(DbDataReader reader) {
@@ -49,7 +64,9 @@ internal sealed class MoneyFlowHandler(IReadDbConnectionFactory connectionFactor
             reader.GetString(3),
             isIncome ? "Income" : "Outcome",
             isIncome ? incomeMinorUnits : outcomeMinorUnits,
-            reader.GetString(6)
+            reader.GetString(6),
+            reader.IsDBNull(7) ? null : reader.GetString(7),
+            reader.IsDBNull(8) ? null : reader.GetString(8)
         );
     }
 }

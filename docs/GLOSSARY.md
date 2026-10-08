@@ -17,9 +17,9 @@ Domain language shared by `app/api` and `app/client`. Use these terms in code, t
 |---|---|
 | **Transaction** | Balanced double-entry posting. Has a `Description`; historic rows fall back to the category name. |
 | **Reversal / storno** (UI: **undo entry**) | Append-only mirror transaction with `OriginalTransactionId`. An original can be reversed once (409 `Ledger.TransactionAlreadyReversed`); a reversal cannot be reversed. |
-| **Income** (UI: **Money received**) | Money entering a Bank/Cash account from outside: `Dr Bank/Cash / Cr Income`. Excludes card refunds, party settlements and reversals. |
-| **Out of pocket** (UI: **Spent from bank & cash**) | Σ debits on Expense accounts per month, my share only, bank and cash only. |
-| **Money Flow** (UI: **Recent Money Movements**) | Table of my movements; reversed pairs hidden; undo only on income rows. |
+| **Income** (UI: **Money received**) | Money entering a Bank/Cash account: `Dr Bank/Cash / Cr Income` plus every party settlement, whatever it repays. Excludes card refunds and reversals. |
+| **Out of pocket** (UI: **Spent from bank & cash**) | Everything that left my Bank/Cash accounts in a month: my expense share plus whatever I fronted for parties (loans, debit-split shares). Card purchases and card bill payments are excluded. |
+| **Money Flow** (UI: **Recent Money Movements**) | Table of my movements, one row per transaction at the full amount that left or entered Bank/Cash; party movements flagged ("Lent to", "Shared with", "Paid back by"); reversed pairs hidden; undo on income, loan and settlement rows. |
 | **Category** | No entity. It is the name of an Expense-kind ledger account, get-or-created case-insensitively. |
 
 ## Credit cards
@@ -57,9 +57,10 @@ Domain language shared by `app/api` and `app/client`. Use these terms in code, t
 
 | Term | Definition |
 |---|---|
-| **Party** | Person who shares expenses with me; has a receivable account. |
+| **Party** | Person who owes me money, through shared expenses or loans; has one receivable account. |
 | **Split / party share** | A party's fixed share of a purchase. Computed with `PhantomPennyAllocator` over `[holder, participants ordered by PartyId]`. |
-| **Receivable** (UI: **owed to you**) | What a party owes me. Card and creditor splits accrue it at DueCycle per installment. |
+| **Loan** (UI: **Money lent**) | Money I give a party from one of my Bank/Cash accounts, not tied to any purchase. Always owed to me; borrowing from a party is not a loan. |
+| **Receivable** (UI: **owed to you**) | What a party owes me: split shares plus loans, pooled per (party, currency). Card and creditor splits accrue it at DueCycle per installment. |
 | **Scheduled** | Share not yet accrued; served by `GET /v1/parties/{id}/future-shares`. |
 | **Settled up** | $0 posted **and** nothing scheduled. |
 | **Settlement** | `Dr Bank / Cr Receivable_party` via `SettleCurrentAccount`. |
@@ -79,6 +80,7 @@ Domain language shared by `app/api` and `app/client`. Use these terms in code, t
 | Term | Definition |
 |---|---|
 | **Due this month** | Unpaid card + creditor installments with DueCycle ≤ the selected **calendar** month, per currency, overdue included. Deliberately not the creditor cutoff-26 rule. |
+| **Owed to you (dashboard)** | Per (party, currency): receivable entries dated ≤ end of the selected month + Scheduled shares with DueCycle ≤ that month. Only positive amounts shown; none → "No debts to settle". |
 | **Month picker** | Drives every dashboard card. |
 
 ## UI vocabulary (replaced jargon)

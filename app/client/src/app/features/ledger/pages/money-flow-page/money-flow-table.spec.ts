@@ -17,7 +17,9 @@ describe('MoneyFlowTable', () => {
     accountName: 'Galicia',
     kind: 'Income',
     amountMinorUnits: money(85000000),
-    currencyCode: 'ARS'
+    currencyCode: 'ARS',
+    flag: null,
+    partyName: null
   };
   const outcomeRow: MoneyFlowRow = {
     transactionId: 'tx-2',
@@ -26,8 +28,13 @@ describe('MoneyFlowTable', () => {
     accountName: 'Galicia',
     kind: 'Outcome',
     amountMinorUnits: money(4530000),
-    currencyCode: 'ARS'
+    currencyCode: 'ARS',
+    flag: null,
+    partyName: null
   };
+
+  const loanRow: MoneyFlowRow = { ...outcomeRow, transactionId: 'tx-4', description: 'Lent to Lola: Rent help', flag: 'LentTo', partyName: 'Lola' };
+  const sharedRow: MoneyFlowRow = { ...outcomeRow, transactionId: 'tx-5', description: 'Dinner', flag: 'SharedWith', partyName: 'Ines' };
 
   function render(rows: MoneyFlowRow[], footerTotals: MoneyFlowCurrencyTotal[] = []): void {
     fixture.componentRef.setInput('rows', rows);
@@ -98,5 +105,22 @@ describe('MoneyFlowTable', () => {
     fixture.componentRef.setInput('undoing', true);
     fixture.detectChanges();
     expect((fixture.nativeElement.querySelector('tbody button') as HTMLButtonElement).disabled).toBeTrue();
+  });
+  it('flags a loan row "Lent to <party>" and offers Undo on it', () => {
+    render([loanRow]);
+    expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Lent to Lola');
+    expect(fixture.nativeElement.querySelector('tbody button')?.textContent?.trim()).toBe('Undo');
+  });
+  it('flags a shared expense "Shared with <party>" without an Undo button', () => {
+    render([sharedRow]);
+    expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Shared with Ines');
+    expect(fixture.nativeElement.querySelector('tbody button')).toBeNull();
+  });
+  it('emits the transaction id when Undo is clicked on a loan row', () => {
+    render([loanRow]);
+    const emitted: string[] = [];
+    fixture.componentInstance.undo.subscribe((transactionId: string) => emitted.push(transactionId));
+    (fixture.nativeElement.querySelector('tbody button') as HTMLButtonElement).click();
+    expect(emitted).toEqual(['tx-4']);
   });
 });

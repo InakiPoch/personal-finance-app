@@ -18,7 +18,12 @@
       @for(row of rows(); track row.transactionId; let i = $index) {
         <tr class="flow-row border-b border-rule last:border-0" [style.animation-delay.ms]="i * 40">
           <td class="py-2.5 text-sm text-ink-soft whitespace-nowrap [font-variant-numeric:tabular-nums_lining-nums]">{{ datePart(row) }}</td>
-          <td class="py-2.5 pl-4 text-sm text-ink">{{ row.description }}</td>
+          <td class="py-2.5 pl-4 text-sm text-ink">
+            {{ row.description }}
+            @if(flagLabel(row); as label) {
+              <span class="ml-2 text-xs text-ink-faint">{{ label }}</span>
+            }
+          </td>
           <td class="py-2.5 pl-4 text-sm text-ink-soft">{{ row.accountName }}</td>
           <td class="py-2.5 text-right text-sm font-medium whitespace-nowrap [font-variant-numeric:tabular-nums_lining-nums]">
             @if(row.kind === 'Income') {
@@ -35,7 +40,7 @@
             }
           </td>
           <td class="py-2.5 text-right">
-            @if(row.kind === 'Income') {
+            @if(isUndoable(row)) {
               <button
                 type="button"
                 [disabled]="undoing()"

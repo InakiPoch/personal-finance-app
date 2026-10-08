@@ -611,7 +611,7 @@ describe('DashboardPage', () => {
     expect(group).toBeTruthy();
     const tabs: string[] = Array.from(group.querySelectorAll('button')).map((b) => (b.textContent ?? '').trim());
     expect(tabs).toEqual(['Money Spent', 'Money received']);
-    expect(pageEl().textContent).toContain('Your share of what you paid from bank accounts and cash this month.');
+    expect(pageEl().textContent).toContain('Everything that left your bank accounts and cash this month, including what you lent or fronted for others.');
     view.setFlowSide('in');
     fixture.detectChanges();
     expect(pageEl().textContent).toContain('Money that came into your bank accounts or cash this month.');

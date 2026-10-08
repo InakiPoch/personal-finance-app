@@ -32,8 +32,19 @@ export class MoneyFlowTable {
     return row.date.slice(0, 10);
   }
 
+  protected flagLabel(row: MoneyFlowRow): string | null {
+    if(row.flag === null) {
+      return null;
+    }
+    return `${row.flag === 'LentTo' ? 'Lent to' : 'Shared with'} ${row.partyName ?? ''}`.trim();
+  }
+
+  protected isUndoable(row: MoneyFlowRow): boolean {
+    return row.kind === 'Income' || row.flag === 'LentTo';
+  }
+
   protected onUndo(row: MoneyFlowRow): void {
-    if(row.kind === 'Income') {
+    if(this.isUndoable(row)) {
       this.undo.emit(row.transactionId);
     }
   }

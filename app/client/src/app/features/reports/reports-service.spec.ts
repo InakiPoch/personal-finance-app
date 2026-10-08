@@ -96,7 +96,9 @@ describe('ReportsService', () => {
       accountName: 'Galicia',
       kind: 'Income',
       amountMinorUnits: money(85000000),
-      currencyCode: 'ARS'
+      currencyCode: 'ARS',
+      flag: null,
+      partyName: null
     }];
     let result: MoneyFlowRow[] | undefined;
     service.moneyFlow('2026-09').subscribe((rows: MoneyFlowRow[]) => (result = rows));

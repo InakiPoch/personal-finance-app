@@ -1,15 +1,10 @@
-<form
-  class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
-  [formGroup]="form"
-  (ngSubmit)="onSubmit()"
-  aria-labelledby="purchase-label"
+<app-expandable-form
+  formId="purchase"
+  [title]="'Paid by ' + partyName()"
+  [description]="`A purchase ${partyName()} paid where you took part; you owe your share`"
+  [(open)]="open"
 >
-  <h2 id="purchase-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
-    Paid by {{ partyName() }}
-  </h2>
-  <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-    A purchase this person paid where you took part. Enter your share; it counts as your expense and adds to what you owe them. No account moves.
-  </p>
+<form [formGroup]="form" (ngSubmit)="onSubmit()" aria-labelledby="purchase-label">
   <fieldset class="mt-4 inline-flex overflow-hidden rounded-card border border-rule">
     <legend class="sr-only">Purchase kind</legend>
     @for(option of kinds; track option.value) {
@@ -166,3 +161,4 @@
     }
   </div>
 </form>
+</app-expandable-form>

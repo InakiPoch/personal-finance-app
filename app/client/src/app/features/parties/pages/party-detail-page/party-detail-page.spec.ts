@@ -1,8 +1,8 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { WritableSignal, provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { CurrencyCode } from '../../../../core/types/currency-code';
@@ -33,6 +33,11 @@ type PartyDetailView = {
     bankAccountId: FormControl<string>;
     settledOnUtc: FormControl<string>;
   }>;
+  settleOpen: WritableSignal<boolean>;
+  loanOpen: WritableSignal<boolean>;
+  borrowOpen: WritableSignal<boolean>;
+  repayOpen: WritableSignal<boolean>;
+  purchaseOpen: WritableSignal<boolean>;
   balance: () => CurrentAccountBalance | null;
   timeline: () => PartyTimelineRow[];
   futureShares: () => FuturePartyShare[];
@@ -159,6 +164,7 @@ describe('PartyDetailPage', () => {
   let recordLoan: jasmine.Spy<(id: string, body: RecordLoan) => Observable<LoanResult>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
   let undoPartyPurchase: jasmine.Spy<(id: string, purchaseId: string) => Observable<void>>;
+  let fragment$: BehaviorSubject<string | null>;
 
   function setup(): void {
     fixture = TestBed.createComponent(PartyDetailPage);
@@ -169,6 +175,19 @@ describe('PartyDetailPage', () => {
   function expandScheduled(): void {
     view.toggleScheduled();
     fixture.detectChanges();
+  }
+
+  function expandAll(): void {
+    view.settleOpen.set(true);
+    view.loanOpen.set(true);
+    view.borrowOpen.set(true);
+    view.repayOpen.set(true);
+    view.purchaseOpen.set(true);
+    fixture.detectChanges();
+  }
+
+  function headerButton(formId: string): HTMLButtonElement {
+    return fixture.nativeElement.querySelector(`#${formId}-label button`);
   }
 
   function text(): string {
@@ -189,6 +208,7 @@ describe('PartyDetailPage', () => {
   ];
 
   beforeEach(() => {
+    fragment$ = new BehaviorSubject<string | null>(null);
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance));
     partyTimeline = jasmine.createSpy('partyTimeline').and.returnValue(of(timelineRows));
     futureShares = jasmine.createSpy('futureShares').and.returnValue(of<FuturePartyShare[]>([]));
@@ -210,7 +230,7 @@ describe('PartyDetailPage', () => {
         { provide: LedgerService, useValue: { listExpenseCategories: () => of<string[]>([]) } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
-        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })), fragment: fragment$ } }
       ]
     });
   });
@@ -270,6 +290,7 @@ describe('PartyDetailPage', () => {
   it('offers only the currencies the party actually owes on the settle form', () => {
     getBalance.and.returnValue(of(twoCurrencyBalance));
     setup();
+    expandAll();
     const options: NodeListOf<HTMLOptionElement> = fixture.nativeElement.querySelectorAll('#currency option');
     expect(options.length).toBe(2);
     expect(Array.from(options).map((option: HTMLOptionElement) => option.value)).toEqual(['ARS', 'USD']);
@@ -374,6 +395,7 @@ describe('PartyDetailPage', () => {
     const appError: AppError = { code: 'Parties.LoanDateInFuture', title: 'x', detail: 'x', status: 422, metadata: {} };
     recordLoan.and.returnValue(throwError(() => appError));
     setup();
+    expandAll();
     view.loanForm.setValue({ amount: 25, currency: 'ARS', sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: 'Loan' });
     view.onLoanSubmit();
     fixture.detectChanges();
@@ -414,6 +436,7 @@ describe('PartyDetailPage', () => {
     const appError: AppError = { code: 'Parties.BorrowingDateInFuture', title: 'x', detail: 'x', status: 422, metadata: {} };
     recordBorrowing.and.returnValue(throwError(() => appError));
     setup();
+    expandAll();
     view.borrowForm.setValue({ amount: 25, currency: 'ARS', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: 'Loan' });
     view.onBorrowSubmit();
     fixture.detectChanges();
@@ -499,6 +522,7 @@ describe('PartyDetailPage', () => {
   it('offers only the currencies I owe on the Pay back form', () => {
     getBalance.and.returnValue(of(bothSidesBalance));
     setup();
+    expandAll();
     const options: NodeListOf<HTMLOptionElement> = fixture.nativeElement.querySelectorAll('#repayCurrency option');
     expect(Array.from(options).map((option: HTMLOptionElement) => option.value)).toEqual(['USD']);
   });
@@ -519,6 +543,7 @@ describe('PartyDetailPage', () => {
     const appError: AppError = { code: 'Parties.RepaymentExceedsBalance', title: 'x', detail: 'x', status: 409, metadata: {} };
     repay.and.returnValue(throwError(() => appError));
     setup();
+    expandAll();
     view.repayForm.setValue({ amount: 25, currency: 'ARS', sourceAccountId: 'acct-debit', paidOn: '2026-09-15' });
     view.onRepaySubmit();
     fixture.detectChanges();
@@ -542,11 +567,54 @@ describe('PartyDetailPage', () => {
     };
     settle.and.returnValue(throwError(() => appError));
     setup();
+    expandAll();
     fillSettleForm();
     view.onSubmit();
     fixture.detectChanges();
     expect(view.settleStatus()).toBe('error');
     expect(view.settleError()).toEqual(appError);
     expect(text()).toContain('The amount is more than what this party owes.');
+  });
+  it('collapses every form by default and shows its title with a description', () => {
+    setup();
+    const expected: Record<string, string> = {
+      settle: 'Record settlement',
+      repay: 'Pay back',
+      loan: 'Money lent',
+      borrow: 'Money borrowed',
+      purchase: 'Paid by Alice'
+    };
+    for(const [formId, title] of Object.entries(expected)) {
+      const button: HTMLButtonElement = headerButton(formId);
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(button.getAttribute('aria-controls')).toBe(`${formId}-body`);
+      expect(button.textContent).toContain(title);
+    }
+    expect(headerButton('loan').textContent).toContain('Money you gave Alice from your bank or cash');
+    expect(headerButton('settle').textContent).toContain('Alice paid you back some or all of what they owe');
+    expect(headerButton('purchase').textContent).toContain('A purchase Alice paid where you took part; you owe your share');
+    expect(headerButton('borrow').textContent).toContain('Money Alice gave you that you must pay back');
+    expect(headerButton('repay').textContent).toContain('Pay Alice some or all of what you owe');
+    expect(fixture.nativeElement.querySelector('#amount')).toBeNull();
+  });
+  it('expands and collapses a form from its header', () => {
+    setup();
+    headerButton('settle').click();
+    fixture.detectChanges();
+    expect(headerButton('settle').getAttribute('aria-expanded')).toBe('true');
+    expect(fixture.nativeElement.querySelector('#settle-body #amount')).not.toBeNull();
+    headerButton('settle').click();
+    fixture.detectChanges();
+    expect(headerButton('settle').getAttribute('aria-expanded')).toBe('false');
+    expect(fixture.nativeElement.querySelector('#settle-body')).toBeNull();
+  });
+  it('opens Paid by and Money borrowed when the page opens at #debt-forms', () => {
+    fragment$.next('debt-forms');
+    setup();
+    expect(headerButton('purchase').getAttribute('aria-expanded')).toBe('true');
+    expect(headerButton('borrow').getAttribute('aria-expanded')).toBe('true');
+    expect(headerButton('settle').getAttribute('aria-expanded')).toBe('false');
+    expect(headerButton('loan').getAttribute('aria-expanded')).toBe('false');
+    expect(headerButton('repay').getAttribute('aria-expanded')).toBe('false');
   });
 });

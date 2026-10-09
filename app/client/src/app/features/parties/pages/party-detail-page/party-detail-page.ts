@@ -32,6 +32,7 @@ import { RecordRepayment } from '../../types/record-repayment';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
 import { atMostTwoDecimals, notFutureDate, positiveAmount, singleLine } from '../../validation-helpers';
+import { ExpandableForm } from './expandable-form';
 import { PartyPurchaseForm } from './party-purchase-form';
 import { TimelineTable } from './timeline-table';
 
@@ -75,7 +76,7 @@ type RepayForm = FormGroup<{
 
 @Component({
   selector: 'app-party-detail-page',
-  imports: [ReactiveFormsModule, RouterLink, PartyPurchaseForm, TimelineTable],
+  imports: [ReactiveFormsModule, RouterLink, ExpandableForm, PartyPurchaseForm, TimelineTable],
   templateUrl: './party-detail-page.html',
   styleUrl: './party-detail-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -113,7 +114,13 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash')
   );
   protected readonly scheduledExpanded: WritableSignal<boolean> = signal(false);
+  protected readonly settleOpen: WritableSignal<boolean> = signal(false);
+  protected readonly loanOpen: WritableSignal<boolean> = signal(false);
+  protected readonly borrowOpen: WritableSignal<boolean> = signal(false);
+  protected readonly repayOpen: WritableSignal<boolean> = signal(false);
+  protected readonly purchaseOpen: WritableSignal<boolean> = signal(false);
   protected readonly partyId: WritableSignal<string | null> = signal<string | null>(null);
+  protected readonly partyName: Signal<string> = computed(() => this.balance()?.name ?? 'this party');
   protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
   );
@@ -522,6 +529,14 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     this.initBorrowForm();
     this.initRepayForm();
     this.loadInstruments();
+    this.route.fragment.pipe(takeUntil(this.destroy$)).subscribe({
+      next: (fragment: string | null) => {
+        if(fragment === 'debt-forms') {
+          this.purchaseOpen.set(true);
+          this.borrowOpen.set(true);
+        }
+      }
+    });
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {
         const id: string | null = params.get('id');

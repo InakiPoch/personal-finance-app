@@ -69,6 +69,7 @@ describe('PartyPurchaseForm', () => {
     fixture = TestBed.createComponent(PartyPurchaseForm);
     fixture.componentRef.setInput('partyId', 'p1');
     fixture.componentRef.setInput('partyName', 'Alice');
+    fixture.componentRef.setInput('open', true);
     fixture.componentInstance.recorded.subscribe(recorded);
     view = fixture.componentInstance as unknown as PartyPurchaseFormView;
     fixture.detectChanges();
@@ -77,6 +78,22 @@ describe('PartyPurchaseForm', () => {
   it('is titled after the party and offers existing categories', () => {
     expect(text()).toContain('Paid by Alice');
     expect(fixture.nativeElement.querySelector('option[value="Groceries"]')).not.toBeNull();
+  });
+  it('is collapsed by default and toggles from its header', () => {
+    const collapsed: ComponentFixture<PartyPurchaseForm> = TestBed.createComponent(PartyPurchaseForm);
+    collapsed.componentRef.setInput('partyId', 'p1');
+    collapsed.componentRef.setInput('partyName', 'Alice');
+    collapsed.detectChanges();
+    const element: HTMLElement = collapsed.nativeElement;
+    const button: HTMLButtonElement = element.querySelector('#purchase-label button') as HTMLButtonElement;
+    expect(button.getAttribute('aria-expanded')).toBe('false');
+    expect(button.textContent).toContain('Paid by Alice');
+    expect(button.textContent).toContain('A purchase Alice paid where you took part; you owe your share');
+    expect(element.querySelector('form')).toBeNull();
+    button.click();
+    collapsed.detectChanges();
+    expect(button.getAttribute('aria-expanded')).toBe('true');
+    expect(element.querySelector('form')).not.toBeNull();
   });
   it('has a debit/credit toggle with debit selected', () => {
     const labels: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('fieldset label'));

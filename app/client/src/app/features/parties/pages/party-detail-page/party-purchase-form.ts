@@ -2,12 +2,14 @@ import {
   ChangeDetectionStrategy,
   Component,
   InputSignal,
+  ModelSignal,
   OnDestroy,
   OnInit,
   OutputEmitterRef,
   WritableSignal,
   inject,
   input,
+  model,
   output,
   signal
 } from '@angular/core';
@@ -22,6 +24,7 @@ import { PartiesService } from '../../parties-service';
 import { PartyPurchaseKind } from '../../types/party-purchase-kind';
 import { RecordPartyPurchase } from '../../types/record-party-purchase';
 import { atMostTwoDecimals, notFutureDate, positiveAmount, positiveInteger, singleLine } from '../../validation-helpers';
+import { ExpandableForm } from './expandable-form';
 
 type PurchaseStatus = 'idle' | 'saving' | 'saved' | 'error';
 
@@ -38,13 +41,14 @@ type PurchaseForm = FormGroup<{
 
 @Component({
   selector: 'app-party-purchase-form',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, ExpandableForm],
   templateUrl: './party-purchase-form.html',
   changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class PartyPurchaseForm implements OnInit, OnDestroy {
   readonly partyId: InputSignal<string> = input.required<string>();
   readonly partyName: InputSignal<string> = input<string>('this party');
+  readonly open: ModelSignal<boolean> = model(false);
   readonly recorded: OutputEmitterRef<void> = output<void>();
 
   protected form!: PurchaseForm;

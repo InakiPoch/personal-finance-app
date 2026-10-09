@@ -80,6 +80,7 @@ describe('UI copy glossary guard', () => {
                 snapshot: { paramMap: params, queryParamMap: params },
                 paramMap: of(params),
                 queryParamMap: of(params),
+                fragment: of(null),
               },
             },
           ],

@@ -14,4 +14,8 @@ public sealed record LoanResultDto(Guid LedgerTransactionId);
 
 public sealed record BorrowingResultDto(Guid LedgerTransactionId);
 
+public sealed record RepayPartyDto(long AmountMinorUnits, Guid SourceAccountId, DateOnly PaidOn, string CurrencyCode = "ARS", DateOnly? Today = null);
+
+public sealed record RepaymentResultDto(Guid LedgerTransactionId);
+
 public sealed record SettlementResultDto(Guid LedgerTransactionId);

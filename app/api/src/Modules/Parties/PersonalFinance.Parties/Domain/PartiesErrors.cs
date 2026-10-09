@@ -33,6 +33,16 @@ internal static class PartiesErrors {
         "The referenced expense split was not found."
     );
 
+    public static readonly Error RepaymentExceedsBalance = new(
+        "Parties.RepaymentExceedsBalance",
+        "A repayment cannot exceed what you currently owe the party in that currency."
+    );
+
+    public static readonly Error RepaymentDateInFuture = new(
+        "Parties.RepaymentDateInFuture",
+        "A repayment cannot be dated in the future."
+    );
+
     public static readonly Error SettlementExceedsBalance = new(
         "Parties.SettlementExceedsBalance",
         "A settlement cannot exceed the party's outstanding balance."

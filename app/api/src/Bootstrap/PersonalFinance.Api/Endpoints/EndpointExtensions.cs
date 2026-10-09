@@ -297,6 +297,13 @@ internal static class EndpointExtensions {
                 .Produces(StatusCodes.Status204NoContent)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status409Conflict);
+            group.MapPost(ApiRoutes.Parties.Repayments, PostRepayment.Handle)
+                .WithSummary("Record paying back a party.")
+                .WithDescription("Posts Dr the party payable account / Cr the Bank or Cash source account, dated the given Paid on day. Fails if the party is unknown (404), the amount exceeds what you currently owe in that currency (409), the amount is not positive, the currency is not ARS/USD, the source is not a Bank/Cash account, or the date is in the future (422). Undo with the generic ledger reversal.")
+                .Produces<RepaymentResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapGet(ApiRoutes.Parties.List, GetParties.Handle)
                 .WithSummary("List registered parties.")
                 .WithDescription("Returns every registered party, ordered by name.")

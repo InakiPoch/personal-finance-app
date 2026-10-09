@@ -13,6 +13,7 @@ using PersonalFinance.Parties.Application.Commands.RecordBorrowing;
 using PersonalFinance.Parties.Application.Commands.RecordPartyPurchase;
 using PersonalFinance.Parties.Application.Commands.UndoPartyPurchase;
 using PersonalFinance.Parties.Application.Commands.RecordLoan;
+using PersonalFinance.Parties.Application.Commands.RecordRepayment;
 using PersonalFinance.Parties.Application.Commands.SettleCurrentAccount;
 using PersonalFinance.Parties.Application.EventHandlers;
 using PersonalFinance.Parties.Application.Queries.GetCurrentAccountBalance;
@@ -45,6 +46,7 @@ public sealed class PartiesModule : IModule {
         services.AddScoped<ICommandHandler<RecordBorrowingCommand, Guid>, RecordBorrowingHandler>();
         services.AddScoped<ICommandHandler<RecordPartyPurchaseCommand, Guid>, RecordPartyPurchaseHandler>();
         services.AddScoped<ICommandHandler<UndoPartyPurchaseCommand>, UndoPartyPurchaseHandler>();
+        services.AddScoped<ICommandHandler<RepayPartyCommand, Guid>, RepayPartyHandler>();
         services.AddScoped<ICommandHandler<RecordSplitAccrualCommand>, RecordSplitAccrualHandler>();
         services.AddScoped<ICommandHandler<CorrectExpenseSplitCommand>, CorrectExpenseSplitHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountBalanceQuery, CurrentAccountBalanceResponse>, GetCurrentAccountBalanceHandler>();

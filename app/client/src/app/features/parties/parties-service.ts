@@ -14,6 +14,8 @@ import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
 import { RecordBorrowing } from './types/record-borrowing';
 import { RecordLoan } from './types/record-loan';
 import { RecordPartyPurchase } from './types/record-party-purchase';
+import { RecordRepayment } from './types/record-repayment';
+import { RepaymentResult } from './types/repayment-result';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
 
@@ -69,6 +71,10 @@ export class PartiesService {
 
   undoPartyPurchase(partyId: string, purchaseId: string): Observable<void> {
     return this.http.post<void>(`parties/${partyId}/purchases/${purchaseId}/undo`, null);
+  }
+
+  repay(partyId: string, body: RecordRepayment): Observable<RepaymentResult> {
+    return this.http.post<RepaymentResult>(`parties/${partyId}/repayments`, body);
   }
 
   settle(partyId: string, body: SettleCurrentAccount): Observable<SettlementResult> {

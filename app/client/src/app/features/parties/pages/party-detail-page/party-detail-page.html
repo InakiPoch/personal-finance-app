@@ -303,6 +303,104 @@
   </form>
   <form
     class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+    [formGroup]="repayForm"
+    (ngSubmit)="onRepaySubmit()"
+    aria-labelledby="repay-label"
+  >
+    <h2 id="repay-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Pay back
+    </h2>
+    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+      Paying back reduces what you owe this person.
+    </p>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="repayAmount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Amount</label>
+      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+        <input
+          type="number"
+          id="repayAmount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        <select
+          id="repayCurrency"
+          formControlName="currency"
+          aria-label="Currency"
+          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+        >
+          @for(code of payableCurrencies(); track code) {
+            <option [value]="code">{{ code }}</option>
+          }
+        </select>
+      </div>
+      @if(repayForm.controls.amount.touched && repayForm.controls.amount.hasError('positiveAmount')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(repayForm.controls.amount.touched && repayForm.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="repaySourceAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">From account</label>
+      <div class="relative">
+        <select
+          id="repaySourceAccountId"
+          formControlName="sourceAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
+          <option value="">Choose an account</option>
+          @for(instrument of loanSourceAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }}</option>
+          }
+        </select>
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
+      </div>
+      @if(repayForm.controls.sourceAccountId.touched && repayForm.controls.sourceAccountId.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="paidOn" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Paid on</label>
+      <input
+        type="date"
+        id="paidOn"
+        formControlName="paidOn"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(repayForm.controls.paidOn.touched && repayForm.controls.paidOn.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(repayForm.controls.paidOn.hasError('notFutureDate')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['notFuturePaidDate'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="repayStatus() === 'saving'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        {{ repayStatus() === 'saving' ? 'Recording…' : 'Pay back' }}
+      </button>
+      @if(repayStatus() === 'saved') {
+        <p class="text-[0.8125rem] text-ledger" role="status">Payback recorded.</p>
+      }
+      @if(repayError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ repayErrorText(error) }}</p>
+      }
+    </div>
+  </form>
+  <form
+    class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
     [formGroup]="loanForm"
     (ngSubmit)="onLoanSubmit()"
     aria-labelledby="loan-label"

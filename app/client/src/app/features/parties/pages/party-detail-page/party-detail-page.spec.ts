@@ -608,6 +608,24 @@ describe('PartyDetailPage', () => {
     expect(headerButton('settle').getAttribute('aria-expanded')).toBe('false');
     expect(fixture.nativeElement.querySelector('#settle-body')).toBeNull();
   });
+  it('groups the forms under what you are owed and what you owe', () => {
+    setup();
+    const groups: Record<string, string[]> = {
+      'owed-label': ['loan', 'settle'],
+      'owe-label': ['purchase', 'borrow', 'repay']
+    };
+    const headings: Record<string, string> = {
+      'owed-label': "Register what you're owed",
+      'owe-label': 'Register what you owe'
+    };
+    for(const [headingId, formIds] of Object.entries(groups)) {
+      const section: HTMLElement = fixture.nativeElement.querySelector(`section[aria-labelledby="${headingId}"]`);
+      expect(section.querySelector(`h2#${headingId}`)?.textContent?.trim()).toBe(headings[headingId]);
+      const found: string[] = Array.from<HTMLElement>(section.querySelectorAll('app-expandable-form')).map((el: HTMLElement): string => el.querySelector('h2')?.id.replace('-label', '') ?? '');
+      expect(found).toEqual(formIds);
+    }
+    expect(fixture.nativeElement.querySelector('#debt-forms').getAttribute('aria-labelledby')).toBe('owe-label');
+  });
   it('opens Paid by and Money borrowed when the page opens at #debt-forms', () => {
     fragment$.next('debt-forms');
     setup();

@@ -103,6 +103,14 @@ describe('TimelineTable', () => {
       expect(emitted).toBe('pu-1');
       expect(reversed).toBeUndefined();
     });
+    it('offers Undo purchase once per purchase, not on every posted installment', () => {
+      const secondInstallment: PartyTimelineRow = { ...purchaseRow, transactionId: 'tx-p3', movementOnUtc: '2026-10-01T00:00:00.000Z' };
+      fixture.componentRef.setInput('rows', [purchaseRow, secondInstallment]);
+      fixture.detectChanges();
+      const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('tbody tr button');
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].textContent).toContain('Undo purchase');
+    });
     it('locks Undo purchase once the purchase has been undone', () => {
       fixture.componentRef.setInput('rows', [purchaseRow, undoRow]);
       fixture.detectChanges();

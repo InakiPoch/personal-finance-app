@@ -38,6 +38,13 @@ export class TimelineTable {
     return !!row.purchaseId && !this.isReversalRow(row);
   }
 
+  protected showsAction(row: PartyTimelineRow): boolean {
+    if(!this.isPurchaseRow(row)) {
+      return true;
+    }
+    return this.rows().find((other: PartyTimelineRow) => this.isPurchaseRow(other) && other.purchaseId === row.purchaseId) === row;
+  }
+
   protected isUndone(row: PartyTimelineRow): boolean {
     return this.rows().some((other: PartyTimelineRow) => this.isReversalRow(other) && other.purchaseId === row.purchaseId);
   }

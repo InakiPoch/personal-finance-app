@@ -16,6 +16,8 @@ import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
 import { BorrowingResult } from '../../types/borrowing-result';
 import { LoanResult } from '../../types/loan-result';
+import { RecordRepayment } from '../../types/record-repayment';
+import { RepaymentResult } from '../../types/repayment-result';
 import { RecordBorrowing } from '../../types/record-borrowing';
 import { RecordLoan } from '../../types/record-loan';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
@@ -60,6 +62,15 @@ type PartyDetailView = {
   borrowStatus: () => 'idle' | 'saving' | 'saved' | 'error';
   borrowError: () => AppError | null;
   onBorrowSubmit: () => void;
+  repayForm: FormGroup<{
+    amount: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
+    sourceAccountId: FormControl<string>;
+    paidOn: FormControl<string>;
+  }>;
+  repayStatus: () => 'idle' | 'saving' | 'saved' | 'error';
+  repayError: () => AppError | null;
+  onRepaySubmit: () => void;
   side: () => PartyTimelineSide;
   setSide: (side: PartyTimelineSide) => void;
 };
@@ -133,6 +144,7 @@ describe('PartyDetailPage', () => {
   let partyTimeline: jasmine.Spy<(id: string, side: PartyTimelineSide) => Observable<PartyTimelineRow[]>>;
   let recordBorrowing: jasmine.Spy<(id: string, body: RecordBorrowing) => Observable<BorrowingResult>>;
   let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
+  let repay: jasmine.Spy<(id: string, body: RecordRepayment) => Observable<RepaymentResult>>;
   let recordLoan: jasmine.Spy<(id: string, body: RecordLoan) => Observable<LoanResult>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
 
@@ -172,6 +184,7 @@ describe('PartyDetailPage', () => {
     recordBorrowing = jasmine
       .createSpy('recordBorrowing')
       .and.returnValue(of<BorrowingResult>({ ledgerTransactionId: 'tx-3' }));
+    repay = jasmine.createSpy('repay').and.returnValue(of<RepaymentResult>({ ledgerTransactionId: 'tx-4' }));
     settle = jasmine
       .createSpy('settle')
       .and.returnValue(of<SettlementResult>({ ledgerTransactionId: 'tx-1' }));
@@ -180,7 +193,7 @@ describe('PartyDetailPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan, recordBorrowing } },
+        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan, recordBorrowing, repay } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
@@ -383,6 +396,57 @@ describe('PartyDetailPage', () => {
   it('renders the Money lent form', () => {
     setup();
     expect(text()).toContain('Money lent');
+  });
+  it('renders the Pay back form next to Record settlement', () => {
+    setup();
+    expect(text()).toContain('Pay back');
+    expect(text()).toContain('Record settlement');
+  });
+  it('keeps the repay form invalid until amount, account and a non-future date are set', () => {
+    setup();
+    expect(view.repayForm.valid).toBe(false);
+    view.repayForm.setValue({ amount: 100, currency: 'ARS', sourceAccountId: 'acct-debit', paidOn: '2026-09-15' });
+    expect(view.repayForm.valid).toBe(true);
+    view.repayForm.patchValue({ amount: 0 });
+    expect(view.repayForm.valid).toBe(false);
+    view.repayForm.patchValue({ amount: 100, paidOn: '2999-01-01' });
+    expect(view.repayForm.valid).toBe(false);
+  });
+  it('offers only the currencies I owe on the Pay back form', () => {
+    getBalance.and.returnValue(of(bothSidesBalance));
+    setup();
+    const options: NodeListOf<HTMLOptionElement> = fixture.nativeElement.querySelectorAll('#repayCurrency option');
+    expect(Array.from(options).map((option: HTMLOptionElement) => option.value)).toEqual(['USD']);
+  });
+  it('submits a minor-units repayment then re-fetches balance and timeline', () => {
+    setup();
+    getBalance.calls.reset();
+    partyTimeline.calls.reset();
+    view.repayForm.setValue({ amount: 90, currency: 'USD', sourceAccountId: 'acct-debit', paidOn: '2026-09-15' });
+    view.onRepaySubmit();
+    const [id, body]: [string, RecordRepayment] = repay.calls.mostRecent().args;
+    expect(id).toBe('p1');
+    expect(body).toEqual({ amountMinorUnits: money(9000), currencyCode: 'USD', sourceAccountId: 'acct-debit', paidOn: '2026-09-15', today: new Date().toLocaleDateString('sv-SE') });
+    expect(view.repayStatus()).toBe('saved');
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('shows a message keyed off the AppError code when the repayment exceeds what I owe', () => {
+    const appError: AppError = { code: 'Parties.RepaymentExceedsBalance', title: 'x', detail: 'x', status: 409, metadata: {} };
+    repay.and.returnValue(throwError(() => appError));
+    setup();
+    view.repayForm.setValue({ amount: 25, currency: 'ARS', sourceAccountId: 'acct-debit', paidOn: '2026-09-15' });
+    view.onRepaySubmit();
+    fixture.detectChanges();
+    expect(view.repayStatus()).toBe('error');
+    expect(text()).toContain('You cannot pay back more than you owe.');
+  });
+  it('renders a Reverse button on the I owe timeline', () => {
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? payableRows : timelineRows));
+    setup();
+    view.setSide('payable');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-timeline-table tbody tr button')).not.toBeNull();
   });
   it('renders settleErrorText keyed off the AppError code on a 409', () => {
     const appError: AppError = {

@@ -28,6 +28,7 @@ import { FuturePartyShare } from '../../types/future-party-share';
 import { PartyCurrencyBalance } from '../../types/party-currency-balance';
 import { RecordBorrowing } from '../../types/record-borrowing';
 import { RecordLoan } from '../../types/record-loan';
+import { RecordRepayment } from '../../types/record-repayment';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
 import { atMostTwoDecimals, notFutureDate, positiveAmount, singleLine } from '../../validation-helpers';
@@ -37,6 +38,7 @@ type LoadStatus = 'loading' | 'ready' | 'error';
 type SettleStatus = 'idle' | 'settling' | 'settled' | 'error';
 type LoanStatus = 'idle' | 'saving' | 'saved' | 'error';
 type BorrowStatus = 'idle' | 'saving' | 'saved' | 'error';
+type RepayStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const MONTH_LABELS: readonly string[] = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -65,6 +67,13 @@ type BorrowForm = FormGroup<{
   description: FormControl<string>;
 }>;
 
+type RepayForm = FormGroup<{
+  amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
+  sourceAccountId: FormControl<string>;
+  paidOn: FormControl<string>;
+}>;
+
 @Component({
   selector: 'app-party-detail-page',
   imports: [ReactiveFormsModule, RouterLink, TimelineTable],
@@ -76,6 +85,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected form!: SettlementForm;
   protected loanForm!: LoanForm;
   protected borrowForm!: BorrowForm;
+  protected repayForm!: RepayForm;
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
   protected readonly zeroMinorUnits: Money = fromMinorUnits(0);
   protected readonly balance: WritableSignal<CurrentAccountBalance | null> =
@@ -91,6 +101,8 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly loanError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly borrowStatus: WritableSignal<BorrowStatus> = signal<BorrowStatus>('idle');
   protected readonly borrowError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly repayStatus: WritableSignal<RepayStatus> = signal<RepayStatus>('idle');
+  protected readonly repayError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly side: WritableSignal<PartyTimelineSide> = signal<PartyTimelineSide>('receivable');
   protected readonly loanCurrencies: readonly CurrencyCode[] = ['ARS', 'USD'];
   protected readonly loanSourceAccounts: Signal<Instrument[]> = computed(() =>
@@ -107,6 +119,12 @@ export class PartyDetailPage implements OnInit, OnDestroy {
       .map((row: PartyCurrencyBalance) => row.currencyCode);
     return owed.length > 0 ? owed : ['ARS'];
   });
+  protected readonly payableCurrencies: Signal<CurrencyCode[]> = computed(() => {
+    const owing: CurrencyCode[] = (this.balance()?.payableBalances ?? [])
+      .filter((row: PartyCurrencyBalance) => row.balanceMinorUnits > 0)
+      .map((row: PartyCurrencyBalance) => row.currencyCode);
+    return owing.length > 0 ? owing : ['ARS'];
+  });
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
     positiveAmount: 'Enter an amount greater than zero.',
@@ -114,7 +132,8 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     maxlength: 'Use at most 120 characters.',
     singleLine: 'Keep the description on one line.',
     notFutureDate: 'The loan date cannot be in the future.',
-    notFutureBorrowDate: 'The borrowing date cannot be in the future.'
+    notFutureBorrowDate: 'The borrowing date cannot be in the future.',
+    notFuturePaidDate: 'The payback date cannot be in the future.'
   };
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
@@ -154,6 +173,15 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     'Parties.InvalidBorrowingDescription': 'Add a one-line description of up to 120 characters.',
     'Parties.BorrowingDateInFuture': 'The borrowing date cannot be in the future.',
     'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
+  };
+  private readonly repayErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
+    'Parties.NonPositiveAmount': 'The payback amount must be greater than zero.',
+    'Parties.UnknownFundingAccount': 'Choose a bank or cash account from the list.',
+    'Parties.RepaymentExceedsBalance': 'You cannot pay back more than you owe.',
+    'Parties.RepaymentDateInFuture': 'The payback date cannot be in the future.',
+    'Http.Conflict': 'You cannot pay back more than you owe.',
+    'Http.UnprocessableEntity': 'Check the amount, account and date and try again.'
   };
   private readonly destroy$: Subject<void> = new Subject<void>();
 
@@ -281,6 +309,49 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     );
   }
 
+  protected onRepaySubmit(): void {
+    const id: string | null = this.partyId();
+    if(this.repayForm.invalid || id === null) {
+      this.repayForm.markAllAsTouched();
+      return;
+    }
+    const raw: {
+      amount: number | null;
+      currency: CurrencyCode;
+      sourceAccountId: string;
+      paidOn: string;
+    } = this.repayForm.getRawValue();
+    const body: RecordRepayment = {
+      amountMinorUnits: toMinorUnits(raw.amount as number),
+      currencyCode: raw.currency,
+      sourceAccountId: raw.sourceAccountId,
+      paidOn: raw.paidOn as IsoDate,
+      today: new Date().toLocaleDateString('sv-SE') as IsoDate
+    };
+    this.repayError.set(null);
+    this.repayStatus.set('saving');
+    this.partiesService
+      .repay(id, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.repayStatus.set('saved');
+          this.repayForm.reset({ amount: null, currency: 'ARS', sourceAccountId: '', paidOn: '' });
+          this.loadBalance(id);
+          this.loadTimeline(id);
+        },
+        error: (error: AppError) => {
+          this.repayError.set(error);
+          this.repayStatus.set('error');
+        }
+      }
+    );
+  }
+
+  protected repayErrorText(error: AppError): string {
+    return this.repayErrorMessages[error.code] ?? 'The payback could not be recorded.';
+  }
+
   protected setSide(side: PartyTimelineSide): void {
     const id: string | null = this.partyId();
     this.side.set(side);
@@ -389,6 +460,17 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     });
   }
 
+  private initRepayForm(): void {
+    this.repayForm = this.fb.group({
+      amount: this.fb.control<number | null>(null, {
+        validators: [positiveAmount, atMostTwoDecimals],
+      }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
+      sourceAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
+      paidOn: this.fb.nonNullable.control('', { validators: [Validators.required, notFutureDate] })
+    });
+  }
+
   private initSettlementForm(): void {
     this.form = this.fb.group({
       amount: this.fb.control<number | null>(null, {
@@ -404,6 +486,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     this.initSettlementForm();
     this.initLoanForm();
     this.initBorrowForm();
+    this.initRepayForm();
     this.loadInstruments();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {

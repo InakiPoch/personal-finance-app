@@ -17,7 +17,7 @@ Member ordering for every class here also obeys [`method-organization.md`](../..
 | Quotes | **Single quotes** in TS. Double quotes only where the host language forces it (HTML attributes). |
 | Semicolons | **Always.** |
 | Line length | **100 characters** soft cap. |
-| Trailing commas | **Yes** in every multi-line list, object, import, and param list. |
+| Trailing commas | **None** — never after the last item of an array, object, import, param list, or decorator metadata. |
 | Bracket spacing | `{ x }`, not `{x}`. |
 | Braces | Opening brace on the **same line** as its statement/declaration. |
 | Keyword spacing | No space between keyword and paren: `if(x)`, `for(...)`, `while(...)`, `switch(x)`. |
@@ -25,7 +25,26 @@ Member ordering for every class here also obeys [`method-organization.md`](../..
 **Blank lines**
 - One blank line after the import block, before the decorator / first declaration.
 - One blank line between methods. **No** blank lines between adjacent field declarations.
-- Inside a method, use single blank lines to separate logical blocks (setup / subscribe / cleanup).
+- Inside a function, **no blank lines** between statements: every statement goes on the next line.
+
+**Comments**
+- No comments inside declarations (functions, classes, types, properties). A comment goes only
+  **above** a declaration, and only when its name is ambiguous: `getBalance` or `loadParties`
+  need none; `MonthQueryHelper` or `tickWidth` do.
+- Keep surviving comments compact and self-contained: one short line, no references to docs,
+  slices, phases, or decision codes (`D12`, `Slice 2`, `docs/...`).
+
+**Method-chain endings**
+- When a function ends with a multi-line method chain on a variable, put each call on its own
+  line indented 2 spaces deeper than the statement; the **last** call retracts to the statement's
+  indentation, aligned with the function's closing brace:
+  ```typescript
+  getTimeline(partyId: string): Observable<TimelineRow[]> {
+    return this.http
+      .get<RowsEnvelope<TimelineRow>>(`parties/${partyId}/timeline`)
+    .pipe(map((envelope: RowsEnvelope<TimelineRow>) => envelope.rows));
+  }
+  ```
 
 ---
 
@@ -117,7 +136,7 @@ protected currentStep: WritableSignal<number> = signal(1);
   selector: 'app-feature-name',
   imports: [/* ... */],
   templateUrl: './feature-name.html',
-  styleUrl: './feature-name.css',
+  styleUrl: './feature-name.css'
 })
 ```
 - Template and styles live in **separate files** — never inline `template:` / `styles:`.
@@ -196,7 +215,7 @@ export class AccountService {
     return this.http.post<User>(this.baseUrl + 'users/login', credentials).pipe(
       tap((user: User): void => {
         if(user) this.setCurrentUser(user);
-      }),
+      })
     );
   }
 }
@@ -236,7 +255,7 @@ directly and use `catchError` with status-code branching for cross-cutting side 
   ```typescript
   protected passwordErrors = {
     required: 'Password is required.',
-    minlength: (e: { requiredLength: number }) => `Must be at least ${e.requiredLength} characters.`,
+    minlength: (e: { requiredLength: number }) => `Must be at least ${e.requiredLength} characters.`
   };
   ```
 

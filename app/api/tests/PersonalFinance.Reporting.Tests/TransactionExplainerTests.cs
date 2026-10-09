@@ -141,6 +141,28 @@ public sealed class TransactionExplainerTests {
     }
 
     [Fact]
+    public void A_borrowing_says_you_no_longer_owe_the_party_and_the_money_leaves_the_account() {
+        var row = TransactionExplainer.Explain(facts("Rent gap", debit("Galicia", "Bank", 20_000), credit("Lola Payable", "PartyPayable", 20_000)));
+        Assert.Equal("Borrowing", row.Kind);
+        Assert.Equal("Rent gap", row.Description);
+        Assert.Equal(["You no longer owe Lola ARS 200 for this.", "ARS 200 is removed from Galicia."], row.ImpactLines);
+    }
+
+    [Fact]
+    public void A_repayment_says_you_owe_the_party_again_and_the_money_returns() {
+        var row = TransactionExplainer.Explain(facts("Paid back to Lola", debit("Lola Payable", "PartyPayable", 20_000), credit("Galicia", "Bank", 20_000)));
+        Assert.Equal("Repayment", row.Kind);
+        Assert.Equal(["You owe Lola ARS 200 again.", "ARS 200 returns to Galicia."], row.ImpactLines);
+    }
+
+    [Fact]
+    public void A_party_purchase_is_explained_without_touching_any_bank() {
+        var row = TransactionExplainer.Explain(facts("Dinner", debit("Eating Out", "Expense", 12_000), credit("Lola Payable", "PartyPayable", 12_000)));
+        Assert.Equal("Party purchase", row.Kind);
+        Assert.Equal(["You no longer owe Lola ARS 120 for this purchase."], row.ImpactLines);
+    }
+
+    [Fact]
     public void An_unrecognized_shape_falls_back_to_other() {
         var row = TransactionExplainer.Explain(other());
         Assert.Equal("Other", row.Kind);

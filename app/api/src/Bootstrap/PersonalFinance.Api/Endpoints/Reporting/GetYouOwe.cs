@@ -16,12 +16,10 @@ public static class GetYouOwe {
         var names = (await queryBus.AskAsync(new ListPartiesQuery(), cancellationToken)).Rows.ToDictionary(row => row.Id, row => row.Name);
         var scheduled = new List<(Guid PartyId, string CurrencyCode, long AmountMinorUnits)>();
         if(OwedToYouHelper.IncludesScheduled(requested, current)) {
-            foreach(var partyId in names.Keys) {
-                var response = await queryBus.AskAsync(new GetPartyScheduledInstallmentsQuery(partyId), cancellationToken);
-                scheduled.AddRange(response.Rows
-                    .Where(row => row.CycleYear * 12 + row.CycleMonth <= requested.MonthOrdinal())
-                    .Select(row => (partyId, row.CurrencyCode, row.ShareMinorUnits)));
-            }
+            var response = await queryBus.AskAsync(new GetPartyScheduledInstallmentsQuery(), cancellationToken);
+            scheduled.AddRange(response.Rows
+                .Where(row => row.CycleYear * 12 + row.CycleMonth <= requested.MonthOrdinal())
+                .Select(row => (row.PartyId, row.CurrencyCode, row.ShareMinorUnits)));
         }
         return TypedResults.Ok(new YouOweDto(YouOweHelper.Merge(balances, scheduled, names)));
     }

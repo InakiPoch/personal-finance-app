@@ -1,0 +1,3 @@
+# Party receivable and payable are separate accounts, never netted
+
+A party can owe me (receivable: splits, loans) and I can owe them (payable: borrowings, my share of their purchases), so each party gets a second ledger account, a liability, instead of letting the existing receivable go negative. A single netted balance cannot show both sides: if Juan owes me $100 and I owe him $30, one account reads +$70, and when Juan then sends $70 nothing tells us whether he paid down his side or we squared everything. Splitting it for display would mean tagging every entry with a side, which is two accounts in disguise. Settlement (party pays me) and Repayment (I pay the party) each touch only their own account and are each capped at that account's owed balance.

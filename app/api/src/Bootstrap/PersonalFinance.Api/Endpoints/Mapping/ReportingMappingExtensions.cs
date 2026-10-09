@@ -6,6 +6,10 @@ using PersonalFinance.Reporting.Reports;
 namespace PersonalFinance.Api.Endpoints.Mapping;
 
 internal static class ReportingMappingExtensions {
+    public static YouOweDto ToYouOweDto(this List<YouOweRowDto> rows) {
+        return new YouOweDto(rows);
+    }
+
     public static MonthlyExpensesDto ToMonthlyExpensesDto(this MonthlyExpensesResponse response) {
         var rows = response.Rows
             .Select(row => new MonthlyExpenseRowDto(row.Month, row.Category, row.AmountMinorUnits, row.CurrencyCode))

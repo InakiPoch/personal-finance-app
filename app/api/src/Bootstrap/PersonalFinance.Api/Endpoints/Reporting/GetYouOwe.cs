@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Http.HttpResults;
 using PersonalFinance.Api.Endpoints.DTOs;
+using PersonalFinance.Api.Endpoints.Mapping;
 using PersonalFinance.Api.Helpers;
 using PersonalFinance.Infrastructure.Messaging;
 using PersonalFinance.Parties.Contracts.Queries;
@@ -19,8 +20,8 @@ public static class GetYouOwe {
             var response = await queryBus.AskAsync(new GetPartyScheduledInstallmentsQuery(), cancellationToken);
             scheduled.AddRange(response.Rows
                 .Where(row => row.CycleYear * 12 + row.CycleMonth <= requested.MonthOrdinal())
-                .Select(row => (row.PartyId, row.CurrencyCode, row.ShareMinorUnits)));
+            .Select(row => (row.PartyId, row.CurrencyCode, row.ShareMinorUnits)));
         }
-        return TypedResults.Ok(new YouOweDto(YouOweHelper.Merge(balances, scheduled, names)));
+        return TypedResults.Ok(YouOweHelper.Merge(balances, scheduled, names).ToYouOweDto());
     }
 }

@@ -126,7 +126,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly payableCurrencies: Signal<CurrencyCode[]> = computed(() => {
     const owing: CurrencyCode[] = (this.balance()?.payableBalances ?? [])
       .filter((row: PartyCurrencyBalance) => row.balanceMinorUnits > 0)
-      .map((row: PartyCurrencyBalance) => row.currencyCode);
+    .map((row: PartyCurrencyBalance) => row.currencyCode);
     return owing.length > 0 ? owing : ['ARS'];
   });
   protected readonly fieldErrors: Record<string, string> = {

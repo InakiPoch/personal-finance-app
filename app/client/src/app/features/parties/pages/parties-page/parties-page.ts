@@ -117,7 +117,7 @@ export class PartiesPage implements OnInit, OnDestroy {
     return this.submitErrorMessages[error.code] ?? 'The party could not be created.';
   }
 
-  /** Width (%) of the magnitude tick behind a party row, relative to the largest amount across every currency and side. */
+  /** Width (%) of the magnitude tick behind a party row. */
   protected tickWidth(row: PartySummary): number {
     const max: number = this.maxMagnitude();
     if(max === 0) {

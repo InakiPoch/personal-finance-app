@@ -9,7 +9,7 @@ import {
   inject,
   input,
   output,
-  signal,
+  signal
 } from '@angular/core';
 import { AbstractControl, FormBuilder, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Subject, takeUntil } from 'rxjs';
@@ -186,7 +186,7 @@ export class PartyPurchaseForm implements OnInit, OnDestroy {
     this.ledgerService
       .listExpenseCategories()
       .pipe(takeUntil(this.destroy$))
-      .subscribe((names: string[]) => this.categories.set(names));
+    .subscribe((names: string[]) => this.categories.set(names));
   }
 
   ngOnDestroy(): void {

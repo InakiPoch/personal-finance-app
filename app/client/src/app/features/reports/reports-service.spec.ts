@@ -132,7 +132,7 @@ describe('ReportsService', () => {
   });
   it('GETs parties/you-owe with month and today and unwraps { rows }', () => {
     const rows: YouOweRow[] = [
-      { partyId: 'p1', partyName: 'Alice', currencyCode: 'ARS', amountMinorUnits: money(250000) },
+      { partyId: 'p1', partyName: 'Alice', currencyCode: 'ARS', amountMinorUnits: money(250000) }
     ];
     let result: YouOweRow[] | undefined;
     service.youOwe('2026-10', '2026-10-08').subscribe((r: YouOweRow[]) => (result = r));

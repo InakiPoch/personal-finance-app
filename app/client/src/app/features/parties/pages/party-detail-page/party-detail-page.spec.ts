@@ -195,7 +195,7 @@ describe('PartyDetailPage', () => {
     recordLoan = jasmine.createSpy('recordLoan').and.returnValue(of<LoanResult>({ ledgerTransactionId: 'tx-2' }));
     recordBorrowing = jasmine
       .createSpy('recordBorrowing')
-      .and.returnValue(of<BorrowingResult>({ ledgerTransactionId: 'tx-3' }));
+    .and.returnValue(of<BorrowingResult>({ ledgerTransactionId: 'tx-3' }));
     repay = jasmine.createSpy('repay').and.returnValue(of<RepaymentResult>({ ledgerTransactionId: 'tx-4' }));
     settle = jasmine
       .createSpy('settle')
@@ -468,7 +468,7 @@ describe('PartyDetailPage', () => {
     expect(view.side()).toBe('receivable');
     expect(text()).toContain('Shared expense');
     const labels: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('input[name="timelineSide"]'))
-      .map((radio: unknown) => (radio as HTMLElement).closest('label') as HTMLElement);
+    .map((radio: unknown) => (radio as HTMLElement).closest('label') as HTMLElement);
     expect(labels.map((label: HTMLElement) => label.textContent?.trim())).toEqual(['Owed to me', 'I owe']);
     (fixture.nativeElement.querySelectorAll('input[name="timelineSide"]')[1] as HTMLInputElement).click();
     fixture.detectChanges();

@@ -56,7 +56,7 @@ describe('PartyPurchaseForm', () => {
   beforeEach(() => {
     recordPartyPurchase = jasmine
       .createSpy('recordPartyPurchase')
-      .and.returnValue(of<PartyPurchaseResult>({ purchaseId: 'pu-1' }));
+    .and.returnValue(of<PartyPurchaseResult>({ purchaseId: 'pu-1' }));
     recorded = jasmine.createSpy('recorded');
     TestBed.configureTestingModule({
       imports: [PartyPurchaseForm],

@@ -18,11 +18,26 @@ internal static class PartyMappingExtensions {
         return new RecordLoanCommand(partyId, dto.AmountMinorUnits, dto.SourceAccountId, dto.LentOn, dto.Description, dto.CurrencyCode, dto.Today);
     }
 
+    public static RecordBorrowingCommand ToRecordBorrowingCommand(this RecordBorrowingDto dto, Guid partyId) {
+        return new RecordBorrowingCommand(partyId, dto.AmountMinorUnits, dto.DestinationAccountId, dto.BorrowedOn, dto.Description, dto.CurrencyCode, dto.Today);
+    }
+
+    public static RecordPartyPurchaseCommand ToRecordPartyPurchaseCommand(this RecordPartyPurchaseDto dto, Guid partyId) {
+        return new RecordPartyPurchaseCommand(partyId, dto.ShareMinorUnits, dto.CurrencyCode, dto.Description, dto.CategoryName, dto.PurchaseDate, dto.Kind, dto.Today, dto.InstallmentCount, dto.FirstPaymentMonth);
+    }
+
+    public static RepayPartyCommand ToRepayPartyCommand(this RepayPartyDto dto, Guid partyId) {
+        return new RepayPartyCommand(partyId, dto.AmountMinorUnits, dto.SourceAccountId, dto.PaidOn, dto.CurrencyCode, dto.Today);
+    }
+
     public static CurrentAccountBalanceDto ToCurrentAccountBalanceDto(this CurrentAccountBalanceResponse response) {
         var balances = response.Balances
             .Select(balance => new PartyCurrencyBalanceDto(balance.CurrencyCode, balance.BalanceMinorUnits))
             .ToList();
-        return new CurrentAccountBalanceDto(response.PartyId, response.Name, balances);
+        var payableBalances = response.PayableBalances
+            .Select(balance => new PartyCurrencyBalanceDto(balance.CurrencyCode, balance.BalanceMinorUnits))
+        .ToList();
+        return new CurrentAccountBalanceDto(response.PartyId, response.Name, balances, payableBalances);
     }
 
     public static CurrentAccountTimelineDto ToCurrentAccountTimelineDto(this CurrentAccountTimelineResponse response) {
@@ -38,13 +53,6 @@ internal static class PartyMappingExtensions {
         return new CurrentAccountTimelineDto(rows);
     }
 
-    public static PartiesListDto ToPartiesListDto(this ListPartiesResponse response) {
-        var rows = response.Rows
-            .Select(row => new PartyRowDto(row.Id, row.Name))
-            .ToList();
-        return new PartiesListDto(rows);
-    }
-
     public static FuturePartySharesDto ToFuturePartySharesDto(this GetFuturePartySharesResponse response) {
         var rows = response.Rows
             .Select(row => new FuturePartyShareDto(
@@ -54,6 +62,13 @@ internal static class PartyMappingExtensions {
                 row.CurrencyCode,
                 row.SourceLabel))
             .ToList();
+        return new FuturePartySharesDto(rows);
+    }
+
+    public static FuturePartySharesDto ToFuturePartySharesDto(this GetPartyScheduledInstallmentsResponse response) {
+        var rows = response.Rows
+            .Select(row => new FuturePartyShareDto(row.CycleYear, row.CycleMonth, row.ShareMinorUnits, row.CurrencyCode, row.SourceLabel, row.PurchaseId))
+        .ToList();
         return new FuturePartySharesDto(rows);
     }
 
@@ -71,6 +86,18 @@ internal static class PartyMappingExtensions {
     extension(Guid id) {
         public PartyResultDto ToPartyResultDto() {
             return new PartyResultDto(id);
+        }
+
+        public BorrowingResultDto ToBorrowingResultDto() {
+            return new BorrowingResultDto(id);
+        }
+
+        public PartyPurchaseResultDto ToPartyPurchaseResultDto() {
+            return new PartyPurchaseResultDto(id);
+        }
+
+        public RepaymentResultDto ToRepaymentResultDto() {
+            return new RepaymentResultDto(id);
         }
 
         public LoanResultDto ToLoanResultDto() {

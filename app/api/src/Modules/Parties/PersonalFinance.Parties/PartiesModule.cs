@@ -9,9 +9,16 @@ using PersonalFinance.Parties.Application.Commands.CorrectExpenseSplit;
 using PersonalFinance.Parties.Application.Commands.CreateParty;
 using PersonalFinance.Parties.Application.Commands.RecordSplitAccrual;
 using PersonalFinance.Parties.Application.Commands.RegisterSharedExpense;
+using PersonalFinance.Parties.Application.Commands.RecordBorrowing;
+using PersonalFinance.Parties.Application.Commands.RecordPartyPurchase;
+using PersonalFinance.Parties.Application.Commands.UndoPartyPurchase;
 using PersonalFinance.Parties.Application.Commands.RecordLoan;
+using PersonalFinance.Parties.Application.Commands.RecordRepayment;
 using PersonalFinance.Parties.Application.Commands.SettleCurrentAccount;
+using PersonalFinance.Parties.Application;
 using PersonalFinance.Parties.Application.EventHandlers;
+using PersonalFinance.Parties.Application.Queries.GetPartyScheduledInstallments;
+using PersonalFinance.Parties.Application.Scheduling;
 using PersonalFinance.Parties.Application.Queries.GetCurrentAccountBalance;
 using PersonalFinance.Parties.Application.Queries.GetCurrentAccountTimeline;
 using PersonalFinance.Parties.Application.Queries.ListParties;
@@ -39,11 +46,18 @@ public sealed class PartiesModule : IModule {
         services.AddScoped<ICommandHandler<RegisterSharedExpenseCommand, Guid>, RegisterSharedExpenseHandler>();
         services.AddScoped<ICommandHandler<SettleCurrentAccountCommand, Guid>, SettleCurrentAccountHandler>();
         services.AddScoped<ICommandHandler<RecordLoanCommand, Guid>, RecordLoanHandler>();
+        services.AddScoped<ICommandHandler<RecordBorrowingCommand, Guid>, RecordBorrowingHandler>();
+        services.AddScoped<ICommandHandler<RecordPartyPurchaseCommand, Guid>, RecordPartyPurchaseHandler>();
+        services.AddScoped<ICommandHandler<UndoPartyPurchaseCommand>, UndoPartyPurchaseHandler>();
+        services.AddScoped<ICommandHandler<RepayPartyCommand, Guid>, RepayPartyHandler>();
         services.AddScoped<ICommandHandler<RecordSplitAccrualCommand>, RecordSplitAccrualHandler>();
         services.AddScoped<ICommandHandler<CorrectExpenseSplitCommand>, CorrectExpenseSplitHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountBalanceQuery, CurrentAccountBalanceResponse>, GetCurrentAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountTimelineQuery, CurrentAccountTimelineResponse>, GetCurrentAccountTimelineHandler>();
         services.AddScoped<IQueryHandler<ListPartiesQuery, ListPartiesResponse>, ListPartiesHandler>();
+        services.AddScoped<IQueryHandler<GetPartyScheduledInstallmentsQuery, GetPartyScheduledInstallmentsResponse>, GetPartyScheduledInstallmentsHandler>();
+        services.AddScoped<PartyPurchaseInstallmentPoster>();
+        services.AddHostedService<PostPartyPurchaseInstallments>();
         services.AddScoped<IIntegrationEventHandler<PaymentPlanCreatedIntegrationEvent>, OnPaymentPlanCreated>();
     }
 }

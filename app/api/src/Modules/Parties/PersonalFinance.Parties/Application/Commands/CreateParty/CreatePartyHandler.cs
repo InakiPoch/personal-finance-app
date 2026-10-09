@@ -21,7 +21,13 @@ internal sealed class CreatePartyHandler(PartiesDbContext context, ILedgerApi le
         if(receivableAccount.IsFailure) {
             return receivableAccount.Error;
         }
-        var party = Party.Create(name, receivableAccount.Value);
+        var payableAccount = await ledger.CreateAccountAsync(
+            new CreateAccountCommand($"{name} Payable", AccountType.Liability, AccountKind.PartyPayable),
+            cancellationToken);
+        if(payableAccount.IsFailure) {
+            return payableAccount.Error;
+        }
+        var party = Party.Create(name, receivableAccount.Value, payableAccount.Value);
         if(party.IsFailure) {
             return party.Error;
         }

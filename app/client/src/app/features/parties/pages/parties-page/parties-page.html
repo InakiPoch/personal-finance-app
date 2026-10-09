@@ -2,7 +2,7 @@
   <header class="mb-10">
     <h1 class="font-serif text-2xl font-medium tracking-tight text-heading">Parties</h1>
     <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
-      Who owes whom after the shared expenses. Each person shows a single balance.
+      Who owes whom, in both directions. Each person shows what they owe you and what you owe them, per currency.
     </p>
   </header>
   <section class="mb-12" aria-labelledby="balances-label">
@@ -22,7 +22,7 @@
         <p
           class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
         >
-          {{ formatMoney(total.netBalanceMinorUnits, total.currencyCode) }}
+          {{ formatMoney(total.balanceMinorUnits, total.currencyCode) }}
         </p>
       }
       @if(receivableTotals().length === 0) {
@@ -36,14 +36,14 @@
       <p class="mt-3 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
         What parties owe you across every open balance.
         @for(total of payableTotals(); track total.currencyCode) {
-          <span class="text-ink-soft">You owe {{ formatMoney(total.netBalanceMinorUnits, total.currencyCode) }} back.</span>
+          <span class="text-ink-soft">You owe {{ formatMoney(total.balanceMinorUnits, total.currencyCode) }} back.</span>
         }
       </p>
       @if(parties().length === 0) {
         <p class="mt-8 text-sm text-ink-soft">No parties yet.</p>
       } @else {
         <ul class="mt-8">
-          @for(party of parties(); track party.partyId; let i = $index) {
+          @for(party of parties(); track party.id; let i = $index) {
             <li
               class="party-row relative py-2.5"
               [style.animation-delay.ms]="i * 40"
@@ -55,20 +55,25 @@
               ></span>
               <div class="flex items-baseline justify-between gap-4">
                 <a
-                  [routerLink]="['/parties', party.partyId]"
+                  [routerLink]="['/parties', party.id]"
                   class="group inline-flex items-center gap-1 text-sm text-ink-soft transition-colors hover:text-ink"
                 >
-                  {{ party.partyName }}
+                  {{ party.name }}
                   <span
                     aria-hidden="true"
                     class="transition-transform group-hover:translate-x-0.5"
                   >&rsaquo;</span>
                 </a>
-                @if(party.balances.length > 0) {
+                @if(party.owedToYou.length > 0 || party.youOwe.length > 0) {
                   <div class="flex flex-col items-end gap-0.5">
-                    @for(balance of party.balances; track balance.currencyCode) {
+                    @for(balance of party.owedToYou; track balance.currencyCode) {
                       <span class="text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
-                        {{ formatMoney(balance.netBalanceMinorUnits, balance.currencyCode) }}
+                        Owes you {{ formatMoney(balance.balanceMinorUnits, balance.currencyCode) }}
+                      </span>
+                    }
+                    @for(balance of party.youOwe; track balance.currencyCode) {
+                      <span class="text-sm text-ink-soft [font-variant-numeric:tabular-nums_lining-nums]">
+                        You owe {{ formatMoney(balance.balanceMinorUnits, balance.currencyCode) }}
                       </span>
                     }
                   </div>
@@ -76,7 +81,7 @@
               </div>
               <p
                 class="mt-0.5 text-[0.6875rem] uppercase tracking-[0.12em] text-ink-faint"
-                [class.text-ledger]="party.balances.length === 0 && party.scheduledCount === 0"
+                [class.text-ledger]="party.settledUp"
               >
                 {{ balanceHint(party) }}
               </p>

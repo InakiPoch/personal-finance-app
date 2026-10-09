@@ -40,7 +40,14 @@ internal sealed class OnPaymentPlanCreated(
                 throw new InvalidOperationException(
                     $"Could not provision a receivable account for party {participant.PartyId}: {account.Error.Code}.");
             }
-            var placeholder = Party.Placeholder(participant.PartyId, account.Value);
+            var payable = await ledger.CreateAccountAsync(
+                new CreateAccountCommand($"Party {participant.PartyId} Payable", AccountType.Liability, AccountKind.PartyPayable),
+                cancellationToken);
+            if(payable.IsFailure) {
+                throw new InvalidOperationException(
+                    $"Could not provision a payable account for party {participant.PartyId}: {payable.Error.Code}.");
+            }
+            var placeholder = Party.Placeholder(participant.PartyId, account.Value, payable.Value);
             context.Parties.Add(placeholder);
             receivables.Add(new PartyReceivable(placeholder.Id, account.Value));
         }

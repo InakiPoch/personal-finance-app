@@ -69,14 +69,16 @@
                   Undo entry
                 </span>
               }
-              <button
-                type="button"
-                [disabled]="isReversalRow(row)"
-                (click)="onReverse(row)"
-                class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
-              >
-                Reverse
-              </button>
+              @if(showsAction(row)) {
+                <button
+                  type="button"
+                  [disabled]="isReversalRow(row) || (isPurchaseRow(row) && isUndone(row))"
+                  (click)="onReverse(row)"
+                  class="text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp disabled:pointer-events-none disabled:font-normal disabled:text-ink-faint disabled:opacity-60"
+                >
+                  {{ isPurchaseRow(row) ? 'Undo purchase' : 'Reverse' }}
+                </button>
+              }
             </div>
           </td>
         </tr>

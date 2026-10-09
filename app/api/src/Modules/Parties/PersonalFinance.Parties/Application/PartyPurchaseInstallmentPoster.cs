@@ -17,7 +17,7 @@ internal sealed class PartyPurchaseInstallmentPoster(PartiesDbContext context, I
             .Where(purchase => !purchase.IsCancelled)
             .Where(purchase => purchaseId == null || purchase.Id == purchaseId)
             .Where(purchase => purchase.Installments.Any(installment => installment.LedgerTransactionId == null && installment.DueOn <= today))
-            .ToListAsync(cancellationToken);
+        .ToListAsync(cancellationToken);
         foreach(var purchase in purchases) {
             var party = await context.Parties.FirstAsync(candidate => candidate.Id == purchase.PartyId, cancellationToken);
             var category = await ledger.GetOrCreateExpenseCategoryAsync(new GetOrCreateExpenseCategoryCommand(purchase.CategoryName), cancellationToken);
@@ -51,7 +51,7 @@ internal sealed class PartyPurchaseInstallmentPoster(PartiesDbContext context, I
                 }
                 var cancelled = await context.PartyPurchases
                     .AsNoTracking()
-                    .AnyAsync(candidate => candidate.Id == purchase.Id && candidate.IsCancelled, cancellationToken);
+                .AnyAsync(candidate => candidate.Id == purchase.Id && candidate.IsCancelled, cancellationToken);
                 if(cancelled) {
                     await PartyHandlerHelper.ReverseAsync(ledger, posted.Value, timeProvider);
                     break;

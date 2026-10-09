@@ -12,14 +12,11 @@ public sealed class PartiesListTests(ApiWebApplicationFactory factory) : IClassF
     public async Task A_created_party_is_returned_by_the_list_with_its_id_and_name() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-
         var created = await client.PostAsJsonAsync("/v1/parties", new { name = "Wanda" }, cancellationToken);
         created.EnsureSuccessStatusCode();
         var createdBody = await created.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         var id = createdBody.GetProperty("id").GetGuid();
-
         var response = await client.GetAsync("/v1/parties", cancellationToken);
-
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(cancellationToken));
         var rows = document.RootElement.GetProperty("rows").EnumerateArray().ToList();
@@ -46,9 +43,7 @@ public sealed class PartiesListTests(ApiWebApplicationFactory factory) : IClassF
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var id = await CreatePartyAsync(client, "List Settled", cancellationToken);
-
         var row = await RowAsync(client, id, cancellationToken);
-
         Assert.True(row.GetProperty("settledUp").GetBoolean());
         Assert.Empty(row.GetProperty("owedToYou").EnumerateArray());
         Assert.Empty(row.GetProperty("youOwe").EnumerateArray());
@@ -62,9 +57,7 @@ public sealed class PartiesListTests(ApiWebApplicationFactory factory) : IClassF
         var id = await CreatePartyAsync(client, "List Both", cancellationToken);
         (await client.PostAsJsonAsync($"/v1/parties/{id}/loans", new { amountMinorUnits = 3_000, sourceAccountId = bankId, lentOn = Today(), description = "Lunch", currencyCode = "ARS" }, cancellationToken)).EnsureSuccessStatusCode();
         (await client.PostAsJsonAsync($"/v1/parties/{id}/borrowings", new { amountMinorUnits = 800, destinationAccountId = bankId, borrowedOn = Today(), description = "Gas", currencyCode = "USD" }, cancellationToken)).EnsureSuccessStatusCode();
-
         var row = await RowAsync(client, id, cancellationToken);
-
         Assert.False(row.GetProperty("settledUp").GetBoolean());
         var owed = Assert.Single(row.GetProperty("owedToYou").EnumerateArray());
         Assert.Equal("ARS", owed.GetProperty("currencyCode").GetString());
@@ -84,9 +77,7 @@ public sealed class PartiesListTests(ApiWebApplicationFactory factory) : IClassF
             shareMinorUnits = 1_000, currencyCode = "ARS", description = "Fridge", categoryName = "Home",
             purchaseDate = Today(), kind = "credit", installmentCount = 2, firstPaymentMonth = nextMonth.ToString("yyyy-MM-dd")
         }, cancellationToken)).EnsureSuccessStatusCode();
-
         var row = await RowAsync(client, id, cancellationToken);
-
         Assert.False(row.GetProperty("settledUp").GetBoolean());
         Assert.Equal(2, row.GetProperty("scheduledYouOweCount").GetInt32());
         Assert.Empty(row.GetProperty("youOwe").EnumerateArray());

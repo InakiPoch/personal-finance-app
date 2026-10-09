@@ -17,7 +17,7 @@ internal sealed class PartyPurchaseInstallmentConfiguration : IEntityTypeConfigu
         builder.Property(installment => installment.Currency)
             .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
             .HasColumnName("CurrencyCode")
-            .IsRequired();
+        .IsRequired();
         builder.HasIndex(installment => installment.LedgerTransactionId);
     }
 }

@@ -5,7 +5,7 @@ namespace PersonalFinance.Reporting.Reports;
 public sealed record PayableBalanceRow(Guid PartyId, string CurrencyCode, long BalanceMinorUnits);
 
 /// <summary>
-/// Net payable balance per (party, currency) over every movement dated on or before the end of the requested month
+/// Net payable balance per party and currency as of the end of the requested month.
 /// </summary>
 public sealed record PayableBalancesAsOfResponse(IReadOnlyList<PayableBalanceRow> Rows);
 
@@ -29,7 +29,7 @@ internal sealed class PayableBalancesAsOfHandler(IReadDbConnectionFactory connec
         var rows = totals
             .Where(pair => pair.Value > 0)
             .Select(pair => new PayableBalanceRow(pair.Key.PartyId, pair.Key.Currency, pair.Value))
-            .ToList();
+        .ToList();
         return new PayableBalancesAsOfResponse(rows);
     }
 }

@@ -32,7 +32,7 @@ public sealed class PartyPurchasePostingTests : IDisposable {
         options = new DbContextOptionsBuilder<PartiesDbContext>()
             .UseSqlite(connection)
             .AddInterceptors(failOnSave)
-            .Options;
+        .Options;
         using var context = NewContext();
         context.Database.EnsureCreated();
     }
@@ -47,9 +47,7 @@ public sealed class PartyPurchasePostingTests : IDisposable {
         await using var context = NewContext();
         var handler = new RecordPartyPurchaseHandler(context, ledger, NewPoster(context), clock);
         failOnSave.Armed = true;
-
         await Assert.ThrowsAnyAsync<Exception>(() => handler.HandleAsync(DebitCommand(partyId), TestContext.Current.CancellationToken));
-
         var posted = Assert.Single(ledger.Posted);
         Assert.Contains(posted, ledger.Reversed);
     }
@@ -60,9 +58,7 @@ public sealed class PartyPurchasePostingTests : IDisposable {
         await using var context = NewContext();
         var poster = NewPoster(context);
         failOnSave.Armed = true;
-
         await Assert.ThrowsAnyAsync<Exception>(() => poster.PostDueAsync(today, purchaseId, TestContext.Current.CancellationToken));
-
         var posted = Assert.Single(ledger.Posted);
         Assert.Contains(posted, ledger.Reversed);
     }
@@ -76,9 +72,7 @@ public sealed class PartyPurchasePostingTests : IDisposable {
             await context.SaveChangesAsync(TestContext.Current.CancellationToken);
         }
         await using var postingContext = NewContext();
-
         await NewPoster(postingContext).PostDueAsync(today, null, TestContext.Current.CancellationToken);
-
         Assert.Empty(ledger.Posted);
     }
 
@@ -91,7 +85,6 @@ public sealed class PartyPurchasePostingTests : IDisposable {
         Assert.Equal(2, ledger.Posted.Count);
         ledger.FailReversalOf = ledger.Posted[1];
         var partyId = await PartyOf(purchaseId);
-
         await using(var context = NewContext()) {
             var first = await new UndoPartyPurchaseHandler(context, ledger, clock).HandleAsync(new UndoPartyPurchaseCommand(partyId, purchaseId), TestContext.Current.CancellationToken);
             Assert.True(first.IsFailure);
@@ -101,7 +94,6 @@ public sealed class PartyPurchasePostingTests : IDisposable {
             Assert.True(purchase.IsCancelled);
         }
         ledger.FailReversalOf = null;
-
         await using(var context = NewContext()) {
             var retry = await new UndoPartyPurchaseHandler(context, ledger, clock).HandleAsync(new UndoPartyPurchaseCommand(partyId, purchaseId), TestContext.Current.CancellationToken);
             Assert.True(retry.IsSuccess);
@@ -149,7 +141,6 @@ public sealed class PartyPurchasePostingTests : IDisposable {
 
     private sealed class FailOnSaveInterceptor : SaveChangesInterceptor {
         public bool Armed { get; set; }
-
         public override ValueTask<InterceptionResult<int>> SavingChangesAsync(DbContextEventData eventData, InterceptionResult<int> result, CancellationToken cancellationToken = default) {
             if(Armed) {
                 throw new InvalidOperationException("Simulated save failure.");
@@ -166,7 +157,6 @@ public sealed class PartyPurchasePostingTests : IDisposable {
 
     private sealed class ThrowingConnectionFactory : ISqliteConnectionFactory {
         public static readonly ThrowingConnectionFactory Instance = new();
-
         public SqliteConnection CreateOpenConnection() {
             throw new InvalidOperationException("The test supplies a pre-configured connection; the factory must not be used.");
         }
@@ -176,13 +166,11 @@ public sealed class PartyPurchasePostingTests : IDisposable {
         public List<Guid> Posted { get; } = [];
         public List<Guid> Reversed { get; } = [];
         public Guid? FailReversalOf { get; set; }
-
         public Task<Result<Guid>> PostTransactionAsync(PostTransactionCommand command, CancellationToken ct = default) {
             var id = Guid.CreateVersion7();
             Posted.Add(id);
             return Task.FromResult<Result<Guid>>(id);
         }
-
         public Task<Result<ReverseTransactionResult>> ReverseTransactionAsync(ReverseTransactionCommand command, CancellationToken ct = default) {
             if(command.OriginalTransactionId == FailReversalOf) {
                 return Task.FromResult<Result<ReverseTransactionResult>>(new Error("Ledger.Boom", "boom"));
@@ -193,11 +181,9 @@ public sealed class PartyPurchasePostingTests : IDisposable {
             Reversed.Add(command.OriginalTransactionId);
             return Task.FromResult<Result<ReverseTransactionResult>>(new ReverseTransactionResult(Guid.CreateVersion7(), true));
         }
-
         public Task<Result<Guid>> GetOrCreateExpenseCategoryAsync(GetOrCreateExpenseCategoryCommand command, CancellationToken ct = default) {
             return Task.FromResult<Result<Guid>>(Guid.CreateVersion7());
         }
-
         public Task<Result<Guid>> PostReceivableAsync(PostReceivableCommand command, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<Result<Guid>> CreateAccountAsync(CreateAccountCommand command, CancellationToken ct = default) => throw new NotSupportedException();
         public Task<ExpenseCategoriesResponse> ListExpenseCategoriesAsync(ListExpenseCategoriesQuery query, CancellationToken ct = default) => throw new NotSupportedException();

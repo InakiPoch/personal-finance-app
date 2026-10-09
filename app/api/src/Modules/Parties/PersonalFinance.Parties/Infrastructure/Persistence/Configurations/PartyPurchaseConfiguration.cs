@@ -16,22 +16,22 @@ internal sealed class PartyPurchaseConfiguration : IEntityTypeConfiguration<Part
         builder.Property(purchase => purchase.CategoryName).IsRequired();
         builder.Property(purchase => purchase.Kind)
             .HasConversion<string>()
-            .IsRequired();
+        .IsRequired();
         builder.Property(purchase => purchase.PurchaseDate).IsRequired();
         builder.Property(purchase => purchase.IsCancelled).HasDefaultValue(false).IsRequired();
         builder.Property(purchase => purchase.ShareMinorUnits).HasColumnName("ShareMinorUnits").IsRequired();
         builder.Property(purchase => purchase.Currency)
             .HasConversion(currency => currency.Code, code => Currency.FromCode(code))
             .HasColumnName("CurrencyCode")
-            .IsRequired();
+        .IsRequired();
         builder.HasMany(purchase => purchase.Installments)
             .WithOne()
             .HasForeignKey(installment => installment.PartyPurchaseId)
             .IsRequired()
-            .OnDelete(DeleteBehavior.Cascade);
+        .OnDelete(DeleteBehavior.Cascade);
         builder.Navigation(purchase => purchase.Installments)
             .HasField("installments")
-            .UsePropertyAccessMode(PropertyAccessMode.Field);
+        .UsePropertyAccessMode(PropertyAccessMode.Field);
         builder.HasIndex(purchase => purchase.PartyId);
         builder.Ignore(purchase => purchase.DomainEvents);
     }

@@ -5,7 +5,7 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Api.Helpers;
 
 /// <summary>
-/// Merges payable balances (Reporting) with scheduled party purchase installments (Parties) into the dashboard "You owe" rows.
+/// Merges payable balances with scheduled party purchase installments into "You owe" rows.
 /// </summary>
 internal static class YouOweHelper {
     public static List<YouOweRowDto> Merge(
@@ -23,6 +23,6 @@ internal static class YouOweHelper {
             .Select(pair => new YouOweRowDto(pair.Key.PartyId, partyNames[pair.Key.PartyId], pair.Key.CurrencyCode, pair.Value))
             .OrderBy(row => row.PartyName, StringComparer.Ordinal)
             .ThenBy(row => row.CurrencyCode, StringComparer.Ordinal)
-            .ToList();
+        .ToList();
     }
 }

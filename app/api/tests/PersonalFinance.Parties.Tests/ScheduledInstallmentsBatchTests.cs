@@ -19,7 +19,7 @@ public sealed class ScheduledInstallmentsBatchTests : IDisposable {
         connection.Open();
         options = new DbContextOptionsBuilder<PartiesDbContext>()
             .UseSqlite(connection)
-            .Options;
+        .Options;
         using var context = NewContext();
         context.Database.EnsureCreated();
     }
@@ -33,10 +33,8 @@ public sealed class ScheduledInstallmentsBatchTests : IDisposable {
         var (ana, bruno) = await Seed();
         await using var context = NewContext();
         var handler = new GetPartyScheduledInstallmentsHandler(context);
-
         var all = await handler.HandleAsync(new GetPartyScheduledInstallmentsQuery(), TestContext.Current.CancellationToken);
         var onlyAna = await handler.HandleAsync(new GetPartyScheduledInstallmentsQuery(ana), TestContext.Current.CancellationToken);
-
         Assert.Equal(3, all.Rows.Count);
         Assert.Equal(2, all.Rows.Count(row => row.PartyId == ana));
         Assert.Single(all.Rows, row => row.PartyId == bruno);
@@ -62,7 +60,6 @@ public sealed class ScheduledInstallmentsBatchTests : IDisposable {
 
     private sealed class ThrowingConnectionFactory : ISqliteConnectionFactory {
         public static readonly ThrowingConnectionFactory Instance = new();
-
         public SqliteConnection CreateOpenConnection() {
             throw new InvalidOperationException("The test supplies a pre-configured connection; the factory must not be used.");
         }

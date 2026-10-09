@@ -14,7 +14,7 @@ internal sealed class UndoPartyPurchaseHandler(PartiesDbContext context, ILedger
     public async Task<Result> HandleAsync(UndoPartyPurchaseCommand command, CancellationToken cancellationToken) {
         var purchase = await context.PartyPurchases
             .Include(candidate => candidate.Installments)
-            .FirstOrDefaultAsync(candidate => candidate.Id == command.PurchaseId && candidate.PartyId == command.PartyId, cancellationToken);
+        .FirstOrDefaultAsync(candidate => candidate.Id == command.PurchaseId && candidate.PartyId == command.PartyId, cancellationToken);
         if(purchase is null) {
             return Result.Failure(PartiesErrors.PurchaseNotFound);
         }

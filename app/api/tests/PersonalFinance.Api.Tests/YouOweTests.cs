@@ -30,9 +30,7 @@ public sealed class YouOweTests(ApiWebApplicationFactory factory) : IClassFixtur
             paidOn = Today(),
             currencyCode = "USD"
         }, cancellationToken)).EnsureSuccessStatusCode();
-
         var rows = await GetRowsAsync(client, MonthOffset(0), partyId, cancellationToken);
-
         Assert.Equal(2, rows.Count);
         Assert.Equal("Owe Ana", rows[0].GetProperty("partyName").GetString());
         Assert.Equal(10_000, AmountFor(rows, "ARS"));
@@ -46,7 +44,6 @@ public sealed class YouOweTests(ApiWebApplicationFactory factory) : IClassFixtur
         var bankId = await CreateBankAsync(client, "Owe Bank 2", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Owe Bruno", cancellationToken);
         await BorrowAsync(client, partyId, bankId, 10_000, "ARS", cancellationToken);
-
         Assert.Empty(await GetRowsAsync(client, MonthOffset(-1), partyId, cancellationToken));
     }
 
@@ -66,7 +63,6 @@ public sealed class YouOweTests(ApiWebApplicationFactory factory) : IClassFixtur
             installmentCount = 3,
             firstPaymentMonth = new DateOnly(first.Year, first.Month, 1).ToString("yyyy-MM-dd")
         }, cancellationToken)).EnsureSuccessStatusCode();
-
         Assert.Empty(await GetRowsAsync(client, MonthOffset(0), partyId, cancellationToken));
         Assert.Equal(5_000, AmountFor(await GetRowsAsync(client, MonthOffset(1), partyId, cancellationToken), "ARS"));
         Assert.Equal(15_000, AmountFor(await GetRowsAsync(client, MonthOffset(24), partyId, cancellationToken), "ARS"));
@@ -85,7 +81,6 @@ public sealed class YouOweTests(ApiWebApplicationFactory factory) : IClassFixtur
             paidOn = Today(),
             currencyCode = "ARS"
         }, cancellationToken)).EnsureSuccessStatusCode();
-
         Assert.Empty(await GetRowsAsync(client, MonthOffset(0), partyId, cancellationToken));
     }
 
@@ -109,7 +104,7 @@ public sealed class YouOweTests(ApiWebApplicationFactory factory) : IClassFixtur
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);
         return [.. body.GetProperty("rows").EnumerateArray()
             .Where(row => row.GetProperty("partyId").GetGuid() == partyId)
-            .OrderBy(row => row.GetProperty("currencyCode").GetString())];
+        .OrderBy(row => row.GetProperty("currencyCode").GetString())];
     }
 
     private static async Task BorrowAsync(HttpClient client, Guid partyId, Guid destinationAccountId, long amount, string currency, CancellationToken cancellationToken) {

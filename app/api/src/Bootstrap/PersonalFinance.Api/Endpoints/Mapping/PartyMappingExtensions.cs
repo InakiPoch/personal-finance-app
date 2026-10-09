@@ -36,7 +36,7 @@ internal static class PartyMappingExtensions {
             .ToList();
         var payableBalances = response.PayableBalances
             .Select(balance => new PartyCurrencyBalanceDto(balance.CurrencyCode, balance.BalanceMinorUnits))
-            .ToList();
+        .ToList();
         return new CurrentAccountBalanceDto(response.PartyId, response.Name, balances, payableBalances);
     }
 
@@ -68,7 +68,7 @@ internal static class PartyMappingExtensions {
     public static FuturePartySharesDto ToFuturePartySharesDto(this GetPartyScheduledInstallmentsResponse response) {
         var rows = response.Rows
             .Select(row => new FuturePartyShareDto(row.CycleYear, row.CycleMonth, row.ShareMinorUnits, row.CurrencyCode, row.SourceLabel, row.PurchaseId))
-            .ToList();
+        .ToList();
         return new FuturePartySharesDto(rows);
     }
 

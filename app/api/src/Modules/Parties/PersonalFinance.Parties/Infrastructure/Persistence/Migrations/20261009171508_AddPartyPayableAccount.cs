@@ -18,7 +18,6 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
-            // Backfill: one PartyPayable liability account per existing party; OwnerReferenceId carries the party id only while linking.
             migrationBuilder.Sql(@"INSERT INTO ledger_accounts (Id, Name, Type, Kind, OwnerReferenceId)
 SELECT upper(hex(randomblob(4)) || '-' || hex(randomblob(2)) || '-4' || substr(hex(randomblob(2)), 2) || '-A' || substr(hex(randomblob(2)), 2) || '-' || hex(randomblob(6))),
        Name || ' Payable', 'Liability', 'PartyPayable', Id

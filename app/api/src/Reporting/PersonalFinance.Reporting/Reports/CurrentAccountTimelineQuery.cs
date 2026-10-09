@@ -21,8 +21,7 @@ public sealed record PartyTimelineResponse(IReadOnlyList<PartyTimelineRow> Rows)
 
 public sealed record GetPartyTimelineQuery(Guid PartyId, string Side = "receivable") : IQuery<PartyTimelineResponse>;
 
-internal sealed class GetPartyTimelineHandler(IReadDbConnectionFactory connectionFactory)
-    : IQueryHandler<GetPartyTimelineQuery, PartyTimelineResponse> {
+internal sealed class GetPartyTimelineHandler(IReadDbConnectionFactory connectionFactory) : IQueryHandler<GetPartyTimelineQuery, PartyTimelineResponse> {
     public async Task<PartyTimelineResponse> HandleAsync(GetPartyTimelineQuery query, CancellationToken cancellationToken) {
         await using var connection = connectionFactory.CreateOpenConnection();
         await using var command = connection.CreateCommand();

@@ -8,10 +8,7 @@ namespace PersonalFinance.Parties.Contracts.Queries;
 public sealed record PartyCurrencyBalance(string CurrencyCode, long BalanceMinorUnits);
 
 /// <summary>
-/// A party's outstanding balance, one row per currency it holds. Always resolved live from the
-/// party's Ledger <c>Receivable</c> account. Positive means the party owes the account holder. PayableBalances is the separate, never-netted
-/// <c>PartyPayable</c> side: positive means the account holder owes the party.
-/// A currency with no movements is absent, never a zero row (no FX, no blending).
+/// A party's outstanding balance, one row per currency.
 /// </summary>
 public sealed record CurrentAccountBalanceResponse(Guid PartyId, string Name, IReadOnlyList<PartyCurrencyBalance> Balances, IReadOnlyList<PartyCurrencyBalance> PayableBalances);
 

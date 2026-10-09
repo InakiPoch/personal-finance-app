@@ -1,7 +1,7 @@
 namespace PersonalFinance.Api.Endpoints.DTOs;
 
 /// <summary>
-/// One party with both sides per currency (never netted); SettledUp means nothing owed or scheduled in either direction.
+/// One party with both sides per currency, never netted.
 /// </summary>
 public sealed record PartyRowDto(
     Guid Id,

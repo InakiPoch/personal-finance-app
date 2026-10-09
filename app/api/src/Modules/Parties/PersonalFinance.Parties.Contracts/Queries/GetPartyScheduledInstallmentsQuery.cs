@@ -5,7 +5,7 @@ namespace PersonalFinance.Parties.Contracts.Queries;
 public sealed record ScheduledInstallmentRow(Guid PartyId, int CycleYear, int CycleMonth, long ShareMinorUnits, string CurrencyCode, string SourceLabel, Guid PurchaseId);
 
 /// <summary>
-/// The installments of credit purchases that are not posted yet and not cancelled (what I will owe the party), ordered by month; all parties when no party is given.
+/// The installments of credit purchases that are not posted yet and not cancelled.
 /// </summary>
 public sealed record GetPartyScheduledInstallmentsResponse(IReadOnlyList<ScheduledInstallmentRow> Rows);
 

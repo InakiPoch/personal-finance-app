@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
+import { BorrowingResult } from './types/borrowing-result';
 import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
@@ -9,6 +10,7 @@ import { LoanResult } from './types/loan-result';
 import { Party } from './types/party';
 import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
+import { RecordBorrowing } from './types/record-borrowing';
 import { RecordLoan } from './types/record-loan';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
@@ -53,6 +55,10 @@ export class PartiesService {
 
   recordLoan(partyId: string, body: RecordLoan): Observable<LoanResult> {
     return this.http.post<LoanResult>(`parties/${partyId}/loans`, body);
+  }
+
+  recordBorrowing(partyId: string, body: RecordBorrowing): Observable<BorrowingResult> {
+    return this.http.post<BorrowingResult>(`parties/${partyId}/borrowings`, body);
   }
 
   settle(partyId: string, body: SettleCurrentAccount): Observable<SettlementResult> {

@@ -9,6 +9,7 @@ import { MonthlyIncomeRow } from './types/monthly-income-row';
 import { OwedToYouRow } from './types/owed-to-you-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
+import { PartyTimelineSide } from './types/party-timeline-side';
 import { TransactionFeedRow } from './types/transaction-feed-row';
 
 type RowsEnvelope<T> = { rows: T[] };
@@ -54,9 +55,9 @@ export class ReportsService {
     .pipe(map((envelope: RowsEnvelope<PartyDebtRow>) => envelope.rows));
   }
 
-  partyTimeline(partyId: string): Observable<PartyTimelineRow[]> {
+  partyTimeline(partyId: string, side: PartyTimelineSide = 'receivable'): Observable<PartyTimelineRow[]> {
     return this.http
-      .get<RowsEnvelope<PartyTimelineRow>>(`reports/parties/${partyId}/timeline`)
+      .get<RowsEnvelope<PartyTimelineRow>>(`reports/parties/${partyId}/timeline`, { params: { side } })
     .pipe(map((envelope: RowsEnvelope<PartyTimelineRow>) => envelope.rows));
   }
 

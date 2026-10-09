@@ -48,7 +48,7 @@
             }
           </p>
         }
-      } @else {
+      } @else if(current.payableBalances.length === 0) {
         <p
           class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-ledger [font-variant-numeric:tabular-nums_lining-nums]"
         >
@@ -57,6 +57,18 @@
         <p class="mt-1 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
           Nothing outstanding — you're square.
         </p>
+      }
+      @for(owe of current.payableBalances; track owe.currencyCode) {
+        @if(owe.balanceMinorUnits > 0) {
+          <p
+            class="mt-4 font-serif text-2xl font-medium leading-none tracking-[-0.01em] text-negative [font-variant-numeric:tabular-nums_lining-nums]"
+          >
+            {{ formatMoney(owe.balanceMinorUnits, owe.currencyCode) }}
+          </p>
+          <p class="mt-1 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+            What you owe this party in {{ owe.currencyCode }}.
+          </p>
+        }
       }
     }
     @if(partyId(); as id) {
@@ -75,6 +87,32 @@
     <h2 id="timeline-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Timeline
     </h2>
+    <div role="group" aria-label="Timeline side" class="mt-4 inline-flex gap-4">
+      <button
+        type="button"
+        [attr.aria-pressed]="side() === 'receivable'"
+        (click)="setSide('receivable')"
+        class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+        [class.border-stamp]="side() === 'receivable'"
+        [class.text-ink]="side() === 'receivable'"
+        [class.border-transparent]="side() !== 'receivable'"
+        [class.text-ink-faint]="side() !== 'receivable'"
+      >
+        Owed to me
+      </button>
+      <button
+        type="button"
+        [attr.aria-pressed]="side() === 'payable'"
+        (click)="setSide('payable')"
+        class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+        [class.border-stamp]="side() === 'payable'"
+        [class.text-ink]="side() === 'payable'"
+        [class.border-transparent]="side() !== 'payable'"
+        [class.text-ink-faint]="side() !== 'payable'"
+      >
+        I owe
+      </button>
+    </div>
 
     @if(timelineStatus() === 'loading') {
       <p class="mt-6 text-sm text-ink-faint">Reading the timeline…</p>
@@ -378,6 +416,127 @@
       }
       @if(loanError(); as error) {
         <p class="text-xs text-negative" role="alert">{{ loanErrorText(error) }}</p>
+      }
+    </div>
+  </form>
+  <form
+    class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+    [formGroup]="borrowForm"
+    (ngSubmit)="onBorrowSubmit()"
+    aria-labelledby="borrow-label"
+  >
+    <h2 id="borrow-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Money borrowed
+    </h2>
+    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+      Money this person lends you, paid into one of your accounts. It adds to what you owe them.
+    </p>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowAmount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Amount</label>
+      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+        <input
+          type="number"
+          id="borrowAmount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        <select
+          id="borrowCurrency"
+          formControlName="currency"
+          aria-label="Currency"
+          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+        >
+          @for(code of loanCurrencies; track code) {
+            <option [value]="code">{{ code }}</option>
+          }
+        </select>
+      </div>
+      @if(borrowForm.controls.amount.touched && borrowForm.controls.amount.hasError('positiveAmount')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(borrowForm.controls.amount.touched && borrowForm.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowDestinationAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Into account</label>
+      <div class="relative">
+        <select
+          id="borrowDestinationAccountId"
+          formControlName="destinationAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
+          <option value="">Choose an account</option>
+          @for(instrument of loanSourceAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }}</option>
+          }
+        </select>
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
+      </div>
+      @if(borrowForm.controls.destinationAccountId.touched && borrowForm.controls.destinationAccountId.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowedOn" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Borrowed on</label>
+      <input
+        type="date"
+        id="borrowedOn"
+        formControlName="borrowedOn"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(borrowForm.controls.borrowedOn.touched && borrowForm.controls.borrowedOn.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(borrowForm.controls.borrowedOn.hasError('notFutureDate')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['notFutureBorrowDate'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowDescription" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Description</label>
+      <input
+        type="text"
+        id="borrowDescription"
+        maxlength="121"
+        formControlName="description"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(borrowForm.controls.description.touched && (borrowForm.controls.description.hasError('required') || borrowForm.controls.description.hasError('pattern'))) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(borrowForm.controls.description.hasError('maxlength')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['maxlength'] }}</p>
+      }
+      @if(borrowForm.controls.description.hasError('singleLine')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['singleLine'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="borrowStatus() === 'saving'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        {{ borrowStatus() === 'saving' ? 'Recording…' : 'Record borrowing' }}
+      </button>
+      @if(borrowStatus() === 'saved') {
+        <p class="text-[0.8125rem] text-ledger" role="status">Borrowing recorded.</p>
+      }
+      @if(borrowError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ borrowErrorText(error) }}</p>
       }
     </div>
   </form>

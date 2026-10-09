@@ -22,9 +22,11 @@ import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
+import { PartyTimelineSide } from '../../../reports/types/party-timeline-side';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
 import { PartyCurrencyBalance } from '../../types/party-currency-balance';
+import { RecordBorrowing } from '../../types/record-borrowing';
 import { RecordLoan } from '../../types/record-loan';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
@@ -34,6 +36,7 @@ import { TimelineTable } from './timeline-table';
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SettleStatus = 'idle' | 'settling' | 'settled' | 'error';
 type LoanStatus = 'idle' | 'saving' | 'saved' | 'error';
+type BorrowStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const MONTH_LABELS: readonly string[] = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -54,6 +57,14 @@ type LoanForm = FormGroup<{
   description: FormControl<string>;
 }>;
 
+type BorrowForm = FormGroup<{
+  amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
+  destinationAccountId: FormControl<string>;
+  borrowedOn: FormControl<string>;
+  description: FormControl<string>;
+}>;
+
 @Component({
   selector: 'app-party-detail-page',
   imports: [ReactiveFormsModule, RouterLink, TimelineTable],
@@ -64,6 +75,7 @@ type LoanForm = FormGroup<{
 export class PartyDetailPage implements OnInit, OnDestroy {
   protected form!: SettlementForm;
   protected loanForm!: LoanForm;
+  protected borrowForm!: BorrowForm;
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
   protected readonly zeroMinorUnits: Money = fromMinorUnits(0);
   protected readonly balance: WritableSignal<CurrentAccountBalance | null> =
@@ -77,6 +89,9 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly settleError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly loanStatus: WritableSignal<LoanStatus> = signal<LoanStatus>('idle');
   protected readonly loanError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly borrowStatus: WritableSignal<BorrowStatus> = signal<BorrowStatus>('idle');
+  protected readonly borrowError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly side: WritableSignal<PartyTimelineSide> = signal<PartyTimelineSide>('receivable');
   protected readonly loanCurrencies: readonly CurrencyCode[] = ['ARS', 'USD'];
   protected readonly loanSourceAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash')
@@ -98,7 +113,8 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     atMostTwoDecimals: 'Use at most two decimal places.',
     maxlength: 'Use at most 120 characters.',
     singleLine: 'Keep the description on one line.',
-    notFutureDate: 'The loan date cannot be in the future.'
+    notFutureDate: 'The loan date cannot be in the future.',
+    notFutureBorrowDate: 'The borrowing date cannot be in the future.'
   };
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
@@ -129,6 +145,14 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     'Parties.UnknownFundingAccount': 'Choose a bank or cash account from the list.',
     'Parties.InvalidLoanDescription': 'Add a one-line description of up to 120 characters.',
     'Parties.LoanDateInFuture': 'The loan date cannot be in the future.',
+    'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
+  };
+  private readonly borrowErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
+    'Parties.NonPositiveAmount': 'The borrowed amount must be greater than zero.',
+    'Parties.UnknownFundingAccount': 'Choose a bank or cash account from the list.',
+    'Parties.InvalidBorrowingDescription': 'Add a one-line description of up to 120 characters.',
+    'Parties.BorrowingDateInFuture': 'The borrowing date cannot be in the future.',
     'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
   };
   private readonly destroy$: Subject<void> = new Subject<void>();
@@ -216,6 +240,59 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     );
   }
 
+  protected onBorrowSubmit(): void {
+    const id: string | null = this.partyId();
+    if(this.borrowForm.invalid || id === null) {
+      this.borrowForm.markAllAsTouched();
+      return;
+    }
+    const raw: {
+      amount: number | null;
+      currency: CurrencyCode;
+      destinationAccountId: string;
+      borrowedOn: string;
+      description: string;
+    } = this.borrowForm.getRawValue();
+    const body: RecordBorrowing = {
+      amountMinorUnits: toMinorUnits(raw.amount as number),
+      currencyCode: raw.currency,
+      destinationAccountId: raw.destinationAccountId,
+      borrowedOn: raw.borrowedOn as IsoDate,
+      description: raw.description.trim(),
+      today: new Date().toLocaleDateString('sv-SE') as IsoDate
+    };
+    this.borrowError.set(null);
+    this.borrowStatus.set('saving');
+    this.partiesService
+      .recordBorrowing(id, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.borrowStatus.set('saved');
+          this.borrowForm.reset({ amount: null, currency: 'ARS', destinationAccountId: '', borrowedOn: '', description: '' });
+          this.loadBalance(id);
+          this.loadTimeline(id);
+        },
+        error: (error: AppError) => {
+          this.borrowError.set(error);
+          this.borrowStatus.set('error');
+        }
+      }
+    );
+  }
+
+  protected setSide(side: PartyTimelineSide): void {
+    const id: string | null = this.partyId();
+    this.side.set(side);
+    if(id !== null) {
+      this.loadTimeline(id);
+    }
+  }
+
+  protected borrowErrorText(error: AppError): string {
+    return this.borrowErrorMessages[error.code] ?? 'The borrowing could not be recorded.';
+  }
+
   protected loanErrorText(error: AppError): string {
     return this.loanErrorMessages[error.code] ?? 'The loan could not be recorded.';
   }
@@ -257,7 +334,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private loadTimeline(id: string): void {
     this.timelineStatus.set('loading');
     this.reports
-      .partyTimeline(id)
+      .partyTimeline(id, this.side())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows: PartyTimelineRow[]) => {
@@ -298,6 +375,20 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     });
   }
 
+  private initBorrowForm(): void {
+    this.borrowForm = this.fb.group({
+      amount: this.fb.control<number | null>(null, {
+        validators: [positiveAmount, atMostTwoDecimals],
+      }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
+      destinationAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
+      borrowedOn: this.fb.nonNullable.control('', { validators: [Validators.required, notFutureDate] }),
+      description: this.fb.nonNullable.control('', {
+        validators: [Validators.required, Validators.pattern(/\S/), Validators.maxLength(120), singleLine]
+      })
+    });
+  }
+
   private initSettlementForm(): void {
     this.form = this.fb.group({
       amount: this.fb.control<number | null>(null, {
@@ -312,6 +403,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.initSettlementForm();
     this.initLoanForm();
+    this.initBorrowForm();
     this.loadInstruments();
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {

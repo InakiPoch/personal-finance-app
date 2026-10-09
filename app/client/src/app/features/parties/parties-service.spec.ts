@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { baseUrlInterceptor } from '../../core/http/base-url.interceptor';
 import { problemDetailsInterceptor } from '../../core/http/problem-details.interceptor';
 import { AppError } from '../../core/types/app-error';
+import { IsoDate } from '../../core/types/iso-date';
 import { Money } from '../../core/types/money';
 import { environment } from '../../environments/environment';
 import { CreateParty } from './types/create-party';
@@ -12,6 +13,7 @@ import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
 import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
+import { RecordBorrowing } from './types/record-borrowing';
 import { RecordLoan } from './types/record-loan';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
@@ -41,7 +43,8 @@ describe('PartiesService', () => {
     const balance: CurrentAccountBalance = {
       partyId: 'p1',
       name: 'Alice',
-      balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }]
+      balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+      payableBalances: []
     };
     let result: CurrentAccountBalance | undefined;
     service.getBalance('p1').subscribe((r: CurrentAccountBalance) => (result = r));
@@ -111,6 +114,23 @@ describe('PartiesService', () => {
     expect(req.request.body).toEqual(body);
     req.flush({ ledgerTransactionId: 'tx-9' });
     expect(result).toEqual({ ledgerTransactionId: 'tx-9' });
+  });
+  it('POSTs a borrowing to the party borrowings route and returns the transaction id', () => {
+    const body: RecordBorrowing = {
+      amountMinorUnits: money(12000),
+      currencyCode: 'ARS',
+      destinationAccountId: 'acc-1',
+      borrowedOn: '2026-09-15' as IsoDate,
+      description: 'Rent gap',
+      today: '2026-09-15' as IsoDate
+    };
+    let result: unknown;
+    service.recordBorrowing('p1', body).subscribe((r: unknown) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/borrowings`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ ledgerTransactionId: 'tx-7' });
+    expect(result).toEqual({ ledgerTransactionId: 'tx-7' });
   });
   it('maps a 409 on a settlement to an AppError keyed off code', () => {
     let error: AppError | undefined;

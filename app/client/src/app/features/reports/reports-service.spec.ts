@@ -153,10 +153,16 @@ describe('ReportsService', () => {
     ];
     let result: PartyTimelineRow[] | undefined;
     service.partyTimeline('p1').subscribe((r: PartyTimelineRow[]) => (result = r));
-    const req = httpMock.expectOne(`${environment.apiUrl}/reports/parties/p1/timeline`);
+    const req = httpMock.expectOne(`${environment.apiUrl}/reports/parties/p1/timeline?side=receivable`);
     expect(req.request.method).toBe('GET');
     req.flush({ rows });
     expect(result).toEqual(rows);
+  });
+  it('asks for the payable side of a party timeline', () => {
+    service.partyTimeline('p1', 'payable').subscribe();
+    const req = httpMock.expectOne(`${environment.apiUrl}/reports/parties/p1/timeline?side=payable`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows: [] });
   });
   const feedRow: TransactionFeedRow = {
     id: 'tx-1',

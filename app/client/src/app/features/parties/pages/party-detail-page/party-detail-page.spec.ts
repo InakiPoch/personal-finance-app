@@ -11,9 +11,12 @@ import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
+import { PartyTimelineSide } from '../../../reports/types/party-timeline-side';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
+import { BorrowingResult } from '../../types/borrowing-result';
 import { LoanResult } from '../../types/loan-result';
+import { RecordBorrowing } from '../../types/record-borrowing';
 import { RecordLoan } from '../../types/record-loan';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { SettlementResult } from '../../types/settlement-result';
@@ -47,6 +50,18 @@ type PartyDetailView = {
   loanStatus: () => 'idle' | 'saving' | 'saved' | 'error';
   loanError: () => AppError | null;
   onLoanSubmit: () => void;
+  borrowForm: FormGroup<{
+    amount: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
+    destinationAccountId: FormControl<string>;
+    borrowedOn: FormControl<string>;
+    description: FormControl<string>;
+  }>;
+  borrowStatus: () => 'idle' | 'saving' | 'saved' | 'error';
+  borrowError: () => AppError | null;
+  onBorrowSubmit: () => void;
+  side: () => PartyTimelineSide;
+  setSide: (side: PartyTimelineSide) => void;
 };
 
 const money = (value: number): Money => value as Money;
@@ -54,7 +69,8 @@ const money = (value: number): Money => value as Money;
 const balance: CurrentAccountBalance = {
   partyId: 'p1',
   name: 'Alice',
-  balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }]
+  balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+  payableBalances: []
 };
 
 const twoCurrencyBalance: CurrentAccountBalance = {
@@ -63,8 +79,25 @@ const twoCurrencyBalance: CurrentAccountBalance = {
   balances: [
     { currencyCode: 'ARS', balanceMinorUnits: money(250000) },
     { currencyCode: 'USD', balanceMinorUnits: money(5000) }
-  ]
+  ],
+  payableBalances: []
 };
+
+const bothSidesBalance: CurrentAccountBalance = {
+  partyId: 'p1',
+  name: 'Alice',
+  balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+  payableBalances: [{ currencyCode: 'USD', balanceMinorUnits: money(9000) }]
+};
+
+const payableRows: PartyTimelineRow[] = [{
+    transactionId: 'tx-b1',
+    movementOnUtc: '2026-09-02T20:00:00.000Z',
+    description: 'Borrowed from Alice',
+    deltaMinorUnits: money(9000),
+    runningBalanceMinorUnits: money(9000),
+    currencyCode: 'USD'
+  }];
 
 const timelineRows: PartyTimelineRow[] = [{
     transactionId: 'tx-1',
@@ -97,7 +130,8 @@ describe('PartyDetailPage', () => {
   let fixture: ComponentFixture<PartyDetailPage>;
   let view: PartyDetailView;
   let getBalance: jasmine.Spy<(id: string) => Observable<CurrentAccountBalance>>;
-  let partyTimeline: jasmine.Spy<(id: string) => Observable<PartyTimelineRow[]>>;
+  let partyTimeline: jasmine.Spy<(id: string, side: PartyTimelineSide) => Observable<PartyTimelineRow[]>>;
+  let recordBorrowing: jasmine.Spy<(id: string, body: RecordBorrowing) => Observable<BorrowingResult>>;
   let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
   let recordLoan: jasmine.Spy<(id: string, body: RecordLoan) => Observable<LoanResult>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
@@ -135,6 +169,9 @@ describe('PartyDetailPage', () => {
     partyTimeline = jasmine.createSpy('partyTimeline').and.returnValue(of(timelineRows));
     futureShares = jasmine.createSpy('futureShares').and.returnValue(of<FuturePartyShare[]>([]));
     recordLoan = jasmine.createSpy('recordLoan').and.returnValue(of<LoanResult>({ ledgerTransactionId: 'tx-2' }));
+    recordBorrowing = jasmine
+      .createSpy('recordBorrowing')
+      .and.returnValue(of<BorrowingResult>({ ledgerTransactionId: 'tx-3' }));
     settle = jasmine
       .createSpy('settle')
       .and.returnValue(of<SettlementResult>({ ledgerTransactionId: 'tx-1' }));
@@ -143,7 +180,7 @@ describe('PartyDetailPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan } },
+        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan, recordBorrowing } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
@@ -154,7 +191,7 @@ describe('PartyDetailPage', () => {
   it('loads the balance and timeline named by the route param', () => {
     setup();
     expect(getBalance).toHaveBeenCalledWith('p1');
-    expect(partyTimeline).toHaveBeenCalledWith('p1');
+    expect(partyTimeline).toHaveBeenCalledWith('p1', 'receivable');
     expect(view.balanceStatus()).toBe('ready');
     expect(view.timelineStatus()).toBe('ready');
     expect(view.balance()?.name).toBe('Alice');
@@ -281,6 +318,67 @@ describe('PartyDetailPage', () => {
     fixture.detectChanges();
     expect(view.loanStatus()).toBe('error');
     expect(text()).toContain('The loan date cannot be in the future.');
+  });
+  it('renders the Money borrowed form next to Money lent', () => {
+    setup();
+    expect(text()).toContain('Money borrowed');
+    expect(text()).toContain('Money lent');
+  });
+  it('keeps the borrow form invalid until amount, account, date and a one-line description are set', () => {
+    setup();
+    expect(view.borrowForm.valid).toBe(false);
+    view.borrowForm.setValue({ amount: 100, currency: 'ARS', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: 'Rent gap' });
+    expect(view.borrowForm.valid).toBe(true);
+    view.borrowForm.patchValue({ amount: 0 });
+    expect(view.borrowForm.valid).toBe(false);
+    view.borrowForm.patchValue({ amount: 100, description: 'two\nlines' });
+    expect(view.borrowForm.valid).toBe(false);
+    view.borrowForm.patchValue({ description: 'ok', borrowedOn: '2999-01-01' });
+    expect(view.borrowForm.valid).toBe(false);
+  });
+  it('submits a minor-units borrowing then re-fetches balance and the current timeline side', () => {
+    setup();
+    getBalance.calls.reset();
+    partyTimeline.calls.reset();
+    view.borrowForm.setValue({ amount: 90, currency: 'USD', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: ' Gear ' });
+    view.onBorrowSubmit();
+    const [id, body]: [string, RecordBorrowing] = recordBorrowing.calls.mostRecent().args;
+    expect(id).toBe('p1');
+    expect(body).toEqual({ amountMinorUnits: money(9000), currencyCode: 'USD', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: 'Gear', today: new Date().toLocaleDateString('sv-SE') });
+    expect(view.borrowStatus()).toBe('saved');
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('shows a message keyed off the AppError code when the borrowing is rejected', () => {
+    const appError: AppError = { code: 'Parties.BorrowingDateInFuture', title: 'x', detail: 'x', status: 422, metadata: {} };
+    recordBorrowing.and.returnValue(throwError(() => appError));
+    setup();
+    view.borrowForm.setValue({ amount: 25, currency: 'ARS', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: 'Loan' });
+    view.onBorrowSubmit();
+    fixture.detectChanges();
+    expect(view.borrowStatus()).toBe('error');
+    expect(text()).toContain('The borrowing date cannot be in the future.');
+  });
+  it('shows both what they owe you and what you owe them in the balance', () => {
+    getBalance.and.returnValue(of(bothSidesBalance));
+    setup();
+    expect(text()).toContain('What this party owes you in ARS.');
+    expect(text()).toContain(formatMoney(money(9000), 'USD'));
+    expect(text()).toContain('What you owe this party in USD.');
+  });
+  it('defaults the timeline to Owed to me and switches to I owe on the toggle', () => {
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? payableRows : timelineRows));
+    setup();
+    expect(view.side()).toBe('receivable');
+    expect(text()).toContain('Shared expense');
+    const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('[role="group"] button'));
+    expect(buttons.map((button: HTMLButtonElement) => button.textContent?.trim())).toEqual(['Owed to me', 'I owe']);
+    buttons[1].click();
+    fixture.detectChanges();
+    expect(partyTimeline).toHaveBeenCalledWith('p1', 'payable');
+    expect(view.side()).toBe('payable');
+    expect(text()).toContain('Borrowed from Alice');
+    expect(text()).not.toContain('Shared expense');
   });
   it('renders the Money lent form', () => {
     setup();

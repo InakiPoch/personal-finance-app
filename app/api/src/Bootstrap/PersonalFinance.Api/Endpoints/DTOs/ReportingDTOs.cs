@@ -26,7 +26,8 @@ public sealed record PartyTimelineRowDto(
     string Description,
     long DeltaMinorUnits,
     long RunningBalanceMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    Guid? PurchaseId
 );
 
 public sealed record PartyTimelineDto(IReadOnlyList<PartyTimelineRowDto> Rows);

@@ -4,7 +4,8 @@ SELECT
     Description,
     DeltaMinorUnits,
     RunningBalanceMinorUnits,
-    CurrencyCode
+    CurrencyCode,
+    PurchaseId
 FROM vw_party_payable_timeline
 WHERE PartyId = $partyId
 ORDER BY MovementOnUtc, RunningBalanceMinorUnits;

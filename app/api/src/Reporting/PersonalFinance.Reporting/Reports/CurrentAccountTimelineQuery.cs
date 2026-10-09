@@ -9,7 +9,8 @@ public sealed record PartyTimelineRow(
     string Description,
     long DeltaMinorUnits,
     long RunningBalanceMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    Guid? PurchaseId
 );
 
 /// <summary>
@@ -42,7 +43,8 @@ internal sealed class GetPartyTimelineHandler(IReadDbConnectionFactory connectio
             reader.GetString(2),
             reader.GetInt64(3),
             reader.GetInt64(4),
-            reader.GetString(5)
+            reader.GetString(5),
+            reader.IsDBNull(6) ? null : Guid.Parse(reader.GetString(6))
         );
     }
 }

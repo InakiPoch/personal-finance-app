@@ -62,4 +62,29 @@ internal static class PartiesErrors {
         "Parties.InvalidCurrencyCode",
         "Currency code must be ARS or USD."
     );
+
+    public static readonly Error InvalidPurchaseDescription = new(
+        "Parties.InvalidPurchaseDescription",
+        "A purchase needs a single-line description of at most 120 characters."
+    );
+
+    public static readonly Error InvalidPurchaseCategory = new(
+        "Parties.InvalidPurchaseCategory",
+        "A purchase needs a category."
+    );
+
+    public static readonly Error InvalidPurchaseKind = new(
+        "Parties.InvalidPurchaseKind",
+        "A purchase kind must be debit or credit."
+    );
+
+    public static readonly Error PurchaseDateInFuture = new(
+        "Parties.PurchaseDateInFuture",
+        "A purchase cannot be dated in the future."
+    );
+
+    public static readonly Error PurchaseNotFound = new(
+        "Parties.PurchaseNotFound",
+        "The referenced party purchase was not found."
+    );
 }

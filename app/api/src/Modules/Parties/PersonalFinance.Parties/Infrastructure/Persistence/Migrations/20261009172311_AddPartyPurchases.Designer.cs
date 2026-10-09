@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using PersonalFinance.Parties.Infrastructure.Persistence;
 
@@ -10,9 +11,11 @@ using PersonalFinance.Parties.Infrastructure.Persistence;
 namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(PartiesDbContext))]
-    partial class PartiesDbContextModelSnapshot : ModelSnapshot
+    [Migration("20261009172311_AddPartyPurchases")]
+    partial class AddPartyPurchases
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.11");

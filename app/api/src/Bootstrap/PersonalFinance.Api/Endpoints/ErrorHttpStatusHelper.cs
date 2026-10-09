@@ -79,6 +79,11 @@ internal static class ErrorHttpStatusHelper {
             "Parties.LoanDateInFuture" => StatusCodes.Status422UnprocessableEntity,
             "Parties.InvalidBorrowingDescription" => StatusCodes.Status422UnprocessableEntity,
             "Parties.BorrowingDateInFuture" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidPurchaseDescription" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidPurchaseCategory" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidPurchaseKind" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.PurchaseDateInFuture" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.PurchaseNotFound" => StatusCodes.Status404NotFound,
             "Parties.InvalidCurrencyCode" => StatusCodes.Status422UnprocessableEntity,
             "Instruments.CutoffRequired" => StatusCodes.Status422UnprocessableEntity,
 

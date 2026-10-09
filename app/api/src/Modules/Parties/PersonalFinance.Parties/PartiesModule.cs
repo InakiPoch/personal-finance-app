@@ -10,6 +10,8 @@ using PersonalFinance.Parties.Application.Commands.CreateParty;
 using PersonalFinance.Parties.Application.Commands.RecordSplitAccrual;
 using PersonalFinance.Parties.Application.Commands.RegisterSharedExpense;
 using PersonalFinance.Parties.Application.Commands.RecordBorrowing;
+using PersonalFinance.Parties.Application.Commands.RecordPartyPurchase;
+using PersonalFinance.Parties.Application.Commands.UndoPartyPurchase;
 using PersonalFinance.Parties.Application.Commands.RecordLoan;
 using PersonalFinance.Parties.Application.Commands.SettleCurrentAccount;
 using PersonalFinance.Parties.Application.EventHandlers;
@@ -41,6 +43,8 @@ public sealed class PartiesModule : IModule {
         services.AddScoped<ICommandHandler<SettleCurrentAccountCommand, Guid>, SettleCurrentAccountHandler>();
         services.AddScoped<ICommandHandler<RecordLoanCommand, Guid>, RecordLoanHandler>();
         services.AddScoped<ICommandHandler<RecordBorrowingCommand, Guid>, RecordBorrowingHandler>();
+        services.AddScoped<ICommandHandler<RecordPartyPurchaseCommand, Guid>, RecordPartyPurchaseHandler>();
+        services.AddScoped<ICommandHandler<UndoPartyPurchaseCommand>, UndoPartyPurchaseHandler>();
         services.AddScoped<ICommandHandler<RecordSplitAccrualCommand>, RecordSplitAccrualHandler>();
         services.AddScoped<ICommandHandler<CorrectExpenseSplitCommand>, CorrectExpenseSplitHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountBalanceQuery, CurrentAccountBalanceResponse>, GetCurrentAccountBalanceHandler>();

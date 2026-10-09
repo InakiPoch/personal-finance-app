@@ -4,7 +4,8 @@ SELECT
     Description,
     DeltaMinorUnits,
     RunningBalanceMinorUnits,
-    CurrencyCode
+    CurrencyCode,
+    NULL AS PurchaseId
 FROM vw_current_account_timeline
 WHERE PartyId = $partyId
 ORDER BY MovementOnUtc, RunningBalanceMinorUnits;

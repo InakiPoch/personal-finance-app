@@ -285,6 +285,18 @@ internal static class EndpointExtensions {
                 .Produces<BorrowingResultDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapPost(ApiRoutes.Parties.Purchases, PostPartyPurchase.Handle)
+                .WithSummary("Record a purchase a party paid.")
+                .WithDescription("Kind 'debit' posts Dr the expense category / Cr the party payable account on the purchase date and returns the purchase id; no Bank or Cash account moves. The category is created if missing (case-insensitive). Fails if the party is unknown (404), the share is not positive, the currency is not ARS/USD, the description is blank, multi-line or over 120 characters, the category is blank, the kind is not supported, or the date is in the future (422).")
+                .Produces<PartyPurchaseResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapPost(ApiRoutes.Parties.UndoPurchase, PostUndoPartyPurchase.Handle)
+                .WithSummary("Undo a party purchase as a whole.")
+                .WithDescription("Reverses every ledger transaction the purchase posted. Fails if the purchase is unknown for that party (404) or was already undone (409).")
+                .Produces(StatusCodes.Status204NoContent)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status409Conflict);
             group.MapGet(ApiRoutes.Parties.List, GetParties.Handle)
                 .WithSummary("List registered parties.")
                 .WithDescription("Returns every registered party, ordered by name.")

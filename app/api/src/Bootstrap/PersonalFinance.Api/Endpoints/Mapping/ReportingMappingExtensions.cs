@@ -42,7 +42,8 @@ internal static class ReportingMappingExtensions {
                 row.Description,
                 row.DeltaMinorUnits,
                 row.RunningBalanceMinorUnits,
-                row.CurrencyCode))
+                row.CurrencyCode,
+                row.PurchaseId))
             .ToList();
         return new PartyTimelineDto(rows);
     }

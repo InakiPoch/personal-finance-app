@@ -12,4 +12,8 @@ export type RecordPartyPurchase = {
   purchaseDate: IsoDate;
   kind: PartyPurchaseKind;
   today: IsoDate;
+  /** Credit only: how many installments my share is split into. */
+  installmentCount?: number;
+  /** Credit only: first day of the month the first installment becomes owed. */
+  firstPaymentMonth?: IsoDate;
 };

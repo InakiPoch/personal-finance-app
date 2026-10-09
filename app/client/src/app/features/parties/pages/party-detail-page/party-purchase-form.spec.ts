@@ -20,6 +20,8 @@ type PartyPurchaseFormView = {
     categoryName: FormControl<string>;
     description: FormControl<string>;
     purchaseDate: FormControl<string>;
+    installmentCount: FormControl<number | null>;
+    firstPaymentMonth: FormControl<string>;
   }>;
   status: () => 'idle' | 'saving' | 'saved' | 'error';
   error: () => AppError | null;
@@ -45,7 +47,9 @@ describe('PartyPurchaseForm', () => {
       currency: 'ARS',
       categoryName: ' Eating out ',
       description: ' Dinner ',
-      purchaseDate: '2026-09-10'
+      purchaseDate: '2026-09-10',
+      installmentCount: 1,
+      firstPaymentMonth: ''
     });
   }
 
@@ -74,11 +78,56 @@ describe('PartyPurchaseForm', () => {
     expect(text()).toContain('Paid by Alice');
     expect(fixture.nativeElement.querySelector('option[value="Groceries"]')).not.toBeNull();
   });
-  it('has a debit/credit toggle with debit selected and credit not yet available', () => {
+  it('has a debit/credit toggle with debit selected', () => {
     const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('fieldset button'));
     expect(buttons.map((button: HTMLButtonElement) => button.textContent?.trim())).toEqual(['Debit', 'Credit']);
     expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
-    expect(buttons[1].disabled).toBe(true);
+    expect(buttons[1].disabled).toBe(false);
+    expect(fixture.nativeElement.querySelector('#purchaseInstallments')).toBeNull();
+  });
+  it('shows installments and a first payment month for credit, defaulting to the month after the purchase', () => {
+    (fixture.nativeElement.querySelectorAll('fieldset button')[1] as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('#purchaseInstallments')).not.toBeNull();
+    expect(text()).toContain('My share per installment');
+    view.form.controls.purchaseDate.setValue('2026-12-15');
+    expect(view.form.controls.firstPaymentMonth.value).toBe('2027-01');
+    view.form.controls.purchaseDate.setValue('2026-09-10');
+    expect(view.form.controls.firstPaymentMonth.value).toBe('2026-10');
+  });
+  it('keeps an edited first payment month when the purchase date changes', () => {
+    view.form.controls.kind.setValue('credit');
+    view.form.controls.firstPaymentMonth.setValue('2027-03');
+    view.form.controls.firstPaymentMonth.markAsDirty();
+    view.form.controls.purchaseDate.setValue('2026-09-10');
+    expect(view.form.controls.firstPaymentMonth.value).toBe('2027-03');
+  });
+  it('rejects a credit purchase with a bad installment count or a first month before the purchase month', () => {
+    fill();
+    view.form.patchValue({ kind: 'credit', installmentCount: 3, firstPaymentMonth: '2026-09' });
+    expect(view.form.valid).toBe(true);
+    view.form.patchValue({ firstPaymentMonth: '2026-08' });
+    expect(view.form.valid).toBe(false);
+    view.form.patchValue({ firstPaymentMonth: '2026-10', installmentCount: 0 });
+    expect(view.form.valid).toBe(false);
+    view.form.patchValue({ installmentCount: 61 });
+    expect(view.form.valid).toBe(false);
+    view.form.patchValue({ installmentCount: 1.5 });
+    expect(view.form.valid).toBe(false);
+    view.form.patchValue({ installmentCount: null });
+    expect(view.form.valid).toBe(false);
+    view.form.patchValue({ installmentCount: 6, firstPaymentMonth: '' });
+    expect(view.form.valid).toBe(false);
+  });
+  it('submits a credit purchase with the per-installment share, count and first payment month', () => {
+    fill();
+    view.form.patchValue({ kind: 'credit', installmentCount: 6, firstPaymentMonth: '2026-10' });
+    view.onSubmit();
+    const [, body]: [string, RecordPartyPurchase] = recordPartyPurchase.calls.mostRecent().args;
+    expect(body.kind).toBe('credit');
+    expect(body.shareMinorUnits).toBe(money(12000));
+    expect(body.installmentCount).toBe(6);
+    expect(body.firstPaymentMonth).toBe('2026-10-01');
   });
   it('stays invalid until share, category, description and a non-future date are set', () => {
     expect(view.form.valid).toBe(false);

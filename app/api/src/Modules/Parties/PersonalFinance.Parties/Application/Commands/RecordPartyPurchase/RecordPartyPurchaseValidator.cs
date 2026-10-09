@@ -6,6 +6,7 @@ namespace PersonalFinance.Parties.Application.Commands.RecordPartyPurchase;
 
 internal static class RecordPartyPurchaseValidator {
     public const int MaxDescriptionLength = 120;
+    public const int MaxInstallmentCount = 60;
 
     public static Result Validate(RecordPartyPurchaseCommand command) {
         if(command.ShareMinorUnits <= 0) {
@@ -24,6 +25,19 @@ internal static class RecordPartyPurchaseValidator {
         if(string.IsNullOrWhiteSpace(command.CategoryName)) {
             return Result.Failure(PartiesErrors.InvalidPurchaseCategory);
         }
-        return command.Kind is not ("debit" or "credit") ? Result.Failure(PartiesErrors.InvalidPurchaseKind) : Result.Success();
+        if(command.Kind is not ("debit" or "credit")) {
+            return Result.Failure(PartiesErrors.InvalidPurchaseKind);
+        }
+        if(command.Kind == "debit") {
+            return Result.Success();
+        }
+        if(command.InstallmentCount is < 1 or > MaxInstallmentCount) {
+            return Result.Failure(PartiesErrors.InvalidInstallmentCount);
+        }
+        var purchaseMonth = new DateOnly(command.PurchaseDate.Year, command.PurchaseDate.Month, 1);
+        if(command.FirstPaymentMonth is null || command.FirstPaymentMonth.Value < purchaseMonth) {
+            return Result.Failure(PartiesErrors.InvalidFirstPaymentMonth);
+        }
+        return Result.Success();
     }
 }

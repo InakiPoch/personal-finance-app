@@ -1,6 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
+import { PartyTimelineSide } from '../reports/types/party-timeline-side';
 import { BorrowingResult } from './types/borrowing-result';
 import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
@@ -41,9 +42,9 @@ export class PartiesService {
     .pipe(map((envelope: RowsEnvelope<CurrentAccountTimelineRow>) => envelope.rows));
   }
 
-  futureShares(partyId: string): Observable<FuturePartyShare[]> {
+  futureShares(partyId: string, side: PartyTimelineSide = 'receivable'): Observable<FuturePartyShare[]> {
     return this.http
-      .get<RowsEnvelope<FuturePartyShare>>(`parties/${partyId}/future-shares`)
+      .get<RowsEnvelope<FuturePartyShare>>(`parties/${partyId}/future-shares`, { params: { side } })
     .pipe(map((envelope: RowsEnvelope<FuturePartyShare>) => envelope.rows));
   }
 

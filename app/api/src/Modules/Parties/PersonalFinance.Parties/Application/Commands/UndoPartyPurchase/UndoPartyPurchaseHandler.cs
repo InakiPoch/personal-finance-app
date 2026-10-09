@@ -17,12 +17,17 @@ internal sealed class UndoPartyPurchaseHandler(PartiesDbContext context, ILedger
         if(purchase is null) {
             return Result.Failure(PartiesErrors.PurchaseNotFound);
         }
+        if(purchase.IsCancelled) {
+            return Result.Failure(PartiesErrors.PurchaseAlreadyUndone);
+        }
         foreach(var transactionId in purchase.Installments.Where(installment => installment.LedgerTransactionId is not null).Select(installment => installment.LedgerTransactionId!.Value)) {
             var reversed = await ledger.ReverseTransactionAsync(new ReverseTransactionCommand(transactionId, timeProvider.GetUtcNow()), cancellationToken);
             if(reversed.IsFailure) {
                 return Result.Failure(reversed.Error);
             }
         }
+        purchase.Cancel();
+        await context.SaveChangesAsync(cancellationToken);
         return Result.Success();
     }
 }

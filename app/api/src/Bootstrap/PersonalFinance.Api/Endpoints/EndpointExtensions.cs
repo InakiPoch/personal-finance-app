@@ -318,7 +318,7 @@ internal static class EndpointExtensions {
                 .Produces<CurrentAccountTimelineDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Parties.FutureShares, GetPartyFutureShares.Handle)
                 .WithSummary("A party's upcoming installment shares.")
-                .WithDescription("Projected not-yet-accrued monthly shares for the party's card-split plans.")
+                .WithDescription("Projected not-yet-accrued monthly shares. side=receivable (default) is the party's card/creditor-split shares; side=payable is the unposted installments of the party's credit purchases.")
                 .Produces<FuturePartySharesDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Parties.PendingShares, GetPendingSharesByParty.Handle)
                 .WithSummary("Pending scheduled installment shares per party.")

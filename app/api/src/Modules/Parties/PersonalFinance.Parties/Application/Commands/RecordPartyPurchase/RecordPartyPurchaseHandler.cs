@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
+using PersonalFinance.Parties.Application;
 using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.Parties.Domain;
 using PersonalFinance.Parties.Infrastructure.Persistence;
@@ -9,7 +10,7 @@ using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Parties.Application.Commands.RecordPartyPurchase;
 
-internal sealed class RecordPartyPurchaseHandler(PartiesDbContext context, ILedgerApi ledger, TimeProvider timeProvider) : ICommandHandler<RecordPartyPurchaseCommand, Guid> {
+internal sealed class RecordPartyPurchaseHandler(PartiesDbContext context, ILedgerApi ledger, PartyPurchaseInstallmentPoster poster, TimeProvider timeProvider) : ICommandHandler<RecordPartyPurchaseCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(RecordPartyPurchaseCommand command, CancellationToken cancellationToken) {
         var validation = RecordPartyPurchaseValidator.Validate(command);
         if(validation.IsFailure) {
@@ -20,11 +21,9 @@ internal sealed class RecordPartyPurchaseHandler(PartiesDbContext context, ILedg
         if(party is null) {
             return PartiesErrors.PartyNotFound;
         }
-        if(command.PurchaseDate > (command.Today ?? DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))) {
+        var today = command.Today ?? DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime);
+        if(command.PurchaseDate > today) {
             return PartiesErrors.PurchaseDateInFuture;
-        }
-        if(command.Kind != "debit") {
-            return PartiesErrors.InvalidPurchaseKind;
         }
         var category = await ledger.GetOrCreateExpenseCategoryAsync(new GetOrCreateExpenseCategoryCommand(command.CategoryName.Trim()), cancellationToken);
         if(category.IsFailure) {
@@ -32,6 +31,13 @@ internal sealed class RecordPartyPurchaseHandler(PartiesDbContext context, ILedg
         }
         var share = Money.FromMinorUnits(command.ShareMinorUnits, Currency.FromCode(command.CurrencyCode));
         var description = command.Description.Trim();
+        if(command.Kind == "credit") {
+            var credit = PartyPurchase.Credit(party.Id, description, command.CategoryName.Trim(), command.PurchaseDate, share, command.InstallmentCount, command.FirstPaymentMonth!.Value);
+            context.PartyPurchases.Add(credit);
+            await context.SaveChangesAsync(cancellationToken);
+            await poster.PostDueAsync(today, credit.Id, cancellationToken);
+            return credit.Id;
+        }
         var posted = await ledger.PostTransactionAsync(
             new PostTransactionCommand(
                 [

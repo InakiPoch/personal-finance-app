@@ -23,7 +23,7 @@ internal static class PartyMappingExtensions {
     }
 
     public static RecordPartyPurchaseCommand ToRecordPartyPurchaseCommand(this RecordPartyPurchaseDto dto, Guid partyId) {
-        return new RecordPartyPurchaseCommand(partyId, dto.ShareMinorUnits, dto.CurrencyCode, dto.Description, dto.CategoryName, dto.PurchaseDate, dto.Kind, dto.Today);
+        return new RecordPartyPurchaseCommand(partyId, dto.ShareMinorUnits, dto.CurrencyCode, dto.Description, dto.CategoryName, dto.PurchaseDate, dto.Kind, dto.Today, dto.InstallmentCount, dto.FirstPaymentMonth);
     }
 
     public static RepayPartyCommand ToRepayPartyCommand(this RepayPartyDto dto, Guid partyId) {
@@ -68,6 +68,13 @@ internal static class PartyMappingExtensions {
                 row.ShareMinorUnits,
                 row.CurrencyCode,
                 row.SourceLabel))
+            .ToList();
+        return new FuturePartySharesDto(rows);
+    }
+
+    public static FuturePartySharesDto ToFuturePartySharesDto(this GetPartyScheduledInstallmentsResponse response) {
+        var rows = response.Rows
+            .Select(row => new FuturePartyShareDto(row.CycleYear, row.CycleMonth, row.ShareMinorUnits, row.CurrencyCode, row.SourceLabel, row.PurchaseId))
             .ToList();
         return new FuturePartySharesDto(rows);
     }

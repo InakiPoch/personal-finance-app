@@ -154,7 +154,7 @@ describe('PartyDetailPage', () => {
   let getBalance: jasmine.Spy<(id: string) => Observable<CurrentAccountBalance>>;
   let partyTimeline: jasmine.Spy<(id: string, side: PartyTimelineSide) => Observable<PartyTimelineRow[]>>;
   let recordBorrowing: jasmine.Spy<(id: string, body: RecordBorrowing) => Observable<BorrowingResult>>;
-  let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
+  let futureShares: jasmine.Spy<(id: string, side: PartyTimelineSide) => Observable<FuturePartyShare[]>>;
   let repay: jasmine.Spy<(id: string, body: RecordRepayment) => Observable<RepaymentResult>>;
   let recordLoan: jasmine.Spy<(id: string, body: RecordLoan) => Observable<LoanResult>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
@@ -291,7 +291,7 @@ describe('PartyDetailPage', () => {
     futureShares.and.returnValue(of<FuturePartyShare[]>(futureShareRows));
     setup();
     expandScheduled();
-    expect(futureShares).toHaveBeenCalledWith('p1');
+    expect(futureShares).toHaveBeenCalledWith('p1', 'receivable');
     expect(view.futureSharesStatus()).toBe('ready');
     expect(view.futureShares().length).toBe(2);
     expect(text()).toContain('Scheduled');
@@ -299,6 +299,40 @@ describe('PartyDetailPage', () => {
     expect(text()).toContain('Oct 2026');
     expect(text()).toContain('Nov 2026');
     expect(text()).toContain('Visa — Shared laptop');
+  });
+  it('follows the Owed to me / I owe toggle in the Scheduled block', () => {
+    const payableShares: FuturePartyShare[] = [
+      { cycleYear: 2026, cycleMonth: 11, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (1/2)', purchaseId: 'pu-9' },
+      { cycleYear: 2026, cycleMonth: 12, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (2/2)', purchaseId: 'pu-9' }
+    ];
+    futureShares.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? payableShares : futureShareRows));
+    setup();
+    expandScheduled();
+    expect(text()).toContain('Visa — Shared laptop');
+    view.setSide('payable');
+    fixture.detectChanges();
+    expect(futureShares).toHaveBeenCalledWith('p1', 'payable');
+    expect(text()).not.toContain('Visa — Shared laptop');
+    expect(text()).toContain('Paid by Alice: Fridge (1/2)');
+    expect(text()).toContain('Nov 2026');
+  });
+  it('undoes a whole credit purchase from its first scheduled row and refreshes', () => {
+    const payableShares: FuturePartyShare[] = [
+      { cycleYear: 2026, cycleMonth: 11, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (1/2)', purchaseId: 'pu-9' },
+      { cycleYear: 2026, cycleMonth: 12, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (2/2)', purchaseId: 'pu-9' }
+    ];
+    futureShares.and.returnValue(of(payableShares));
+    setup();
+    view.setSide('payable');
+    expandScheduled();
+    fixture.detectChanges();
+    const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('#scheduled-body button'));
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toContain('Undo purchase');
+    futureShares.calls.reset();
+    buttons[0].click();
+    expect(undoPartyPurchase).toHaveBeenCalledWith('p1', 'pu-9');
+    expect(futureShares).toHaveBeenCalledTimes(1);
   });
   it('shows the empty note when the party has no scheduled shares', () => {
     setup();

@@ -93,6 +93,21 @@ internal static class PartiesErrors {
         "A purchase cannot be dated in the future."
     );
 
+    public static readonly Error InvalidInstallmentCount = new(
+        "Parties.InvalidInstallmentCount",
+        "A credit purchase needs between 1 and 60 installments."
+    );
+
+    public static readonly Error InvalidFirstPaymentMonth = new(
+        "Parties.InvalidFirstPaymentMonth",
+        "A credit purchase needs a first payment month that is not before the purchase month."
+    );
+
+    public static readonly Error PurchaseAlreadyUndone = new(
+        "Parties.PurchaseAlreadyUndone",
+        "This party purchase was already undone."
+    );
+
     public static readonly Error PurchaseNotFound = new(
         "Parties.PurchaseNotFound",
         "The referenced party purchase was not found."

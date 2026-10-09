@@ -6,7 +6,7 @@ public sealed record RecordLoanDto(long AmountMinorUnits, Guid SourceAccountId, 
 
 public sealed record RecordBorrowingDto(long AmountMinorUnits, Guid DestinationAccountId, DateOnly BorrowedOn, string Description, string CurrencyCode = "ARS", DateOnly? Today = null);
 
-public sealed record RecordPartyPurchaseDto(long ShareMinorUnits, string CurrencyCode, string Description, string CategoryName, DateOnly PurchaseDate, string Kind, DateOnly? Today = null);
+public sealed record RecordPartyPurchaseDto(long ShareMinorUnits, string CurrencyCode, string Description, string CategoryName, DateOnly PurchaseDate, string Kind, DateOnly? Today = null, int InstallmentCount = 1, DateOnly? FirstPaymentMonth = null);
 
 public sealed record PartyPurchaseResultDto(Guid PurchaseId);
 

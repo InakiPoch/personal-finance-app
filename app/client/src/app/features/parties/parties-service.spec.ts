@@ -225,6 +225,14 @@ describe('PartiesService', () => {
     expect(error?.code).toBe('Parties.PartyNotFound');
     expect(error?.status).toBe(404);
   });
+  it('GETs the scheduled shares of the chosen side and unwraps { rows }', () => {
+    let rows: unknown;
+    service.futureShares('p1', 'payable').subscribe((value: unknown) => (rows = value));
+    const req = httpMock.expectOne((request) => request.url === `${environment.apiUrl}/parties/p1/future-shares`);
+    expect(req.request.params.get('side')).toBe('payable');
+    req.flush({ rows: [{ cycleYear: 2026, cycleMonth: 11, shareMinorUnits: 5000, currencyCode: 'ARS', sourceLabel: 'x', purchaseId: 'pu-1' }] });
+    expect((rows as unknown[]).length).toBe(1);
+  });
   it('GETs the pending scheduled shares per party and unwraps { rows }', () => {
     const rows: PendingSharesByPartyRow[] = [
       { partyId: 'p1', scheduledCount: 3, scheduledTotalMinorUnits: money(450000), currencyCode: 'ARS' }

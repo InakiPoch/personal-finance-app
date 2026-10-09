@@ -9,7 +9,7 @@ internal sealed class PartyPurchaseInstallment : Entity<Guid> {
     public Guid PartyPurchaseId { get; }
     public int Number { get; }
     public DateOnly DueOn { get; }
-    public Guid? LedgerTransactionId { get; }
+    public Guid? LedgerTransactionId { get; private set; }
 
     internal long AmountMinorUnits { get; }
     internal Currency Currency { get; }
@@ -25,5 +25,13 @@ internal sealed class PartyPurchaseInstallment : Entity<Guid> {
 
     internal static PartyPurchaseInstallment Posted(Guid partyPurchaseId, int number, Money amount, DateOnly dueOn, Guid ledgerTransactionId) {
         return new PartyPurchaseInstallment(Guid.CreateVersion7(), partyPurchaseId, number, amount.MinorUnits, amount.Currency, dueOn, ledgerTransactionId);
+    }
+
+    internal static PartyPurchaseInstallment Scheduled(Guid partyPurchaseId, int number, Money amount, DateOnly dueOn) {
+        return new PartyPurchaseInstallment(Guid.CreateVersion7(), partyPurchaseId, number, amount.MinorUnits, amount.Currency, dueOn, null);
+    }
+
+    internal void MarkPosted(Guid ledgerTransactionId) {
+        LedgerTransactionId = ledgerTransactionId;
     }
 }

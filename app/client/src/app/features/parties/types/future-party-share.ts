@@ -8,4 +8,6 @@ export type FuturePartyShare = {
   shareMinorUnits: Money;
   currencyCode: CurrencyCode;
   sourceLabel: string;
+  /** Set on the I-owe side: the party purchase this installment belongs to. */
+  purchaseId?: string | null;
 };

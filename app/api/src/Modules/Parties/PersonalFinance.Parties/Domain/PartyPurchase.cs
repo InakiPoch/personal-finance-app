@@ -16,6 +16,7 @@ internal sealed class PartyPurchase : AggregateRoot<Guid> {
     public string CategoryName { get; }
     public PartyPurchaseKind Kind { get; }
     public DateOnly PurchaseDate { get; }
+    public bool IsCancelled { get; private set; }
     public IReadOnlyList<PartyPurchaseInstallment> Installments => installments;
 
     internal long ShareMinorUnits { get; }
@@ -37,5 +38,18 @@ internal sealed class PartyPurchase : AggregateRoot<Guid> {
         var purchase = new PartyPurchase(Guid.CreateVersion7(), partyId, description, categoryName, PartyPurchaseKind.Debit, purchaseDate, share.MinorUnits, share.Currency);
         purchase.installments.Add(PartyPurchaseInstallment.Posted(purchase.Id, 1, share, purchaseDate, ledgerTransactionId));
         return purchase;
+    }
+
+    public static PartyPurchase Credit(Guid partyId, string description, string categoryName, DateOnly purchaseDate, Money sharePerInstallment, int installmentCount, DateOnly firstPaymentMonth) {
+        var purchase = new PartyPurchase(Guid.CreateVersion7(), partyId, description, categoryName, PartyPurchaseKind.Credit, purchaseDate, sharePerInstallment.MinorUnits, sharePerInstallment.Currency);
+        var firstDue = new DateOnly(firstPaymentMonth.Year, firstPaymentMonth.Month, 1);
+        for(var number = 1; number <= installmentCount; number++) {
+            purchase.installments.Add(PartyPurchaseInstallment.Scheduled(purchase.Id, number, sharePerInstallment, firstDue.AddMonths(number - 1)));
+        }
+        return purchase;
+    }
+
+    public void Cancel() {
+        IsCancelled = true;
     }
 }

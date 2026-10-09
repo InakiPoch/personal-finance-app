@@ -18,6 +18,7 @@ internal sealed class PartyPurchaseConfiguration : IEntityTypeConfiguration<Part
             .HasConversion<string>()
             .IsRequired();
         builder.Property(purchase => purchase.PurchaseDate).IsRequired();
+        builder.Property(purchase => purchase.IsCancelled).HasDefaultValue(false).IsRequired();
         builder.Property(purchase => purchase.ShareMinorUnits).HasColumnName("ShareMinorUnits").IsRequired();
         builder.Property(purchase => purchase.Currency)
             .HasConversion(currency => currency.Code, code => Currency.FromCode(code))

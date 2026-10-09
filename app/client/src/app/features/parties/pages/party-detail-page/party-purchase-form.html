@@ -15,7 +15,7 @@
     <button
       type="button"
       [attr.aria-pressed]="form.controls.kind.value === 'debit'"
-      (click)="form.controls.kind.setValue('debit')"
+      (click)="setKind('debit')"
       class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
       [class.border-stamp]="form.controls.kind.value === 'debit'"
       [class.text-ink]="form.controls.kind.value === 'debit'"
@@ -26,17 +26,20 @@
     </button>
     <button
       type="button"
-      disabled
       [attr.aria-pressed]="form.controls.kind.value === 'credit'"
-      title="Credit purchases are coming soon"
-      class="border-b border-transparent pb-0.5 text-xs font-medium uppercase tracking-[0.12em] text-ink-faint opacity-60"
+      (click)="setKind('credit')"
+      class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+      [class.border-stamp]="form.controls.kind.value === 'credit'"
+      [class.text-ink]="form.controls.kind.value === 'credit'"
+      [class.border-transparent]="form.controls.kind.value !== 'credit'"
+      [class.text-ink-faint]="form.controls.kind.value !== 'credit'"
     >
       Credit
     </button>
   </fieldset>
 
   <div class="mt-6 flex flex-col gap-1.5">
-    <label for="purchaseShare" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">My share</label>
+    <label for="purchaseShare" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">{{ form.controls.kind.value === 'credit' ? 'My share per installment' : 'My share' }}</label>
     <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
       <input
         type="number"
@@ -121,6 +124,45 @@
       <p class="text-xs text-negative" role="alert">{{ fieldErrors['notFutureDate'] }}</p>
     }
   </div>
+
+  @if(form.controls.kind.value === 'credit') {
+    <div class="mt-6 grid grid-cols-2 gap-6">
+      <div class="flex flex-col gap-1.5">
+        <label for="purchaseInstallments" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Installments</label>
+        <input
+          type="number"
+          id="purchaseInstallments"
+          min="1"
+          max="60"
+          step="1"
+          inputmode="numeric"
+          formControlName="installmentCount"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        @if(form.hasError('positiveInteger')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveInteger'] }}</p>
+        }
+        @if(form.hasError('maxInstallments')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['maxInstallments'] }}</p>
+        }
+      </div>
+      <div class="flex flex-col gap-1.5">
+        <label for="purchaseFirstMonth" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">First payment month</label>
+        <input
+          type="month"
+          id="purchaseFirstMonth"
+          formControlName="firstPaymentMonth"
+          class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+        />
+        @if(form.hasError('firstMonthBeforePurchase')) {
+          <p class="text-xs text-negative" role="alert">{{ fieldErrors['firstMonthBeforePurchase'] }}</p>
+        }
+      </div>
+    </div>
+    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+      Each installment is owed on the first day of its month and stays scheduled until then.
+    </p>
+  }
 
   <div class="mt-6 flex flex-col gap-2">
     <button

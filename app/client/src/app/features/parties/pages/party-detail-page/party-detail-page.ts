@@ -359,6 +359,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     this.side.set(side);
     if(id !== null) {
       this.loadTimeline(id);
+      this.loadFutureShares(id);
     }
   }
 
@@ -379,6 +380,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     if(id !== null) {
       this.loadBalance(id);
       this.loadTimeline(id);
+      this.loadFutureShares(id);
     }
   }
 
@@ -400,6 +402,10 @@ export class PartyDetailPage implements OnInit, OnDestroy {
 
   protected openReverse(transactionId: string): void {
     this.router.navigate(['ledger', 'transactions', transactionId, 'reverse']);
+  }
+
+  protected showsScheduledUndo(share: FuturePartyShare): boolean {
+    return share.purchaseId != null && this.futureShares().find((row: FuturePartyShare) => row.purchaseId === share.purchaseId) === share;
   }
 
   protected cycleLabel(share: FuturePartyShare): string {
@@ -446,7 +452,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private loadFutureShares(id: string): void {
     this.futureSharesStatus.set('loading');
     this.partiesService
-      .futureShares(id)
+      .futureShares(id, this.side())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows: FuturePartyShare[]) => {

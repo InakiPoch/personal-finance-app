@@ -15,7 +15,10 @@ using PersonalFinance.Parties.Application.Commands.UndoPartyPurchase;
 using PersonalFinance.Parties.Application.Commands.RecordLoan;
 using PersonalFinance.Parties.Application.Commands.RecordRepayment;
 using PersonalFinance.Parties.Application.Commands.SettleCurrentAccount;
+using PersonalFinance.Parties.Application;
 using PersonalFinance.Parties.Application.EventHandlers;
+using PersonalFinance.Parties.Application.Queries.GetPartyScheduledInstallments;
+using PersonalFinance.Parties.Application.Scheduling;
 using PersonalFinance.Parties.Application.Queries.GetCurrentAccountBalance;
 using PersonalFinance.Parties.Application.Queries.GetCurrentAccountTimeline;
 using PersonalFinance.Parties.Application.Queries.ListParties;
@@ -52,6 +55,9 @@ public sealed class PartiesModule : IModule {
         services.AddScoped<IQueryHandler<GetCurrentAccountBalanceQuery, CurrentAccountBalanceResponse>, GetCurrentAccountBalanceHandler>();
         services.AddScoped<IQueryHandler<GetCurrentAccountTimelineQuery, CurrentAccountTimelineResponse>, GetCurrentAccountTimelineHandler>();
         services.AddScoped<IQueryHandler<ListPartiesQuery, ListPartiesResponse>, ListPartiesHandler>();
+        services.AddScoped<IQueryHandler<GetPartyScheduledInstallmentsQuery, GetPartyScheduledInstallmentsResponse>, GetPartyScheduledInstallmentsHandler>();
+        services.AddScoped<PartyPurchaseInstallmentPoster>();
+        services.AddHostedService<PostPartyPurchaseInstallments>();
         services.AddScoped<IIntegrationEventHandler<PaymentPlanCreatedIntegrationEvent>, OnPaymentPlanCreated>();
     }
 }

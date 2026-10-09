@@ -9,6 +9,7 @@ import { CurrentAccountTimelineRow } from './types/current-account-timeline-row'
 import { FuturePartyShare } from './types/future-party-share';
 import { LoanResult } from './types/loan-result';
 import { Party } from './types/party';
+import { PartySummary } from './types/party-summary';
 import { PartyResult } from './types/party-result';
 import { PartyPurchaseResult } from './types/party-purchase-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
@@ -30,6 +31,12 @@ export class PartiesService {
     return this.http
       .get<RowsEnvelope<Party>>('parties')
     .pipe(map((envelope: RowsEnvelope<Party>) => envelope.rows));
+  }
+
+  listSummaries(): Observable<PartySummary[]> {
+    return this.http
+      .get<RowsEnvelope<PartySummary>>('parties')
+    .pipe(map((envelope: RowsEnvelope<PartySummary>) => envelope.rows));
   }
 
   getBalance(partyId: string): Observable<CurrentAccountBalance> {

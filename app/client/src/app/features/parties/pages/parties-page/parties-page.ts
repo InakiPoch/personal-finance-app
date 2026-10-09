@@ -11,17 +11,15 @@ import {
 } from '@angular/core';
 import { FormBuilder, FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
-import { Subject, forkJoin, takeUntil } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import { formatMoney, fromMinorUnits } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
-import { ReportsService } from '../../../reports/reports-service';
-import { PartyDebtRow } from '../../../reports/types/party-debt-row';
 import { CreateParty } from '../../types/create-party';
-import { Party } from '../../types/party';
+import { PartyCurrencyBalance } from '../../types/party-currency-balance';
 import { PartyResult } from '../../types/party-result';
-import { PendingSharesByPartyRow } from '../../types/pending-shares-by-party-row';
+import { PartySummary } from '../../types/party-summary';
 import { PartiesService } from '../../parties-service';
 
 type ListStatus = 'loading' | 'ready' | 'error';
@@ -30,19 +28,6 @@ type SubmitStatus = 'idle' | 'submitting' | 'error';
 type PartyForm = FormGroup<{
   name: FormControl<string>;
 }>;
-
-/** One party's net position in one currency. */
-type PartyCurrencyNet = {
-  currencyCode: CurrencyCode;
-  netBalanceMinorUnits: Money;
-};
-
-type PartyListRow = {
-  partyId: string;
-  partyName: string;
-  balances: PartyCurrencyNet[];
-  scheduledCount: number;
-};
 
 @Component({
   selector: 'app-parties-page',
@@ -56,21 +41,18 @@ export class PartiesPage implements OnInit, OnDestroy {
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
   protected readonly zeroMinorUnits: Money = fromMinorUnits(0);
   protected readonly listStatus: WritableSignal<ListStatus> = signal<ListStatus>('loading');
-  protected readonly parties: WritableSignal<PartyListRow[]> = signal<PartyListRow[]>([]);
-  protected readonly receivableTotals: Signal<PartyCurrencyNet[]> = computed(() =>
-    this.sumByCurrency((net: number) => net > 0)
+  protected readonly parties: WritableSignal<PartySummary[]> = signal<PartySummary[]>([]);
+  protected readonly receivableTotals: Signal<PartyCurrencyBalance[]> = computed(() =>
+    this.sumByCurrency((row: PartySummary) => row.owedToYou)
   );
-  protected readonly payableTotals: Signal<PartyCurrencyNet[]> = computed(() =>
-    this.sumByCurrency((net: number) => net < 0).map((total: PartyCurrencyNet) => ({
-      ...total,
-      netBalanceMinorUnits: fromMinorUnits(-total.netBalanceMinorUnits)
-    }))
+  protected readonly payableTotals: Signal<PartyCurrencyBalance[]> = computed(() =>
+    this.sumByCurrency((row: PartySummary) => row.youOwe)
   );
   protected readonly maxMagnitude: Signal<number> = computed(() =>
     this.parties().reduce(
-      (max: number, row: PartyListRow) =>
-        row.balances.reduce(
-          (rowMax: number, balance: PartyCurrencyNet) => Math.max(rowMax, Math.abs(balance.netBalanceMinorUnits)),
+      (max: number, row: PartySummary) =>
+        [...row.owedToYou, ...row.youOwe].reduce(
+          (rowMax: number, balance: PartyCurrencyBalance) => Math.max(rowMax, balance.balanceMinorUnits),
           max
         ),
       0
@@ -85,7 +67,6 @@ export class PartiesPage implements OnInit, OnDestroy {
 
   private readonly fb: FormBuilder = inject(FormBuilder);
   private readonly partiesService: PartiesService = inject(PartiesService);
-  private readonly reports: ReportsService = inject(ReportsService);
   private readonly submitErrorMessages: Record<string, string> = {
     'Parties.InvalidName': 'Enter a name for the party.',
     'Http.UnprocessableEntity': 'The party could not be created — check the name and try again.',
@@ -121,38 +102,29 @@ export class PartiesPage implements OnInit, OnDestroy {
     );
   }
 
-  protected balanceHint(row: PartyListRow): string {
-    if(row.balances.length === 0) {
-      return row.scheduledCount > 0 ? `Nothing owed yet · ${row.scheduledCount} scheduled` : 'Settled up';
+  protected balanceHint(row: PartySummary): string {
+    if(row.settledUp) {
+      return 'Settled up';
     }
-    const hints: string[] = Array.from(
-      new Set(row.balances.map((balance: PartyCurrencyNet) => this.currencyHint(balance)))
-    );
-    return hints.join(' · ');
-  }
-
-  protected currencyHint(balance: PartyCurrencyNet): string {
-    if(balance.netBalanceMinorUnits > 0) {
-      return 'They owe you';
+    const scheduled: number = row.scheduledToYouCount + row.scheduledYouOweCount;
+    if(row.owedToYou.length === 0 && row.youOwe.length === 0) {
+      return `Nothing owed yet · ${scheduled} scheduled`;
     }
-    if(balance.netBalanceMinorUnits < 0) {
-      return 'You owe them';
-    }
-    return 'Settled up';
+    return scheduled > 0 ? `${scheduled} scheduled` : '';
   }
 
   protected submitErrorText(error: AppError): string {
     return this.submitErrorMessages[error.code] ?? 'The party could not be created.';
   }
 
-  /** Width (%) of the magnitude tick behind a party row, relative to the largest |net balance| across every currency. */
-  protected tickWidth(row: PartyListRow): number {
+  /** Width (%) of the magnitude tick behind a party row, relative to the largest amount across every currency and side. */
+  protected tickWidth(row: PartySummary): number {
     const max: number = this.maxMagnitude();
-    if(max === 0 || row.balances.length === 0) {
+    if(max === 0) {
       return 0;
     }
-    const rowMax: number = row.balances.reduce(
-      (running: number, balance: PartyCurrencyNet) => Math.max(running, Math.abs(balance.netBalanceMinorUnits)),
+    const rowMax: number = [...row.owedToYou, ...row.youOwe].reduce(
+      (running: number, balance: PartyCurrencyBalance) => Math.max(running, balance.balanceMinorUnits),
       0
     );
     return Math.round((rowMax / max) * 100);
@@ -160,31 +132,12 @@ export class PartiesPage implements OnInit, OnDestroy {
 
   private loadParties(): void {
     this.listStatus.set('loading');
-    forkJoin({
-      roster: this.partiesService.list(),
-      debts: this.reports.debtSummary(),
-      pending: this.partiesService.pendingShares()
-    })
+    this.partiesService
+      .listSummaries()
       .pipe(takeUntil(this.destroy$))
       .subscribe({
-        next: ({ roster, debts, pending }: { roster: Party[]; debts: PartyDebtRow[]; pending: PendingSharesByPartyRow[] }) => {
-          const balancesByPartyId: Map<string, PartyCurrencyNet[]> = new Map();
-          for(const row of debts) {
-            const existing: PartyCurrencyNet[] = balancesByPartyId.get(row.partyId) ?? [];
-            existing.push({ currencyCode: row.currencyCode, netBalanceMinorUnits: row.netBalanceMinorUnits });
-            balancesByPartyId.set(row.partyId, existing);
-          }
-          const scheduledCountByPartyId: Map<string, number> = new Map(
-            pending.map((row: PendingSharesByPartyRow) => [row.partyId, row.scheduledCount])
-          );
-          this.parties.set(
-            roster.map((party: Party) => ({
-              partyId: party.id,
-              partyName: party.name,
-              balances: balancesByPartyId.get(party.id) ?? [],
-              scheduledCount: scheduledCountByPartyId.get(party.id) ?? 0
-            }))
-          );
+        next: (rows: PartySummary[]) => {
+          this.parties.set(rows);
           this.listStatus.set('ready');
         },
         error: () => this.listStatus.set('error')
@@ -192,20 +145,16 @@ export class PartiesPage implements OnInit, OnDestroy {
     );
   }
 
-  /** Sums every party's currency balances matching `matches`, one total per currency. */
-  private sumByCurrency(matches: (net: number) => boolean): PartyCurrencyNet[] {
+  private sumByCurrency(side: (row: PartySummary) => PartyCurrencyBalance[]): PartyCurrencyBalance[] {
     const totals: Map<CurrencyCode, number> = new Map();
     for(const party of this.parties()) {
-      for(const balance of party.balances) {
-        if(!matches(balance.netBalanceMinorUnits)) {
-          continue;
-        }
-        totals.set(balance.currencyCode, (totals.get(balance.currencyCode) ?? 0) + balance.netBalanceMinorUnits);
+      for(const balance of side(party)) {
+        totals.set(balance.currencyCode, (totals.get(balance.currencyCode) ?? 0) + balance.balanceMinorUnits);
       }
     }
-    return Array.from(totals.entries()).map(([currencyCode, netBalanceMinorUnits]) => ({
+    return Array.from(totals.entries()).map(([currencyCode, balanceMinorUnits]) => ({
       currencyCode,
-      netBalanceMinorUnits: fromMinorUnits(netBalanceMinorUnits)
+      balanceMinorUnits: fromMinorUnits(balanceMinorUnits)
     }));
   }
 

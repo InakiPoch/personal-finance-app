@@ -53,13 +53,6 @@ internal static class PartyMappingExtensions {
         return new CurrentAccountTimelineDto(rows);
     }
 
-    public static PartiesListDto ToPartiesListDto(this ListPartiesResponse response) {
-        var rows = response.Rows
-            .Select(row => new PartyRowDto(row.Id, row.Name))
-            .ToList();
-        return new PartiesListDto(rows);
-    }
-
     public static FuturePartySharesDto ToFuturePartySharesDto(this GetFuturePartySharesResponse response) {
         var rows = response.Rows
             .Select(row => new FuturePartyShareDto(

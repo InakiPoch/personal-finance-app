@@ -11,6 +11,7 @@ import { environment } from '../../environments/environment';
 import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
+import { PartySummary } from './types/party-summary';
 import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
 import { RecordBorrowing } from './types/record-borrowing';
@@ -40,6 +41,24 @@ describe('PartiesService', () => {
   });
 
   afterEach(() => httpMock.verify());
+
+  it('GETs the parties list with both sides and unwraps the rows envelope', () => {
+    const row: PartySummary = {
+      id: 'p1',
+      name: 'Alice',
+      owedToYou: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+      youOwe: [{ currencyCode: 'USD', balanceMinorUnits: money(5000) }],
+      scheduledToYouCount: 0,
+      scheduledYouOweCount: 2,
+      settledUp: false
+    };
+    let result: PartySummary[] | undefined;
+    service.listSummaries().subscribe((r: PartySummary[]) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows: [row] });
+    expect(result).toEqual([row]);
+  });
 
   it('GETs the current-account balance for a party', () => {
     const balance: CurrentAccountBalance = {

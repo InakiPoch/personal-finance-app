@@ -165,6 +165,7 @@ public static class TransactionExplainer {
             "CardCredit" => $"{trimSuffix(leg.AccountName, " Credit")} credit",
             "Receivable" => $"{trimSuffix(leg.AccountName, " Receivable")} (owes you)",
             "CreditorPayable" => $"What you owe — {trimPrefix(leg.AccountName, "Payable to creditor — ")}",
+            "PartyPayable" => $"What you owe {trimSuffix(leg.AccountName, " Payable")}",
             _ => leg.AccountName
         };
     }

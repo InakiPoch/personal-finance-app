@@ -279,6 +279,12 @@ internal static class EndpointExtensions {
                 .Produces<LoanResultDto>(StatusCodes.Status201Created)
                 .ProducesProblem(StatusCodes.Status404NotFound)
                 .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
+            group.MapPost(ApiRoutes.Parties.Borrowings, PostBorrowing.Handle)
+                .WithSummary("Record money borrowed from a party.")
+                .WithDescription("Posts Dr the Bank or Cash destination account / Cr the party payable account (what you owe, never netted against what the party owes you), dated the given Borrowed on day. Fails if the party is unknown (404), the amount is not positive, the currency is not ARS/USD, the destination is not a Bank/Cash account, the description is blank, multi-line or over 120 characters, or the date is in the future (422). Undo with the generic ledger reversal.")
+                .Produces<BorrowingResultDto>(StatusCodes.Status201Created)
+                .ProducesProblem(StatusCodes.Status404NotFound)
+                .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
             group.MapGet(ApiRoutes.Parties.List, GetParties.Handle)
                 .WithSummary("List registered parties.")
                 .WithDescription("Returns every registered party, ordered by name.")
@@ -335,7 +341,7 @@ internal static class EndpointExtensions {
                 .Produces<CardDueByMonthDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Reporting.PartyTimeline, GetPartyTimeline.Handle)
                 .WithSummary("Get a party's timeline (reporting view).")
-                .WithDescription("Read-only dashboard equivalent of GET /v1/parties/{id}/timeline.")
+                .WithDescription("Read-only dashboard equivalent of GET /v1/parties/{id}/timeline. The optional side query is receivable (default, what the party owes you) or payable (what you owe the party).")
                 .Produces<PartyTimelineDto>(StatusCodes.Status200OK);
             group.MapGet(ApiRoutes.Reporting.DebtSummary, GetDebtSummary.Handle)
                 .WithSummary("Get outstanding debt by party.")

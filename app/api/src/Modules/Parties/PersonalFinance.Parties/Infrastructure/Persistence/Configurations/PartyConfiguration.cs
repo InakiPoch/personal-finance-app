@@ -11,6 +11,7 @@ internal sealed class PartyConfiguration : IEntityTypeConfiguration<Party> {
         builder.Property(party => party.Id).ValueGeneratedNever();
         builder.Property(party => party.Name).IsRequired();
         builder.Property(party => party.ReceivableAccountId).IsRequired();
+        builder.Property(party => party.PayableAccountId).IsRequired();
         builder.Ignore(party => party.DomainEvents);
     }
 }

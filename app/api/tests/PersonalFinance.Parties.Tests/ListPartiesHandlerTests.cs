@@ -56,7 +56,7 @@ public sealed class ListPartiesHandlerTests : IDisposable {
     private async Task SeedParties(params string[] names) {
         await using var context = NewContext();
         foreach(var name in names) {
-            context.Parties.Add(Party.Create(name, Guid.CreateVersion7()).Value);
+            context.Parties.Add(Party.Create(name, Guid.CreateVersion7(), Guid.CreateVersion7()).Value);
         }
         await context.SaveChangesAsync(TestContext.Current.CancellationToken);
     }

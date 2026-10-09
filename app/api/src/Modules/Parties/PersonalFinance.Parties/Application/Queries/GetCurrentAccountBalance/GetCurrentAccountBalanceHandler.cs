@@ -13,12 +13,16 @@ internal sealed class GetCurrentAccountBalanceHandler(PartiesDbContext context, 
             .AsNoTracking()
             .FirstOrDefaultAsync(candidate => candidate.Id == query.PartyId, cancellationToken);
         if(party is null) {
-            return new CurrentAccountBalanceResponse(query.PartyId, string.Empty, []);
+            return new CurrentAccountBalanceResponse(query.PartyId, string.Empty, [], []);
         }
         var balances = await ledger.GetAccountBalanceAsync(new GetAccountBalanceQuery(party.ReceivableAccountId), cancellationToken);
         var rows = balances
             .Select(balance => new PartyCurrencyBalance(balance.Currency.Code, balance.MinorUnits))
             .ToList();
-        return new CurrentAccountBalanceResponse(party.Id, party.Name, rows);
+        var payable = await ledger.GetAccountBalanceAsync(new GetAccountBalanceQuery(party.PayableAccountId), cancellationToken);
+        var payableRows = payable
+            .Select(balance => new PartyCurrencyBalance(balance.Currency.Code, balance.MinorUnits))
+            .ToList();
+        return new CurrentAccountBalanceResponse(party.Id, party.Name, rows, payableRows);
     }
 }

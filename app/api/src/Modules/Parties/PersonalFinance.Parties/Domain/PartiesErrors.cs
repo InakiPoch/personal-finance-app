@@ -48,6 +48,16 @@ internal static class PartiesErrors {
         "A loan cannot be dated in the future."
     );
 
+    public static readonly Error InvalidBorrowingDescription = new(
+        "Parties.InvalidBorrowingDescription",
+        "A borrowing needs a single-line description of at most 120 characters."
+    );
+
+    public static readonly Error BorrowingDateInFuture = new(
+        "Parties.BorrowingDateInFuture",
+        "A borrowing cannot be dated in the future."
+    );
+
     public static readonly Error InvalidCurrencyCode = new(
         "Parties.InvalidCurrencyCode",
         "Currency code must be ARS or USD."

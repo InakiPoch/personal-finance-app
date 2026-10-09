@@ -1,8 +1,8 @@
-using Microsoft.EntityFrameworkCore;
 using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.Ledger.Contracts.Queries;
+using PersonalFinance.Parties.Application;
 using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.Parties.Domain;
 using PersonalFinance.Parties.Infrastructure.Persistence;
@@ -16,16 +16,14 @@ internal sealed class RepayPartyHandler(PartiesDbContext context, ILedgerApi led
         if(validation.IsFailure) {
             return validation.Error;
         }
-        var party = await context.Parties
-            .FirstOrDefaultAsync(candidate => candidate.Id == command.PartyId, cancellationToken);
+        var party = await PartyHandlerHelper.FindPartyAsync(context, command.PartyId, cancellationToken);
         if(party is null) {
             return PartiesErrors.PartyNotFound;
         }
-        if(command.PaidOn > (command.Today ?? DateOnly.FromDateTime(timeProvider.GetUtcNow().UtcDateTime))) {
+        if(command.PaidOn > PartyHandlerHelper.ResolveToday(command.Today, timeProvider)) {
             return PartiesErrors.RepaymentDateInFuture;
         }
-        var instruments = await ledger.ListInstrumentAccountsAsync(new ListInstrumentAccountsQuery(), cancellationToken);
-        if(instruments.Rows.All(row => row.AccountId != command.SourceAccountId)) {
+        if(!await PartyHandlerHelper.IsInstrumentAccountAsync(ledger, command.SourceAccountId, cancellationToken)) {
             return PartiesErrors.UnknownFundingAccount;
         }
         var currency = Currency.FromCode(command.CurrencyCode);

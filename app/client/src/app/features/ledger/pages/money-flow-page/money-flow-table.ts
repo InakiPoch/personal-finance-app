@@ -39,13 +39,15 @@ export class MoneyFlowTable {
     const labels: Record<NonNullable<MoneyFlowRow['flag']>, string> = {
       LentTo: 'Lent to',
       SharedWith: 'Shared with',
-      PaidBackBy: 'Paid back by'
+      PaidBackBy: 'Paid back by',
+      BorrowedFrom: 'Borrowed from',
+      PaidBackTo: 'Paid back to'
     };
     return `${labels[row.flag]} ${row.partyName ?? ''}`.trim();
   }
 
   protected isUndoable(row: MoneyFlowRow): boolean {
-    return row.kind === 'Income' || row.flag === 'LentTo';
+    return row.kind === 'Income' || row.flag === 'LentTo' || row.flag === 'PaidBackTo';
   }
 
   protected onUndo(row: MoneyFlowRow): void {

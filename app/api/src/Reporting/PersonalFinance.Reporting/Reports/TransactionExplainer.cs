@@ -61,6 +61,9 @@ public static class TransactionExplainer {
     private const string kindIncome = "Income";
     private const string kindExpense = "Expense";
     private const string kindPartyPayment = "Party payment";
+    private const string kindBorrowing = "Borrowing";
+    private const string kindRepayment = "Repayment";
+    private const string kindPartyPurchase = "Party purchase";
     private const string kindUndo = "Undo entry";
     private const string kindOther = "Other";
 
@@ -132,6 +135,22 @@ public static class TransactionExplainer {
             impact.AddRange(debits.Select(leg => $"{money(leg.AmountMinorUnits, currency)} is removed from {leg.AccountName}."));
             return (kindPartyPayment, $"{party} paid you", impact);
         }
+        if(credits.FirstOrDefault(leg => leg.AccountKind == "PartyPayable") is { } borrowedLeg && debits.All(isMoney)) {
+            var party = payableParty(borrowedLeg);
+            var impact = new List<string> { $"You no longer owe {party} {money(borrowedLeg.AmountMinorUnits, currency)} for this." };
+            impact.AddRange(debits.Select(leg => $"{money(leg.AmountMinorUnits, currency)} is removed from {leg.AccountName}."));
+            return (kindBorrowing, facts.Description ?? $"Borrowed from {party}", impact);
+        }
+        if(debits.FirstOrDefault(leg => leg.AccountKind == "PartyPayable") is { } repaidLeg && credits.All(isMoney)) {
+            var party = payableParty(repaidLeg);
+            var impact = new List<string> { $"You owe {party} {money(repaidLeg.AmountMinorUnits, currency)} again." };
+            impact.AddRange(returnLines(credits, currency));
+            return (kindRepayment, facts.Description ?? $"Paid back to {party}", impact);
+        }
+        if(credits.FirstOrDefault(leg => leg.AccountKind == "PartyPayable") is { } sharedLeg && debits.FirstOrDefault(leg => leg.AccountKind == "Expense") is { } sharedExpense) {
+            var party = payableParty(sharedLeg);
+            return (kindPartyPurchase, facts.Description ?? $"Paid by {party}: {sharedExpense.AccountName}", [$"You no longer owe {party} {money(sharedLeg.AmountMinorUnits, currency)} for this purchase."]);
+        }
         if(debits.FirstOrDefault(leg => leg.AccountKind == "Expense") is { } expenseLeg && credits.All(isMoney)) {
             return (kindExpense, facts.Description ?? expenseLeg.AccountName, returnLines(credits, currency));
         }
@@ -151,6 +170,10 @@ public static class TransactionExplainer {
 
     private static bool isMoney(TransactionLeg leg) {
         return leg.AccountKind is "Bank" or "Cash";
+    }
+
+    private static string payableParty(TransactionLeg leg) {
+        return trimSuffix(leg.AccountName, " Payable");
     }
 
     private static string cardNameOf(TransactionLeg leg) {

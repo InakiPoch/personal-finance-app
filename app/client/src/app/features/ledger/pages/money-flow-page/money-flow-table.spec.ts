@@ -116,6 +116,16 @@ describe('MoneyFlowTable', () => {
     expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Paid back by Lola');
     expect(fixture.nativeElement.querySelector('tbody button')?.textContent?.trim()).toBe('Undo');
   });
+  it('flags a borrowing income row "Borrowed from <party>" and offers Undo on it', () => {
+    render([{ ...incomeRow, transactionId: 'tx-7', flag: 'BorrowedFrom', partyName: 'Lola' }]);
+    expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Borrowed from Lola');
+    expect(fixture.nativeElement.querySelector('tbody button')?.textContent?.trim()).toBe('Undo');
+  });
+  it('flags a repayment outcome row "Paid back to <party>" and offers Undo on it', () => {
+    render([{ ...outcomeRow, transactionId: 'tx-8', flag: 'PaidBackTo', partyName: 'Lola' }]);
+    expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Paid back to Lola');
+    expect(fixture.nativeElement.querySelector('tbody button')?.textContent?.trim()).toBe('Undo');
+  });
   it('flags a shared expense "Shared with <party>" without an Undo button', () => {
     render([sharedRow]);
     expect(fixture.nativeElement.querySelector('tbody tr').textContent).toContain('Shared with Ines');

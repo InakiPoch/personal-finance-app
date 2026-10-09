@@ -8,7 +8,7 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Parties.Application;
 
 /// <summary>
-/// Posts every uncancelled party purchase installment whose month has started and that is not posted yet; reverses a posting whose save fails or whose purchase was cancelled meanwhile.
+/// Posts every uncancelled party purchase installment whose month has started and that is not posted yet.
 /// </summary>
 internal sealed class PartyPurchaseInstallmentPoster(PartiesDbContext context, ILedgerApi ledger, TimeProvider timeProvider, ILogger<PartyPurchaseInstallmentPoster> logger) {
     public async Task PostDueAsync(DateOnly today, Guid? purchaseId, CancellationToken cancellationToken) {

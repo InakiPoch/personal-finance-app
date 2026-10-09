@@ -22,6 +22,10 @@ internal static class PartyMappingExtensions {
         return new RecordBorrowingCommand(partyId, dto.AmountMinorUnits, dto.DestinationAccountId, dto.BorrowedOn, dto.Description, dto.CurrencyCode, dto.Today);
     }
 
+    public static RepayPartyCommand ToRepayPartyCommand(this RepayPartyDto dto, Guid partyId) {
+        return new RepayPartyCommand(partyId, dto.AmountMinorUnits, dto.SourceAccountId, dto.PaidOn, dto.CurrencyCode, dto.Today);
+    }
+
     public static CurrentAccountBalanceDto ToCurrentAccountBalanceDto(this CurrentAccountBalanceResponse response) {
         var balances = response.Balances
             .Select(balance => new PartyCurrencyBalanceDto(balance.CurrencyCode, balance.BalanceMinorUnits))
@@ -82,6 +86,10 @@ internal static class PartyMappingExtensions {
 
         public BorrowingResultDto ToBorrowingResultDto() {
             return new BorrowingResultDto(id);
+        }
+
+        public RepaymentResultDto ToRepaymentResultDto() {
+            return new RepaymentResultDto(id);
         }
 
         public LoanResultDto ToLoanResultDto() {

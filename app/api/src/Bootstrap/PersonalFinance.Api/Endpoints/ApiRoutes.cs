@@ -70,6 +70,7 @@ public sealed record ApiRoutes {
         public const string Settle = "/{id:guid}/settlements";
         public const string Loans = "/{id:guid}/loans";
         public const string Borrowings = "/{id:guid}/borrowings";
+        public const string Repayments = "/{id:guid}/repayments";
         public const string Balance = "/{id:guid}/balance";
         public const string Timeline = "/{id:guid}/timeline";
         public const string FutureShares = "/{id:guid}/future-shares";

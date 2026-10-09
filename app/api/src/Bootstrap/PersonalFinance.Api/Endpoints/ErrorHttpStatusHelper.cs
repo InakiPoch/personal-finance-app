@@ -35,6 +35,8 @@ internal static class ErrorHttpStatusHelper {
             "Subscriptions.SubscriptionNotActive" => StatusCodes.Status409Conflict,
             "Subscriptions.SubscriptionNotPaid" => StatusCodes.Status409Conflict,
             "Parties.SettlementExceedsBalance" => StatusCodes.Status409Conflict,
+            "Parties.RepaymentExceedsBalance" => StatusCodes.Status409Conflict,
+            "Parties.RepaymentDateInFuture" => StatusCodes.Status422UnprocessableEntity,
 
             // 422 — well-formed request that violates a domain rule the caller could in principle fix
             "Ledger.Unbalanced" => StatusCodes.Status422UnprocessableEntity,

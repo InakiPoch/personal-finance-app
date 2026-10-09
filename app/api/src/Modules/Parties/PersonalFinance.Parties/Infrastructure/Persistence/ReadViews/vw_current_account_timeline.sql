@@ -5,6 +5,7 @@ SELECT
     p.Id                       AS PartyId,
     p.Name                     AS PartyName,
     m.AccountId,
+    m.EntryId,
     m.TransactionId,
     m.PostedOnUtc              AS MovementOnUtc,
     CASE

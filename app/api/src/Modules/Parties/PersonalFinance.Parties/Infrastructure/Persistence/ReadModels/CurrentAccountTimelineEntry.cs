@@ -8,6 +8,7 @@ internal sealed class CurrentAccountTimelineEntry {
     public Guid PartyId { get; init; }
     public string PartyName { get; init; } = string.Empty;
     public Guid AccountId { get; init; }
+    public Guid EntryId { get; init; }
     public Guid TransactionId { get; init; }
     public DateTimeOffset MovementOnUtc { get; init; }
     public string Description { get; init; } = string.Empty;

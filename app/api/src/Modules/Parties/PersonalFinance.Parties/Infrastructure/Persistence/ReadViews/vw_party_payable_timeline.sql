@@ -4,6 +4,7 @@ SELECT
     p.Id                       AS PartyId,
     p.Name                     AS PartyName,
     m.AccountId,
+    m.EntryId,
     m.TransactionId,
     m.PostedOnUtc              AS MovementOnUtc,
     CASE
@@ -20,6 +21,7 @@ FROM parties_parties p
 INNER JOIN (
     SELECT
         e.AccountId,
+        e.Id AS EntryId,
         e.TransactionId,
         t.PostedOnUtc,
         COALESCE(t.OriginalTransactionId, e.TransactionId) AS SourceTransactionId,

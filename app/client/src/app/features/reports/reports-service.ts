@@ -6,6 +6,7 @@ import { MoneyFlowRow } from '../ledger/types/money-flow-row';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { MonthlyIncomeRow } from './types/monthly-income-row';
+import { YouOweRow } from './types/you-owe-row';
 import { OwedToYouRow } from './types/owed-to-you-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
@@ -47,6 +48,12 @@ export class ReportsService {
     return this.http
       .get<RowsEnvelope<OwedToYouRow>>('reports/parties/owed-to-you', { params: { month, today } })
     .pipe(map((envelope: RowsEnvelope<OwedToYouRow>) => envelope.rows));
+  }
+
+  youOwe(month: string, today: string): Observable<YouOweRow[]> {
+    return this.http
+      .get<RowsEnvelope<YouOweRow>>('reports/parties/you-owe', { params: { month, today } })
+    .pipe(map((envelope: RowsEnvelope<YouOweRow>) => envelope.rows));
   }
 
   debtSummary(): Observable<PartyDebtRow[]> {

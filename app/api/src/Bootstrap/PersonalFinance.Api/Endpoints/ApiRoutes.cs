@@ -90,5 +90,6 @@ public sealed record ApiRoutes {
         public const string PartyTimeline = "/parties/{id:guid}/timeline";
         public const string DebtSummary = "/parties/debt-summary";
         public const string OwedToYou = "/parties/owed-to-you";
+        public const string YouOwe = "/parties/you-owe";
     }
 }

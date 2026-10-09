@@ -294,6 +294,7 @@
           </ul>
         }
       </section>
+      <div class="grid gap-8 sm:grid-cols-2">
       <section class="rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="owed-label">
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
           <h2 id="owed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
@@ -324,6 +325,66 @@
           </ul>
         }
       </section>
+      <section class="rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="you-owe-label">
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
+          <h2 id="you-owe-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+            You owe
+          </h2>
+          <button
+            type="button"
+            class="text-xs text-ink-soft transition-colors hover:text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+            [attr.aria-expanded]="debtPickerOpen()"
+            aria-controls="debt-picker"
+            (click)="toggleDebtPicker()"
+          >
+            Register a debt
+          </button>
+        </div>
+        @if(debtPickerOpen()) {
+          <div id="debt-picker" class="mt-4 flex flex-col gap-1.5">
+            @if(debtPartiesStatus() === 'loading') {
+              <p class="text-sm text-ink-faint">Reading parties…</p>
+            } @else if(debtPartiesStatus() === 'error') {
+              <p role="alert" class="text-sm text-negative">Could not read parties. Try again.</p>
+            } @else if(debtParties().length === 0) {
+              <p class="text-sm text-ink-faint">Add a party first.</p>
+              <a [routerLink]="'/parties'" class="text-xs text-ink-soft transition-colors hover:text-ink">Manage parties</a>
+            } @else {
+              <label for="debt-party" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Who do you owe?</label>
+              <select
+                id="debt-party"
+                class="rounded-field border border-rule bg-paper px-3 py-2 text-sm text-ink"
+                (change)="registerDebt($any($event.target).value)"
+              >
+                <option value="">Choose a party</option>
+                @for(party of debtParties(); track party.id) {
+                  <option [value]="party.id">{{ party.name }}</option>
+                }
+              </select>
+            }
+          </div>
+        }
+        @if(youOweStatus() === 'loading') {
+          <p class="mt-6 text-sm text-ink-faint">Adding up what you owe…</p>
+        } @else if(youOweStatus() === 'error') {
+          <p role="alert" class="mt-6 text-sm text-negative">Could not read what you owe. Try again.</p>
+        } @else if(youOweRows().length === 0) {
+          <p class="mt-6 text-sm text-ledger">You owe nobody</p>
+        } @else {
+          <ul class="mt-5 flex flex-col">
+            @for(row of youOweRows(); track row.partyId + '|' + row.currencyCode; let i = $index) {
+              <li class="sub-row flex items-center justify-between gap-4 border-b border-rule py-2.5 last:border-0" [style.animation-delay.ms]="i * 40">
+                <a [routerLink]="['/parties', row.partyId]" class="text-sm text-ink transition-colors hover:text-ink-soft">{{ row.partyName }}</a>
+                <span class="flex items-baseline gap-1.5 text-sm text-ink [font-variant-numeric:tabular-nums_lining-nums]">
+                  {{ formatMoney(row.amountMinorUnits, row.currencyCode) }}
+                  <span class="text-[0.625rem] uppercase tracking-widest text-ink-faint">{{ row.currencyCode }}</span>
+                </span>
+              </li>
+            }
+          </ul>
+        }
+      </section>
+      </div>
       <section class="flex-1 rounded-card border border-rule bg-paper-raised p-6 shadow-card" aria-labelledby="subscriptions-label">
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-2">
           <h2 id="subscriptions-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">

@@ -8,6 +8,7 @@ import { AppError } from '../../../../core/types/app-error';
 import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
+import { LedgerService } from '../../../ledger/ledger-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
@@ -99,6 +100,16 @@ const payableRows: PartyTimelineRow[] = [{
     currencyCode: 'USD'
   }];
 
+const purchaseRows: PartyTimelineRow[] = [{
+    transactionId: 'tx-pp1',
+    movementOnUtc: '2026-09-03T00:00:00.000Z',
+    description: 'Paid by Alice: Dinner',
+    deltaMinorUnits: money(12000),
+    runningBalanceMinorUnits: money(12000),
+    currencyCode: 'ARS',
+    purchaseId: 'pu-1'
+  }];
+
 const timelineRows: PartyTimelineRow[] = [{
     transactionId: 'tx-1',
     movementOnUtc: '2026-09-01T20:00:00.000Z',
@@ -135,6 +146,7 @@ describe('PartyDetailPage', () => {
   let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
   let recordLoan: jasmine.Spy<(id: string, body: RecordLoan) => Observable<LoanResult>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
+  let undoPartyPurchase: jasmine.Spy<(id: string, purchaseId: string) => Observable<void>>;
 
   function setup(): void {
     fixture = TestBed.createComponent(PartyDetailPage);
@@ -175,12 +187,14 @@ describe('PartyDetailPage', () => {
     settle = jasmine
       .createSpy('settle')
       .and.returnValue(of<SettlementResult>({ ledgerTransactionId: 'tx-1' }));
+    undoPartyPurchase = jasmine.createSpy('undoPartyPurchase').and.returnValue(of(undefined));
     TestBed.configureTestingModule({
       imports: [PartyDetailPage],
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan, recordBorrowing } },
+        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan, recordBorrowing, undoPartyPurchase } },
+        { provide: LedgerService, useValue: { listExpenseCategories: () => of<string[]>([]) } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
         { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
@@ -358,6 +372,41 @@ describe('PartyDetailPage', () => {
     fixture.detectChanges();
     expect(view.borrowStatus()).toBe('error');
     expect(text()).toContain('The borrowing date cannot be in the future.');
+  });
+  it('renders the Paid by form for this party', () => {
+    setup();
+    expect(text()).toContain('Paid by Alice');
+  });
+  it('re-fetches balance and timeline when a purchase is recorded', () => {
+    setup();
+    getBalance.calls.reset();
+    partyTimeline.calls.reset();
+    (view as unknown as { onPurchaseRecorded: () => void }).onPurchaseRecorded();
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('undoes a purchase as a whole from the I owe timeline and refreshes', () => {
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? purchaseRows : timelineRows));
+    setup();
+    view.setSide('payable');
+    fixture.detectChanges();
+    getBalance.calls.reset();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('app-timeline-table tbody tr button');
+    expect(button.textContent).toContain('Undo purchase');
+    button.click();
+    expect(undoPartyPurchase).toHaveBeenCalledWith('p1', 'pu-1');
+    expect(getBalance).toHaveBeenCalledTimes(1);
+  });
+  it('tells the user when a purchase cannot be undone', () => {
+    const appError: AppError = { code: 'Ledger.TransactionAlreadyReversed', title: 'x', detail: 'x', status: 409, metadata: {} };
+    undoPartyPurchase.and.returnValue(throwError(() => appError));
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? purchaseRows : timelineRows));
+    setup();
+    view.setSide('payable');
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('app-timeline-table tbody tr button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(text()).toContain('The purchase could not be undone');
   });
   it('shows both what they owe you and what you owe them in the balance', () => {
     getBalance.and.returnValue(of(bothSidesBalance));

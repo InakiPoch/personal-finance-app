@@ -1,0 +1,140 @@
+<form
+  class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
+  [formGroup]="form"
+  (ngSubmit)="onSubmit()"
+  aria-labelledby="purchase-label"
+>
+  <h2 id="purchase-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+    Paid by {{ partyName() }}
+  </h2>
+  <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+    A purchase this person paid where you took part. Enter your share; it counts as your expense and adds to what you owe them. No account moves.
+  </p>
+  <fieldset class="mt-4 inline-flex gap-4">
+    <legend class="sr-only">Purchase kind</legend>
+    <button
+      type="button"
+      [attr.aria-pressed]="form.controls.kind.value === 'debit'"
+      (click)="form.controls.kind.setValue('debit')"
+      class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+      [class.border-stamp]="form.controls.kind.value === 'debit'"
+      [class.text-ink]="form.controls.kind.value === 'debit'"
+      [class.border-transparent]="form.controls.kind.value !== 'debit'"
+      [class.text-ink-faint]="form.controls.kind.value !== 'debit'"
+    >
+      Debit
+    </button>
+    <button
+      type="button"
+      disabled
+      [attr.aria-pressed]="form.controls.kind.value === 'credit'"
+      title="Credit purchases are coming soon"
+      class="border-b border-transparent pb-0.5 text-xs font-medium uppercase tracking-[0.12em] text-ink-faint opacity-60"
+    >
+      Credit
+    </button>
+  </fieldset>
+
+  <div class="mt-6 flex flex-col gap-1.5">
+    <label for="purchaseShare" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">My share</label>
+    <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+      <input
+        type="number"
+        id="purchaseShare"
+        min="0"
+        step="0.01"
+        inputmode="decimal"
+        formControlName="share"
+        class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+      />
+      <select
+        id="purchaseCurrency"
+        formControlName="currency"
+        aria-label="Currency"
+        class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+      >
+        @for(code of currencies; track code) {
+          <option [value]="code">{{ code }}</option>
+        }
+      </select>
+    </div>
+    @if(form.controls.share.touched && form.controls.share.hasError('positiveAmount')) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+    }
+    @if(form.controls.share.touched && form.controls.share.hasError('atMostTwoDecimals')) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+    }
+  </div>
+
+  <div class="mt-6 flex flex-col gap-1.5">
+    <label for="purchaseCategory" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Category</label>
+    <input
+      type="text"
+      id="purchaseCategory"
+      list="purchase-category-options"
+      placeholder="Groceries, Transport, …"
+      formControlName="categoryName"
+      class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+    />
+    <datalist id="purchase-category-options">
+      @for(category of categories(); track category) {
+        <option [value]="category"></option>
+      }
+    </datalist>
+    @if(form.controls.categoryName.touched && (form.controls.categoryName.hasError('required') || form.controls.categoryName.hasError('pattern'))) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+    }
+  </div>
+
+  <div class="mt-6 flex flex-col gap-1.5">
+    <label for="purchaseDescription" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Description</label>
+    <input
+      type="text"
+      id="purchaseDescription"
+      maxlength="121"
+      formControlName="description"
+      class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+    />
+    @if(form.controls.description.touched && (form.controls.description.hasError('required') || form.controls.description.hasError('pattern'))) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+    }
+    @if(form.controls.description.hasError('maxlength')) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['maxlength'] }}</p>
+    }
+    @if(form.controls.description.hasError('singleLine')) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['singleLine'] }}</p>
+    }
+  </div>
+
+  <div class="mt-6 flex flex-col gap-1.5">
+    <label for="purchaseDate" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Purchase date</label>
+    <input
+      type="date"
+      id="purchaseDate"
+      formControlName="purchaseDate"
+      class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+    />
+    @if(form.controls.purchaseDate.touched && form.controls.purchaseDate.hasError('required')) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+    }
+    @if(form.controls.purchaseDate.hasError('notFutureDate')) {
+      <p class="text-xs text-negative" role="alert">{{ fieldErrors['notFutureDate'] }}</p>
+    }
+  </div>
+
+  <div class="mt-6 flex flex-col gap-2">
+    <button
+      type="submit"
+      [disabled]="status() === 'saving'"
+      class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+    >
+      {{ status() === 'saving' ? 'Recording…' : 'Record purchase' }}
+    </button>
+    @if(status() === 'saved') {
+      <p class="text-[0.8125rem] text-ledger" role="status">Purchase recorded.</p>
+    }
+    @if(error(); as failure) {
+      <p class="text-xs text-negative" role="alert">{{ errorText(failure) }}</p>
+    }
+  </div>
+</form>

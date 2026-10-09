@@ -122,8 +122,11 @@
       </p>
     } @else {
       <div class="mt-6">
-        <app-timeline-table [rows]="timeline()" (reverseClick)="openReverse($event)" />
+        <app-timeline-table [rows]="timeline()" (reverseClick)="openReverse($event)" (undoPurchaseClick)="onUndoPurchase($event)" />
       </div>
+      @if(purchaseUndoError()) {
+        <p class="mt-3 text-xs text-negative" role="alert">The purchase could not be undone — it may already be undone.</p>
+      }
     }
     <p class="mt-4 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
       An undo entry shows up as its own negative row.
@@ -540,6 +543,9 @@
       }
     </div>
   </form>
+  @if(partyId(); as id) {
+    <app-party-purchase-form [partyId]="id" [partyName]="balance()?.name ?? 'this party'" (recorded)="onPurchaseRecorded()" />
+  }
   </div>
   </div>
 </div>

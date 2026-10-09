@@ -10,4 +10,5 @@ export type PartyTimelineRow = {
   deltaMinorUnits: Money;
   runningBalanceMinorUnits: Money;
   currencyCode: CurrencyCode;
+  purchaseId?: string | null;
 };

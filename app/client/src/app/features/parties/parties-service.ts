@@ -9,9 +9,11 @@ import { FuturePartyShare } from './types/future-party-share';
 import { LoanResult } from './types/loan-result';
 import { Party } from './types/party';
 import { PartyResult } from './types/party-result';
+import { PartyPurchaseResult } from './types/party-purchase-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
 import { RecordBorrowing } from './types/record-borrowing';
 import { RecordLoan } from './types/record-loan';
+import { RecordPartyPurchase } from './types/record-party-purchase';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
 
@@ -59,6 +61,14 @@ export class PartiesService {
 
   recordBorrowing(partyId: string, body: RecordBorrowing): Observable<BorrowingResult> {
     return this.http.post<BorrowingResult>(`parties/${partyId}/borrowings`, body);
+  }
+
+  recordPartyPurchase(partyId: string, body: RecordPartyPurchase): Observable<PartyPurchaseResult> {
+    return this.http.post<PartyPurchaseResult>(`parties/${partyId}/purchases`, body);
+  }
+
+  undoPartyPurchase(partyId: string, purchaseId: string): Observable<void> {
+    return this.http.post<void>(`parties/${partyId}/purchases/${purchaseId}/undo`, null);
   }
 
   settle(partyId: string, body: SettleCurrentAccount): Observable<SettlementResult> {

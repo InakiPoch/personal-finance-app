@@ -15,6 +15,7 @@ import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
 import { RecordBorrowing } from './types/record-borrowing';
 import { RecordLoan } from './types/record-loan';
+import { RecordPartyPurchase } from './types/record-party-purchase';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
 import { PartiesService } from './parties-service';
@@ -131,6 +132,32 @@ describe('PartiesService', () => {
     expect(req.request.body).toEqual(body);
     req.flush({ ledgerTransactionId: 'tx-7' });
     expect(result).toEqual({ ledgerTransactionId: 'tx-7' });
+  });
+  it('posts a party purchase to /parties/{id}/purchases and returns the purchase id', () => {
+    const body: RecordPartyPurchase = {
+      shareMinorUnits: money(12000),
+      currencyCode: 'ARS',
+      description: 'Dinner',
+      categoryName: 'Eating out',
+      purchaseDate: '2026-09-10' as IsoDate,
+      kind: 'debit',
+      today: '2026-09-15' as IsoDate
+    };
+    let result: unknown;
+    service.recordPartyPurchase('p1', body).subscribe((r: unknown) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/purchases`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ purchaseId: 'pu-1' });
+    expect(result).toEqual({ purchaseId: 'pu-1' });
+  });
+  it('undoes a party purchase through /parties/{id}/purchases/{purchaseId}/undo', () => {
+    let done = false;
+    service.undoPartyPurchase('p1', 'pu-1').subscribe(() => (done = true));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/purchases/pu-1/undo`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    expect(done).toBe(true);
   });
   it('maps a 409 on a settlement to an AppError keyed off code', () => {
     let error: AppError | undefined;

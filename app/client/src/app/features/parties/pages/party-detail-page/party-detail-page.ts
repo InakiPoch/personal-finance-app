@@ -31,6 +31,7 @@ import { RecordLoan } from '../../types/record-loan';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
 import { atMostTwoDecimals, notFutureDate, positiveAmount, singleLine } from '../../validation-helpers';
+import { PartyPurchaseForm } from './party-purchase-form';
 import { TimelineTable } from './timeline-table';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
@@ -67,7 +68,7 @@ type BorrowForm = FormGroup<{
 
 @Component({
   selector: 'app-party-detail-page',
-  imports: [ReactiveFormsModule, RouterLink, TimelineTable],
+  imports: [ReactiveFormsModule, RouterLink, PartyPurchaseForm, TimelineTable],
   templateUrl: './party-detail-page.html',
   styleUrl: './party-detail-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -92,6 +93,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly borrowStatus: WritableSignal<BorrowStatus> = signal<BorrowStatus>('idle');
   protected readonly borrowError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly side: WritableSignal<PartyTimelineSide> = signal<PartyTimelineSide>('receivable');
+  protected readonly purchaseUndoError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly loanCurrencies: readonly CurrencyCode[] = ['ARS', 'USD'];
   protected readonly loanSourceAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash')
@@ -299,6 +301,30 @@ export class PartyDetailPage implements OnInit, OnDestroy {
 
   protected settleErrorText(error: AppError): string {
     return this.settleErrorMessages[error.code] ?? 'The settlement could not be recorded.';
+  }
+
+  protected onPurchaseRecorded(): void {
+    const id: string | null = this.partyId();
+    if(id !== null) {
+      this.loadBalance(id);
+      this.loadTimeline(id);
+    }
+  }
+
+  protected onUndoPurchase(purchaseId: string): void {
+    const id: string | null = this.partyId();
+    if(id === null) {
+      return;
+    }
+    this.purchaseUndoError.set(null);
+    this.partiesService
+      .undoPartyPurchase(id, purchaseId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => this.onPurchaseRecorded(),
+        error: (error: AppError) => this.purchaseUndoError.set(error)
+      }
+    );
   }
 
   protected openReverse(transactionId: string): void {

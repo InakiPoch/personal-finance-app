@@ -42,7 +42,7 @@ public sealed class PartyBorrowingTests(ApiWebApplicationFactory factory) : ICla
         await PostBorrowingAsync(client, partyId, bankId, 5_000, "ARS", "Trip", null, cancellationToken);
         var owe = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/parties/{partyId}/timeline?side=payable", cancellationToken);
         var row = Assert.Single(owe.GetProperty("rows").EnumerateArray());
-        Assert.Equal("Borrowed from Carla", row.GetProperty("description").GetString());
+        Assert.Equal("Trip", row.GetProperty("description").GetString());
         Assert.Equal(5_000, row.GetProperty("deltaMinorUnits").GetInt64());
         Assert.Equal(5_000, row.GetProperty("runningBalanceMinorUnits").GetInt64());
         var owed = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/parties/{partyId}/timeline", cancellationToken);

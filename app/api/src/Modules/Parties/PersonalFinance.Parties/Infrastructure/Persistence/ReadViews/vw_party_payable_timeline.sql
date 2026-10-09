@@ -10,7 +10,7 @@ SELECT
     CASE
         WHEN m.IsReversal = 1          THEN 'Reversal'
         WHEN pu.Id IS NOT NULL         THEN 'Paid by ' || p.Name || ': ' || pu.Description
-        WHEN m.MovementMinorUnits > 0  THEN 'Borrowed from ' || p.Name
+        WHEN m.MovementMinorUnits > 0  THEN COALESCE(NULLIF(m.TransactionDescription, ''), 'Borrowed from ' || p.Name)
         ELSE 'Paid back to ' || p.Name
     END                        AS Description,
     m.MovementMinorUnits       AS DeltaMinorUnits,
@@ -24,6 +24,7 @@ INNER JOIN (
         e.Id AS EntryId,
         e.TransactionId,
         t.PostedOnUtc,
+        t.Description AS TransactionDescription,
         COALESCE(t.OriginalTransactionId, e.TransactionId) AS SourceTransactionId,
         CASE WHEN t.OriginalTransactionId IS NOT NULL THEN 1 ELSE 0 END AS IsReversal,
         CASE WHEN e.Direction = 'Credit' THEN e.AmountMinorUnits ELSE -e.AmountMinorUnits END AS MovementMinorUnits,

@@ -19,7 +19,7 @@ public sealed class PartyTimelineOrderingTests(ApiWebApplicationFactory factory)
         (await client.PostAsJsonAsync($"/v1/parties/{partyId}/repayments", new { amountMinorUnits = 400, sourceAccountId = bankId, paidOn = day, currencyCode = "ARS" }, cancellationToken)).EnsureSuccessStatusCode();
         var timeline = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/parties/{partyId}/timeline?side=payable", cancellationToken);
         var descriptions = timeline.GetProperty("rows").EnumerateArray().Select(row => row.GetProperty("description").GetString()).ToList();
-        Assert.Equal(["Borrowed from Ines", "Paid back to Ines"], descriptions);
+        Assert.Equal(["Gap", "Paid back to Ines"], descriptions);
     }
 
     [Fact]
@@ -32,7 +32,7 @@ public sealed class PartyTimelineOrderingTests(ApiWebApplicationFactory factory)
         (await client.PostAsJsonAsync($"/v1/parties/{partyId}/settlements", new { amountMinorUnits = 400, bankAccountId = bankId, settledOnUtc = $"{day}T00:00:00Z", currencyCode = "ARS" }, cancellationToken)).EnsureSuccessStatusCode();
         var timeline = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/parties/{partyId}/timeline", cancellationToken);
         var descriptions = timeline.GetProperty("rows").EnumerateArray().Select(row => row.GetProperty("description").GetString()).ToList();
-        Assert.Equal(["Lent to Teo", "Settlement"], descriptions);
+        Assert.Equal(["Loan", "Settlement"], descriptions);
     }
 
     private static async Task<Guid> CreateAccountAsync(HttpClient client, string name, CancellationToken cancellationToken) {

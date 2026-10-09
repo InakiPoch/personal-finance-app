@@ -9,7 +9,7 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { RouterLink } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { formatMoney, fromMinorUnits } from '../../../../core/money/money';
 import { CurrencyCode } from '../../../../core/types/currency-code';
@@ -17,11 +17,14 @@ import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
 import { DueThisMonthRow } from '../../../financing/types/due-this-month-row';
+import { PartiesService } from '../../../parties/parties-service';
+import { Party } from '../../../parties/types/party';
 import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
 import { MonthSubscription } from '../../../subscriptions/types/month-subscription';
 import { ReportsService } from '../../reports-service';
 import { CardDueRow } from '../../types/card-due-row';
 import { OwedToYouRow } from '../../types/owed-to-you-row';
+import { YouOweRow } from '../../types/you-owe-row';
 import { MonthlyExpenseRow } from '../../types/monthly-expense-row';
 import { MonthlyIncomeRow } from '../../types/monthly-income-row';
 
@@ -108,6 +111,11 @@ export class DashboardPage implements OnInit, OnDestroy {
   protected readonly dueStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly owedStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly owedRows: WritableSignal<OwedToYouRow[]> = signal<OwedToYouRow[]>([]);
+  protected readonly youOweStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
+  protected readonly youOweRows: WritableSignal<YouOweRow[]> = signal<YouOweRow[]>([]);
+  protected readonly debtPickerOpen: WritableSignal<boolean> = signal<boolean>(false);
+  protected readonly debtParties: WritableSignal<Party[]> = signal<Party[]>([]);
+  protected readonly debtPartiesStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly dueExpanded: WritableSignal<boolean> = signal<boolean>(false);
   protected readonly subscriptionsStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly monthSubscriptions: WritableSignal<MonthSubscription[]> = signal<MonthSubscription[]>([]);
@@ -261,6 +269,8 @@ export class DashboardPage implements OnInit, OnDestroy {
   private readonly reports: ReportsService = inject(ReportsService);
   private readonly financing: FinancingService = inject(FinancingService);
   private readonly subscriptions: SubscriptionsService = inject(SubscriptionsService);
+  private readonly parties: PartiesService = inject(PartiesService);
+  private readonly router: Router = inject(Router);
   private readonly monthlyRows: WritableSignal<MonthlyExpenseRow[]> = signal<MonthlyExpenseRow[]>([]);
   private readonly incomeRows: WritableSignal<MonthlyIncomeRow[]> = signal<MonthlyIncomeRow[]>([]);
   private readonly dueRows: WritableSignal<DueThisMonthRow[]> = signal<DueThisMonthRow[]>([]);
@@ -280,11 +290,38 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.loadMonthlyIncomes();
     this.loadDueThisMonth();
     this.loadOwedToYou();
+    this.loadYouOwe();
     this.loadSubscriptionsByMonth();
   }
 
   protected setFlowSide(side: FlowSide): void {
     this.flowSide.set(side);
+  }
+
+  protected toggleDebtPicker(): void {
+    const open: boolean = !this.debtPickerOpen();
+    this.debtPickerOpen.set(open);
+    if(!open || this.debtPartiesStatus() === 'ready') {
+      return;
+    }
+    this.debtPartiesStatus.set('loading');
+    this.parties
+      .list()
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: Party[]) => {
+          this.debtParties.set(rows);
+          this.debtPartiesStatus.set('ready');
+        },
+        error: () => this.debtPartiesStatus.set('error')
+      }
+    );
+  }
+
+  protected registerDebt(partyId: string): void {
+    if(partyId !== '') {
+      void this.router.navigate(['/parties', partyId], { fragment: 'debt-forms' });
+    }
   }
 
   protected toggleDueBreakdown(): void {
@@ -429,6 +466,29 @@ export class DashboardPage implements OnInit, OnDestroy {
     );
   }
 
+  private loadYouOwe(): void {
+    const month: string = this.selectedMonth();
+    this.youOweStatus.set('loading');
+    this.reports
+      .youOwe(month, localTodayKey())
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: (rows: YouOweRow[]) => {
+          if(month !== this.selectedMonth()) {
+            return;
+          }
+          this.youOweRows.set(rows);
+          this.youOweStatus.set('ready');
+        },
+        error: () => {
+          if(month === this.selectedMonth()) {
+            this.youOweStatus.set('error');
+          }
+        }
+      }
+    );
+  }
+
   private loadCardDue(): void {
     this.cardDueStatus.set('loading');
     this.reports
@@ -474,6 +534,7 @@ export class DashboardPage implements OnInit, OnDestroy {
     this.loadMonthlyIncomes();
     this.loadDueThisMonth();
     this.loadOwedToYou();
+    this.loadYouOwe();
     this.loadCardDue();
     this.loadSubscriptionsByMonth();
   }

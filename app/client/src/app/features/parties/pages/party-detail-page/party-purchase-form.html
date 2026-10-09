@@ -10,32 +10,18 @@
   <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
     A purchase this person paid where you took part. Enter your share; it counts as your expense and adds to what you owe them. No account moves.
   </p>
-  <fieldset class="mt-4 inline-flex gap-4">
+  <fieldset class="mt-4 inline-flex overflow-hidden rounded-card border border-rule">
     <legend class="sr-only">Purchase kind</legend>
-    <button
-      type="button"
-      [attr.aria-pressed]="form.controls.kind.value === 'debit'"
-      (click)="setKind('debit')"
-      class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
-      [class.border-stamp]="form.controls.kind.value === 'debit'"
-      [class.text-ink]="form.controls.kind.value === 'debit'"
-      [class.border-transparent]="form.controls.kind.value !== 'debit'"
-      [class.text-ink-faint]="form.controls.kind.value !== 'debit'"
-    >
-      Debit
-    </button>
-    <button
-      type="button"
-      [attr.aria-pressed]="form.controls.kind.value === 'credit'"
-      (click)="setKind('credit')"
-      class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
-      [class.border-stamp]="form.controls.kind.value === 'credit'"
-      [class.text-ink]="form.controls.kind.value === 'credit'"
-      [class.border-transparent]="form.controls.kind.value !== 'credit'"
-      [class.text-ink-faint]="form.controls.kind.value !== 'credit'"
-    >
-      Credit
-    </button>
+    @for(option of kinds; track option.value) {
+      <label class="cursor-pointer">
+        <input type="radio" [value]="option.value" formControlName="kind" class="peer sr-only" />
+        <span
+          class="block px-3 py-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink-faint transition-colors peer-hover:text-ink-soft peer-checked:bg-stamp peer-checked:text-paper-raised peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-stamp"
+        >
+          {{ option.label }}
+        </span>
+      </label>
+    }
   </fieldset>
 
   <div class="mt-6 flex flex-col gap-1.5">

@@ -87,32 +87,26 @@
     <h2 id="timeline-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Timeline
     </h2>
-    <div role="group" aria-label="Timeline side" class="mt-4 inline-flex gap-4">
-      <button
-        type="button"
-        [attr.aria-pressed]="side() === 'receivable'"
-        (click)="setSide('receivable')"
-        class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
-        [class.border-stamp]="side() === 'receivable'"
-        [class.text-ink]="side() === 'receivable'"
-        [class.border-transparent]="side() !== 'receivable'"
-        [class.text-ink-faint]="side() !== 'receivable'"
-      >
-        Owed to me
-      </button>
-      <button
-        type="button"
-        [attr.aria-pressed]="side() === 'payable'"
-        (click)="setSide('payable')"
-        class="cursor-pointer border-b pb-0.5 text-xs font-medium uppercase tracking-[0.12em] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
-        [class.border-stamp]="side() === 'payable'"
-        [class.text-ink]="side() === 'payable'"
-        [class.border-transparent]="side() !== 'payable'"
-        [class.text-ink-faint]="side() !== 'payable'"
-      >
-        I owe
-      </button>
-    </div>
+    <fieldset class="mt-4 inline-flex overflow-hidden rounded-card border border-rule">
+      <legend class="sr-only">Timeline side</legend>
+      @for(option of sideOptions; track option.value) {
+        <label class="cursor-pointer">
+          <input
+            type="radio"
+            name="timelineSide"
+            [value]="option.value"
+            [checked]="side() === option.value"
+            (change)="setSide(option.value)"
+            class="peer sr-only"
+          />
+          <span
+            class="block px-3 py-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink-faint transition-colors peer-hover:text-ink-soft peer-checked:bg-stamp peer-checked:text-paper-raised peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-stamp"
+          >
+            {{ option.label }}
+          </span>
+        </label>
+      }
+    </fieldset>
 
     @if(timelineStatus() === 'loading') {
       <p class="mt-6 text-sm text-ink-faint">Reading the timeline…</p>

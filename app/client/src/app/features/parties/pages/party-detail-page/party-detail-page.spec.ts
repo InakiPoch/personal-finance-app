@@ -467,9 +467,10 @@ describe('PartyDetailPage', () => {
     setup();
     expect(view.side()).toBe('receivable');
     expect(text()).toContain('Shared expense');
-    const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('[role="group"] button'));
-    expect(buttons.map((button: HTMLButtonElement) => button.textContent?.trim())).toEqual(['Owed to me', 'I owe']);
-    buttons[1].click();
+    const labels: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('input[name="timelineSide"]'))
+      .map((radio: unknown) => (radio as HTMLElement).closest('label') as HTMLElement);
+    expect(labels.map((label: HTMLElement) => label.textContent?.trim())).toEqual(['Owed to me', 'I owe']);
+    (fixture.nativeElement.querySelectorAll('input[name="timelineSide"]')[1] as HTMLInputElement).click();
     fixture.detectChanges();
     expect(partyTimeline).toHaveBeenCalledWith('p1', 'payable');
     expect(view.side()).toBe('payable');

@@ -37,9 +37,7 @@ import { TimelineTable } from './timeline-table';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SettleStatus = 'idle' | 'settling' | 'settled' | 'error';
-type LoanStatus = 'idle' | 'saving' | 'saved' | 'error';
-type BorrowStatus = 'idle' | 'saving' | 'saved' | 'error';
-type RepayStatus = 'idle' | 'saving' | 'saved' | 'error';
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const MONTH_LABELS: readonly string[] = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -98,12 +96,16 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly futureSharesStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly settleStatus: WritableSignal<SettleStatus> = signal<SettleStatus>('idle');
   protected readonly settleError: WritableSignal<AppError | null> = signal<AppError | null>(null);
-  protected readonly loanStatus: WritableSignal<LoanStatus> = signal<LoanStatus>('idle');
+  protected readonly loanStatus: WritableSignal<SaveStatus> = signal<SaveStatus>('idle');
   protected readonly loanError: WritableSignal<AppError | null> = signal<AppError | null>(null);
-  protected readonly borrowStatus: WritableSignal<BorrowStatus> = signal<BorrowStatus>('idle');
+  protected readonly borrowStatus: WritableSignal<SaveStatus> = signal<SaveStatus>('idle');
   protected readonly borrowError: WritableSignal<AppError | null> = signal<AppError | null>(null);
-  protected readonly repayStatus: WritableSignal<RepayStatus> = signal<RepayStatus>('idle');
+  protected readonly repayStatus: WritableSignal<SaveStatus> = signal<SaveStatus>('idle');
   protected readonly repayError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly sideOptions: readonly { value: PartyTimelineSide; label: string }[] = [
+    { value: 'receivable', label: 'Owed to me' },
+    { value: 'payable', label: 'I owe' }
+  ];
   protected readonly side: WritableSignal<PartyTimelineSide> = signal<PartyTimelineSide>('receivable');
   protected readonly purchaseUndoError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly loanCurrencies: readonly CurrencyCode[] = ['ARS', 'USD'];
@@ -405,7 +407,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   }
 
   protected showsScheduledUndo(share: FuturePartyShare): boolean {
-    return share.purchaseId != null && this.futureShares().find((row: FuturePartyShare) => row.purchaseId === share.purchaseId) === share;
+    return !!share.purchaseId && this.futureShares().find((row: FuturePartyShare) => row.purchaseId === share.purchaseId) === share;
   }
 
   protected cycleLabel(share: FuturePartyShare): string {
@@ -467,7 +469,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private initLoanForm(): void {
     this.loanForm = this.fb.group({
       amount: this.fb.control<number | null>(null, {
-        validators: [positiveAmount, atMostTwoDecimals],
+        validators: [positiveAmount, atMostTwoDecimals]
       }),
       currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       sourceAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
@@ -481,7 +483,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private initBorrowForm(): void {
     this.borrowForm = this.fb.group({
       amount: this.fb.control<number | null>(null, {
-        validators: [positiveAmount, atMostTwoDecimals],
+        validators: [positiveAmount, atMostTwoDecimals]
       }),
       currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       destinationAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
@@ -495,7 +497,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private initRepayForm(): void {
     this.repayForm = this.fb.group({
       amount: this.fb.control<number | null>(null, {
-        validators: [positiveAmount, atMostTwoDecimals],
+        validators: [positiveAmount, atMostTwoDecimals]
       }),
       currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       sourceAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
@@ -506,7 +508,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private initSettlementForm(): void {
     this.form = this.fb.group({
       amount: this.fb.control<number | null>(null, {
-        validators: [positiveAmount, atMostTwoDecimals],
+        validators: [positiveAmount, atMostTwoDecimals]
       }),
       currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       bankAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),

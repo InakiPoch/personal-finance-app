@@ -51,6 +51,10 @@ export class PartyPurchaseForm implements OnInit, OnDestroy {
   protected readonly status: WritableSignal<PurchaseStatus> = signal<PurchaseStatus>('idle');
   protected readonly error: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly categories: WritableSignal<string[]> = signal<string[]>([]);
+  protected readonly kinds: readonly { value: PartyPurchaseKind; label: string }[] = [
+    { value: 'debit', label: 'Debit' },
+    { value: 'credit', label: 'Credit' }
+  ];
   protected readonly currencies: readonly CurrencyCode[] = ['ARS', 'USD'];
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
@@ -131,10 +135,6 @@ export class PartyPurchaseForm implements OnInit, OnDestroy {
         }
       }
     );
-  }
-
-  protected setKind(kind: PartyPurchaseKind): void {
-    this.form.controls.kind.setValue(kind);
   }
 
   private static nextMonth(date: string): string {

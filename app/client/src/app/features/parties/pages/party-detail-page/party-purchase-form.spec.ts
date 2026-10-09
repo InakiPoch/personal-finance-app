@@ -79,14 +79,15 @@ describe('PartyPurchaseForm', () => {
     expect(fixture.nativeElement.querySelector('option[value="Groceries"]')).not.toBeNull();
   });
   it('has a debit/credit toggle with debit selected', () => {
-    const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('fieldset button'));
-    expect(buttons.map((button: HTMLButtonElement) => button.textContent?.trim())).toEqual(['Debit', 'Credit']);
-    expect(buttons[0].getAttribute('aria-pressed')).toBe('true');
-    expect(buttons[1].disabled).toBe(false);
+    const labels: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('fieldset label'));
+    expect(labels.map((label: HTMLElement) => label.textContent?.trim())).toEqual(['Debit', 'Credit']);
+    const radios: HTMLInputElement[] = Array.from(fixture.nativeElement.querySelectorAll('fieldset input[type="radio"]'));
+    expect(radios[0].checked).toBe(true);
+    expect(radios[1].disabled).toBe(false);
     expect(fixture.nativeElement.querySelector('#purchaseInstallments')).toBeNull();
   });
   it('shows installments and a first payment month for credit, defaulting to the month after the purchase', () => {
-    (fixture.nativeElement.querySelectorAll('fieldset button')[1] as HTMLButtonElement).click();
+    (fixture.nativeElement.querySelectorAll('fieldset input[type="radio"]')[1] as HTMLInputElement).click();
     fixture.detectChanges();
     expect(fixture.nativeElement.querySelector('#purchaseInstallments')).not.toBeNull();
     expect(text()).toContain('My share per installment');

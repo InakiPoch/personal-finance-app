@@ -70,6 +70,55 @@ describe('TimelineTable', () => {
     expect(buttons[1].disabled).toBeTrue();
     expect(fixture.nativeElement.querySelector('.timeline__note').textContent).toContain('Undo entry');
   });
+  describe('party purchase rows', () => {
+    const purchaseRow: PartyTimelineRow = {
+      transactionId: 'tx-p1',
+      movementOnUtc: '2026-09-01T00:00:00.000Z',
+      description: 'Paid by Alice: Dinner',
+      deltaMinorUnits: money(12000),
+      runningBalanceMinorUnits: money(12000),
+      currencyCode: 'ARS',
+      purchaseId: 'pu-1'
+    };
+    const undoRow: PartyTimelineRow = {
+      transactionId: 'tx-p2',
+      movementOnUtc: '2026-09-02T00:00:00.000Z',
+      description: 'Reversal',
+      deltaMinorUnits: money(-12000),
+      runningBalanceMinorUnits: money(0),
+      currencyCode: 'ARS',
+      purchaseId: 'pu-1'
+    };
+
+    it('offers Undo purchase and emits the purchase id, not the transaction id', () => {
+      fixture.componentRef.setInput('rows', [purchaseRow]);
+      let emitted: string | undefined;
+      let reversed: string | undefined;
+      fixture.componentInstance.undoPurchaseClick.subscribe((id: string) => (emitted = id));
+      fixture.componentInstance.reverseClick.subscribe((id: string) => (reversed = id));
+      fixture.detectChanges();
+      const button: HTMLButtonElement = fixture.nativeElement.querySelector('tbody tr button');
+      expect(button.textContent).toContain('Undo purchase');
+      button.click();
+      expect(emitted).toBe('pu-1');
+      expect(reversed).toBeUndefined();
+    });
+    it('offers Undo purchase once per purchase, not on every posted installment', () => {
+      const secondInstallment: PartyTimelineRow = { ...purchaseRow, transactionId: 'tx-p3', movementOnUtc: '2026-10-01T00:00:00.000Z' };
+      fixture.componentRef.setInput('rows', [purchaseRow, secondInstallment]);
+      fixture.detectChanges();
+      const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('tbody tr button');
+      expect(buttons.length).toBe(1);
+      expect(buttons[0].textContent).toContain('Undo purchase');
+    });
+    it('locks Undo purchase once the purchase has been undone', () => {
+      fixture.componentRef.setInput('rows', [purchaseRow, undoRow]);
+      fixture.detectChanges();
+      const buttons: NodeListOf<HTMLButtonElement> = fixture.nativeElement.querySelectorAll('tbody tr button');
+      expect(buttons[0].disabled).toBeTrue();
+      expect(buttons[1].disabled).toBeTrue();
+    });
+  });
   it('shows an empty note when there are no rows', () => {
     fixture.componentRef.setInput('rows', []);
     fixture.detectChanges();

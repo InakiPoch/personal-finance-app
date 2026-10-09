@@ -1,6 +1,7 @@
 CREATE VIEW vw_receivable_account_movements AS
 SELECT
     e.AccountId,
+    e.Id                  AS EntryId,
     a.Name                AS AccountName,
     e.TransactionId,
     t.PostedOnUtc,

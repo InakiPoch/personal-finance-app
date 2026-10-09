@@ -8,6 +8,7 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence;
 internal sealed class PartiesDbContext(DbContextOptions<PartiesDbContext> options, ISqliteConnectionFactory connectionFactory) : ModuleDbContextBase(options, connectionFactory) {
     public DbSet<Party> Parties => Set<Party>();
     public DbSet<ExpenseSplit> ExpenseSplits => Set<ExpenseSplit>();
+    public DbSet<PartyPurchase> PartyPurchases => Set<PartyPurchase>();
     public DbSet<CurrentAccountTimelineEntry> CurrentAccountTimeline => Set<CurrentAccountTimelineEntry>();
 
     protected override string ModuleName => "Parties";

@@ -73,7 +73,7 @@ describe('LoadExpensePage', () => {
   const futureIso = (): string => new Date(Date.now() + 86_400_000).toISOString().slice(0, 10);
 
   function balance(value: number, currencyCode: CurrencyCode = 'ARS'): CurrentAccountBalance {
-    return { partyId: 'p1', name: 'Alice', balances: [{ currencyCode, balanceMinorUnits: money(value) }] };
+    return { partyId: 'p1', name: 'Alice', balances: [{ currencyCode, balanceMinorUnits: money(value) }], payableBalances: [] };
   }
 
   function fillValidForm(): void {
@@ -367,7 +367,8 @@ describe('LoadExpensePage', () => {
         balances: [
           { currencyCode: 'ARS' as CurrencyCode, balanceMinorUnits: money(100000) },
           { currencyCode: 'USD' as CurrencyCode, balanceMinorUnits: money(call === 1 ? 20000 : 30000) }
-        ]
+        ],
+        payableBalances: []
       });
     });
     fillValidDebitForm();

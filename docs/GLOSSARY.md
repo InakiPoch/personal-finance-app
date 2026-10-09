@@ -17,8 +17,8 @@ Domain language shared by `app/api` and `app/client`. Use these terms in code, t
 |---|---|
 | **Transaction** | Balanced double-entry posting. Has a `Description`; historic rows fall back to the category name. |
 | **Reversal / storno** (UI: **undo entry**) | Append-only mirror transaction with `OriginalTransactionId`. An original can be reversed once (409 `Ledger.TransactionAlreadyReversed`); a reversal cannot be reversed. |
-| **Income** (UI: **Money received**) | Money entering a Bank/Cash account: `Dr Bank/Cash / Cr Income` plus every party settlement, whatever it repays. Excludes card refunds and reversals. |
-| **Out of pocket** (UI: **Spent from bank & cash**) | Everything that left my Bank/Cash accounts in a month: my expense share plus whatever I fronted for parties (loans, debit-split shares). Card purchases and card bill payments are excluded. |
+| **Income** (UI: **Money received**) | Money entering a Bank/Cash account: `Dr Bank/Cash / Cr Income` plus every party settlement, whatever it repays, and every borrowing. Excludes card refunds and reversals. |
+| **Out of pocket** (UI: **Spent from bank & cash**) | Everything that left my Bank/Cash accounts in a month: my expense share plus whatever I fronted for parties (loans, debit-split shares) and repayments to parties. Card purchases and card bill payments are excluded. |
 | **Money Flow** (UI: **Recent Money Movements**) | Table of my movements, one row per transaction at the full amount that left or entered Bank/Cash; party movements flagged ("Lent to", "Shared with", "Paid back by"); reversed pairs hidden; undo on income, loan and settlement rows. |
 | **Category** | No entity. It is the name of an Expense-kind ledger account, get-or-created case-insensitively. |
 
@@ -57,13 +57,18 @@ Domain language shared by `app/api` and `app/client`. Use these terms in code, t
 
 | Term | Definition |
 |---|---|
-| **Party** | Person who owes me money, through shared expenses or loans; has one receivable account. |
+| **Party** | Person I share money with, in either direction: they may owe me (receivable) and I may owe them (payable). |
 | **Split / party share** | A party's fixed share of a purchase. Computed with `PhantomPennyAllocator` over `[holder, participants ordered by PartyId]`. |
 | **Loan** (UI: **Money lent**) | Money I give a party from one of my Bank/Cash accounts, not tied to any purchase. Always owed to me; borrowing from a party is not a loan. |
+| **Borrowing** (UI: **Money borrowed**) | Money a party gives me into one of my Bank/Cash accounts, not tied to any purchase. Always owed by me; counts as Money received. The mirror of a Loan. |
+| **Payable** (UI: **you owe**) | What I owe a party: borrowings plus my shares of purchases the party paid, per (party, currency). Kept separate from the receivable, never netted against it. |
 | **Receivable** (UI: **owed to you**) | What a party owes me: split shares plus loans, pooled per (party, currency). Card and creditor splits accrue it at DueCycle per installment. |
 | **Scheduled** | Share not yet accrued; served by `GET /v1/parties/{id}/future-shares`. |
-| **Settled up** | $0 posted **and** nothing scheduled. |
+| **Settled up** | $0 owed to me **and** $0 I owe, with nothing scheduled in either direction. |
 | **Settlement** | `Dr Bank / Cr Receivable_party` via `SettleCurrentAccount`. |
+| **Party purchase** (UI: **Paid by <party>**) | A purchase a party paid where I took part; I owe only my share, typed directly. **Debit**: owed in full on the purchase date. **Credit**: my share per installment × N installments, owed from a first payment month (defaults to the month after the purchase). My share is my expense; no Bank/Cash moves. The mirror of a Split. |
+| **Repayment** (UI: **Paid back to <party>**) | Money I pay a party from one of my Bank/Cash accounts, reducing the payable. Partial allowed, capped at what is already owed (scheduled installments cannot be prepaid). Counts as Out of pocket. The mirror of a Settlement. |
+| **You owe (dashboard)** | Mirror of Owed to you over the payable: per (party, currency), owed by the end of the selected month plus scheduled installments due by that month. Positive amounts only. |
 
 ## Subscriptions
 

@@ -1,19 +1,25 @@
-import { provideZonelessChangeDetection } from '@angular/core';
+import { WritableSignal, provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { FormControl, FormGroup } from '@angular/forms';
 import { ActivatedRoute, Router, convertToParamMap, provideRouter } from '@angular/router';
-import { Observable, of, throwError } from 'rxjs';
+import { BehaviorSubject, Observable, of, throwError } from 'rxjs';
 import { formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
 import { CurrencyCode } from '../../../../core/types/currency-code';
 import { Money } from '../../../../core/types/money';
 import { InstrumentsService } from '../../../instruments/instruments-service';
+import { LedgerService } from '../../../ledger/ledger-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
+import { PartyTimelineSide } from '../../../reports/types/party-timeline-side';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
+import { BorrowingResult } from '../../types/borrowing-result';
 import { LoanResult } from '../../types/loan-result';
+import { RecordRepayment } from '../../types/record-repayment';
+import { RepaymentResult } from '../../types/repayment-result';
+import { RecordBorrowing } from '../../types/record-borrowing';
 import { RecordLoan } from '../../types/record-loan';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { SettlementResult } from '../../types/settlement-result';
@@ -27,6 +33,11 @@ type PartyDetailView = {
     bankAccountId: FormControl<string>;
     settledOnUtc: FormControl<string>;
   }>;
+  settleOpen: WritableSignal<boolean>;
+  loanOpen: WritableSignal<boolean>;
+  borrowOpen: WritableSignal<boolean>;
+  repayOpen: WritableSignal<boolean>;
+  purchaseOpen: WritableSignal<boolean>;
   balance: () => CurrentAccountBalance | null;
   timeline: () => PartyTimelineRow[];
   futureShares: () => FuturePartyShare[];
@@ -47,6 +58,27 @@ type PartyDetailView = {
   loanStatus: () => 'idle' | 'saving' | 'saved' | 'error';
   loanError: () => AppError | null;
   onLoanSubmit: () => void;
+  borrowForm: FormGroup<{
+    amount: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
+    destinationAccountId: FormControl<string>;
+    borrowedOn: FormControl<string>;
+    description: FormControl<string>;
+  }>;
+  borrowStatus: () => 'idle' | 'saving' | 'saved' | 'error';
+  borrowError: () => AppError | null;
+  onBorrowSubmit: () => void;
+  repayForm: FormGroup<{
+    amount: FormControl<number | null>;
+    currency: FormControl<CurrencyCode>;
+    sourceAccountId: FormControl<string>;
+    paidOn: FormControl<string>;
+  }>;
+  repayStatus: () => 'idle' | 'saving' | 'saved' | 'error';
+  repayError: () => AppError | null;
+  onRepaySubmit: () => void;
+  side: () => PartyTimelineSide;
+  setSide: (side: PartyTimelineSide) => void;
 };
 
 const money = (value: number): Money => value as Money;
@@ -54,7 +86,8 @@ const money = (value: number): Money => value as Money;
 const balance: CurrentAccountBalance = {
   partyId: 'p1',
   name: 'Alice',
-  balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }]
+  balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+  payableBalances: []
 };
 
 const twoCurrencyBalance: CurrentAccountBalance = {
@@ -63,8 +96,35 @@ const twoCurrencyBalance: CurrentAccountBalance = {
   balances: [
     { currencyCode: 'ARS', balanceMinorUnits: money(250000) },
     { currencyCode: 'USD', balanceMinorUnits: money(5000) }
-  ]
+  ],
+  payableBalances: []
 };
+
+const bothSidesBalance: CurrentAccountBalance = {
+  partyId: 'p1',
+  name: 'Alice',
+  balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+  payableBalances: [{ currencyCode: 'USD', balanceMinorUnits: money(9000) }]
+};
+
+const payableRows: PartyTimelineRow[] = [{
+    transactionId: 'tx-b1',
+    movementOnUtc: '2026-09-02T20:00:00.000Z',
+    description: 'Borrowed from Alice',
+    deltaMinorUnits: money(9000),
+    runningBalanceMinorUnits: money(9000),
+    currencyCode: 'USD'
+  }];
+
+const purchaseRows: PartyTimelineRow[] = [{
+    transactionId: 'tx-pp1',
+    movementOnUtc: '2026-09-03T00:00:00.000Z',
+    description: 'Paid by Alice: Dinner',
+    deltaMinorUnits: money(12000),
+    runningBalanceMinorUnits: money(12000),
+    currencyCode: 'ARS',
+    purchaseId: 'pu-1'
+  }];
 
 const timelineRows: PartyTimelineRow[] = [{
     transactionId: 'tx-1',
@@ -97,10 +157,14 @@ describe('PartyDetailPage', () => {
   let fixture: ComponentFixture<PartyDetailPage>;
   let view: PartyDetailView;
   let getBalance: jasmine.Spy<(id: string) => Observable<CurrentAccountBalance>>;
-  let partyTimeline: jasmine.Spy<(id: string) => Observable<PartyTimelineRow[]>>;
-  let futureShares: jasmine.Spy<(id: string) => Observable<FuturePartyShare[]>>;
+  let partyTimeline: jasmine.Spy<(id: string, side: PartyTimelineSide) => Observable<PartyTimelineRow[]>>;
+  let recordBorrowing: jasmine.Spy<(id: string, body: RecordBorrowing) => Observable<BorrowingResult>>;
+  let futureShares: jasmine.Spy<(id: string, side: PartyTimelineSide) => Observable<FuturePartyShare[]>>;
+  let repay: jasmine.Spy<(id: string, body: RecordRepayment) => Observable<RepaymentResult>>;
   let recordLoan: jasmine.Spy<(id: string, body: RecordLoan) => Observable<LoanResult>>;
   let settle: jasmine.Spy<(id: string, body: SettleCurrentAccount) => Observable<SettlementResult>>;
+  let undoPartyPurchase: jasmine.Spy<(id: string, purchaseId: string) => Observable<void>>;
+  let fragment$: BehaviorSubject<string | null>;
 
   function setup(): void {
     fixture = TestBed.createComponent(PartyDetailPage);
@@ -111,6 +175,19 @@ describe('PartyDetailPage', () => {
   function expandScheduled(): void {
     view.toggleScheduled();
     fixture.detectChanges();
+  }
+
+  function expandAll(): void {
+    view.settleOpen.set(true);
+    view.loanOpen.set(true);
+    view.borrowOpen.set(true);
+    view.repayOpen.set(true);
+    view.purchaseOpen.set(true);
+    fixture.detectChanges();
+  }
+
+  function headerButton(formId: string): HTMLButtonElement {
+    return fixture.nativeElement.querySelector(`#${formId}-label button`);
   }
 
   function text(): string {
@@ -131,22 +208,29 @@ describe('PartyDetailPage', () => {
   ];
 
   beforeEach(() => {
+    fragment$ = new BehaviorSubject<string | null>(null);
     getBalance = jasmine.createSpy('getBalance').and.returnValue(of(balance));
     partyTimeline = jasmine.createSpy('partyTimeline').and.returnValue(of(timelineRows));
     futureShares = jasmine.createSpy('futureShares').and.returnValue(of<FuturePartyShare[]>([]));
     recordLoan = jasmine.createSpy('recordLoan').and.returnValue(of<LoanResult>({ ledgerTransactionId: 'tx-2' }));
+    recordBorrowing = jasmine
+      .createSpy('recordBorrowing')
+    .and.returnValue(of<BorrowingResult>({ ledgerTransactionId: 'tx-3' }));
+    repay = jasmine.createSpy('repay').and.returnValue(of<RepaymentResult>({ ledgerTransactionId: 'tx-4' }));
     settle = jasmine
       .createSpy('settle')
       .and.returnValue(of<SettlementResult>({ ledgerTransactionId: 'tx-1' }));
+    undoPartyPurchase = jasmine.createSpy('undoPartyPurchase').and.returnValue(of(undefined));
     TestBed.configureTestingModule({
       imports: [PartyDetailPage],
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan } },
+        { provide: PartiesService, useValue: { getBalance, futureShares, settle, recordLoan, recordBorrowing, undoPartyPurchase, repay } },
+        { provide: LedgerService, useValue: { listExpenseCategories: () => of<string[]>([]) } },
         { provide: ReportsService, useValue: { partyTimeline } },
         { provide: InstrumentsService, useValue: { list: () => of<Instrument[]>(instruments) } },
-        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })) } }
+        { provide: ActivatedRoute, useValue: { paramMap: of(convertToParamMap({ id: 'p1' })), fragment: fragment$ } }
       ]
     });
   });
@@ -154,7 +238,7 @@ describe('PartyDetailPage', () => {
   it('loads the balance and timeline named by the route param', () => {
     setup();
     expect(getBalance).toHaveBeenCalledWith('p1');
-    expect(partyTimeline).toHaveBeenCalledWith('p1');
+    expect(partyTimeline).toHaveBeenCalledWith('p1', 'receivable');
     expect(view.balanceStatus()).toBe('ready');
     expect(view.timelineStatus()).toBe('ready');
     expect(view.balance()?.name).toBe('Alice');
@@ -206,6 +290,7 @@ describe('PartyDetailPage', () => {
   it('offers only the currencies the party actually owes on the settle form', () => {
     getBalance.and.returnValue(of(twoCurrencyBalance));
     setup();
+    expandAll();
     const options: NodeListOf<HTMLOptionElement> = fixture.nativeElement.querySelectorAll('#currency option');
     expect(options.length).toBe(2);
     expect(Array.from(options).map((option: HTMLOptionElement) => option.value)).toEqual(['ARS', 'USD']);
@@ -227,7 +312,7 @@ describe('PartyDetailPage', () => {
     futureShares.and.returnValue(of<FuturePartyShare[]>(futureShareRows));
     setup();
     expandScheduled();
-    expect(futureShares).toHaveBeenCalledWith('p1');
+    expect(futureShares).toHaveBeenCalledWith('p1', 'receivable');
     expect(view.futureSharesStatus()).toBe('ready');
     expect(view.futureShares().length).toBe(2);
     expect(text()).toContain('Scheduled');
@@ -235,6 +320,40 @@ describe('PartyDetailPage', () => {
     expect(text()).toContain('Oct 2026');
     expect(text()).toContain('Nov 2026');
     expect(text()).toContain('Visa — Shared laptop');
+  });
+  it('follows the Owed to me / I owe toggle in the Scheduled block', () => {
+    const payableShares: FuturePartyShare[] = [
+      { cycleYear: 2026, cycleMonth: 11, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (1/2)', purchaseId: 'pu-9' },
+      { cycleYear: 2026, cycleMonth: 12, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (2/2)', purchaseId: 'pu-9' }
+    ];
+    futureShares.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? payableShares : futureShareRows));
+    setup();
+    expandScheduled();
+    expect(text()).toContain('Visa — Shared laptop');
+    view.setSide('payable');
+    fixture.detectChanges();
+    expect(futureShares).toHaveBeenCalledWith('p1', 'payable');
+    expect(text()).not.toContain('Visa — Shared laptop');
+    expect(text()).toContain('Paid by Alice: Fridge (1/2)');
+    expect(text()).toContain('Nov 2026');
+  });
+  it('undoes a whole credit purchase from its first scheduled row and refreshes', () => {
+    const payableShares: FuturePartyShare[] = [
+      { cycleYear: 2026, cycleMonth: 11, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (1/2)', purchaseId: 'pu-9' },
+      { cycleYear: 2026, cycleMonth: 12, shareMinorUnits: money(5000), currencyCode: 'ARS', sourceLabel: 'Paid by Alice: Fridge (2/2)', purchaseId: 'pu-9' }
+    ];
+    futureShares.and.returnValue(of(payableShares));
+    setup();
+    view.setSide('payable');
+    expandScheduled();
+    fixture.detectChanges();
+    const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('#scheduled-body button'));
+    expect(buttons.length).toBe(1);
+    expect(buttons[0].textContent).toContain('Undo purchase');
+    futureShares.calls.reset();
+    buttons[0].click();
+    expect(undoPartyPurchase).toHaveBeenCalledWith('p1', 'pu-9');
+    expect(futureShares).toHaveBeenCalledTimes(1);
   });
   it('shows the empty note when the party has no scheduled shares', () => {
     setup();
@@ -276,15 +395,167 @@ describe('PartyDetailPage', () => {
     const appError: AppError = { code: 'Parties.LoanDateInFuture', title: 'x', detail: 'x', status: 422, metadata: {} };
     recordLoan.and.returnValue(throwError(() => appError));
     setup();
+    expandAll();
     view.loanForm.setValue({ amount: 25, currency: 'ARS', sourceAccountId: 'acct-debit', lentOn: '2026-09-15', description: 'Loan' });
     view.onLoanSubmit();
     fixture.detectChanges();
     expect(view.loanStatus()).toBe('error');
     expect(text()).toContain('The loan date cannot be in the future.');
   });
+  it('renders the Money borrowed form next to Money lent', () => {
+    setup();
+    expect(text()).toContain('Money borrowed');
+    expect(text()).toContain('Money lent');
+  });
+  it('keeps the borrow form invalid until amount, account, date and a one-line description are set', () => {
+    setup();
+    expect(view.borrowForm.valid).toBe(false);
+    view.borrowForm.setValue({ amount: 100, currency: 'ARS', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: 'Rent gap' });
+    expect(view.borrowForm.valid).toBe(true);
+    view.borrowForm.patchValue({ amount: 0 });
+    expect(view.borrowForm.valid).toBe(false);
+    view.borrowForm.patchValue({ amount: 100, description: 'two\nlines' });
+    expect(view.borrowForm.valid).toBe(false);
+    view.borrowForm.patchValue({ description: 'ok', borrowedOn: '2999-01-01' });
+    expect(view.borrowForm.valid).toBe(false);
+  });
+  it('submits a minor-units borrowing then re-fetches balance and the current timeline side', () => {
+    setup();
+    getBalance.calls.reset();
+    partyTimeline.calls.reset();
+    view.borrowForm.setValue({ amount: 90, currency: 'USD', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: ' Gear ' });
+    view.onBorrowSubmit();
+    const [id, body]: [string, RecordBorrowing] = recordBorrowing.calls.mostRecent().args;
+    expect(id).toBe('p1');
+    expect(body).toEqual({ amountMinorUnits: money(9000), currencyCode: 'USD', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: 'Gear', today: new Date().toLocaleDateString('sv-SE') });
+    expect(view.borrowStatus()).toBe('saved');
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('shows a message keyed off the AppError code when the borrowing is rejected', () => {
+    const appError: AppError = { code: 'Parties.BorrowingDateInFuture', title: 'x', detail: 'x', status: 422, metadata: {} };
+    recordBorrowing.and.returnValue(throwError(() => appError));
+    setup();
+    expandAll();
+    view.borrowForm.setValue({ amount: 25, currency: 'ARS', destinationAccountId: 'acct-debit', borrowedOn: '2026-09-15', description: 'Loan' });
+    view.onBorrowSubmit();
+    fixture.detectChanges();
+    expect(view.borrowStatus()).toBe('error');
+    expect(text()).toContain('The borrowing date cannot be in the future.');
+  });
+  it('renders the Paid by form for this party', () => {
+    setup();
+    expect(text()).toContain('Paid by Alice');
+  });
+  it('re-fetches balance and timeline when a purchase is recorded', () => {
+    setup();
+    getBalance.calls.reset();
+    partyTimeline.calls.reset();
+    (view as unknown as { onPurchaseRecorded: () => void }).onPurchaseRecorded();
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('undoes a purchase as a whole from the I owe timeline and refreshes', () => {
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? purchaseRows : timelineRows));
+    setup();
+    view.setSide('payable');
+    fixture.detectChanges();
+    getBalance.calls.reset();
+    const button: HTMLButtonElement = fixture.nativeElement.querySelector('app-timeline-table tbody tr button');
+    expect(button.textContent).toContain('Undo purchase');
+    button.click();
+    expect(undoPartyPurchase).toHaveBeenCalledWith('p1', 'pu-1');
+    expect(getBalance).toHaveBeenCalledTimes(1);
+  });
+  it('tells the user when a purchase cannot be undone', () => {
+    const appError: AppError = { code: 'Ledger.TransactionAlreadyReversed', title: 'x', detail: 'x', status: 409, metadata: {} };
+    undoPartyPurchase.and.returnValue(throwError(() => appError));
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? purchaseRows : timelineRows));
+    setup();
+    view.setSide('payable');
+    fixture.detectChanges();
+    (fixture.nativeElement.querySelector('app-timeline-table tbody tr button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(text()).toContain('The purchase could not be undone');
+  });
+  it('shows both what they owe you and what you owe them in the balance', () => {
+    getBalance.and.returnValue(of(bothSidesBalance));
+    setup();
+    expect(text()).toContain('What this party owes you in ARS.');
+    expect(text()).toContain(formatMoney(money(9000), 'USD'));
+    expect(text()).toContain('What you owe this party in USD.');
+  });
+  it('defaults the timeline to Owed to me and switches to I owe on the toggle', () => {
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? payableRows : timelineRows));
+    setup();
+    expect(view.side()).toBe('receivable');
+    expect(text()).toContain('Shared expense');
+    const labels: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('input[name="timelineSide"]'))
+    .map((radio: unknown) => (radio as HTMLElement).closest('label') as HTMLElement);
+    expect(labels.map((label: HTMLElement) => label.textContent?.trim())).toEqual(['Owed to me', 'I owe']);
+    (fixture.nativeElement.querySelectorAll('input[name="timelineSide"]')[1] as HTMLInputElement).click();
+    fixture.detectChanges();
+    expect(partyTimeline).toHaveBeenCalledWith('p1', 'payable');
+    expect(view.side()).toBe('payable');
+    expect(text()).toContain('Borrowed from Alice');
+    expect(text()).not.toContain('Shared expense');
+  });
   it('renders the Money lent form', () => {
     setup();
     expect(text()).toContain('Money lent');
+  });
+  it('renders the Pay back form next to Record settlement', () => {
+    setup();
+    expect(text()).toContain('Pay back');
+    expect(text()).toContain('Record settlement');
+  });
+  it('keeps the repay form invalid until amount, account and a non-future date are set', () => {
+    setup();
+    expect(view.repayForm.valid).toBe(false);
+    view.repayForm.setValue({ amount: 100, currency: 'ARS', sourceAccountId: 'acct-debit', paidOn: '2026-09-15' });
+    expect(view.repayForm.valid).toBe(true);
+    view.repayForm.patchValue({ amount: 0 });
+    expect(view.repayForm.valid).toBe(false);
+    view.repayForm.patchValue({ amount: 100, paidOn: '2999-01-01' });
+    expect(view.repayForm.valid).toBe(false);
+  });
+  it('offers only the currencies I owe on the Pay back form', () => {
+    getBalance.and.returnValue(of(bothSidesBalance));
+    setup();
+    expandAll();
+    const options: NodeListOf<HTMLOptionElement> = fixture.nativeElement.querySelectorAll('#repayCurrency option');
+    expect(Array.from(options).map((option: HTMLOptionElement) => option.value)).toEqual(['USD']);
+  });
+  it('submits a minor-units repayment then re-fetches balance and timeline', () => {
+    setup();
+    getBalance.calls.reset();
+    partyTimeline.calls.reset();
+    view.repayForm.setValue({ amount: 90, currency: 'USD', sourceAccountId: 'acct-debit', paidOn: '2026-09-15' });
+    view.onRepaySubmit();
+    const [id, body]: [string, RecordRepayment] = repay.calls.mostRecent().args;
+    expect(id).toBe('p1');
+    expect(body).toEqual({ amountMinorUnits: money(9000), currencyCode: 'USD', sourceAccountId: 'acct-debit', paidOn: '2026-09-15', today: new Date().toLocaleDateString('sv-SE') });
+    expect(view.repayStatus()).toBe('saved');
+    expect(getBalance).toHaveBeenCalledTimes(1);
+    expect(partyTimeline).toHaveBeenCalledTimes(1);
+  });
+  it('shows a message keyed off the AppError code when the repayment exceeds what I owe', () => {
+    const appError: AppError = { code: 'Parties.RepaymentExceedsBalance', title: 'x', detail: 'x', status: 409, metadata: {} };
+    repay.and.returnValue(throwError(() => appError));
+    setup();
+    expandAll();
+    view.repayForm.setValue({ amount: 25, currency: 'ARS', sourceAccountId: 'acct-debit', paidOn: '2026-09-15' });
+    view.onRepaySubmit();
+    fixture.detectChanges();
+    expect(view.repayStatus()).toBe('error');
+    expect(text()).toContain('You cannot pay back more than you owe.');
+  });
+  it('renders a Reverse button on the I owe timeline', () => {
+    partyTimeline.and.callFake((_id: string, side: PartyTimelineSide) => of(side === 'payable' ? payableRows : timelineRows));
+    setup();
+    view.setSide('payable');
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('app-timeline-table tbody tr button')).not.toBeNull();
   });
   it('renders settleErrorText keyed off the AppError code on a 409', () => {
     const appError: AppError = {
@@ -296,11 +567,72 @@ describe('PartyDetailPage', () => {
     };
     settle.and.returnValue(throwError(() => appError));
     setup();
+    expandAll();
     fillSettleForm();
     view.onSubmit();
     fixture.detectChanges();
     expect(view.settleStatus()).toBe('error');
     expect(view.settleError()).toEqual(appError);
     expect(text()).toContain('The amount is more than what this party owes.');
+  });
+  it('collapses every form by default and shows its title with a description', () => {
+    setup();
+    const expected: Record<string, string> = {
+      settle: 'Record settlement',
+      repay: 'Pay back',
+      loan: 'Money lent',
+      borrow: 'Money borrowed',
+      purchase: 'Paid by Alice'
+    };
+    for(const [formId, title] of Object.entries(expected)) {
+      const button: HTMLButtonElement = headerButton(formId);
+      expect(button.getAttribute('aria-expanded')).toBe('false');
+      expect(button.getAttribute('aria-controls')).toBe(`${formId}-body`);
+      expect(button.textContent).toContain(title);
+    }
+    expect(headerButton('loan').textContent).toContain('Money you gave Alice from your bank or cash');
+    expect(headerButton('settle').textContent).toContain('Alice paid you back some or all of what they owe');
+    expect(headerButton('purchase').textContent).toContain('A purchase Alice paid where you took part; you owe your share');
+    expect(headerButton('borrow').textContent).toContain('Money Alice gave you that you must pay back');
+    expect(headerButton('repay').textContent).toContain('Pay Alice some or all of what you owe');
+    expect(fixture.nativeElement.querySelector('#amount')).toBeNull();
+  });
+  it('expands and collapses a form from its header', () => {
+    setup();
+    headerButton('settle').click();
+    fixture.detectChanges();
+    expect(headerButton('settle').getAttribute('aria-expanded')).toBe('true');
+    expect(fixture.nativeElement.querySelector('#settle-body #amount')).not.toBeNull();
+    headerButton('settle').click();
+    fixture.detectChanges();
+    expect(headerButton('settle').getAttribute('aria-expanded')).toBe('false');
+    expect(fixture.nativeElement.querySelector('#settle-body')).toBeNull();
+  });
+  it('groups the forms under what you are owed and what you owe', () => {
+    setup();
+    const groups: Record<string, string[]> = {
+      'owed-label': ['loan', 'settle'],
+      'owe-label': ['purchase', 'borrow', 'repay']
+    };
+    const headings: Record<string, string> = {
+      'owed-label': "Register what you're owed",
+      'owe-label': 'Register what you owe'
+    };
+    for(const [headingId, formIds] of Object.entries(groups)) {
+      const section: HTMLElement = fixture.nativeElement.querySelector(`section[aria-labelledby="${headingId}"]`);
+      expect(section.querySelector(`h2#${headingId}`)?.textContent?.trim()).toBe(headings[headingId]);
+      const found: string[] = Array.from<HTMLElement>(section.querySelectorAll('app-expandable-form')).map((el: HTMLElement): string => el.querySelector('h2')?.id.replace('-label', '') ?? '');
+      expect(found).toEqual(formIds);
+    }
+    expect(fixture.nativeElement.querySelector('#debt-forms').getAttribute('aria-labelledby')).toBe('owe-label');
+  });
+  it('opens Paid by and Money borrowed when the page opens at #debt-forms', () => {
+    fragment$.next('debt-forms');
+    setup();
+    expect(headerButton('purchase').getAttribute('aria-expanded')).toBe('true');
+    expect(headerButton('borrow').getAttribute('aria-expanded')).toBe('true');
+    expect(headerButton('settle').getAttribute('aria-expanded')).toBe('false');
+    expect(headerButton('loan').getAttribute('aria-expanded')).toBe('false');
+    expect(headerButton('repay').getAttribute('aria-expanded')).toBe('false');
   });
 });

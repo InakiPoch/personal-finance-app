@@ -69,6 +69,10 @@ public sealed record ApiRoutes {
         public const string List = "/";
         public const string Settle = "/{id:guid}/settlements";
         public const string Loans = "/{id:guid}/loans";
+        public const string Borrowings = "/{id:guid}/borrowings";
+        public const string Purchases = "/{id:guid}/purchases";
+        public const string UndoPurchase = "/{id:guid}/purchases/{purchaseId:guid}/undo";
+        public const string Repayments = "/{id:guid}/repayments";
         public const string Balance = "/{id:guid}/balance";
         public const string Timeline = "/{id:guid}/timeline";
         public const string FutureShares = "/{id:guid}/future-shares";
@@ -86,5 +90,6 @@ public sealed record ApiRoutes {
         public const string PartyTimeline = "/parties/{id:guid}/timeline";
         public const string DebtSummary = "/parties/debt-summary";
         public const string OwedToYou = "/parties/owed-to-you";
+        public const string YouOwe = "/parties/you-owe";
     }
 }

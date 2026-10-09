@@ -2,7 +2,7 @@ namespace PersonalFinance.Api.Endpoints.DTOs;
 
 public sealed record PartyCurrencyBalanceDto(string CurrencyCode, long BalanceMinorUnits);
 
-public sealed record CurrentAccountBalanceDto(Guid PartyId, string Name, IReadOnlyList<PartyCurrencyBalanceDto> Balances);
+public sealed record CurrentAccountBalanceDto(Guid PartyId, string Name, IReadOnlyList<PartyCurrencyBalanceDto> Balances, IReadOnlyList<PartyCurrencyBalanceDto> PayableBalances);
 
 public sealed record CurrentAccountTimelineRowDto(
     Guid TransactionId,

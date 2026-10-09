@@ -22,7 +22,7 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
     }
 
     [Fact]
-    public async Task The_loan_shows_on_the_timeline_as_lent_to_on_its_lent_on_date() {
+    public async Task The_loan_shows_its_description_on_the_timeline_on_its_lent_on_date() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var bankId = await CreateAccountAsync(client, "Loan Bank 2", "Asset", "Bank", cancellationToken);
@@ -31,7 +31,7 @@ public sealed class PartyLoanTests(ApiWebApplicationFactory factory) : IClassFix
         await PostLoanAsync(client, partyId, bankId, 5_000, "USD", "Trip", lentOn.ToString("yyyy-MM-dd"), cancellationToken);
         var timeline = await client.GetFromJsonAsync<JsonElement>($"/v1/parties/{partyId}/timeline", cancellationToken);
         var row = Assert.Single(timeline.GetProperty("rows").EnumerateArray());
-        Assert.Equal("Lent to Mateo", row.GetProperty("description").GetString());
+        Assert.Equal("Trip", row.GetProperty("description").GetString());
         Assert.Equal(5_000, row.GetProperty("deltaMinorUnits").GetInt64());
         Assert.Equal(lentOn.Date, row.GetProperty("movementOnUtc").GetDateTimeOffset().UtcDateTime.Date);
     }

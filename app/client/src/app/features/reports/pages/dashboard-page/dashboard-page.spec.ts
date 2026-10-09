@@ -1,6 +1,6 @@
 import { provideZonelessChangeDetection } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { provideRouter } from '@angular/router';
+import { Router, provideRouter } from '@angular/router';
 import { Observable, Subject, of, throwError } from 'rxjs';
 import { formatArs, formatMoney } from '../../../../core/money/money';
 import { AppError } from '../../../../core/types/app-error';
@@ -8,6 +8,8 @@ import { Money } from '../../../../core/types/money';
 import { FinancingService } from '../../../financing/financing-service';
 import { CardPurchaseRow } from '../../../financing/types/card-purchase-row';
 import { OwedToYouRow } from '../../types/owed-to-you-row';
+import { YouOweRow } from '../../types/you-owe-row';
+import { PartiesService } from '../../../parties/parties-service';
 import { DueThisMonthRow } from '../../../financing/types/due-this-month-row';
 import { SubscriptionsService } from '../../../subscriptions/subscriptions-service';
 import { MonthSubscription } from '../../../subscriptions/types/month-subscription';
@@ -69,6 +71,8 @@ describe('DashboardPage', () => {
   let cardPurchases: jasmine.Spy<(cardId: string, month?: string, today?: string) => Observable<CardPurchaseRow[]>>;
   let dueThisMonth: jasmine.Spy<(month?: string, today?: string) => Observable<DueThisMonthRow[]>>;
   let owedToYou: jasmine.Spy<(month: string, today: string) => Observable<OwedToYouRow[]>>;
+  let youOwe: jasmine.Spy<(month: string, today: string) => Observable<YouOweRow[]>>;
+  let listParties: jasmine.Spy;
   let listByMonth: jasmine.Spy<(month: string) => Observable<MonthSubscription[]>>;
 
   const money = (value: number): Money => value as Money;
@@ -141,6 +145,8 @@ describe('DashboardPage', () => {
     cardPurchases = jasmine.createSpy('cardPurchases').and.returnValue(of(purchaseRows));
     dueThisMonth = jasmine.createSpy('dueThisMonth').and.returnValue(of([]));
     owedToYou = jasmine.createSpy('owedToYou').and.returnValue(of([]));
+    youOwe = jasmine.createSpy('youOwe').and.returnValue(of([]));
+    listParties = jasmine.createSpy('list').and.returnValue(of([{ id: 'p9', name: 'Zoe' }]));
     listByMonth = jasmine.createSpy('listByMonth').and.returnValue(of([]));
 
     TestBed.configureTestingModule({
@@ -148,7 +154,8 @@ describe('DashboardPage', () => {
       providers: [
         provideZonelessChangeDetection(),
         provideRouter([]),
-        { provide: ReportsService, useValue: { monthlyExpenses, monthlyIncomes, cardDueByMonth, owedToYou } },
+        { provide: ReportsService, useValue: { monthlyExpenses, monthlyIncomes, cardDueByMonth, owedToYou, youOwe } },
+        { provide: PartiesService, useValue: { list: listParties } },
         { provide: FinancingService, useValue: { cardPurchases, dueThisMonth } },
         { provide: SubscriptionsService, useValue: { listByMonth } }
       ],
@@ -581,6 +588,63 @@ describe('DashboardPage', () => {
       fixture.detectChanges();
       expect(owedCard().textContent).toContain("Could not read what's owed to you.");
       expect(view.monthlyStatus()).toBe('ready');
+    });
+  });
+  describe('You owe card', () => {
+    const oweCard = (): HTMLElement => pageEl().querySelector('section[aria-labelledby="you-owe-label"]') as HTMLElement;
+
+    it('loads for the selected month with the local today and refetches on month change', () => {
+      setup();
+      fixture.detectChanges();
+      expect(youOwe).toHaveBeenCalledOnceWith(monthKey(0), localToday());
+      setMonth('2026-01');
+      expect(youOwe.calls.mostRecent().args).toEqual(['2026-01', localToday()]);
+    });
+    it('lists each party per currency, never mixed', () => {
+      youOwe.and.returnValue(of([
+        { partyId: 'p1', partyName: 'Bruno', currencyCode: 'ARS', amountMinorUnits: money(50000) },
+        { partyId: 'p1', partyName: 'Bruno', currencyCode: 'USD', amountMinorUnits: money(2000) }
+      ]));
+      setup();
+      fixture.detectChanges();
+      const text: string = oweCard().textContent ?? '';
+      expect(text).toContain('Bruno');
+      expect(text).toContain(formatMoney(money(50000), 'ARS'));
+      expect(text).toContain(formatMoney(money(2000), 'USD'));
+    });
+    it('says "You owe nobody" when empty and sits beside Owed to you', () => {
+      setup();
+      fixture.detectChanges();
+      expect(oweCard().textContent).toContain('You owe nobody');
+      expect(oweCard().parentElement).toBe(pageEl().querySelector('section[aria-labelledby="owed-label"]')?.parentElement ?? null);
+    });
+    it('shows an error state without affecting other panels', () => {
+      const appError: AppError = { code: 'Http.ServerError', title: 'Server error', detail: 'boom', status: 500, metadata: {} };
+      youOwe.and.returnValue(throwError(() => appError));
+      setup();
+      fixture.detectChanges();
+      expect(oweCard().textContent).toContain('Could not read what you owe.');
+      expect(view.monthlyStatus()).toBe('ready');
+    });
+    it('Register a debt lists existing parties and opens that party at the debt forms', () => {
+      const navigate: jasmine.Spy = spyOn(TestBed.inject(Router), 'navigate').and.resolveTo(true);
+      setup();
+      fixture.detectChanges();
+      (oweCard().querySelector('button[aria-controls="debt-picker"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      const select: HTMLSelectElement = oweCard().querySelector('#debt-party') as HTMLSelectElement;
+      expect(select.textContent).toContain('Zoe');
+      select.value = 'p9';
+      select.dispatchEvent(new Event('change'));
+      expect(navigate).toHaveBeenCalledOnceWith(['/parties', 'p9'], { fragment: 'debt-forms' });
+    });
+    it('Register a debt says to add a party first when there are none', () => {
+      listParties.and.returnValue(of([]));
+      setup();
+      fixture.detectChanges();
+      (oweCard().querySelector('button[aria-controls="debt-picker"]') as HTMLButtonElement).click();
+      fixture.detectChanges();
+      expect(oweCard().textContent).toContain('Add a party first.');
     });
   });
   it('shows the Due card empty state when nothing is due', () => {

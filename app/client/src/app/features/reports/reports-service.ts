@@ -6,9 +6,11 @@ import { MoneyFlowRow } from '../ledger/types/money-flow-row';
 import { CardDueRow } from './types/card-due-row';
 import { MonthlyExpenseRow } from './types/monthly-expense-row';
 import { MonthlyIncomeRow } from './types/monthly-income-row';
+import { YouOweRow } from './types/you-owe-row';
 import { OwedToYouRow } from './types/owed-to-you-row';
 import { PartyDebtRow } from './types/party-debt-row';
 import { PartyTimelineRow } from './types/party-timeline-row';
+import { PartyTimelineSide } from './types/party-timeline-side';
 import { TransactionFeedRow } from './types/transaction-feed-row';
 
 type RowsEnvelope<T> = { rows: T[] };
@@ -48,15 +50,21 @@ export class ReportsService {
     .pipe(map((envelope: RowsEnvelope<OwedToYouRow>) => envelope.rows));
   }
 
+  youOwe(month: string, today: string): Observable<YouOweRow[]> {
+    return this.http
+      .get<RowsEnvelope<YouOweRow>>('reports/parties/you-owe', { params: { month, today } })
+    .pipe(map((envelope: RowsEnvelope<YouOweRow>) => envelope.rows));
+  }
+
   debtSummary(): Observable<PartyDebtRow[]> {
     return this.http
       .get<RowsEnvelope<PartyDebtRow>>('reports/parties/debt-summary')
     .pipe(map((envelope: RowsEnvelope<PartyDebtRow>) => envelope.rows));
   }
 
-  partyTimeline(partyId: string): Observable<PartyTimelineRow[]> {
+  partyTimeline(partyId: string, side: PartyTimelineSide = 'receivable'): Observable<PartyTimelineRow[]> {
     return this.http
-      .get<RowsEnvelope<PartyTimelineRow>>(`reports/parties/${partyId}/timeline`)
+      .get<RowsEnvelope<PartyTimelineRow>>(`reports/parties/${partyId}/timeline`, { params: { side } })
     .pipe(map((envelope: RowsEnvelope<PartyTimelineRow>) => envelope.rows));
   }
 

@@ -1,0 +1,24 @@
+<section class="block rounded-card border border-rule bg-paper-raised p-6 shadow-card">
+  <h2 [id]="formId() + '-label'" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+    <button
+      type="button"
+      class="flex w-full cursor-pointer flex-wrap items-baseline gap-x-3 gap-y-1 text-left uppercase tracking-[0.14em] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+      [attr.aria-expanded]="open()"
+      [attr.aria-controls]="formId() + '-body'"
+      (click)="toggle()"
+    >
+      <span class="flex items-center gap-1.5">
+        <span aria-hidden="true" class="text-ink-faint">{{ open() ? "▾" : "▸" }}</span>
+        {{ title() }}
+      </span>
+      <span class="text-[0.6875rem] font-normal normal-case leading-relaxed tracking-normal text-ink-faint text-pretty">
+        {{ description() }}
+      </span>
+    </button>
+  </h2>
+  @if(open()) {
+    <div [id]="formId() + '-body'" class="mt-2">
+      <ng-content />
+    </div>
+  }
+</section>

@@ -33,6 +33,16 @@ internal static class PartiesErrors {
         "The referenced expense split was not found."
     );
 
+    public static readonly Error RepaymentExceedsBalance = new(
+        "Parties.RepaymentExceedsBalance",
+        "A repayment cannot exceed what you currently owe the party in that currency."
+    );
+
+    public static readonly Error RepaymentDateInFuture = new(
+        "Parties.RepaymentDateInFuture",
+        "A repayment cannot be dated in the future."
+    );
+
     public static readonly Error SettlementExceedsBalance = new(
         "Parties.SettlementExceedsBalance",
         "A settlement cannot exceed the party's outstanding balance."
@@ -48,8 +58,58 @@ internal static class PartiesErrors {
         "A loan cannot be dated in the future."
     );
 
+    public static readonly Error InvalidBorrowingDescription = new(
+        "Parties.InvalidBorrowingDescription",
+        "A borrowing needs a single-line description of at most 120 characters."
+    );
+
+    public static readonly Error BorrowingDateInFuture = new(
+        "Parties.BorrowingDateInFuture",
+        "A borrowing cannot be dated in the future."
+    );
+
     public static readonly Error InvalidCurrencyCode = new(
         "Parties.InvalidCurrencyCode",
         "Currency code must be ARS or USD."
+    );
+
+    public static readonly Error InvalidPurchaseDescription = new(
+        "Parties.InvalidPurchaseDescription",
+        "A purchase needs a single-line description of at most 120 characters."
+    );
+
+    public static readonly Error InvalidPurchaseCategory = new(
+        "Parties.InvalidPurchaseCategory",
+        "A purchase needs a category."
+    );
+
+    public static readonly Error InvalidPurchaseKind = new(
+        "Parties.InvalidPurchaseKind",
+        "A purchase kind must be debit or credit."
+    );
+
+    public static readonly Error PurchaseDateInFuture = new(
+        "Parties.PurchaseDateInFuture",
+        "A purchase cannot be dated in the future."
+    );
+
+    public static readonly Error InvalidInstallmentCount = new(
+        "Parties.InvalidInstallmentCount",
+        "A credit purchase needs between 1 and 60 installments."
+    );
+
+    public static readonly Error InvalidFirstPaymentMonth = new(
+        "Parties.InvalidFirstPaymentMonth",
+        "A credit purchase needs a first payment month that is not before the purchase month."
+    );
+
+    public static readonly Error PurchaseAlreadyUndone = new(
+        "Parties.PurchaseAlreadyUndone",
+        "This party purchase was already undone."
+    );
+
+    public static readonly Error PurchaseNotFound = new(
+        "Parties.PurchaseNotFound",
+        "The referenced party purchase was not found."
     );
 }

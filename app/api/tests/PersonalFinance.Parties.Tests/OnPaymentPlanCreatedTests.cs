@@ -46,7 +46,7 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         Assert.Equal(1, await context.ExpenseSplits.CountAsync(cancellationToken));
         Assert.Equal(2, await context.Parties.CountAsync(cancellationToken));
         Assert.Equal(1, await context.Set<InboxConsumedMessage>().CountAsync(cancellationToken));
-        Assert.Equal(2, ledger.CreateAccountCalls);
+        Assert.Equal(4, ledger.CreateAccountCalls);
         Assert.Equal(1, financing.LinkCalls);
     }
 
@@ -62,7 +62,7 @@ public sealed class OnPaymentPlanCreatedTests : IDisposable {
         Assert.Equal(1, await context.ExpenseSplits.CountAsync(cancellationToken));
         Assert.Equal(2, await context.Parties.CountAsync(cancellationToken));
         Assert.Equal(1, await context.Set<InboxConsumedMessage>().CountAsync(cancellationToken));
-        Assert.Equal(2, ledger.CreateAccountCalls);
+        Assert.Equal(4, ledger.CreateAccountCalls);
         Assert.Equal(1, financing.LinkCalls);
     }
 

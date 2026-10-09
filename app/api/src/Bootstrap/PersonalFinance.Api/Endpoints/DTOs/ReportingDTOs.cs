@@ -26,7 +26,8 @@ public sealed record PartyTimelineRowDto(
     string Description,
     long DeltaMinorUnits,
     long RunningBalanceMinorUnits,
-    string CurrencyCode
+    string CurrencyCode,
+    Guid? PurchaseId
 );
 
 public sealed record PartyTimelineDto(IReadOnlyList<PartyTimelineRowDto> Rows);
@@ -52,3 +53,7 @@ public sealed record MoneyFlowDto(IReadOnlyList<MoneyFlowRowDto> Rows);
 public sealed record OwedToYouRowDto(Guid PartyId, string PartyName, string CurrencyCode, long AmountMinorUnits);
 
 public sealed record OwedToYouDto(IReadOnlyList<OwedToYouRowDto> Rows);
+
+public sealed record YouOweRowDto(Guid PartyId, string PartyName, string CurrencyCode, long AmountMinorUnits);
+
+public sealed record YouOweDto(IReadOnlyList<YouOweRowDto> Rows);

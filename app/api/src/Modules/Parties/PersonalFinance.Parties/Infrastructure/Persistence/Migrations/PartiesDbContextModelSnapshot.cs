@@ -147,12 +147,94 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid>("PayableAccountId")
+                        .HasColumnType("TEXT");
+
                     b.Property<Guid>("ReceivableAccountId")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
                     b.ToTable("parties_parties", (string)null);
+                });
+
+            modelBuilder.Entity("PersonalFinance.Parties.Domain.PartyPurchase", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CategoryName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsCancelled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("PartyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateOnly>("PurchaseDate")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("ShareMinorUnits")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("ShareMinorUnits");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PartyId");
+
+                    b.ToTable("parties_purchases", (string)null);
+                });
+
+            modelBuilder.Entity("PersonalFinance.Parties.Domain.PartyPurchaseInstallment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("AmountMinorUnits")
+                        .HasColumnType("INTEGER")
+                        .HasColumnName("AmountMinorUnits");
+
+                    b.Property<string>("Currency")
+                        .IsRequired()
+                        .HasColumnType("TEXT")
+                        .HasColumnName("CurrencyCode");
+
+                    b.Property<DateOnly>("DueOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("LedgerTransactionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("PartyPurchaseId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("LedgerTransactionId");
+
+                    b.HasIndex("PartyPurchaseId");
+
+                    b.ToTable("parties_purchase_installments", (string)null);
                 });
 
             modelBuilder.Entity("PersonalFinance.Parties.Infrastructure.Persistence.ReadModels.CurrentAccountTimelineEntry", b =>
@@ -169,6 +251,9 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
 
                     b.Property<string>("Description")
                         .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("EntryId")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset>("MovementOnUtc")
@@ -201,9 +286,23 @@ namespace PersonalFinance.Parties.Infrastructure.Persistence.Migrations
                         .IsRequired();
                 });
 
+            modelBuilder.Entity("PersonalFinance.Parties.Domain.PartyPurchaseInstallment", b =>
+                {
+                    b.HasOne("PersonalFinance.Parties.Domain.PartyPurchase", null)
+                        .WithMany("Installments")
+                        .HasForeignKey("PartyPurchaseId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("PersonalFinance.Parties.Domain.ExpenseSplit", b =>
                 {
                     b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("PersonalFinance.Parties.Domain.PartyPurchase", b =>
+                {
+                    b.Navigation("Installments");
                 });
 #pragma warning restore 612, 618
         }

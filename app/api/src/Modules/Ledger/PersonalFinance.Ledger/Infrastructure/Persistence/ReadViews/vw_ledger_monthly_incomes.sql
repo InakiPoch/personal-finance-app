@@ -1,4 +1,4 @@
--- Money received = Income credits plus settlements (Dr Bank/Cash, Cr Receivable, no Income/Expense leg).
+-- Money received = Income credits plus settlements (Dr Bank/Cash, Cr Receivable) and borrowings (Dr Bank/Cash, Cr PartyPayable), no Income/Expense leg.
 -- Settlements are counted only while live (not reversed, not a reversal), so a loan's mirror entry never counts.
 CREATE VIEW vw_ledger_monthly_incomes AS
 SELECT Month, SUM(AmountMinorUnits) AS AmountMinorUnits, CurrencyCode
@@ -20,8 +20,8 @@ FROM (
       AND t.OriginalTransactionId IS NULL
       AND NOT EXISTS (SELECT 1 FROM ledger_transactions r WHERE r.OriginalTransactionId = t.Id)
       AND EXISTS (SELECT 1 FROM ledger_entries c INNER JOIN ledger_accounts ca ON ca.Id = c.AccountId
-                  WHERE c.TransactionId = t.Id AND c.Direction = 'Credit' AND ca.Kind = 'Receivable')
+                  WHERE c.TransactionId = t.Id AND c.Direction = 'Credit' AND ca.Kind IN ('Receivable', 'PartyPayable'))
       AND NOT EXISTS (SELECT 1 FROM ledger_entries x INNER JOIN ledger_accounts xa ON xa.Id = x.AccountId
-                      WHERE x.TransactionId = t.Id AND (xa.Type IN ('Expense', 'Income') OR (x.Direction = 'Debit' AND xa.Kind = 'Receivable')))
+                      WHERE x.TransactionId = t.Id AND (xa.Type IN ('Expense', 'Income') OR (x.Direction = 'Debit' AND xa.Kind IN ('Receivable', 'PartyPayable'))))
 )
 GROUP BY Month, CurrencyCode;

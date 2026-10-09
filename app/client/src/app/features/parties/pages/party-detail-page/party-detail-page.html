@@ -48,7 +48,7 @@
             }
           </p>
         }
-      } @else {
+      } @else if(current.payableBalances.length === 0) {
         <p
           class="mt-4 font-serif text-[2.6rem] font-medium leading-none tracking-[-0.01em] text-ledger [font-variant-numeric:tabular-nums_lining-nums]"
         >
@@ -57,6 +57,18 @@
         <p class="mt-1 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
           Nothing outstanding — you're square.
         </p>
+      }
+      @for(owe of current.payableBalances; track owe.currencyCode) {
+        @if(owe.balanceMinorUnits > 0) {
+          <p
+            class="mt-4 font-serif text-2xl font-medium leading-none tracking-[-0.01em] text-negative [font-variant-numeric:tabular-nums_lining-nums]"
+          >
+            {{ formatMoney(owe.balanceMinorUnits, owe.currencyCode) }}
+          </p>
+          <p class="mt-1 max-w-[52ch] text-[0.8125rem] leading-relaxed text-ink-faint text-pretty">
+            What you owe this party in {{ owe.currencyCode }}.
+          </p>
+        }
       }
     }
     @if(partyId(); as id) {
@@ -75,6 +87,26 @@
     <h2 id="timeline-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
       Timeline
     </h2>
+    <fieldset class="mt-4 inline-flex overflow-hidden rounded-card border border-rule">
+      <legend class="sr-only">Timeline side</legend>
+      @for(option of sideOptions; track option.value) {
+        <label class="cursor-pointer">
+          <input
+            type="radio"
+            name="timelineSide"
+            [value]="option.value"
+            [checked]="side() === option.value"
+            (change)="setSide(option.value)"
+            class="peer sr-only"
+          />
+          <span
+            class="block px-3 py-1.5 text-xs font-medium uppercase tracking-[0.08em] text-ink-faint transition-colors peer-hover:text-ink-soft peer-checked:bg-stamp peer-checked:text-paper-raised peer-focus-visible:ring-2 peer-focus-visible:ring-inset peer-focus-visible:ring-stamp"
+          >
+            {{ option.label }}
+          </span>
+        </label>
+      }
+    </fieldset>
 
     @if(timelineStatus() === 'loading') {
       <p class="mt-6 text-sm text-ink-faint">Reading the timeline…</p>
@@ -84,8 +116,11 @@
       </p>
     } @else {
       <div class="mt-6">
-        <app-timeline-table [rows]="timeline()" (reverseClick)="openReverse($event)" />
+        <app-timeline-table [rows]="timeline()" (reverseClick)="openReverse($event)" (undoPurchaseClick)="onUndoPurchase($event)" />
       </div>
+      @if(purchaseUndoError()) {
+        <p class="mt-3 text-xs text-negative" role="alert">The purchase could not be undone — it may already be undone.</p>
+      }
     }
     <p class="mt-4 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
       An undo entry shows up as its own negative row.
@@ -107,8 +142,12 @@
     @if(scheduledExpanded()) {
     <div id="scheduled-body">
     <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-      Upcoming installment shares this party will owe on card-split and creditor-financed plans.
-      Each becomes a posted movement above when its due month arrives.
+      @if(side() === 'payable') {
+        Installments of purchases this party paid that you will owe them. Each becomes a posted movement above when its month starts.
+      } @else {
+        Upcoming installment shares this party will owe on card-split and creditor-financed plans.
+        Each becomes a posted movement above when its due month arrives.
+      }
     </p>
     @if(futureSharesStatus() === 'loading') {
       <p class="mt-6 text-sm text-ink-faint">Reading upcoming shares…</p>
@@ -118,7 +157,11 @@
       </p>
     } @else if(futureShares().length === 0) {
       <p class="mt-6 text-sm text-ink-faint">
-        Nothing scheduled — no upcoming installment shares for this party.
+        @if(side() === 'payable') {
+          Nothing scheduled — no upcoming installments for you to pay this party.
+        } @else {
+          Nothing scheduled — no upcoming installment shares for this party.
+        }
       </p>
     } @else {
       <ul class="mt-6 flex flex-col gap-3">
@@ -129,6 +172,15 @@
                 {{ cycleLabel(share) }}
               </span>
               <span class="text-[0.8125rem] text-ink-soft text-pretty">{{ share.sourceLabel }}</span>
+              @if(showsScheduledUndo(share)) {
+                <button
+                  type="button"
+                  (click)="onUndoPurchase(share.purchaseId!)"
+                  class="cursor-pointer self-start text-xs font-medium text-ink-soft transition-colors hover:text-negative focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp"
+                >
+                  Undo purchase
+                </button>
+              }
             </span>
             <span
               class="shrink-0 font-serif text-base text-stamp [font-variant-numeric:tabular-nums_lining-nums]"
@@ -143,135 +195,19 @@
     }
   </section>
   </div>
-  <div class="flex flex-col gap-8">
-  <form
-    class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
-    [formGroup]="form"
-    (ngSubmit)="onSubmit()"
-    aria-labelledby="settle-label"
-  >
-    <h2 id="settle-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
-      Register a settlement
+  <div class="flex flex-col gap-12">
+  <section aria-labelledby="owed-label">
+    <h2 id="owed-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Register what you're owed
     </h2>
-    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-      Settling reduces what this person owes.
-    </p>
-
-    <div class="mt-6 flex flex-col gap-1.5">
-      <label
-        for="amount"
-        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-      >
-        Amount
-      </label>
-      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
-        <input
-          type="number"
-          id="amount"
-          min="0"
-          step="0.01"
-          inputmode="decimal"
-          formControlName="amount"
-          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
-        />
-        <select
-          id="currency"
-          formControlName="currency"
-          aria-label="Currency"
-          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
-        >
-          @for(code of owedCurrencies(); track code) {
-            <option [value]="code">{{ code }}</option>
-          }
-        </select>
-      </div>
-      @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
-        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
-      }
-      @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
-        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
-      }
-    </div>
-    <div class="mt-6 flex flex-col gap-1.5">
-      <label
-        for="bankAccountId"
-        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-      >
-        Bank account
-      </label>
-      <div class="relative">
-        <select
-          id="bankAccountId"
-          formControlName="bankAccountId"
-          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
-        >
-          <option value="">Choose an account</option>
-          @for(instrument of bankAccounts(); track instrument.id) {
-            <option [value]="instrument.id">{{ instrument.name }}</option>
-          }
-        </select>
-        <span
-          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
-          aria-hidden="true"
-        >
-          &#9662;
-        </span>
-      </div>
-      @if(bankAccounts().length === 0) {
-        <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-          No debit accounts registered yet — add one on the Instruments page.
-        </p>
-      }
-      @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
-        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-
-    <div class="mt-6 flex flex-col gap-1.5">
-      <label
-        for="settledOnUtc"
-        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
-      >
-        Settled on
-      </label>
-      <input
-        type="datetime-local"
-        id="settledOnUtc"
-        formControlName="settledOnUtc"
-        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
-      />
-      @if(form.controls.settledOnUtc.touched && form.controls.settledOnUtc.hasError('required')) {
-        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
-      }
-    </div>
-    <div class="mt-6 flex flex-col gap-2">
-      <button
-        type="submit"
-        [disabled]="settleStatus() === 'settling'"
-        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
-      >
-        {{ settleStatus() === 'settling' ? 'Recording…' : 'Record settlement' }}
-      </button>
-      @if(settleStatus() === 'settled') {
-        <p class="text-[0.8125rem] text-ledger" role="status">Settlement recorded.</p>
-      }
-      @if(settleError(); as error) {
-        <p class="text-xs text-negative" role="alert">{{ settleErrorText(error) }}</p>
-      }
-    </div>
-  </form>
-  <form
-    class="rounded-card border border-rule bg-paper-raised p-6 shadow-card"
-    [formGroup]="loanForm"
-    (ngSubmit)="onLoanSubmit()"
-    aria-labelledby="loan-label"
+  <div class="mt-6 flex flex-col gap-8">
+  <app-expandable-form
+    formId="loan"
+    title="Money lent"
+    [description]="`Money you gave ${partyName()} from your bank or cash`"
+    [(open)]="loanOpen"
   >
-    <h2 id="loan-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
-      Money lent
-    </h2>
-    <p class="mt-3 max-w-[52ch] text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
-      Money you lend this person from one of your accounts. It adds to what they owe you.
-    </p>
+  <form [formGroup]="loanForm" (ngSubmit)="onLoanSubmit()" aria-labelledby="loan-label">
 
     <div class="mt-6 flex flex-col gap-1.5">
       <label for="loanAmount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Amount</label>
@@ -381,6 +317,342 @@
       }
     </div>
   </form>
+  </app-expandable-form>
+  <app-expandable-form
+    formId="settle"
+    title="Record settlement"
+    [description]="`${partyName()} paid you back some or all of what they owe`"
+    [(open)]="settleOpen"
+  >
+  <form [formGroup]="form" (ngSubmit)="onSubmit()" aria-labelledby="settle-label">
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="amount"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Amount
+      </label>
+      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+        <input
+          type="number"
+          id="amount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        <select
+          id="currency"
+          formControlName="currency"
+          aria-label="Currency"
+          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+        >
+          @for(code of owedCurrencies(); track code) {
+            <option [value]="code">{{ code }}</option>
+          }
+        </select>
+      </div>
+      @if(form.controls.amount.touched && form.controls.amount.hasError('positiveAmount')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(form.controls.amount.touched && form.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="bankAccountId"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Bank account
+      </label>
+      <div class="relative">
+        <select
+          id="bankAccountId"
+          formControlName="bankAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
+          <option value="">Choose an account</option>
+          @for(instrument of bankAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }}</option>
+          }
+        </select>
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
+      </div>
+      @if(bankAccounts().length === 0) {
+        <p class="text-[0.6875rem] leading-relaxed text-ink-faint text-pretty">
+          No debit accounts registered yet — add one on the Instruments page.
+        </p>
+      }
+      @if(form.controls.bankAccountId.touched && form.controls.bankAccountId.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label
+        for="settledOnUtc"
+        class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint"
+      >
+        Settled on
+      </label>
+      <input
+        type="datetime-local"
+        id="settledOnUtc"
+        formControlName="settledOnUtc"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(form.controls.settledOnUtc.touched && form.controls.settledOnUtc.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="settleStatus() === 'settling'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        {{ settleStatus() === 'settling' ? 'Recording…' : 'Record settlement' }}
+      </button>
+      @if(settleStatus() === 'settled') {
+        <p class="text-[0.8125rem] text-ledger" role="status">Settlement recorded.</p>
+      }
+      @if(settleError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ settleErrorText(error) }}</p>
+      }
+    </div>
+  </form>
+  </app-expandable-form>
+  </div>
+  </section>
+  <section id="debt-forms" aria-labelledby="owe-label">
+    <h2 id="owe-label" class="text-xs font-semibold uppercase tracking-[0.14em] text-heading">
+      Register what you owe
+    </h2>
+  <div class="mt-6 flex flex-col gap-8">
+  @if(partyId(); as id) {
+    <app-party-purchase-form [partyId]="id" [partyName]="partyName()" [(open)]="purchaseOpen" (recorded)="onPurchaseRecorded()" />
+  }
+  <app-expandable-form
+    formId="borrow"
+    title="Money borrowed"
+    [description]="`Money ${partyName()} gave you that you must pay back`"
+    [(open)]="borrowOpen"
+  >
+  <form [formGroup]="borrowForm" (ngSubmit)="onBorrowSubmit()" aria-labelledby="borrow-label">
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowAmount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Amount</label>
+      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+        <input
+          type="number"
+          id="borrowAmount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        <select
+          id="borrowCurrency"
+          formControlName="currency"
+          aria-label="Currency"
+          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+        >
+          @for(code of loanCurrencies; track code) {
+            <option [value]="code">{{ code }}</option>
+          }
+        </select>
+      </div>
+      @if(borrowForm.controls.amount.touched && borrowForm.controls.amount.hasError('positiveAmount')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(borrowForm.controls.amount.touched && borrowForm.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowDestinationAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Into account</label>
+      <div class="relative">
+        <select
+          id="borrowDestinationAccountId"
+          formControlName="destinationAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
+          <option value="">Choose an account</option>
+          @for(instrument of loanSourceAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }}</option>
+          }
+        </select>
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
+      </div>
+      @if(borrowForm.controls.destinationAccountId.touched && borrowForm.controls.destinationAccountId.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowedOn" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Borrowed on</label>
+      <input
+        type="date"
+        id="borrowedOn"
+        formControlName="borrowedOn"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(borrowForm.controls.borrowedOn.touched && borrowForm.controls.borrowedOn.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(borrowForm.controls.borrowedOn.hasError('notFutureDate')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['notFutureBorrowDate'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="borrowDescription" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Description</label>
+      <input
+        type="text"
+        id="borrowDescription"
+        maxlength="121"
+        formControlName="description"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(borrowForm.controls.description.touched && (borrowForm.controls.description.hasError('required') || borrowForm.controls.description.hasError('pattern'))) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(borrowForm.controls.description.hasError('maxlength')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['maxlength'] }}</p>
+      }
+      @if(borrowForm.controls.description.hasError('singleLine')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['singleLine'] }}</p>
+      }
+    </div>
+
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="borrowStatus() === 'saving'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        {{ borrowStatus() === 'saving' ? 'Recording…' : 'Record borrowing' }}
+      </button>
+      @if(borrowStatus() === 'saved') {
+        <p class="text-[0.8125rem] text-ledger" role="status">Borrowing recorded.</p>
+      }
+      @if(borrowError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ borrowErrorText(error) }}</p>
+      }
+    </div>
+  </form>
+  </app-expandable-form>
+  <app-expandable-form
+    formId="repay"
+    title="Pay back"
+    [description]="`Pay ${partyName()} some or all of what you owe`"
+    [(open)]="repayOpen"
+  >
+  <form [formGroup]="repayForm" (ngSubmit)="onRepaySubmit()" aria-labelledby="repay-label">
+
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="repayAmount" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Amount</label>
+      <div class="flex items-baseline gap-2 border-b border-rule transition-colors focus-within:border-stamp">
+        <input
+          type="number"
+          id="repayAmount"
+          min="0"
+          step="0.01"
+          inputmode="decimal"
+          formControlName="amount"
+          class="w-full bg-transparent pb-1 font-sans text-sm text-ink outline-none transition-colors [font-variant-numeric:tabular-nums_lining-nums] focus-visible:border-stamp"
+        />
+        <select
+          id="repayCurrency"
+          formControlName="currency"
+          aria-label="Currency"
+          class="appearance-none bg-transparent pb-1 font-sans text-xs uppercase tracking-[0.08em] text-ink-faint outline-none transition-colors"
+        >
+          @for(code of payableCurrencies(); track code) {
+            <option [value]="code">{{ code }}</option>
+          }
+        </select>
+      </div>
+      @if(repayForm.controls.amount.touched && repayForm.controls.amount.hasError('positiveAmount')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['positiveAmount'] }}</p>
+      }
+      @if(repayForm.controls.amount.touched && repayForm.controls.amount.hasError('atMostTwoDecimals')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['atMostTwoDecimals'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="repaySourceAccountId" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">From account</label>
+      <div class="relative">
+        <select
+          id="repaySourceAccountId"
+          formControlName="sourceAccountId"
+          class="w-full appearance-none border-b border-rule bg-transparent pb-1 pr-6 font-sans text-sm text-ink outline-none transition-colors focus-visible:border-stamp"
+        >
+          <option value="">Choose an account</option>
+          @for(instrument of loanSourceAccounts(); track instrument.id) {
+            <option [value]="instrument.id">{{ instrument.name }}</option>
+          }
+        </select>
+        <span
+          class="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-xs text-ink-faint"
+          aria-hidden="true"
+        >
+          &#9662;
+        </span>
+      </div>
+      @if(repayForm.controls.sourceAccountId.touched && repayForm.controls.sourceAccountId.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-1.5">
+      <label for="paidOn" class="text-[0.6875rem] font-semibold uppercase tracking-[0.12em] text-ink-faint">Paid on</label>
+      <input
+        type="date"
+        id="paidOn"
+        formControlName="paidOn"
+        class="w-full border-b border-rule bg-transparent pb-1 font-sans text-sm text-ink-soft outline-none transition-colors focus-visible:border-stamp"
+      />
+      @if(repayForm.controls.paidOn.touched && repayForm.controls.paidOn.hasError('required')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['required'] }}</p>
+      }
+      @if(repayForm.controls.paidOn.hasError('notFutureDate')) {
+        <p class="text-xs text-negative" role="alert">{{ fieldErrors['notFuturePaidDate'] }}</p>
+      }
+    </div>
+    <div class="mt-6 flex flex-col gap-2">
+      <button
+        type="submit"
+        [disabled]="repayStatus() === 'saving'"
+        class="inline-flex items-center gap-1.5 self-start rounded-md bg-stamp px-4 py-2 text-sm font-medium text-paper-raised transition-[background-color,transform] duration-150 hover:bg-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-stamp active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60"
+      >
+        {{ repayStatus() === 'saving' ? 'Recording…' : 'Pay back' }}
+      </button>
+      @if(repayStatus() === 'saved') {
+        <p class="text-[0.8125rem] text-ledger" role="status">Payback recorded.</p>
+      }
+      @if(repayError(); as error) {
+        <p class="text-xs text-negative" role="alert">{{ repayErrorText(error) }}</p>
+      }
+    </div>
+  </form>
+  </app-expandable-form>
+  </div>
+  </section>
   </div>
   </div>
 </div>

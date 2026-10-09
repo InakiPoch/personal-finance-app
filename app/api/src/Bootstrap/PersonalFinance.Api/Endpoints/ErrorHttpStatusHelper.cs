@@ -35,6 +35,8 @@ internal static class ErrorHttpStatusHelper {
             "Subscriptions.SubscriptionNotActive" => StatusCodes.Status409Conflict,
             "Subscriptions.SubscriptionNotPaid" => StatusCodes.Status409Conflict,
             "Parties.SettlementExceedsBalance" => StatusCodes.Status409Conflict,
+            "Parties.RepaymentExceedsBalance" => StatusCodes.Status409Conflict,
+            "Parties.RepaymentDateInFuture" => StatusCodes.Status422UnprocessableEntity,
 
             // 422 — well-formed request that violates a domain rule the caller could in principle fix
             "Ledger.Unbalanced" => StatusCodes.Status422UnprocessableEntity,
@@ -77,6 +79,16 @@ internal static class ErrorHttpStatusHelper {
             "Parties.UnknownFundingAccount" => StatusCodes.Status422UnprocessableEntity,
             "Parties.InvalidLoanDescription" => StatusCodes.Status422UnprocessableEntity,
             "Parties.LoanDateInFuture" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidBorrowingDescription" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.BorrowingDateInFuture" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidPurchaseDescription" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidPurchaseCategory" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidPurchaseKind" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.PurchaseDateInFuture" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidInstallmentCount" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.InvalidFirstPaymentMonth" => StatusCodes.Status422UnprocessableEntity,
+            "Parties.PurchaseAlreadyUndone" => StatusCodes.Status409Conflict,
+            "Parties.PurchaseNotFound" => StatusCodes.Status404NotFound,
             "Parties.InvalidCurrencyCode" => StatusCodes.Status422UnprocessableEntity,
             "Instruments.CutoffRequired" => StatusCodes.Status422UnprocessableEntity,
 

@@ -22,18 +22,23 @@ import { InstrumentsService } from '../../../instruments/instruments-service';
 import { Instrument } from '../../../instruments/types/instrument';
 import { ReportsService } from '../../../reports/reports-service';
 import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
+import { PartyTimelineSide } from '../../../reports/types/party-timeline-side';
 import { CurrentAccountBalance } from '../../types/current-account-balance';
 import { FuturePartyShare } from '../../types/future-party-share';
 import { PartyCurrencyBalance } from '../../types/party-currency-balance';
+import { RecordBorrowing } from '../../types/record-borrowing';
 import { RecordLoan } from '../../types/record-loan';
+import { RecordRepayment } from '../../types/record-repayment';
 import { SettleCurrentAccount } from '../../types/settle-current-account';
 import { PartiesService } from '../../parties-service';
 import { atMostTwoDecimals, notFutureDate, positiveAmount, singleLine } from '../../validation-helpers';
+import { ExpandableForm } from './expandable-form';
+import { PartyPurchaseForm } from './party-purchase-form';
 import { TimelineTable } from './timeline-table';
 
 type LoadStatus = 'loading' | 'ready' | 'error';
 type SettleStatus = 'idle' | 'settling' | 'settled' | 'error';
-type LoanStatus = 'idle' | 'saving' | 'saved' | 'error';
+type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 const MONTH_LABELS: readonly string[] = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
@@ -54,9 +59,24 @@ type LoanForm = FormGroup<{
   description: FormControl<string>;
 }>;
 
+type BorrowForm = FormGroup<{
+  amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
+  destinationAccountId: FormControl<string>;
+  borrowedOn: FormControl<string>;
+  description: FormControl<string>;
+}>;
+
+type RepayForm = FormGroup<{
+  amount: FormControl<number | null>;
+  currency: FormControl<CurrencyCode>;
+  sourceAccountId: FormControl<string>;
+  paidOn: FormControl<string>;
+}>;
+
 @Component({
   selector: 'app-party-detail-page',
-  imports: [ReactiveFormsModule, RouterLink, TimelineTable],
+  imports: [ReactiveFormsModule, RouterLink, ExpandableForm, PartyPurchaseForm, TimelineTable],
   templateUrl: './party-detail-page.html',
   styleUrl: './party-detail-page.css',
   changeDetection: ChangeDetectionStrategy.OnPush
@@ -64,6 +84,8 @@ type LoanForm = FormGroup<{
 export class PartyDetailPage implements OnInit, OnDestroy {
   protected form!: SettlementForm;
   protected loanForm!: LoanForm;
+  protected borrowForm!: BorrowForm;
+  protected repayForm!: RepayForm;
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
   protected readonly zeroMinorUnits: Money = fromMinorUnits(0);
   protected readonly balance: WritableSignal<CurrentAccountBalance | null> =
@@ -75,14 +97,30 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   protected readonly futureSharesStatus: WritableSignal<LoadStatus> = signal<LoadStatus>('loading');
   protected readonly settleStatus: WritableSignal<SettleStatus> = signal<SettleStatus>('idle');
   protected readonly settleError: WritableSignal<AppError | null> = signal<AppError | null>(null);
-  protected readonly loanStatus: WritableSignal<LoanStatus> = signal<LoanStatus>('idle');
+  protected readonly loanStatus: WritableSignal<SaveStatus> = signal<SaveStatus>('idle');
   protected readonly loanError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly borrowStatus: WritableSignal<SaveStatus> = signal<SaveStatus>('idle');
+  protected readonly borrowError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly repayStatus: WritableSignal<SaveStatus> = signal<SaveStatus>('idle');
+  protected readonly repayError: WritableSignal<AppError | null> = signal<AppError | null>(null);
+  protected readonly sideOptions: readonly { value: PartyTimelineSide; label: string }[] = [
+    { value: 'receivable', label: 'Owed to me' },
+    { value: 'payable', label: 'I owe' }
+  ];
+  protected readonly side: WritableSignal<PartyTimelineSide> = signal<PartyTimelineSide>('receivable');
+  protected readonly purchaseUndoError: WritableSignal<AppError | null> = signal<AppError | null>(null);
   protected readonly loanCurrencies: readonly CurrencyCode[] = ['ARS', 'USD'];
   protected readonly loanSourceAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash')
   );
   protected readonly scheduledExpanded: WritableSignal<boolean> = signal(false);
+  protected readonly settleOpen: WritableSignal<boolean> = signal(false);
+  protected readonly loanOpen: WritableSignal<boolean> = signal(false);
+  protected readonly borrowOpen: WritableSignal<boolean> = signal(false);
+  protected readonly repayOpen: WritableSignal<boolean> = signal(false);
+  protected readonly purchaseOpen: WritableSignal<boolean> = signal(false);
   protected readonly partyId: WritableSignal<string | null> = signal<string | null>(null);
+  protected readonly partyName: Signal<string> = computed(() => this.balance()?.name ?? 'this party');
   protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
     this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
   );
@@ -92,13 +130,21 @@ export class PartyDetailPage implements OnInit, OnDestroy {
       .map((row: PartyCurrencyBalance) => row.currencyCode);
     return owed.length > 0 ? owed : ['ARS'];
   });
+  protected readonly payableCurrencies: Signal<CurrencyCode[]> = computed(() => {
+    const owing: CurrencyCode[] = (this.balance()?.payableBalances ?? [])
+      .filter((row: PartyCurrencyBalance) => row.balanceMinorUnits > 0)
+    .map((row: PartyCurrencyBalance) => row.currencyCode);
+    return owing.length > 0 ? owing : ['ARS'];
+  });
   protected readonly fieldErrors: Record<string, string> = {
     required: 'This field is required.',
     positiveAmount: 'Enter an amount greater than zero.',
     atMostTwoDecimals: 'Use at most two decimal places.',
     maxlength: 'Use at most 120 characters.',
     singleLine: 'Keep the description on one line.',
-    notFutureDate: 'The loan date cannot be in the future.'
+    notFutureDate: 'The loan date cannot be in the future.',
+    notFutureBorrowDate: 'The borrowing date cannot be in the future.',
+    notFuturePaidDate: 'The payback date cannot be in the future.'
   };
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);
@@ -130,6 +176,23 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     'Parties.InvalidLoanDescription': 'Add a one-line description of up to 120 characters.',
     'Parties.LoanDateInFuture': 'The loan date cannot be in the future.',
     'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
+  };
+  private readonly borrowErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
+    'Parties.NonPositiveAmount': 'The borrowed amount must be greater than zero.',
+    'Parties.UnknownFundingAccount': 'Choose a bank or cash account from the list.',
+    'Parties.InvalidBorrowingDescription': 'Add a one-line description of up to 120 characters.',
+    'Parties.BorrowingDateInFuture': 'The borrowing date cannot be in the future.',
+    'Http.UnprocessableEntity': 'Check the amount, account, date and description and try again.'
+  };
+  private readonly repayErrorMessages: Record<string, string> = {
+    ...this.sharedErrorMessages,
+    'Parties.NonPositiveAmount': 'The payback amount must be greater than zero.',
+    'Parties.UnknownFundingAccount': 'Choose a bank or cash account from the list.',
+    'Parties.RepaymentExceedsBalance': 'You cannot pay back more than you owe.',
+    'Parties.RepaymentDateInFuture': 'The payback date cannot be in the future.',
+    'Http.Conflict': 'You cannot pay back more than you owe.',
+    'Http.UnprocessableEntity': 'Check the amount, account and date and try again.'
   };
   private readonly destroy$: Subject<void> = new Subject<void>();
 
@@ -216,6 +279,103 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     );
   }
 
+  protected onBorrowSubmit(): void {
+    const id: string | null = this.partyId();
+    if(this.borrowForm.invalid || id === null) {
+      this.borrowForm.markAllAsTouched();
+      return;
+    }
+    const raw: {
+      amount: number | null;
+      currency: CurrencyCode;
+      destinationAccountId: string;
+      borrowedOn: string;
+      description: string;
+    } = this.borrowForm.getRawValue();
+    const body: RecordBorrowing = {
+      amountMinorUnits: toMinorUnits(raw.amount as number),
+      currencyCode: raw.currency,
+      destinationAccountId: raw.destinationAccountId,
+      borrowedOn: raw.borrowedOn as IsoDate,
+      description: raw.description.trim(),
+      today: new Date().toLocaleDateString('sv-SE') as IsoDate
+    };
+    this.borrowError.set(null);
+    this.borrowStatus.set('saving');
+    this.partiesService
+      .recordBorrowing(id, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.borrowStatus.set('saved');
+          this.borrowForm.reset({ amount: null, currency: 'ARS', destinationAccountId: '', borrowedOn: '', description: '' });
+          this.loadBalance(id);
+          this.loadTimeline(id);
+        },
+        error: (error: AppError) => {
+          this.borrowError.set(error);
+          this.borrowStatus.set('error');
+        }
+      }
+    );
+  }
+
+  protected onRepaySubmit(): void {
+    const id: string | null = this.partyId();
+    if(this.repayForm.invalid || id === null) {
+      this.repayForm.markAllAsTouched();
+      return;
+    }
+    const raw: {
+      amount: number | null;
+      currency: CurrencyCode;
+      sourceAccountId: string;
+      paidOn: string;
+    } = this.repayForm.getRawValue();
+    const body: RecordRepayment = {
+      amountMinorUnits: toMinorUnits(raw.amount as number),
+      currencyCode: raw.currency,
+      sourceAccountId: raw.sourceAccountId,
+      paidOn: raw.paidOn as IsoDate,
+      today: new Date().toLocaleDateString('sv-SE') as IsoDate
+    };
+    this.repayError.set(null);
+    this.repayStatus.set('saving');
+    this.partiesService
+      .repay(id, body)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => {
+          this.repayStatus.set('saved');
+          this.repayForm.reset({ amount: null, currency: 'ARS', sourceAccountId: '', paidOn: '' });
+          this.loadBalance(id);
+          this.loadTimeline(id);
+        },
+        error: (error: AppError) => {
+          this.repayError.set(error);
+          this.repayStatus.set('error');
+        }
+      }
+    );
+  }
+
+  protected repayErrorText(error: AppError): string {
+    return this.repayErrorMessages[error.code] ?? 'The payback could not be recorded.';
+  }
+
+  protected setSide(side: PartyTimelineSide): void {
+    const id: string | null = this.partyId();
+    this.side.set(side);
+    if(id !== null) {
+      this.loadTimeline(id);
+      this.loadFutureShares(id);
+    }
+  }
+
+  protected borrowErrorText(error: AppError): string {
+    return this.borrowErrorMessages[error.code] ?? 'The borrowing could not be recorded.';
+  }
+
   protected loanErrorText(error: AppError): string {
     return this.loanErrorMessages[error.code] ?? 'The loan could not be recorded.';
   }
@@ -224,8 +384,37 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     return this.settleErrorMessages[error.code] ?? 'The settlement could not be recorded.';
   }
 
+  protected onPurchaseRecorded(): void {
+    const id: string | null = this.partyId();
+    if(id !== null) {
+      this.loadBalance(id);
+      this.loadTimeline(id);
+      this.loadFutureShares(id);
+    }
+  }
+
+  protected onUndoPurchase(purchaseId: string): void {
+    const id: string | null = this.partyId();
+    if(id === null) {
+      return;
+    }
+    this.purchaseUndoError.set(null);
+    this.partiesService
+      .undoPartyPurchase(id, purchaseId)
+      .pipe(takeUntil(this.destroy$))
+      .subscribe({
+        next: () => this.onPurchaseRecorded(),
+        error: (error: AppError) => this.purchaseUndoError.set(error)
+      }
+    );
+  }
+
   protected openReverse(transactionId: string): void {
     this.router.navigate(['ledger', 'transactions', transactionId, 'reverse']);
+  }
+
+  protected showsScheduledUndo(share: FuturePartyShare): boolean {
+    return !!share.purchaseId && this.futureShares().find((row: FuturePartyShare) => row.purchaseId === share.purchaseId) === share;
   }
 
   protected cycleLabel(share: FuturePartyShare): string {
@@ -257,7 +446,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private loadTimeline(id: string): void {
     this.timelineStatus.set('loading');
     this.reports
-      .partyTimeline(id)
+      .partyTimeline(id, this.side())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows: PartyTimelineRow[]) => {
@@ -272,7 +461,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private loadFutureShares(id: string): void {
     this.futureSharesStatus.set('loading');
     this.partiesService
-      .futureShares(id)
+      .futureShares(id, this.side())
       .pipe(takeUntil(this.destroy$))
       .subscribe({
         next: (rows: FuturePartyShare[]) => {
@@ -287,7 +476,7 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   private initLoanForm(): void {
     this.loanForm = this.fb.group({
       amount: this.fb.control<number | null>(null, {
-        validators: [positiveAmount, atMostTwoDecimals],
+        validators: [positiveAmount, atMostTwoDecimals]
       }),
       currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       sourceAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
@@ -298,10 +487,35 @@ export class PartyDetailPage implements OnInit, OnDestroy {
     });
   }
 
+  private initBorrowForm(): void {
+    this.borrowForm = this.fb.group({
+      amount: this.fb.control<number | null>(null, {
+        validators: [positiveAmount, atMostTwoDecimals]
+      }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
+      destinationAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
+      borrowedOn: this.fb.nonNullable.control('', { validators: [Validators.required, notFutureDate] }),
+      description: this.fb.nonNullable.control('', {
+        validators: [Validators.required, Validators.pattern(/\S/), Validators.maxLength(120), singleLine]
+      })
+    });
+  }
+
+  private initRepayForm(): void {
+    this.repayForm = this.fb.group({
+      amount: this.fb.control<number | null>(null, {
+        validators: [positiveAmount, atMostTwoDecimals]
+      }),
+      currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
+      sourceAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
+      paidOn: this.fb.nonNullable.control('', { validators: [Validators.required, notFutureDate] })
+    });
+  }
+
   private initSettlementForm(): void {
     this.form = this.fb.group({
       amount: this.fb.control<number | null>(null, {
-        validators: [positiveAmount, atMostTwoDecimals],
+        validators: [positiveAmount, atMostTwoDecimals]
       }),
       currency: this.fb.nonNullable.control<CurrencyCode>('ARS'),
       bankAccountId: this.fb.nonNullable.control('', { validators: Validators.required }),
@@ -312,7 +526,17 @@ export class PartyDetailPage implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.initSettlementForm();
     this.initLoanForm();
+    this.initBorrowForm();
+    this.initRepayForm();
     this.loadInstruments();
+    this.route.fragment.pipe(takeUntil(this.destroy$)).subscribe({
+      next: (fragment: string | null) => {
+        if(fragment === 'debt-forms') {
+          this.purchaseOpen.set(true);
+          this.borrowOpen.set(true);
+        }
+      }
+    });
     this.route.paramMap.pipe(takeUntil(this.destroy$)).subscribe({
       next: (params: ParamMap) => {
         const id: string | null = params.get('id');

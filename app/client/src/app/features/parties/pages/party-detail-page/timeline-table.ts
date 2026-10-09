@@ -21,6 +21,7 @@ import { PartyTimelineRow } from '../../../reports/types/party-timeline-row';
 export class TimelineTable {
   readonly rows: InputSignal<PartyTimelineRow[]> = input.required<PartyTimelineRow[]>();
   readonly reverseClick: OutputEmitterRef<string> = output<string>();
+  readonly undoPurchaseClick: OutputEmitterRef<string> = output<string>();
 
   protected readonly formatMoney: (value: Money, code: CurrencyCode) => string = formatMoney;
 
@@ -33,7 +34,26 @@ export class TimelineTable {
     return row.description === 'Reversal';
   }
 
+  protected isPurchaseRow(row: PartyTimelineRow): boolean {
+    return !!row.purchaseId && !this.isReversalRow(row);
+  }
+
+  protected showsAction(row: PartyTimelineRow): boolean {
+    if(!this.isPurchaseRow(row)) {
+      return true;
+    }
+    return this.rows().find((other: PartyTimelineRow) => this.isPurchaseRow(other) && other.purchaseId === row.purchaseId) === row;
+  }
+
+  protected isUndone(row: PartyTimelineRow): boolean {
+    return this.rows().some((other: PartyTimelineRow) => this.isReversalRow(other) && other.purchaseId === row.purchaseId);
+  }
+
   protected onReverse(row: PartyTimelineRow): void {
+    if(this.isPurchaseRow(row)) {
+      this.undoPurchaseClick.emit(row.purchaseId as string);
+      return;
+    }
     this.reverseClick.emit(row.transactionId);
   }
 }

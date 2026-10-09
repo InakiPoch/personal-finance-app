@@ -8,4 +8,5 @@ export type FuturePartyShare = {
   shareMinorUnits: Money;
   currencyCode: CurrencyCode;
   sourceLabel: string;
+  purchaseId?: string | null;
 };

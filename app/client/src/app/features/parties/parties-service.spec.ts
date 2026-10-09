@@ -5,14 +5,19 @@ import { TestBed } from '@angular/core/testing';
 import { baseUrlInterceptor } from '../../core/http/base-url.interceptor';
 import { problemDetailsInterceptor } from '../../core/http/problem-details.interceptor';
 import { AppError } from '../../core/types/app-error';
+import { IsoDate } from '../../core/types/iso-date';
 import { Money } from '../../core/types/money';
 import { environment } from '../../environments/environment';
 import { CreateParty } from './types/create-party';
 import { CurrentAccountBalance } from './types/current-account-balance';
 import { CurrentAccountTimelineRow } from './types/current-account-timeline-row';
+import { PartySummary } from './types/party-summary';
 import { PartyResult } from './types/party-result';
 import { PendingSharesByPartyRow } from './types/pending-shares-by-party-row';
+import { RecordBorrowing } from './types/record-borrowing';
+import { RecordRepayment } from './types/record-repayment';
 import { RecordLoan } from './types/record-loan';
+import { RecordPartyPurchase } from './types/record-party-purchase';
 import { SettleCurrentAccount } from './types/settle-current-account';
 import { SettlementResult } from './types/settlement-result';
 import { PartiesService } from './parties-service';
@@ -37,11 +42,30 @@ describe('PartiesService', () => {
 
   afterEach(() => httpMock.verify());
 
+  it('GETs the parties list with both sides and unwraps the rows envelope', () => {
+    const row: PartySummary = {
+      id: 'p1',
+      name: 'Alice',
+      owedToYou: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+      youOwe: [{ currencyCode: 'USD', balanceMinorUnits: money(5000) }],
+      scheduledToYouCount: 0,
+      scheduledYouOweCount: 2,
+      settledUp: false
+    };
+    let result: PartySummary[] | undefined;
+    service.listSummaries().subscribe((r: PartySummary[]) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties`);
+    expect(req.request.method).toBe('GET');
+    req.flush({ rows: [row] });
+    expect(result).toEqual([row]);
+  });
+
   it('GETs the current-account balance for a party', () => {
     const balance: CurrentAccountBalance = {
       partyId: 'p1',
       name: 'Alice',
-      balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }]
+      balances: [{ currencyCode: 'ARS', balanceMinorUnits: money(250000) }],
+      payableBalances: []
     };
     let result: CurrentAccountBalance | undefined;
     service.getBalance('p1').subscribe((r: CurrentAccountBalance) => (result = r));
@@ -112,6 +136,65 @@ describe('PartiesService', () => {
     req.flush({ ledgerTransactionId: 'tx-9' });
     expect(result).toEqual({ ledgerTransactionId: 'tx-9' });
   });
+  it('POSTs a borrowing to the party borrowings route and returns the transaction id', () => {
+    const body: RecordBorrowing = {
+      amountMinorUnits: money(12000),
+      currencyCode: 'ARS',
+      destinationAccountId: 'acc-1',
+      borrowedOn: '2026-09-15' as IsoDate,
+      description: 'Rent gap',
+      today: '2026-09-15' as IsoDate
+    };
+    let result: unknown;
+    service.recordBorrowing('p1', body).subscribe((r: unknown) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/borrowings`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ ledgerTransactionId: 'tx-7' });
+    expect(result).toEqual({ ledgerTransactionId: 'tx-7' });
+  });
+  it('posts a party purchase to /parties/{id}/purchases and returns the purchase id', () => {
+    const body: RecordPartyPurchase = {
+      shareMinorUnits: money(12000),
+      currencyCode: 'ARS',
+      description: 'Dinner',
+      categoryName: 'Eating out',
+      purchaseDate: '2026-09-10' as IsoDate,
+      kind: 'debit',
+      today: '2026-09-15' as IsoDate
+    };
+    let result: unknown;
+    service.recordPartyPurchase('p1', body).subscribe((r: unknown) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/purchases`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ purchaseId: 'pu-1' });
+    expect(result).toEqual({ purchaseId: 'pu-1' });
+  });
+  it('undoes a party purchase through /parties/{id}/purchases/{purchaseId}/undo', () => {
+    let done = false;
+    service.undoPartyPurchase('p1', 'pu-1').subscribe(() => (done = true));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/purchases/pu-1/undo`);
+    expect(req.request.method).toBe('POST');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+    expect(done).toBe(true);
+  });
+  it('POSTs a repayment to the party repayments route and returns the transaction id', () => {
+    const body: RecordRepayment = {
+      amountMinorUnits: money(5000),
+      currencyCode: 'ARS',
+      sourceAccountId: 'acc-1',
+      paidOn: '2026-09-15' as IsoDate,
+      today: '2026-09-15' as IsoDate
+    };
+    let result: unknown;
+    service.repay('p1', body).subscribe((r: unknown) => (result = r));
+    const req = httpMock.expectOne(`${environment.apiUrl}/parties/p1/repayments`);
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual(body);
+    req.flush({ ledgerTransactionId: 'tx-8' });
+    expect(result).toEqual({ ledgerTransactionId: 'tx-8' });
+  });
   it('maps a 409 on a settlement to an AppError keyed off code', () => {
     let error: AppError | undefined;
     service
@@ -160,6 +243,14 @@ describe('PartiesService', () => {
     );
     expect(error?.code).toBe('Parties.PartyNotFound');
     expect(error?.status).toBe(404);
+  });
+  it('GETs the scheduled shares of the chosen side and unwraps { rows }', () => {
+    let rows: unknown;
+    service.futureShares('p1', 'payable').subscribe((value: unknown) => (rows = value));
+    const req = httpMock.expectOne((request) => request.url === `${environment.apiUrl}/parties/p1/future-shares`);
+    expect(req.request.params.get('side')).toBe('payable');
+    req.flush({ rows: [{ cycleYear: 2026, cycleMonth: 11, shareMinorUnits: 5000, currencyCode: 'ARS', sourceLabel: 'x', purchaseId: 'pu-1' }] });
+    expect((rows as unknown[]).length).toBe(1);
   });
   it('GETs the pending scheduled shares per party and unwraps { rows }', () => {
     const rows: PendingSharesByPartyRow[] = [

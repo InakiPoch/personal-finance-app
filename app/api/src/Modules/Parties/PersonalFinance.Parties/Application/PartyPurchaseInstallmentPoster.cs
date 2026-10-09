@@ -8,9 +8,9 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Parties.Application;
 
 /// <summary>
-/// Posts every uncancelled party purchase installment whose month has started and that is not posted yet.
+/// Posts every uncancelled party purchase installment whose month has started and that is not posted yet; reverses a posting whose save fails or whose purchase was cancelled meanwhile.
 /// </summary>
-internal sealed class PartyPurchaseInstallmentPoster(PartiesDbContext context, ILedgerApi ledger, ILogger<PartyPurchaseInstallmentPoster> logger) {
+internal sealed class PartyPurchaseInstallmentPoster(PartiesDbContext context, ILedgerApi ledger, TimeProvider timeProvider, ILogger<PartyPurchaseInstallmentPoster> logger) {
     public async Task PostDueAsync(DateOnly today, Guid? purchaseId, CancellationToken cancellationToken) {
         var purchases = await context.PartyPurchases
             .Include(purchase => purchase.Installments)
@@ -43,7 +43,19 @@ internal sealed class PartyPurchaseInstallmentPoster(PartiesDbContext context, I
                     continue;
                 }
                 installment.MarkPosted(posted.Value);
-                await context.SaveChangesAsync(cancellationToken);
+                try {
+                    await context.SaveChangesAsync(cancellationToken);
+                } catch {
+                    await PartyHandlerHelper.ReverseAsync(ledger, posted.Value, timeProvider);
+                    throw;
+                }
+                var cancelled = await context.PartyPurchases
+                    .AsNoTracking()
+                    .AnyAsync(candidate => candidate.Id == purchase.Id && candidate.IsCancelled, cancellationToken);
+                if(cancelled) {
+                    await PartyHandlerHelper.ReverseAsync(ledger, posted.Value, timeProvider);
+                    break;
+                }
             }
         }
     }

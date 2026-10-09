@@ -1,7 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Ledger.Contracts;
-using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.Parties.Contracts.Commands;
 using PersonalFinance.Parties.Domain;
 using PersonalFinance.Parties.Infrastructure.Persistence;
@@ -10,6 +9,8 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Parties.Application.Commands.UndoPartyPurchase;
 
 internal sealed class UndoPartyPurchaseHandler(PartiesDbContext context, ILedgerApi ledger, TimeProvider timeProvider) : ICommandHandler<UndoPartyPurchaseCommand> {
+    private const string alreadyReversedCode = "Ledger.TransactionAlreadyReversed";
+
     public async Task<Result> HandleAsync(UndoPartyPurchaseCommand command, CancellationToken cancellationToken) {
         var purchase = await context.PartyPurchases
             .Include(candidate => candidate.Installments)
@@ -17,17 +18,20 @@ internal sealed class UndoPartyPurchaseHandler(PartiesDbContext context, ILedger
         if(purchase is null) {
             return Result.Failure(PartiesErrors.PurchaseNotFound);
         }
-        if(purchase.IsCancelled) {
-            return Result.Failure(PartiesErrors.PurchaseAlreadyUndone);
+        var wasCancelled = purchase.IsCancelled;
+        if(!wasCancelled) {
+            purchase.Cancel();
+            await context.SaveChangesAsync(cancellationToken);
         }
+        var reversedAny = false;
         foreach(var transactionId in purchase.Installments.Where(installment => installment.LedgerTransactionId is not null).Select(installment => installment.LedgerTransactionId!.Value)) {
-            var reversed = await ledger.ReverseTransactionAsync(new ReverseTransactionCommand(transactionId, timeProvider.GetUtcNow()), cancellationToken);
-            if(reversed.IsFailure) {
+            var reversed = await PartyHandlerHelper.ReverseAsync(ledger, transactionId, timeProvider);
+            if(reversed.IsSuccess) {
+                reversedAny = true;
+            } else if(reversed.Error.Code != alreadyReversedCode) {
                 return Result.Failure(reversed.Error);
             }
         }
-        purchase.Cancel();
-        await context.SaveChangesAsync(cancellationToken);
-        return Result.Success();
+        return wasCancelled && !reversedAny ? Result.Failure(PartiesErrors.PurchaseAlreadyUndone) : Result.Success();
     }
 }

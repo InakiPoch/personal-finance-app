@@ -25,10 +25,10 @@ internal static class RecordPartyPurchaseValidator {
         if(string.IsNullOrWhiteSpace(command.CategoryName)) {
             return Result.Failure(PartiesErrors.InvalidPurchaseCategory);
         }
-        if(command.Kind is not ("debit" or "credit")) {
+        if(command.Kind is not (PartyPurchaseKinds.Debit or PartyPurchaseKinds.Credit)) {
             return Result.Failure(PartiesErrors.InvalidPurchaseKind);
         }
-        if(command.Kind == "debit") {
+        if(command.Kind == PartyPurchaseKinds.Debit) {
             return Result.Success();
         }
         if(command.InstallmentCount is < 1 or > MaxInstallmentCount) {

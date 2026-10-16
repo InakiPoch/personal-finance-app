@@ -13,7 +13,8 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.PayCreditorInstallmentPartyShare;
 
 /// <summary>
-/// Settles the party's receivable into a bank account and records that share as a payment on the installment.
+/// Settles the party's receivable into a bank account, sends the same amount on to the creditor
+/// (<c>Dr CreditorPayable / Cr Bank</c>, ADR 0018) and records that share as a payment on the installment.
 /// </summary>
 internal sealed class PayCreditorInstallmentPartyShareHandler(FinancingDbContext context, TimeProvider timeProvider,
     IPartiesApi partiesApi, ILedgerApi ledgerApi) : ICommandHandler<PayCreditorInstallmentPartyShareCommand, Guid> {
@@ -63,7 +64,34 @@ internal sealed class PayCreditorInstallmentPartyShareHandler(FinancingDbContext
             await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settled.Value, now), cancellationToken);
             return applied.Error;
         }
-        await context.SaveChangesAsync(cancellationToken);
+        var creditorName = await context.Creditors
+            .Where(candidate => candidate.Id == plan.CreditorId)
+            .Select(candidate => candidate.Name)
+            .FirstAsync(cancellationToken);
+        var amount = Money.FromMinorUnits(share, installment.Currency);
+        var posted = await ledgerApi.PostTransactionAsync(
+            new PostTransactionCommand(
+                [
+                    new PostTransactionLine(plan.CreditorPayableAccountId!.Value, DebitOrCredit.Debit, amount),
+                    new PostTransactionLine(command.BankAccountId, DebitOrCredit.Credit, amount)
+                ],
+                now,
+                Description: $"Installment {installment.Sequence}/{plan.InstallmentCount} · {plan.Description} · {creditorName}"
+            ),
+            cancellationToken
+        );
+        if(posted.IsFailure) {
+            await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settled.Value, now), CancellationToken.None);
+            return posted.Error;
+        }
+        applied.Value.RecordLedgerTransaction(posted.Value);
+        try {
+            await context.SaveChangesAsync(cancellationToken);
+        } catch {
+            await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(posted.Value, now), CancellationToken.None);
+            await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settled.Value, now), CancellationToken.None);
+            throw;
+        }
         return applied.Value.Id;
     }
 }

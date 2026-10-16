@@ -8,6 +8,7 @@ using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 using Xunit;
@@ -21,6 +22,7 @@ public sealed class PayCreditorInstallmentPartyShareHandlerTests : IDisposable {
     private readonly DbContextOptions<FinancingDbContext> options;
     private readonly FakePartiesApi parties = new();
     private readonly FakeLedgerApi ledger = new();
+    private readonly Guid payableAccountId = Guid.CreateVersion7();
 
     public PayCreditorInstallmentPartyShareHandlerTests() {
         connection = new SqliteConnection("Filename=:memory:");
@@ -55,6 +57,28 @@ public sealed class PayCreditorInstallmentPartyShareHandlerTests : IDisposable {
         Assert.Equal(partyId, payment.PartyId);
         Assert.Equal(result.Value, payment.Id);
         Assert.NotNull(payment.SettlementTransactionId);
+        Assert.NotNull(payment.LedgerTransactionId);
+        var outflow = Assert.Single(ledger.PostedTransactions);
+        Assert.Equal("Installment 1/1 · Creditor split purchase · Nora", outflow.Description);
+        var debit = Assert.Single(outflow.Lines, line => line.Direction == DebitOrCredit.Debit);
+        var credit = Assert.Single(outflow.Lines, line => line.Direction == DebitOrCredit.Credit);
+        Assert.Equal(payableAccountId, debit.AccountId);
+        Assert.Equal(bankAccountId, credit.AccountId);
+        Assert.Equal(5_000, debit.Amount.MinorUnits);
+        Assert.Equal(5_000, credit.Amount.MinorUnits);
+    }
+
+    [Fact]
+    public async Task Handle_compensates_the_settlement_when_the_outgoing_transaction_fails() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Ursula", ["Ursula Bank"], cancellationToken);
+        var (installmentId, partyId) = await SeedSplitAccruedInstallmentAsync(creditor, 10_000, cancellationToken);
+        ledger.PostTransactionResultOverride = new Error("Ledger.Boom", "Nope.");
+        var result = await PayAsync(installmentId, partyId, Guid.CreateVersion7(), cancellationToken);
+        Assert.True(result.IsFailure);
+        Assert.Equal("Ledger.Boom", result.Error.Code);
+        Assert.Single(ledger.ReversedTransactions);
+        Assert.Empty((await LoadInstallmentAsync(installmentId, cancellationToken)).Payments);
     }
 
     [Fact]
@@ -169,6 +193,7 @@ public sealed class PayCreditorInstallmentPartyShareHandlerTests : IDisposable {
             creditorId: creditor.CreditorId,
             creditorAccountId: creditor.AccountIds[0]
         ).Value;
+        plan.AssignCreditorPayableAccount(payableAccountId);
         var installment = plan.Installments.Single();
         if(splitAccrued) {
             installment.MarkSplitAccrued(fixedNow);

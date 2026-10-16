@@ -32,11 +32,12 @@ export class TransactionsTable {
   }
 
   protected isLocked(row: TransactionFeedRow): boolean {
-    return row.isUndoEntry || row.isUndone;
+    return row.isUndoEntry || row.isUndone || row.notReversibleReason !== null;
   }
 
   protected lockReason(row: TransactionFeedRow): string {
-    return row.isUndoEntry ? 'Undo entry' : 'Already undone';
+    if(row.isUndoEntry) return 'Undo entry';
+    return row.isUndone ? 'Already undone' : (row.notReversibleReason ?? '');
   }
 
   protected route(row: TransactionFeedRow): string {
@@ -44,7 +45,7 @@ export class TransactionsTable {
   }
 
   protected canExpand(row: TransactionFeedRow): boolean {
-    return !row.isUndoEntry && row.impactLines.length > 0;
+    return !row.isUndoEntry && row.notReversibleReason === null && row.impactLines.length > 0;
   }
 
   protected toggle(id: string): void {

@@ -10,6 +10,7 @@
 -- Bank/Cash leg, so they stay out. PartyAccountIds holds the Receivable and PartyPayable account ids of the transaction.
 -- Card payments (Dr CardLiability, Cr Bank/Cash) are Outcome with IsCardPayment = 1 and Category 'Card payments'; without a
 -- description they read 'Card bill · <card name>' from the liability account name. Spent from bank & cash filters them out.
+-- A payment to a creditor (Dr CreditorPayable, Cr Bank/Cash) is Outcome with Category 'Creditor payments'.
 -- Category is the Expense account name, 'Lent to parties' for loans or 'Repaid to parties' for repayments.
 CREATE VIEW vw_ledger_money_flow AS
 SELECT
@@ -20,7 +21,7 @@ SELECT
              MAX(CASE WHEN a.Type = 'Expense' AND a.Kind NOT IN ('Receivable', 'CardPurchases') THEN a.Name END),
              'Card bill · ' || substr(MAX(CASE WHEN a.Kind = 'CardLiability' THEN a.Name END), 1, length(MAX(CASE WHEN a.Kind = 'CardLiability' THEN a.Name END)) - 10),
              'Income') AS Description,
-    MAX(CASE WHEN a.Type NOT IN ('Expense', 'Income') AND a.Kind NOT IN ('Receivable', 'PartyPayable', 'CardLiability', 'CardCredit') THEN a.Name END) AS AccountName,
+    MAX(CASE WHEN a.Type NOT IN ('Expense', 'Income') AND a.Kind NOT IN ('Receivable', 'PartyPayable', 'CardLiability', 'CardCredit', 'CreditorPayable') THEN a.Name END) AS AccountName,
     SUM(CASE WHEN a.Type = 'Income' AND e.Direction = 'Credit' THEN e.AmountMinorUnits ELSE 0 END)
       + CASE WHEN (SUM(CASE WHEN e.Direction = 'Credit' AND a.Kind = 'Receivable' THEN 1 ELSE 0 END) > 0
           AND SUM(CASE WHEN e.Direction = 'Debit' AND a.Kind = 'Receivable' THEN 1 ELSE 0 END) = 0
@@ -33,13 +34,14 @@ SELECT
              THEN SUM(CASE WHEN a.Kind IN ('Bank', 'Cash') AND e.Direction = 'Debit' THEN e.AmountMinorUnits ELSE 0 END)
              ELSE 0 END AS IncomeMinorUnits,
     CASE WHEN SUM(CASE WHEN e.Direction = 'Debit'
-                        AND ((a.Type = 'Expense' AND a.Kind NOT IN ('Receivable', 'CardPurchases')) OR a.Kind IN ('Receivable', 'PartyPayable', 'CardLiability'))
+                        AND ((a.Type = 'Expense' AND a.Kind NOT IN ('Receivable', 'CardPurchases')) OR a.Kind IN ('Receivable', 'PartyPayable', 'CardLiability', 'CreditorPayable'))
                        THEN 1 ELSE 0 END) > 0
          THEN SUM(CASE WHEN a.Kind IN ('Bank', 'Cash') AND e.Direction = 'Credit' THEN e.AmountMinorUnits ELSE 0 END)
          ELSE 0 END AS OutcomeMinorUnits,
     e.CurrencyCode AS CurrencyCode,
     COALESCE(MAX(CASE WHEN a.Type = 'Expense' AND a.Kind NOT IN ('Receivable', 'CardPurchases') THEN a.Name END),
              CASE WHEN SUM(CASE WHEN e.Direction = 'Debit' AND a.Kind = 'CardLiability' THEN 1 ELSE 0 END) > 0 THEN 'Card payments'
+                  WHEN SUM(CASE WHEN e.Direction = 'Debit' AND a.Kind = 'CreditorPayable' THEN 1 ELSE 0 END) > 0 THEN 'Creditor payments'
                   WHEN SUM(CASE WHEN e.Direction = 'Debit' AND a.Kind = 'PartyPayable' THEN 1 ELSE 0 END) > 0
                   THEN 'Repaid to parties' ELSE 'Lent to parties' END) AS Category,
     CASE WHEN (SUM(CASE WHEN e.Direction = 'Credit' AND a.Kind = 'PartyPayable' THEN 1 ELSE 0 END) > 0

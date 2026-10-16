@@ -26,7 +26,8 @@ public sealed record TransactionFacts(
     bool HasSubscriptionReference,
     IReadOnlyList<TransactionLeg> Legs,
     InstallmentLabel? Installment,
-    string? SubscriptionName
+    string? SubscriptionName,
+    bool IsCreditorPayment = false
 );
 
 /// <summary>
@@ -44,7 +45,8 @@ public sealed record TransactionFeedRow(
     string CurrencyCode,
     bool IsUndoEntry,
     bool IsUndone,
-    IReadOnlyList<string> ImpactLines
+    IReadOnlyList<string> ImpactLines,
+    string? NotReversibleReason = null
 );
 
 /// <summary>
@@ -66,6 +68,7 @@ public static class TransactionExplainer {
     private const string kindPartyPurchase = "Party purchase";
     private const string kindUndo = "Undo entry";
     private const string kindOther = "Other";
+    private const string creditorPaymentReason = "Undo this payment from the creditor page instead.";
 
     public static TransactionFeedRow Explain(TransactionFacts facts) {
         var legs = facts.Legs;
@@ -79,8 +82,9 @@ public static class TransactionExplainer {
             return new TransactionFeedRow(facts.Id, facts.PostedOnUtc, kindUndo, $"Undid: {Description}", from, to, amount, currency, true, facts.IsUndone, []);
         }
         var classified = classify(facts, legs, currency);
-        IReadOnlyList<string> impact = facts.IsUndone ? ["Already undone."] : classified.Impact;
-        return new TransactionFeedRow(facts.Id, facts.PostedOnUtc, classified.Kind, classified.Description, from, to, amount, currency, false, facts.IsUndone, impact);
+        var notReversible = facts.IsCreditorPayment && !facts.IsUndone ? creditorPaymentReason : null;
+        IReadOnlyList<string> impact = facts.IsUndone ? ["Already undone."] : notReversible is null ? classified.Impact : [notReversible];
+        return new TransactionFeedRow(facts.Id, facts.PostedOnUtc, classified.Kind, classified.Description, from, to, amount, currency, false, facts.IsUndone, impact, notReversible);
     }
 
     private static (string Kind, string Description, IReadOnlyList<string> Impact) classify(TransactionFacts facts, IReadOnlyList<TransactionLeg> legs, string currency) {

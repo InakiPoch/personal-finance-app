@@ -9,8 +9,7 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.PayCreditorFullDebt;
 
 /// <summary>
-/// Settles a creditor's debt in one transaction. A null amount pays every unpaid, non-reversed
-/// installment across all of that creditor's purchases in full. A set amount fills only that currency's remaining installments
+/// Pays a creditor's whole debt, or a set amount of one currency, from a Bank/Cash account.
 /// </summary>
 internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, TimeProvider timeProvider, ILedgerApi ledgerApi) : ICommandHandler<PayCreditorFullDebtCommand, int> {
     public async Task<Result<int>> HandleAsync(PayCreditorFullDebtCommand command, CancellationToken cancellationToken) {
@@ -18,10 +17,7 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
         if(validation.IsFailure) {
             return validation.Error;
         }
-        var creditorName = await context.Creditors
-            .Where(candidate => candidate.Id == command.CreditorId)
-            .Select(candidate => candidate.Name)
-            .FirstOrDefaultAsync(cancellationToken);
+        var creditorName = await CreditorPostingHelper.LoadCreditorNameAsync(context, command.CreditorId, cancellationToken);
         if(creditorName is null) {
             return FinancingErrors.CreditorNotFound;
         }
@@ -50,7 +46,7 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
                 pieces.Add((row.installment, applied.Value));
                 settledAll++;
             }
-            return await SaveAsync(command, creditorName, installments.Select(row => row.plan).DistinctBy(plan => plan.Id), pieces, settledAll, now, cancellationToken);
+            return await postAndSaveAsync(command, creditorName, installments.Select(row => row.plan).DistinctBy(plan => plan.Id), pieces, settledAll, now, cancellationToken);
         }
         var candidates = installments
             .Where(row => !row.installment.IsReversed && row.installment.RemainingMinorUnits > 0 && row.installment.Currency.Code == command.CurrencyCode)
@@ -83,21 +79,16 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
                 settled++;
             }
         }
-        return await SaveAsync(command, creditorName, installments.Select(row => row.plan).DistinctBy(plan => plan.Id), pieces, settled, now, cancellationToken);
+        return await postAndSaveAsync(command, creditorName, installments.Select(row => row.plan).DistinctBy(plan => plan.Id), pieces, settled, now, cancellationToken);
     }
 
-    private async Task<Result<int>> SaveAsync(PayCreditorFullDebtCommand command, string creditorName, IEnumerable<PaymentPlan> plans, List<(Installment Installment, CreditorInstallmentPayment Payment)> pieces, int settled, DateTimeOffset now, CancellationToken cancellationToken) {
+    private async Task<Result<int>> postAndSaveAsync(PayCreditorFullDebtCommand command, string creditorName, IEnumerable<PaymentPlan> plans, List<(Installment Installment, CreditorInstallmentPayment Payment)> pieces, int settled, DateTimeOffset now, CancellationToken cancellationToken) {
         var splits = await CreditorPostingHelper.LoadSplitsAsync(context, plans, cancellationToken);
-        var postedPieces = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, splits, $"Full debt · {creditorName}", now, cancellationToken);
+        var postedPieces = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, splits, CreditorPaymentDescriptionHelper.ForFullDebt(creditorName), now, cancellationToken);
         if(postedPieces.IsFailure) {
             return postedPieces.Error;
         }
-        try {
-            await context.SaveChangesAsync(cancellationToken);
-        } catch {
-            await CreditorPostingHelper.ReverseAsync(ledgerApi, postedPieces.Value, now);
-            throw;
-        }
+        await CreditorPostingHelper.SaveOrReverseAsync(context, ledgerApi, postedPieces.Value, now, cancellationToken);
         return settled;
     }
 }

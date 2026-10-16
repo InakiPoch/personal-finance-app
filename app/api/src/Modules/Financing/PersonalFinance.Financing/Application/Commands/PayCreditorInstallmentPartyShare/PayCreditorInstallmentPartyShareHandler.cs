@@ -13,12 +13,14 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.PayCreditorInstallmentPartyShare;
 
 /// <summary>
-/// Settles the party's receivable into a bank account, sends the same amount on to the creditor
-/// (<c>Dr CreditorPayable / Cr Bank</c>, ADR 0018) and records that share as a payment on the installment.
+/// Settles a party's share into a bank account, sends it on to the creditor and records it as a payment.
 /// </summary>
 internal sealed class PayCreditorInstallmentPartyShareHandler(FinancingDbContext context, TimeProvider timeProvider,
     IPartiesApi partiesApi, ILedgerApi ledgerApi) : ICommandHandler<PayCreditorInstallmentPartyShareCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(PayCreditorInstallmentPartyShareCommand command, CancellationToken cancellationToken) {
+        if(command.BankAccountId == Guid.Empty) {
+            return FinancingErrors.InvalidPaidFromAccount;
+        }
         var installment = await context.Set<Installment>()
             .Include(candidate => candidate.Payments)
             .FirstOrDefaultAsync(candidate => candidate.Id == command.InstallmentId, cancellationToken);
@@ -61,37 +63,21 @@ internal sealed class PayCreditorInstallmentPartyShareHandler(FinancingDbContext
         }
         var applied = installment.ApplyPayment(share, now, command.PartyId, settled.Value);
         if(applied.IsFailure) {
-            await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settled.Value, now), cancellationToken);
+            await CreditorPostingHelper.ReverseAsync(ledgerApi, [settled.Value], now);
             return applied.Error;
         }
-        var creditorName = await context.Creditors
-            .Where(candidate => candidate.Id == plan.CreditorId)
-            .Select(candidate => candidate.Name)
-            .FirstAsync(cancellationToken);
-        var amount = Money.FromMinorUnits(share, installment.Currency);
-        var posted = await ledgerApi.PostTransactionAsync(
-            new PostTransactionCommand(
-                [
-                    new PostTransactionLine(plan.CreditorPayableAccountId!.Value, DebitOrCredit.Debit, amount),
-                    new PostTransactionLine(command.BankAccountId, DebitOrCredit.Credit, amount)
-                ],
-                now,
-                Description: $"Installment {installment.Sequence}/{plan.InstallmentCount} · {plan.Description} · {creditorName}"
-            ),
-            cancellationToken
-        );
+        var creditorName = await CreditorPostingHelper.LoadCreditorNameAsync(context, plan.CreditorId, cancellationToken);
+        if(creditorName is null) {
+            await CreditorPostingHelper.ReverseAsync(ledgerApi, [settled.Value], now);
+            return FinancingErrors.CreditorNotFound;
+        }
+        var posted = await CreditorPostingHelper.PostPayableAsync(ledgerApi, command.BankAccountId, plan.CreditorPayableAccountId!.Value, Money.FromMinorUnits(share, installment.Currency), CreditorPaymentDescriptionHelper.ForInstallment(plan, installment, creditorName), now, cancellationToken);
         if(posted.IsFailure) {
-            await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settled.Value, now), CancellationToken.None);
+            await CreditorPostingHelper.ReverseAsync(ledgerApi, [settled.Value], now);
             return posted.Error;
         }
         applied.Value.RecordLedgerTransaction(posted.Value);
-        try {
-            await context.SaveChangesAsync(cancellationToken);
-        } catch {
-            await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(posted.Value, now), CancellationToken.None);
-            await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settled.Value, now), CancellationToken.None);
-            throw;
-        }
+        await CreditorPostingHelper.SaveOrReverseAsync(context, ledgerApi, [posted.Value, settled.Value], now, cancellationToken);
         return applied.Value.Id;
     }
 }

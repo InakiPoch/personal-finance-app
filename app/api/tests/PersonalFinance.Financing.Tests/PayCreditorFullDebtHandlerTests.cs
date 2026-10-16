@@ -254,6 +254,14 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         Assert.Equal(FinancingErrors.InvalidPaidFromAccount, rejected.Error);
     }
 
+    [Fact]
+    public async Task Handle_rejects_an_empty_paid_from_account_before_any_lookup() {
+        var result = await new PayCreditorFullDebtHandler(NewContext(), new FixedTimeProvider(fixedNow), ledger)
+            .HandleAsync(new PayCreditorFullDebtCommand(Guid.CreateVersion7(), Guid.Empty, null, null), TestContext.Current.CancellationToken);
+        Assert.Equal(FinancingErrors.InvalidPaidFromAccount, result.Error);
+        Assert.Empty(ledger.PostedTransactions);
+    }
+
     private async Task<Result<int>> PayFullDebtAsync(Guid creditorId, CancellationToken cancellationToken, long? amountMinorUnits = null, string? currencyCode = null) {
         await using var context = NewContext();
         return await new PayCreditorFullDebtHandler(context, new FixedTimeProvider(fixedNow), ledger)

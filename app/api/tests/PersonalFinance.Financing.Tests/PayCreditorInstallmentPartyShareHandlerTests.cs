@@ -2,6 +2,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using PersonalFinance.Financing.Application.Commands.CreateCreditor;
 using PersonalFinance.Financing.Application.Commands.PayCreditorInstallmentPartyShare;
+using PersonalFinance.Financing.Application.Commands.UnpayCreditorInstallment;
 using PersonalFinance.Financing.Application.Queries.ListCreditors;
 using PersonalFinance.Financing.Contracts.Commands;
 using PersonalFinance.Financing.Contracts.Queries;
@@ -163,6 +164,29 @@ public sealed class PayCreditorInstallmentPartyShareHandlerTests : IDisposable {
         var installment = await LoadInstallmentAsync(installmentId, cancellationToken);
         Assert.Empty(installment.Payments);
         Assert.Empty(ledger.ReversedTransactions);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_an_empty_paid_from_account_before_any_lookup() {
+        var result = await PayAsync(Guid.CreateVersion7(), Guid.CreateVersion7(), Guid.Empty, TestContext.Current.CancellationToken);
+        Assert.Equal(FinancingErrors.InvalidPaidFromAccount, result.Error);
+        Assert.Empty(parties.Settlements);
+    }
+
+    [Fact]
+    public async Task Undo_reverses_the_outgoing_transaction_first_and_stops_when_that_reversal_fails() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Ulises", ["Ulises Bank"], cancellationToken);
+        var (installmentId, partyId) = await SeedSplitAccruedInstallmentAsync(creditor, 10_000, cancellationToken);
+        Assert.True((await PayAsync(installmentId, partyId, Guid.CreateVersion7(), cancellationToken)).IsSuccess);
+        var outgoingId = Assert.Single((await LoadInstallmentAsync(installmentId, cancellationToken)).Payments).LedgerTransactionId;
+        ledger.ReversedTransactions.Clear();
+        ledger.ReverseTransactionResultOverride = new Error("Ledger.TransactionNotFound", "Missing.");
+        await using var context = NewContext();
+        var result = await new UnpayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow), ledger).HandleAsync(new UnpayCreditorInstallmentCommand(installmentId), cancellationToken);
+        Assert.True(result.IsFailure);
+        Assert.Equal(outgoingId, Assert.Single(ledger.ReversedTransactions).OriginalTransactionId);
+        Assert.Single((await LoadInstallmentAsync(installmentId, cancellationToken)).Payments);
     }
 
     private async Task<Result<Guid>> PayAsync(Guid installmentId, Guid partyId, Guid bankAccountId, CancellationToken cancellationToken) {

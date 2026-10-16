@@ -318,6 +318,14 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
         Assert.Equal((30_000, 30_000), await ReadPayablesFiguresAsync(creditor.CreditorId, cancellationToken));
     }
 
+    [Fact]
+    public async Task Handle_rejects_an_empty_paid_from_account_before_any_lookup() {
+        var ledger = NewLedger();
+        var result = await PayAsync(Guid.CreateVersion7(), null, ledger, Guid.Empty, TestContext.Current.CancellationToken);
+        Assert.Equal(FinancingErrors.InvalidPaidFromAccount, result.Error);
+        Assert.Empty(ledger.PostedTransactions);
+    }
+
     private async Task<Result<Guid>> PayAsync(Guid installmentId, CancellationToken cancellationToken) {
         return await PayAsync(installmentId, null, cancellationToken);
     }

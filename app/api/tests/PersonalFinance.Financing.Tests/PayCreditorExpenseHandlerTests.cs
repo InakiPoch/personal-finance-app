@@ -187,6 +187,14 @@ public sealed class PayCreditorExpenseHandlerTests : IDisposable {
         Assert.False((await LoadInstallmentAsync(installmentIds[0], cancellationToken)).IsPaid);
     }
 
+    [Fact]
+    public async Task Handle_rejects_an_empty_paid_from_account_before_any_lookup() {
+        var result = await new PayCreditorExpenseHandler(NewContext(), new FixedTimeProvider(fixedNow), ledger)
+            .HandleAsync(new PayCreditorExpenseCommand(Guid.CreateVersion7(), Guid.Empty, null), TestContext.Current.CancellationToken);
+        Assert.Equal(FinancingErrors.InvalidPaidFromAccount, result.Error);
+        Assert.Empty(ledger.PostedTransactions);
+    }
+
     private async Task<Result<int>> PayExpenseAsync(Guid paymentPlanId, long? amountMinorUnits, CancellationToken cancellationToken) {
         await using var context = NewContext();
         return await new PayCreditorExpenseHandler(context, new FixedTimeProvider(fixedNow), ledger).HandleAsync(new PayCreditorExpenseCommand(paymentPlanId, bankAccountId, amountMinorUnits), cancellationToken);

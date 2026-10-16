@@ -64,21 +64,16 @@ internal sealed class PayCreditorExpenseHandler(FinancingDbContext context, Time
                 settled++;
             }
         }
-        var creditorName = await context.Creditors
-            .Where(candidate => candidate.Id == plan.CreditorId)
-            .Select(candidate => candidate.Name)
-            .FirstAsync(cancellationToken);
+        var creditorName = await CreditorPostingHelper.LoadCreditorNameAsync(context, plan.CreditorId, cancellationToken);
+        if(creditorName is null) {
+            return FinancingErrors.CreditorNotFound;
+        }
         var splits = await CreditorPostingHelper.LoadSplitsAsync(context, [plan], cancellationToken);
-        var posted = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, splits, $"{plan.Description} · {creditorName}", now, cancellationToken);
+        var posted = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, splits, CreditorPaymentDescriptionHelper.ForExpense(plan, creditorName), now, cancellationToken);
         if(posted.IsFailure) {
             return posted.Error;
         }
-        try {
-            await context.SaveChangesAsync(cancellationToken);
-        } catch {
-            await CreditorPostingHelper.ReverseAsync(ledgerApi, posted.Value, now);
-            throw;
-        }
+        await CreditorPostingHelper.SaveOrReverseAsync(context, ledgerApi, posted.Value, now, cancellationToken);
         return settled;
     }
 }

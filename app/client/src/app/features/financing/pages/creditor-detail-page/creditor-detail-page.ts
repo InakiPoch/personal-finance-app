@@ -28,6 +28,7 @@ import { CreditorPurchaseGroup } from '../../types/creditor-purchase-group';
 import { PayCreditorExpenseResult } from '../../types/pay-creditor-expense-result';
 import { PayCreditorFullDebt } from '../../types/pay-creditor-full-debt';
 import { PayCreditorFullDebtResult } from '../../types/pay-creditor-full-debt-result';
+import { PayCreditorExpense } from '../../types/pay-creditor-expense';
 import { PayCreditorInstallment } from '../../types/pay-creditor-installment';
 import { PayCreditorInstallmentPartyShare } from '../../types/pay-creditor-installment-party-share';
 import { PayCreditorInstallmentResult } from '../../types/pay-creditor-installment-result';
@@ -142,6 +143,7 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     'Financing.PaymentExceedsRemaining': "That payment exceeds what's still remaining.",
     'Financing.NoPaymentToUndo': 'There is no payment recorded on this installment to undo.',
     'Financing.InvalidCurrencyCode': 'Choose a currency for this payment.',
+    'Financing.InvalidPaidFromAccount': 'Choose a bank or cash account to pay from.',
     'Financing.PartyShareAlreadyPaid': "That party's share is already paid.",
     'Financing.PartyShareNotDue': 'This installment is not charged to the card for party payments yet.',
     'Parties.SettlementExceedsBalance': 'This party has no outstanding balance for this share — they may have already settled it on the Parties page.',
@@ -188,12 +190,14 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
       this.runPayFullDebt({ amountMinorUnits: body.amountMinorUnits, currencyCode: body.currencyCode });
       return;
     }
-    const amountBody: PayCreditorInstallment = { amountMinorUnits: body.amountMinorUnits };
     if(target.kind === 'expense') {
-      this.runPayExpense(target.group.planId, amountBody);
+      this.runPayExpense(target.group.planId, { amountMinorUnits: body.amountMinorUnits });
       return;
     }
-    this.runPay(target.row.installmentId, amountBody);
+    if(body.bankAccountId === null) {
+      return;
+    }
+    this.runPay(target.row.installmentId, { bankAccountId: body.bankAccountId, amountMinorUnits: body.amountMinorUnits });
   }
 
   protected onUndo(installmentId: string): void {
@@ -285,7 +289,7 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     );
   }
 
-  private runPayExpense(planId: string, body: PayCreditorInstallment): void {
+  private runPayExpense(planId: string, body: PayCreditorExpense): void {
     const creditorId: string | null = this.creditorId;
     if(creditorId === null) {
       return;

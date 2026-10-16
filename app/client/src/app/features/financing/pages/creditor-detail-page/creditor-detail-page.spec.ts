@@ -242,8 +242,12 @@ describe('CreditorDetailPage', () => {
     setup();
     buttonByLabel('Pay').click();
     fixture.detectChanges();
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector('dialog #pay-dialog-bank-account');
+    select.value = 'bank-1';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
     buttonByLabel('Confirm').click();
-    expect(payCreditorInstallment).toHaveBeenCalledWith('i-2', { amountMinorUnits: null });
+    expect(payCreditorInstallment).toHaveBeenCalledWith('i-2', { bankAccountId: 'bank-1', amountMinorUnits: null });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
   });
   it('backs out of the pay dialog via Cancel without calling the service', () => {
@@ -371,6 +375,10 @@ describe('CreditorDetailPage', () => {
       .and.returnValue(throwError(() => appError));
     setup();
     buttonByLabel('Pay').click();
+    fixture.detectChanges();
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector('dialog #pay-dialog-bank-account');
+    select.value = 'bank-1';
+    select.dispatchEvent(new Event('change'));
     fixture.detectChanges();
     buttonByLabel('Confirm').click();
     fixture.detectChanges();

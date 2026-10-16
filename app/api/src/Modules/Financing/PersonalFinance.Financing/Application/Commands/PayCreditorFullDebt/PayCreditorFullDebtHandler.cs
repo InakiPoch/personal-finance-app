@@ -33,10 +33,10 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
             from installment in context.Set<Installment>().Include(candidate => candidate.Payments)
             join plan in context.PaymentPlans on installment.PaymentPlanId equals plan.Id
             where plan.CreditorId == command.CreditorId
-            select new { installment, plan.PurchaseDate, plan.SplitReferenceId }
+            select new { installment, plan }
         ).ToListAsync(cancellationToken);
         var now = timeProvider.GetUtcNow();
-        var pieces = new List<(Installment Installment, CreditorInstallmentPayment Payment, bool MovesBank)>();
+        var pieces = new List<(Installment Installment, CreditorInstallmentPayment Payment)>();
         if(command.AmountMinorUnits is null) {
             var settledAll = 0;
             foreach(var row in installments) {
@@ -47,16 +47,16 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
                 if(applied.IsFailure) {
                     return applied.Error;
                 }
-                pieces.Add((row.installment, applied.Value, row.SplitReferenceId is null));
+                pieces.Add((row.installment, applied.Value));
                 settledAll++;
             }
-            return await SaveAsync(command, creditorName, pieces, settledAll, now, cancellationToken);
+            return await SaveAsync(command, creditorName, installments.Select(row => row.plan).DistinctBy(plan => plan.Id), pieces, settledAll, now, cancellationToken);
         }
         var candidates = installments
             .Where(row => !row.installment.IsReversed && row.installment.RemainingMinorUnits > 0 && row.installment.Currency.Code == command.CurrencyCode)
             .OrderBy(row => row.installment.DueCycle.Year)
             .ThenBy(row => row.installment.DueCycle.Month)
-            .ThenBy(row => row.PurchaseDate)
+            .ThenBy(row => row.plan.PurchaseDate)
             .ThenBy(row => row.installment.Sequence)
             .ToList();
         var totalRemaining = candidates.Sum(candidate => candidate.installment.RemainingMinorUnits);
@@ -78,18 +78,17 @@ internal sealed class PayCreditorFullDebtHandler(FinancingDbContext context, Tim
             if(applied.IsFailure) {
                 return applied.Error;
             }
-            pieces.Add((installment, applied.Value, row.SplitReferenceId is null));
+            pieces.Add((installment, applied.Value));
             if(installment.RemainingMinorUnits == 0) {
                 settled++;
             }
         }
-        return await SaveAsync(command, creditorName, pieces, settled, now, cancellationToken);
+        return await SaveAsync(command, creditorName, installments.Select(row => row.plan).DistinctBy(plan => plan.Id), pieces, settled, now, cancellationToken);
     }
 
-    private async Task<Result<int>> SaveAsync(PayCreditorFullDebtCommand command, string creditorName, List<(Installment Installment, CreditorInstallmentPayment Payment, bool MovesBank)> pieces, int settled, DateTimeOffset now, CancellationToken cancellationToken) {
-        // ponytail: split plans stay display-only until the split-allocation ticket (#61) decides what moves the bank.
-        var movingPieces = pieces.Where(piece => piece.MovesBank).Select(piece => (piece.Installment, piece.Payment)).ToList();
-        var postedPieces = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, movingPieces, $"Full debt · {creditorName}", now, cancellationToken);
+    private async Task<Result<int>> SaveAsync(PayCreditorFullDebtCommand command, string creditorName, IEnumerable<PaymentPlan> plans, List<(Installment Installment, CreditorInstallmentPayment Payment)> pieces, int settled, DateTimeOffset now, CancellationToken cancellationToken) {
+        var splits = await CreditorPostingHelper.LoadSplitsAsync(context, plans, cancellationToken);
+        var postedPieces = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, splits, $"Full debt · {creditorName}", now, cancellationToken);
         if(postedPieces.IsFailure) {
             return postedPieces.Error;
         }

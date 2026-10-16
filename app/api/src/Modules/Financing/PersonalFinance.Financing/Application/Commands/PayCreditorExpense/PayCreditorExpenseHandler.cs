@@ -26,13 +26,9 @@ internal sealed class PayCreditorExpenseHandler(FinancingDbContext context, Time
         if(plan.CreditorId is null) {
             return FinancingErrors.NotACreditorInstallment;
         }
-        // ponytail: split plans stay display-only until the split-allocation ticket (#61) decides what moves the bank.
-        var movesBank = plan.SplitReferenceId is null;
-        if(movesBank) {
-            var paidFrom = await CreditorPostingHelper.ValidatePaidFromAsync(ledgerApi, command.BankAccountId, cancellationToken);
-            if(paidFrom.IsFailure) {
-                return paidFrom.Error;
-            }
+        var paidFrom = await CreditorPostingHelper.ValidatePaidFromAsync(ledgerApi, command.BankAccountId, cancellationToken);
+        if(paidFrom.IsFailure) {
+            return paidFrom.Error;
         }
         var installments = await context.Set<Installment>()
             .Include(candidate => candidate.Payments)
@@ -68,22 +64,19 @@ internal sealed class PayCreditorExpenseHandler(FinancingDbContext context, Time
                 settled++;
             }
         }
-        var posted = new List<Guid>();
-        if(movesBank) {
-            var creditorName = await context.Creditors
-                .Where(candidate => candidate.Id == plan.CreditorId)
-                .Select(candidate => candidate.Name)
-                .FirstAsync(cancellationToken);
-            var postedPieces = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, $"{plan.Description} · {creditorName}", now, cancellationToken);
-            if(postedPieces.IsFailure) {
-                return postedPieces.Error;
-            }
-            posted.AddRange(postedPieces.Value);
+        var creditorName = await context.Creditors
+            .Where(candidate => candidate.Id == plan.CreditorId)
+            .Select(candidate => candidate.Name)
+            .FirstAsync(cancellationToken);
+        var splits = await CreditorPostingHelper.LoadSplitsAsync(context, [plan], cancellationToken);
+        var posted = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, splits, $"{plan.Description} · {creditorName}", now, cancellationToken);
+        if(posted.IsFailure) {
+            return posted.Error;
         }
         try {
             await context.SaveChangesAsync(cancellationToken);
         } catch {
-            await CreditorPostingHelper.ReverseAsync(ledgerApi, posted, now);
+            await CreditorPostingHelper.ReverseAsync(ledgerApi, posted.Value, now);
             throw;
         }
         return settled;

@@ -18,7 +18,7 @@ public sealed class CreditorPartySharePaymentTests(ApiWebApplicationFactory fact
         var month = DateTime.UtcNow.ToString("yyyy-MM");
         var bankId = await RegisterDebitAsync(client, "Party Share Bank", cancellationToken);
         var partyId = await CreatePartyAsync(client, "Pia", cancellationToken);
-        var installmentId = await SeedSplitPlanAsync(client, partyId, cancellationToken);
+        var installmentId = await SeedSplitPlanAsync(client, partyId, "Pia", cancellationToken);
         await DrainOutboxAsync();
         await AccrueAsync();
         var balanceBefore = await BalanceAsync(client, bankId, cancellationToken);
@@ -44,6 +44,54 @@ public sealed class CreditorPartySharePaymentTests(ApiWebApplicationFactory fact
         Assert.DoesNotContain(rows, r => r.GetProperty("description").GetString() == "Installment 1/1 · Shared sofa · Pia Creditor");
     }
 
+    [Fact]
+    public async Task Paying_a_split_installment_in_full_is_one_outcome_and_the_party_still_owes_me() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var month = DateTime.UtcNow.ToString("yyyy-MM");
+        var bankId = await RegisterDebitAsync(client, "Full Split Bank", cancellationToken);
+        var partyId = await CreatePartyAsync(client, "Quino", cancellationToken);
+        var installmentId = await SeedSplitPlanAsync(client, partyId, "Quino", cancellationToken);
+        await DrainOutboxAsync();
+        var balanceBefore = await BalanceAsync(client, bankId, cancellationToken);
+        var spentBefore = await TotalAsync(client, "monthly-expenses", month, cancellationToken);
+        var receivedBefore = await TotalAsync(client, "monthly-incomes", month, cancellationToken);
+        var paid = await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay", new { bankAccountId = bankId }, cancellationToken);
+        Assert.True(paid.IsSuccessStatusCode, await paid.Content.ReadAsStringAsync(cancellationToken));
+        await AccrueAsync();
+        Assert.Equal(balanceBefore - 100_00, await BalanceAsync(client, bankId, cancellationToken));
+        Assert.Equal(spentBefore + 100_00, await TotalAsync(client, "monthly-expenses", month, cancellationToken));
+        Assert.Equal(receivedBefore, await TotalAsync(client, "monthly-incomes", month, cancellationToken));
+        var row = Assert.Single(await MoneyFlowAsync(client, month, cancellationToken), r => r.GetProperty("description").GetString() == "Installment 1/1 · Shared sofa · Quino Creditor");
+        Assert.Equal("Outcome", row.GetProperty("kind").GetString());
+        Assert.Equal(100_00, row.GetProperty("amountMinorUnits").GetInt64());
+        var balance = await client.GetFromJsonAsync<JsonElement>($"/v1/parties/{partyId}/balance", cancellationToken);
+        Assert.Equal(50_00, balance.GetProperty("balances").EnumerateArray().Single(r => r.GetProperty("currencyCode").GetString() == "ARS").GetProperty("balanceMinorUnits").GetInt64());
+    }
+
+    [Fact]
+    public async Task Paying_the_party_share_first_then_my_part_nets_to_my_share_only() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var month = DateTime.UtcNow.ToString("yyyy-MM");
+        var bankId = await RegisterDebitAsync(client, "Share First Bank", cancellationToken);
+        var partyId = await CreatePartyAsync(client, "Rita", cancellationToken);
+        var installmentId = await SeedSplitPlanAsync(client, partyId, "Rita", cancellationToken);
+        await DrainOutboxAsync();
+        await AccrueAsync();
+        var balanceBefore = await BalanceAsync(client, bankId, cancellationToken);
+        (await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay-party", new { partyId, bankAccountId = bankId }, cancellationToken)).EnsureSuccessStatusCode();
+        Assert.Equal(balanceBefore, await BalanceAsync(client, bankId, cancellationToken));
+        var mine = await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay", new { bankAccountId = bankId }, cancellationToken);
+        Assert.True(mine.IsSuccessStatusCode, await mine.Content.ReadAsStringAsync(cancellationToken));
+        Assert.Equal(balanceBefore - 50_00, await BalanceAsync(client, bankId, cancellationToken));
+        var rows = await MoneyFlowAsync(client, month, cancellationToken);
+        var outcomes = rows.Where(r => r.GetProperty("description").GetString() == "Installment 1/1 · Shared sofa · Rita Creditor").ToList();
+        Assert.Equal(2, outcomes.Count);
+        Assert.All(outcomes, r => Assert.Equal(50_00, r.GetProperty("amountMinorUnits").GetInt64()));
+        Assert.Single(rows, r => r.GetProperty("description").GetString() == "Settlement from Rita");
+    }
+
     private async Task DrainOutboxAsync() {
         var worker = ActivatorUtilities.CreateInstance<OutboxWorker>(factory.Services);
         var drain = typeof(OutboxWorker).GetMethod("DrainAllAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -67,8 +115,8 @@ public sealed class CreditorPartySharePaymentTests(ApiWebApplicationFactory fact
         await (Task)tick.Invoke(scheduler, [CancellationToken.None])!;
     }
 
-    private static async Task<Guid> SeedSplitPlanAsync(HttpClient client, Guid partyId, CancellationToken cancellationToken) {
-        var created = await client.PostAsJsonAsync("/v1/creditors", new { name = "Pia Creditor", accounts = new[] { new { label = "Pia Creditor Bank" } } }, cancellationToken);
+    private static async Task<Guid> SeedSplitPlanAsync(HttpClient client, Guid partyId, string name, CancellationToken cancellationToken) {
+        var created = await client.PostAsJsonAsync("/v1/creditors", new { name = $"{name} Creditor", accounts = new[] { new { label = $"{name} Creditor Bank" } } }, cancellationToken);
         created.EnsureSuccessStatusCode();
         var creditorId = (await created.Content.ReadFromJsonAsync<JsonElement>(cancellationToken)).GetProperty("creditorId").GetGuid();
         var list = await client.GetFromJsonAsync<JsonElement>("/v1/creditors", cancellationToken);

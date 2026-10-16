@@ -36,8 +36,9 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
         if(undone.IsFailure) {
             return undone.Error;
         }
-        if(undone.Value.SettlementTransactionId is { } settlementTransactionId) {
-            var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settlementTransactionId, timeProvider.GetUtcNow()), cancellationToken);
+        // Every ledger transaction a payment row owns is undone with it; later tickets add their ids here.
+        foreach(var transactionId in new[] { undone.Value.SettlementTransactionId, undone.Value.LedgerTransactionId }.OfType<Guid>()) {
+            var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(transactionId, timeProvider.GetUtcNow()), cancellationToken);
             if(reversed.IsFailure) {
                 return reversed.Error;
             }

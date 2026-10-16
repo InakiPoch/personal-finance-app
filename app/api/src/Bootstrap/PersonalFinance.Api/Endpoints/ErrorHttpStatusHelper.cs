@@ -57,6 +57,7 @@ internal static class ErrorHttpStatusHelper {
             "Financing.InvalidClosingDay" => StatusCodes.Status422UnprocessableEntity,
             "Financing.NonPositivePlanAmount" => StatusCodes.Status422UnprocessableEntity,
             "Financing.InvalidInstallmentCount" => StatusCodes.Status422UnprocessableEntity,
+            "Financing.InvalidPaidFromAccount" => StatusCodes.Status422UnprocessableEntity,
             "Financing.InvalidBankAccount" => StatusCodes.Status422UnprocessableEntity,
             "Financing.NonPositiveCreditAmount" => StatusCodes.Status422UnprocessableEntity,
             "Financing.InvalidSplitWeights" => StatusCodes.Status422UnprocessableEntity,

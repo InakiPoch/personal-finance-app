@@ -10,6 +10,7 @@ using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 using Xunit;
@@ -19,6 +20,7 @@ namespace PersonalFinance.Financing.Tests;
 public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     private static readonly DateTimeOffset fixedNow = new(2026, 6, 15, 12, 0, 0, TimeSpan.Zero);
 
+    private readonly Guid bankAccountId = Guid.CreateVersion7();
     private readonly SqliteConnection connection;
     private readonly DbContextOptions<FinancingDbContext> options;
 
@@ -47,6 +49,72 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
         var installment = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
         Assert.True(installment.IsPaid);
         Assert.Equal(fixedNow, installment.PaidOnUtc);
+    }
+
+    [Fact]
+    public async Task Handle_posts_the_amount_paid_from_the_account_to_the_creditor_payments_category() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Yara", ["Yara Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
+        var ledger = NewLedger();
+        var result = await PayAsync(installmentIds[1], 4_000, ledger, bankAccountId, cancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Equal("Creditor payments", Assert.Single(ledger.RequestedCategories).Name);
+        var posted = Assert.Single(ledger.PostedTransactions);
+        Assert.Equal("Installment 2/3 · Creditor purchase · Yara", posted.Description);
+        Assert.Equal(fixedNow, posted.PostedOnUtc);
+        var debit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Debit);
+        var credit = Assert.Single(posted.Lines, line => line.Direction == DebitOrCredit.Credit);
+        Assert.Equal(ledger.ExpenseCategoryId, debit.AccountId);
+        Assert.Equal(bankAccountId, credit.AccountId);
+        Assert.Equal(Money.FromMinorUnits(4_000, Currency.Reference), debit.Amount);
+        Assert.Equal(debit.Amount, credit.Amount);
+        var installment = await LoadInstallmentAsync(installmentIds[1], cancellationToken);
+        Assert.NotNull(Assert.Single(installment.Payments).LedgerTransactionId);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_a_missing_unknown_or_non_instrument_paid_from_account_without_posting() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Zoe", ["Zoe Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
+        foreach(var account in new[] { Guid.Empty, Guid.CreateVersion7() }) {
+            var ledger = NewLedger();
+            var result = await PayAsync(installmentIds[0], null, ledger, account, cancellationToken);
+            Assert.True(result.IsFailure);
+            Assert.Equal(FinancingErrors.InvalidPaidFromAccount, result.Error);
+            Assert.Empty(ledger.PostedTransactions);
+        }
+        Assert.False((await LoadInstallmentAsync(installmentIds[0], cancellationToken)).IsPaid);
+    }
+
+    [Fact]
+    public async Task Handle_keeps_the_installment_unpaid_when_the_ledger_post_fails() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Abel", ["Abel Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
+        var ledger = NewLedger();
+        ledger.PostTransactionResultOverride = new Error("Ledger.AccountNotFound", "Missing.");
+        var result = await PayAsync(installmentIds[0], null, ledger, bankAccountId, cancellationToken);
+        Assert.True(result.IsFailure);
+        var installment = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.Empty(installment.Payments);
+        Assert.False(installment.IsPaid);
+    }
+
+    [Fact]
+    public async Task Unpay_of_a_payment_with_a_ledger_transaction_reverses_it() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Bruno", ["Bruno Bank"], cancellationToken);
+        var installmentIds = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 3, 30_000, cancellationToken);
+        var payLedger = NewLedger();
+        Assert.True((await PayAsync(installmentIds[0], null, payLedger, bankAccountId, cancellationToken)).IsSuccess);
+        var posted = (await LoadInstallmentAsync(installmentIds[0], cancellationToken)).Payments.Single().LedgerTransactionId;
+        var ledger = new FakeLedgerApi();
+        var result = await UnpayAsync(installmentIds[0], ledger, cancellationToken);
+        Assert.True(result.IsSuccess);
+        Assert.Equal(posted, Assert.Single(ledger.ReversedTransactions).OriginalTransactionId);
+        Assert.Empty((await LoadInstallmentAsync(installmentIds[0], cancellationToken)).Payments);
     }
 
     [Fact]
@@ -255,8 +323,18 @@ public sealed class PayCreditorInstallmentHandlerTests : IDisposable {
     }
 
     private async Task<Result<Guid>> PayAsync(Guid installmentId, long? amountMinorUnits, CancellationToken cancellationToken) {
+        return await PayAsync(installmentId, amountMinorUnits, NewLedger(), bankAccountId, cancellationToken);
+    }
+
+    private async Task<Result<Guid>> PayAsync(Guid installmentId, long? amountMinorUnits, FakeLedgerApi ledger, Guid paidFromAccountId, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await new PayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow)).HandleAsync(new PayCreditorInstallmentCommand(installmentId, amountMinorUnits), cancellationToken);
+        return await new PayCreditorInstallmentHandler(context, new FixedTimeProvider(fixedNow), ledger).HandleAsync(new PayCreditorInstallmentCommand(installmentId, paidFromAccountId, amountMinorUnits), cancellationToken);
+    }
+
+    private FakeLedgerApi NewLedger() {
+        var ledger = new FakeLedgerApi();
+        ledger.InstrumentAccountIds.Add(bankAccountId);
+        return ledger;
     }
 
     private async Task<Result<Guid>> UnpayAsync(Guid installmentId, CancellationToken cancellationToken) {

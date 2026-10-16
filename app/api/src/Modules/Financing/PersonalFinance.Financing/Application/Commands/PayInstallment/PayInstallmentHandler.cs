@@ -42,12 +42,14 @@ internal sealed class PayInstallmentHandler(FinancingDbContext context, ILedgerA
         if(card is null) {
             return FinancingErrors.CardNotFound;
         }
+        var plan = await context.PaymentPlans
+        .FirstAsync(candidate => candidate.Id == installment.PaymentPlanId, cancellationToken);
         var lines = new List<PostTransactionLine> {
             new(card.LiabilityAccountId, DebitOrCredit.Debit, installment.Amount),
             new(command.BankAccountId, DebitOrCredit.Credit, installment.Amount)
         };
         var posting = await ledger.PostTransactionAsync(
-            new PostTransactionCommand(lines, command.PaidOnUtc),
+            new PostTransactionCommand(lines, command.PaidOnUtc, Description: CardPaymentDescriptionHelper.ForInstallment(card, plan, installment)),
             cancellationToken
         );
         if(posting.IsFailure) {

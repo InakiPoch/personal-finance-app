@@ -43,6 +43,11 @@ internal static class FinancingErrors {
         "A statement payment requires a valid bank account."
     );
 
+    public static readonly Error InvalidPaidFromAccount = new(
+        "Financing.InvalidPaidFromAccount",
+        "A creditor payment requires a Paid from Bank or Cash account."
+    );
+
     public static readonly Error StatementAlreadyPaid = new(
         "Financing.StatementAlreadyPaid",
         "The monthly statement has already been paid."

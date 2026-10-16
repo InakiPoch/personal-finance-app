@@ -6,6 +6,9 @@ namespace PersonalFinance.Financing.Application.Commands.PayCreditorFullDebt;
 
 internal static class PayCreditorFullDebtValidator {
     public static Result Validate(PayCreditorFullDebtCommand command) {
+        if(command.BankAccountId == Guid.Empty) {
+            return Result.Failure(FinancingErrors.InvalidPaidFromAccount);
+        }
         if(command.CreditorId == Guid.Empty) {
             return Result.Failure(FinancingErrors.CreditorNotFound);
         }

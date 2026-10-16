@@ -11,6 +11,7 @@ internal sealed class CreditorInstallmentPayment : Entity<Guid> {
     public DateTimeOffset PaidOnUtc { get; }
     public Guid? PartyId { get; }
     public Guid? SettlementTransactionId { get; }
+    public Guid? LedgerTransactionId { get; private set; }
 
     private CreditorInstallmentPayment(Guid id, Guid installmentId, long amountMinorUnits, DateTimeOffset paidOnUtc, Guid? partyId, Guid? settlementTransactionId) : base(id) {
         InstallmentId = installmentId;
@@ -18,6 +19,10 @@ internal sealed class CreditorInstallmentPayment : Entity<Guid> {
         PaidOnUtc = paidOnUtc;
         PartyId = partyId;
         SettlementTransactionId = settlementTransactionId;
+    }
+
+    internal void RecordLedgerTransaction(Guid ledgerTransactionId) {
+        LedgerTransactionId = ledgerTransactionId;
     }
 
     internal static CreditorInstallmentPayment For(Guid installmentId, long amountMinorUnits, DateTimeOffset paidOnUtc, Guid? partyId = null, Guid? settlementTransactionId = null) {

@@ -110,6 +110,10 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
   protected readonly selectedPartyShare: Signal<CreditorInstallmentPartyShare | null> = computed(() =>
     this.partyShares().find((share: CreditorInstallmentPartyShare) => share.partyId === this.choice()) ?? null
   );
+  protected readonly bankAccountLabel: Signal<string> = computed(() =>
+    this.selectedPartyShare() ? 'Received into' : 'Paid from'
+  );
+  protected readonly needsPaidFrom: Signal<boolean> = computed(() => this.selectedPartyShare() === null);
   protected readonly confirmDisabled: Signal<boolean> = computed(() => {
     if(this.busy()) {
       return true;
@@ -117,6 +121,9 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
     const partyShare: CreditorInstallmentPartyShare | null = this.selectedPartyShare();
     if(partyShare !== null) {
       return this.shareExceedsRemaining(partyShare) || this.selectedBankAccountId() === '';
+    }
+    if(this.needsPaidFrom() && this.selectedBankAccountId() === '') {
+      return true;
     }
     if(this.choice() === 'full') {
       return false;
@@ -163,7 +170,7 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
       return;
     }
     if(this.choice() === 'full') {
-      this.confirm.emit({ kind: 'own', amountMinorUnits: null, currencyCode: null });
+      this.confirm.emit({ kind: 'own', amountMinorUnits: null, currencyCode: null, bankAccountId: this.selectedBankAccountId() });
       return;
     }
     const major: number | null = this.form.controls.amount.value;
@@ -171,7 +178,7 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
       return;
     }
     const currencyCode: CurrencyCode | null = this.mode() === 'full-debt' ? this.effectiveCurrency() : null;
-    this.confirm.emit({ kind: 'own', amountMinorUnits: toMinorUnits(major), currencyCode });
+    this.confirm.emit({ kind: 'own', amountMinorUnits: toMinorUnits(major), currencyCode, bankAccountId: this.selectedBankAccountId() });
   }
 
   protected shareExceedsRemaining(share: CreditorInstallmentPartyShare): boolean {

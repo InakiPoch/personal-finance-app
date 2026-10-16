@@ -10,9 +10,12 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.UnpayCreditorInstallment;
 
 /// <summary>
-/// Undoes the last payment recorded against a creditor installment.
+/// Undoes the last payment recorded against a creditor installment, together with every sibling row of the same pay action.
 /// </summary>
 internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context, TimeProvider timeProvider, ILedgerApi ledgerApi) : ICommandHandler<UnpayCreditorInstallmentCommand, Guid> {
+    /// <summary>
+    /// ponytail: reversals are not atomic with the financing save; upgrade = outbox or a unique reversal guard.
+    /// </summary>
     public async Task<Result<Guid>> HandleAsync(UnpayCreditorInstallmentCommand command, CancellationToken cancellationToken) {
         var validation = UnpayCreditorInstallmentValidator.Validate(command);
         if(validation.IsFailure) {
@@ -25,7 +28,7 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
             return FinancingErrors.InstallmentNotFound;
         }
         var plan = await context.PaymentPlans
-            .FirstOrDefaultAsync(candidate => candidate.Id == installment.PaymentPlanId, cancellationToken);
+        .FirstOrDefaultAsync(candidate => candidate.Id == installment.PaymentPlanId, cancellationToken);
         if(plan is null || plan.CreditorId is null) {
             return FinancingErrors.NotACreditorInstallment;
         }
@@ -36,10 +39,28 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
         if(undone.IsFailure) {
             return undone.Error;
         }
-        if(undone.Value.SettlementTransactionId is { } settlementTransactionId) {
-            var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settlementTransactionId, timeProvider.GetUtcNow()), cancellationToken);
+        if(undone.Value.LedgerTransactionId is { } ledgerTransactionId) {
+            var siblingIds = await context.Set<CreditorInstallmentPayment>()
+                .Where(payment => payment.LedgerTransactionId == ledgerTransactionId && payment.InstallmentId != installment.Id)
+                .Select(payment => payment.InstallmentId)
+                .Distinct()
+            .ToListAsync(cancellationToken);
+            var siblings = await context.Set<Installment>()
+                .Include(candidate => candidate.Payments)
+                .Where(candidate => siblingIds.Contains(candidate.Id))
+            .ToListAsync(cancellationToken);
+            foreach(var sibling in siblings) {
+                sibling.UndoPaymentsOfTransaction(ledgerTransactionId);
+            }
+            var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(ledgerTransactionId, timeProvider.GetUtcNow()), cancellationToken);
             if(reversed.IsFailure) {
                 return reversed.Error;
+            }
+        }
+        if(undone.Value.SettlementTransactionId is { } settlementTransactionId) {
+            var reversedSettlement = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settlementTransactionId, timeProvider.GetUtcNow()), cancellationToken);
+            if(reversedSettlement.IsFailure) {
+                return reversedSettlement.Error;
             }
         }
         await context.SaveChangesAsync(cancellationToken);

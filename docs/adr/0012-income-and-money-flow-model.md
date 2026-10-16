@@ -1,6 +1,6 @@
 # 0012 — Income model, Money Flow filter and the global double-reversal guard
 
-**Status**: accepted (2026-09-24/25, API Phases 45–47)
+**Status**: accepted (2026-09-24/25, API Phases 45–47); outcome-filter equality amended by ADR 0017 (2026-10-16)
 
 **Decision**: Income = `Dr Bank/Cash / Cr Income` (one lazily created Income account). Manual only: no categories, no recurrence, no future dates, no net figure. Money Flow's outcome filter equals the monthly-expenses filter; reversed pairs are hidden; undo exists on income rows only. The double-reversal guard is global (`Ledger.TransactionAlreadyReversed`, 409), not per type. Categories for debit/cash expenses are Expense accounts get-or-created by trimmed, case-insensitive name (no category entity).
 

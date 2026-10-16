@@ -44,6 +44,20 @@ public sealed class CreditorInstallmentPaymentTests(ApiWebApplicationFactory fac
     }
 
     [Fact]
+    public async Task The_transaction_feed_marks_a_creditor_payment_as_not_reversible_but_the_ledger_endpoint_still_works() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var bankId = await RegisterDebitAsync(client, "Creditor Pay Bank 4", cancellationToken);
+        var (_, installmentId) = await SeedCreditorPlanAsync(client, "Facundo", "Oven", 2, 200_00, cancellationToken);
+        (await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay", new { bankAccountId = bankId }, cancellationToken)).EnsureSuccessStatusCode();
+        var feed = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/transactions?accountId={bankId}", cancellationToken);
+        var row = feed.GetProperty("rows").EnumerateArray().Single();
+        Assert.Contains("creditor page", row.GetProperty("notReversibleReason").GetString());
+        var response = await client.PostAsync($"/v1/ledger/transactions/{row.GetProperty("id").GetGuid()}/reversal", null, cancellationToken);
+        response.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
     public async Task A_missing_or_unknown_account_is_rejected_with_422_and_nothing_is_paid() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();

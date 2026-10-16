@@ -141,6 +141,25 @@ public sealed class TransactionExplainerTests {
     }
 
     [Fact]
+    public void A_creditor_payment_is_not_reversible_and_points_to_the_creditor_page() {
+        var row = TransactionExplainer.Explain(expense("Installment 1/3 · Sofa · Cecilia") with { IsCreditorPayment = true });
+        Assert.Equal("Undo this payment from the creditor page instead.", row.NotReversibleReason);
+        Assert.Equal(["Undo this payment from the creditor page instead."], row.ImpactLines);
+    }
+
+    [Fact]
+    public void An_undone_creditor_payment_is_no_longer_flagged() {
+        var row = TransactionExplainer.Explain(expense("Installment 1/3 · Sofa · Cecilia") with { IsCreditorPayment = true, IsUndone = true });
+        Assert.Null(row.NotReversibleReason);
+    }
+
+    [Fact]
+    public void Other_transactions_have_no_not_reversible_reason() {
+        Assert.Null(TransactionExplainer.Explain(expense("Groceries")).NotReversibleReason);
+        Assert.Null(TransactionExplainer.Explain(billPayment()).NotReversibleReason);
+    }
+
+    [Fact]
     public void A_borrowing_says_you_no_longer_owe_the_party_and_the_money_leaves_the_account() {
         var row = TransactionExplainer.Explain(facts("Rent gap", debit("Galicia", "Bank", 20_000), credit("Lola Payable", "PartyPayable", 20_000)));
         Assert.Equal("Borrowing", row.Kind);
@@ -193,7 +212,7 @@ public sealed class TransactionExplainerTests {
             unpaidInstallment() with { Legs = [debit("Visa Credit", "CardCredit", 4_000_000), credit("Visa Liability", "CardLiability", 4_000_000)] },
             unpaidInstallment() with { HasSplitReference = true, Legs = [debit("Juan Receivable", "Receivable", 2_000_000), credit("Visa Liability", "CardLiability", 2_000_000)] },
             billPayment(), subscription(), sharedExpense(), shareOwed(), income(), expense(null), partyPayment(), undoEntry(),
-            expense("Groceries") with { IsUndone = true }, other()
+            expense("Groceries") with { IsUndone = true }, other(), expense("Sofa") with { IsCreditorPayment = true }
         };
         foreach(var scenario in scenarios) {
             var row = TransactionExplainer.Explain(scenario);

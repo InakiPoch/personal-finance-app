@@ -22,10 +22,12 @@ SELECT
     il.CreditorName,
     il.IsPaid,
     il.IsReversed AS InstallmentIsReversed,
-    sn.Name AS SubscriptionName
+    sn.Name AS SubscriptionName,
+    cp.TransactionId AS CreditorPaymentTransactionId
 FROM vw_ledger_transaction_legs l
 LEFT JOIN vw_installment_labels il ON il.InstallmentId = l.InstallmentReferenceId
 LEFT JOIN vw_subscription_names sn ON sn.TemplateId = l.SubscriptionReferenceId
+LEFT JOIN vw_creditor_payment_transactions cp ON cp.TransactionId = l.TransactionId
 WHERE ($transactionId IS NULL OR l.TransactionId = $transactionId)
   AND ($accountId IS NULL OR l.TransactionId IN (SELECT TransactionId FROM vw_ledger_transaction_legs WHERE AccountId = $accountId))
   AND ($from IS NULL OR l.PostedOnUtc >= $from)

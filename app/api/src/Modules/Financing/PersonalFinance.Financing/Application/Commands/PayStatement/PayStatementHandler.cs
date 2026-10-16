@@ -54,7 +54,7 @@ internal sealed class PayStatementHandler(FinancingDbContext context, ILedgerApi
             card.CreditAccountId
         );
         var posting = await ledger.PostTransactionAsync(
-            new PostTransactionCommand(netted.Lines, command.PaidOnUtc),
+            new PostTransactionCommand(netted.Lines, command.PaidOnUtc, Description: CardPaymentDescriptionHelper.ForStatement(card, statement)),
             cancellationToken
         );
         if(posting.IsFailure) {

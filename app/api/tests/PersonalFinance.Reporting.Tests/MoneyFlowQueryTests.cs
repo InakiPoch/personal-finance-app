@@ -55,10 +55,11 @@ public sealed class MoneyFlowQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
-    public async Task Card_purchase_accruals_and_statement_payments_produce_no_rows() {
+    public async Task Card_purchase_accruals_produce_no_rows_but_statement_payments_show_as_outcomes() {
         var response = await AskAsync(new MoneyFlowQuery("2026-06"));
-        Assert.DoesNotContain(response.Rows, row => row.Description is "June card accrual" or "June statement payment");
-        Assert.Equal(4, response.Rows.Count);
+        Assert.DoesNotContain(response.Rows, row => row.Description == "June card accrual");
+        Assert.Equal("Outcome", Assert.Single(response.Rows, row => row.Description == "June statement payment").Kind);
+        Assert.Equal(5, response.Rows.Count);
     }
 
     [Fact]
@@ -78,11 +79,11 @@ public sealed class MoneyFlowQueryTests(ReportingIntegrationFixture fixture) : I
     }
 
     [Fact]
-    public async Task Outcome_total_reconciles_with_monthly_expenses_per_currency_for_june() {
+    public async Task Outcome_total_without_card_payments_reconciles_with_monthly_expenses_per_currency_for_june() {
         var moneyFlow = await AskAsync(new MoneyFlowQuery("2026-06"));
         var monthlyExpenses = await AskAsync(new MonthlyExpensesQuery("2026-06"));
-        var arsOutcome = moneyFlow.Rows.Where(row => row.Kind == "Outcome" && row.CurrencyCode == "ARS").Sum(row => row.AmountMinorUnits);
-        var usdOutcome = moneyFlow.Rows.Where(row => row.Kind == "Outcome" && row.CurrencyCode == "USD").Sum(row => row.AmountMinorUnits);
+        var arsOutcome = moneyFlow.Rows.Where(row => row.Kind == "Outcome" && row.CurrencyCode == "ARS" && row.Description != "June statement payment").Sum(row => row.AmountMinorUnits);
+        var usdOutcome = moneyFlow.Rows.Where(row => row.Kind == "Outcome" && row.CurrencyCode == "USD" && row.Description != "June statement payment").Sum(row => row.AmountMinorUnits);
         var arsExpenses = monthlyExpenses.Rows.Where(row => row.CurrencyCode == "ARS").Sum(row => row.AmountMinorUnits);
         var usdExpenses = monthlyExpenses.Rows.Where(row => row.CurrencyCode == "USD").Sum(row => row.AmountMinorUnits);
         Assert.Equal(arsExpenses, arsOutcome);

@@ -8,7 +8,7 @@ namespace PersonalFinance.Api.Endpoints.Financing;
 
 public static class PayCreditorExpense {
     public static async Task<Results<Ok<PayCreditorExpenseResultDto>, ProblemHttpResult>> Handle(Guid paymentPlanId, PayCreditorExpenseRequestDto dto, ICommandBus commandBus, CancellationToken cancellationToken) {
-        var result = await commandBus.SendAsync<int>(new PayCreditorExpenseCommand(paymentPlanId, dto.AmountMinorUnits), cancellationToken);
+        var result = await commandBus.SendAsync<int>(new PayCreditorExpenseCommand(paymentPlanId, dto.BankAccountId, dto.AmountMinorUnits), cancellationToken);
         if(result.IsFailure) {
             return ProblemResultsHelper.From(result.Error);
         }

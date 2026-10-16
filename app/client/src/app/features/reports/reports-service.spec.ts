@@ -189,7 +189,8 @@ describe('ReportsService', () => {
     currencyCode: 'ARS',
     isUndoEntry: false,
     isUndone: false,
-    impactLines: ['ARS 900.000 is removed from Checking.']
+    impactLines: ['ARS 900.000 is removed from Checking.'],
+    notReversibleReason: null
   };
   it('GETs the transaction feed without params and unwraps { rows }', () => {
     let result: TransactionFeedRow[] | undefined;

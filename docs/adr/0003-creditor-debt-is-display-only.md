@@ -1,6 +1,6 @@
 # 0003 — Creditor debt is display-only; payments are per-row; party share is the one ledger-touching path
 
-**Status**: accepted (2026-09-08, extended 2026-09-28, API Phases 34–37, 48–51)
+**Status**: accepted (2026-09-08, extended 2026-09-28, API Phases 34–37, 48–51); first bullet superseded by ADR 0018 (2026-10-16)
 
 **Decision**:
 - Creditor debt lives only in Financing. Paying a creditor installment touches neither bank nor ledger.

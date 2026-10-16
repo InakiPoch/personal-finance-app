@@ -19,7 +19,8 @@ describe('TransactionsTable', () => {
     currencyCode: 'ARS',
     isUndoEntry: false,
     isUndone: false,
-    impactLines: ['Your Visa bill goes down by ARS 40.000.', 'Juan no longer owes you ARS 20.000.']
+    impactLines: ['Your Visa bill goes down by ARS 40.000.', 'Juan no longer owes you ARS 20.000.'],
+    notReversibleReason: null
   };
   const other: TransactionFeedRow = {
     ...active,
@@ -28,7 +29,8 @@ describe('TransactionsTable', () => {
     description: 'Salary September',
     fromAccounts: ['Salary'],
     toAccounts: ['Galicia checking'],
-    impactLines: ['ARS 900.000 is removed from Galicia checking.']
+    impactLines: ['ARS 900.000 is removed from Galicia checking.'],
+    notReversibleReason: null
   };
   const undoEntry: TransactionFeedRow = {
     ...active,
@@ -36,7 +38,8 @@ describe('TransactionsTable', () => {
     kind: 'Undo entry',
     description: 'Undid: Groceries at Coto',
     isUndoEntry: true,
-    impactLines: []
+    impactLines: [],
+    notReversibleReason: null
   };
   const undone: TransactionFeedRow = {
     ...active,
@@ -122,6 +125,14 @@ describe('TransactionsTable', () => {
     expect(row.querySelector('.transactions__note')!.textContent).toContain('Already undone');
     chevron(row)?.click();
     fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).not.toContain('Reverse…');
+  });
+  it('locks a creditor payment: shows the reason and offers no chevron or Reverse button', () => {
+    const reason = 'Undo this payment from the creditor page instead.';
+    render([{ ...active, impactLines: [reason], notReversibleReason: reason }]);
+    const row: HTMLElement = rowsEl()[0];
+    expect(row.querySelector('.transactions__note')!.textContent).toContain(reason);
+    expect(chevron(row)).toBeNull();
     expect(fixture.nativeElement.textContent).not.toContain('Reverse…');
   });
   it('shows an empty note when there are no transactions', () => {

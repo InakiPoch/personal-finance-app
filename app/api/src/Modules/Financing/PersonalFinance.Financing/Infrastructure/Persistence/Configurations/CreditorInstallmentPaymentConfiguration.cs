@@ -14,6 +14,7 @@ internal sealed class CreditorInstallmentPaymentConfiguration : IEntityTypeConfi
         builder.Property(payment => payment.PaidOnUtc).IsRequired();
         builder.Property(payment => payment.PartyId);
         builder.Property(payment => payment.SettlementTransactionId);
+        builder.Property(payment => payment.LedgerTransactionId);
         builder.HasIndex(payment => payment.InstallmentId);
     }
 }

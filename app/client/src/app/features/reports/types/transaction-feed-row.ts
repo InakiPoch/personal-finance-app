@@ -16,4 +16,5 @@ export type TransactionFeedRow = {
   isUndoEntry: boolean;
   isUndone: boolean;
   impactLines: string[];
+  notReversibleReason: string | null;
 };

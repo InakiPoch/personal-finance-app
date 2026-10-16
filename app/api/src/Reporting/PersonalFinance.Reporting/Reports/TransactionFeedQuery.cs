@@ -75,6 +75,7 @@ internal sealed class TransactionFeedHandler(IReadDbConnectionFactory connection
             !reader.IsDBNull(7),
             [],
             installment,
-            reader.IsDBNull(20) ? null : reader.GetString(20));
+            reader.IsDBNull(20) ? null : reader.GetString(20),
+            !reader.IsDBNull(21));
     }
 }

@@ -6,6 +6,9 @@ namespace PersonalFinance.Financing.Application.Commands.PayCreditorInstallment;
 
 internal static class PayCreditorInstallmentValidator {
     public static Result Validate(PayCreditorInstallmentCommand command) {
+        if(command.BankAccountId == Guid.Empty) {
+            return Result.Failure(FinancingErrors.InvalidPaidFromAccount);
+        }
         return command.InstallmentId == Guid.Empty ? Result.Failure(FinancingErrors.InstallmentNotFound) : Result.Success();
     }
 }

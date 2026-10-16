@@ -124,6 +124,9 @@ namespace PersonalFinance.Financing.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("InstallmentId")
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("LedgerTransactionId")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset>("PaidOnUtc")
                         .HasColumnType("TEXT");
 

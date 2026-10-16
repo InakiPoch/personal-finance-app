@@ -21,6 +21,9 @@ internal sealed class FakeLedgerApi : ILedgerApi {
     public Guid NextAccountId { get; set; } = Guid.CreateVersion7();
     public Result<Guid>? PostTransactionResultOverride { get; set; }
     public Result<ReverseTransactionResult>? ReverseTransactionResultOverride { get; set; }
+    public List<GetOrCreateExpenseCategoryCommand> RequestedCategories { get; } = [];
+    public Guid ExpenseCategoryId { get; set; } = Guid.CreateVersion7();
+    public List<Guid> InstrumentAccountIds { get; } = [];
 
     public Task<Result<Guid>> CreateAccountAsync(CreateAccountCommand command, CancellationToken ct = default) {
         CreatedAccounts.Add(command);
@@ -28,7 +31,8 @@ internal sealed class FakeLedgerApi : ILedgerApi {
     }
 
     public Task<Result<Guid>> GetOrCreateExpenseCategoryAsync(GetOrCreateExpenseCategoryCommand command, CancellationToken ct = default) {
-        throw new NotSupportedException();
+        RequestedCategories.Add(command);
+        return Task.FromResult<Result<Guid>>(ExpenseCategoryId);
     }
 
     public Task<ExpenseCategoriesResponse> ListExpenseCategoriesAsync(ListExpenseCategoriesQuery query, CancellationToken ct = default) {
@@ -58,7 +62,7 @@ internal sealed class FakeLedgerApi : ILedgerApi {
     }
 
     public Task<InstrumentAccountsResponse> ListInstrumentAccountsAsync(ListInstrumentAccountsQuery query, CancellationToken ct = default) {
-        throw new NotSupportedException();
+        return Task.FromResult(new InstrumentAccountsResponse(InstrumentAccountIds.Select(id => new InstrumentAccountRow(id, "Bank", "Bank")).ToList()));
     }
 
     public Task<AccrualTransactionIdsResponse> FindAccrualTransactionIdsAsync(FindAccrualTransactionIdsQuery query, CancellationToken ct = default) {

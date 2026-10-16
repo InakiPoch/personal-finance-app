@@ -19,7 +19,7 @@ Domain language shared by `app/api` and `app/client`. Use these terms in code, t
 | **Reversal / storno** (UI: **undo entry**) | Append-only mirror transaction with `OriginalTransactionId`. An original can be reversed once (409 `Ledger.TransactionAlreadyReversed`); a reversal cannot be reversed. |
 | **Income** (UI: **Money received**) | Money entering a Bank/Cash account: `Dr Bank/Cash / Cr Income` plus every party settlement, whatever it repays, and every borrowing. Excludes card refunds and reversals. |
 | **Out of pocket** (UI: **Spent from bank & cash**) | Everything that left my Bank/Cash accounts in a month: my expense share plus whatever I fronted for parties (loans, debit-split shares) and repayments to parties. Card purchases and card bill payments are excluded. |
-| **Money Flow** (UI: **Recent Money Movements**) | Table of my movements, one row per transaction at the full amount that left or entered Bank/Cash; party movements flagged ("Lent to", "Shared with", "Paid back by"); reversed pairs hidden; undo on income, loan and settlement rows. |
+| **Money Flow** (UI: **Recent Money Movements**) | Table of my movements, one row per transaction at the full amount that left or entered Bank/Cash; party movements flagged ("Lent to", "Shared with", "Paid back by"); card bill and installment payments shown as outcomes though they are not Out of pocket; reversed pairs hidden; undo on income, loan and settlement rows. |
 | **Category** | No entity. It is the name of an Expense-kind ledger account, get-or-created case-insensitively. |
 
 ## Credit cards
@@ -47,10 +47,11 @@ Domain language shared by `app/api` and `app/client`. Use these terms in code, t
 |---|---|
 | **Creditor** | Payee of a creditor-financed purchase (Financing entity). Not an Instrument, not a Party. |
 | **CreditorAccount** | Payee's destination (label + optional identifier). |
-| **Creditor payment** | Display-only: no bank, no ledger. One `CreditorInstallmentPayment` row per payment; undo removes the latest. |
+| **Creditor payment** | Money I pay a creditor from a Bank/Cash account (**Paid from**, required); it moves the bank and appears in Money Flow under the category `Creditor payments`. On a split installment it fills my share first; any remainder fronts the parties' unpaid shares, which they still owe me. One `CreditorInstallmentPayment` row per payment; undo removes the latest. |
 | **Remaining** | `Amount − Σ payments`. "Partial" is not a status; statuses are paid / due / overdue / upcoming / reversed. |
 | **Due now** | Σ remaining where DueCycle ≤ current creditor cycle (cutoff day 26, arrears included). |
 | **Total owed** | Σ remaining over all unpaid installments. One row per (creditor, currency). |
+| **Party share payment** | A party hands me their share of a creditor installment before I pay the creditor: money in from the party, then the same amount out to the creditor. If I already paid the installment, the party repays me through a regular Settlement instead. |
 | **Waterfall** | Pay fills installments in order until the amount runs out. Per expense: by `Sequence`. Full debt: by DueCycle, PurchaseDate, Sequence. |
 
 ## Parties & splits

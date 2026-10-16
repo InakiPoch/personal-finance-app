@@ -9,6 +9,7 @@ using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 using Xunit;
@@ -19,6 +20,8 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
     private static readonly DateTimeOffset fixedNow = new(2026, 6, 15, 12, 0, 0, TimeSpan.Zero);
 
     private readonly SqliteConnection connection;
+    private readonly FakeLedgerApi ledger = new();
+    private readonly Guid bankAccountId = Guid.CreateVersion7();
     private readonly DbContextOptions<FinancingDbContext> options;
 
     public PayCreditorFullDebtHandlerTests() {
@@ -27,6 +30,7 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         options = new DbContextOptionsBuilder<FinancingDbContext>()
             .UseSqlite(connection)
             .Options;
+        ledger.InstrumentAccountIds.Add(bankAccountId);
         using var context = NewContext();
         context.Database.EnsureCreated();
     }
@@ -234,10 +238,34 @@ public sealed class PayCreditorFullDebtHandlerTests : IDisposable {
         }
     }
 
+    [Fact]
+    public async Task Handle_posts_one_full_debt_transaction_for_the_total_and_rejects_an_unknown_account() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Yara", ["Yara Bank"], cancellationToken);
+        await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 5), 3, 30_000, cancellationToken);
+        await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 2, 5), 2, 20_000, cancellationToken);
+        var result = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
+        Assert.True(result.IsSuccess);
+        var posted = Assert.Single(ledger.PostedTransactions);
+        Assert.All(posted.Lines, line => Assert.Equal(50_000, line.Amount.MinorUnits));
+        Assert.Equal("Full debt · Yara", posted.Description);
+        ledger.InstrumentAccountIds.Clear();
+        var rejected = await PayFullDebtAsync(creditor.CreditorId, cancellationToken);
+        Assert.Equal(FinancingErrors.InvalidPaidFromAccount, rejected.Error);
+    }
+
+    [Fact]
+    public async Task Handle_rejects_an_empty_paid_from_account_before_any_lookup() {
+        var result = await new PayCreditorFullDebtHandler(NewContext(), new FixedTimeProvider(fixedNow), ledger)
+            .HandleAsync(new PayCreditorFullDebtCommand(Guid.CreateVersion7(), Guid.Empty, null, null), TestContext.Current.CancellationToken);
+        Assert.Equal(FinancingErrors.InvalidPaidFromAccount, result.Error);
+        Assert.Empty(ledger.PostedTransactions);
+    }
+
     private async Task<Result<int>> PayFullDebtAsync(Guid creditorId, CancellationToken cancellationToken, long? amountMinorUnits = null, string? currencyCode = null) {
         await using var context = NewContext();
-        return await new PayCreditorFullDebtHandler(context, new FixedTimeProvider(fixedNow))
-            .HandleAsync(new PayCreditorFullDebtCommand(creditorId, amountMinorUnits, currencyCode), cancellationToken);
+        return await new PayCreditorFullDebtHandler(context, new FixedTimeProvider(fixedNow), ledger)
+            .HandleAsync(new PayCreditorFullDebtCommand(creditorId, bankAccountId, amountMinorUnits, currencyCode), cancellationToken);
     }
 
     private async Task<(long DueNow, long TotalOwed)> ReadPayablesFiguresAsync(Guid creditorId, CancellationToken cancellationToken) {

@@ -112,6 +112,12 @@ internal sealed class Installment : Entity<Guid> {
         return last;
     }
 
+    internal void UndoPaymentsOfTransaction(Guid ledgerTransactionId) {
+        if(payments.RemoveAll(payment => payment.LedgerTransactionId == ledgerTransactionId) > 0 && PaidOnUtc is not null) {
+            ClearPayment();
+        }
+    }
+
     public Result MarkReversed() {
         if(IsReversed) {
             return Result.Failure(FinancingErrors.InstallmentAlreadyReversed);

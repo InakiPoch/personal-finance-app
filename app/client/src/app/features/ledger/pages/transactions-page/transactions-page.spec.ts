@@ -49,7 +49,8 @@ describe('TransactionsPage', () => {
     currencyCode: 'ARS',
     isUndoEntry: false,
     isUndone: false,
-    impactLines: ['ARS 900.000 is removed from Checking.']
+    impactLines: ['ARS 900.000 is removed from Checking.'],
+    notReversibleReason: null
   }];
 
   beforeEach(() => {

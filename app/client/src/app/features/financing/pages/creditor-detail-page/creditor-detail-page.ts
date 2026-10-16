@@ -126,7 +126,7 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
     return target.row.partyShares.filter((share: CreditorInstallmentPartyShare) => !share.isPaid);
   });
   protected readonly bankAccounts: Signal<Instrument[]> = computed(() =>
-    this.instruments().filter((instrument: Instrument) => instrument.type === 'debit')
+    this.instruments().filter((instrument: Instrument) => instrument.type === 'debit' || instrument.type === 'cash')
   );
 
   private readonly route: ActivatedRoute = inject(ActivatedRoute);

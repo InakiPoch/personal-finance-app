@@ -110,6 +110,9 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
   protected readonly selectedPartyShare: Signal<CreditorInstallmentPartyShare | null> = computed(() =>
     this.partyShares().find((share: CreditorInstallmentPartyShare) => share.partyId === this.choice()) ?? null
   );
+  protected readonly bankAccountLabel: Signal<string> = computed(() =>
+    this.selectedPartyShare() ? 'Received into' : 'Paid from'
+  );
   protected readonly needsPaidFrom: Signal<boolean> = computed(() => this.selectedPartyShare() === null);
   protected readonly confirmDisabled: Signal<boolean> = computed(() => {
     if(this.busy()) {

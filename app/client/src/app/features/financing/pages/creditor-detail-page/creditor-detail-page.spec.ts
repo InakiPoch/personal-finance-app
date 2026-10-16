@@ -404,6 +404,20 @@ describe('CreditorDetailPage', () => {
     expect(payCreditorInstallmentPartyShare).toHaveBeenCalledWith('i-3', { partyId: 'party-1', bankAccountId: 'bank-1' });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
   });
+  it('offers only bank and cash accounts in the party share dialog', () => {
+    creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detailWithParty));
+    instrumentsList.and.returnValue(of([
+      ...bankAccounts,
+      { id: 'cash-1', type: 'cash', name: 'Wallet', cutoffDate: null, nextClosingDate: null },
+      { id: 'card-1', type: 'credit', name: 'Visa', cutoffDate: 25, nextClosingDate: null }
+    ] as Instrument[]));
+    setup();
+    buttonByLabel('Pay').click();
+    fixture.detectChanges();
+    payParty('Nora', 'bank-1');
+    const options: HTMLOptionElement[] = Array.from(fixture.nativeElement.querySelectorAll('dialog #pay-dialog-bank-account option:not([disabled])'));
+    expect(options.map((option: HTMLOptionElement) => option.textContent?.trim())).toEqual(['Galicia', 'Wallet']);
+  });
   it('shows a friendly message for a party settlement that exceeds the balance', () => {
     creditorDetail = jasmine.createSpy('creditorDetail').and.returnValue(of(detailWithParty));
     const appError: AppError = {

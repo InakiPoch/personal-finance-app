@@ -43,7 +43,7 @@ internal sealed class PayInstallmentHandler(FinancingDbContext context, ILedgerA
             return FinancingErrors.CardNotFound;
         }
         var plan = await context.PaymentPlans
-            .FirstAsync(candidate => candidate.Id == installment.PaymentPlanId, cancellationToken);
+        .FirstAsync(candidate => candidate.Id == installment.PaymentPlanId, cancellationToken);
         var lines = new List<PostTransactionLine> {
             new(card.LiabilityAccountId, DebitOrCredit.Debit, installment.Amount),
             new(command.BankAccountId, DebitOrCredit.Credit, installment.Amount)

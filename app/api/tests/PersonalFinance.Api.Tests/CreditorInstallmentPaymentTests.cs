@@ -13,15 +13,15 @@ public sealed class CreditorInstallmentPaymentTests(ApiWebApplicationFactory fac
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var month = DateTime.UtcNow.ToString("yyyy-MM");
-        var bankId = await RegisterDebitAsync(client, "Creditor Pay Bank 1", cancellationToken);
-        var spentBefore = await SpentAsync(client, month, "Creditor payments", cancellationToken);
-        var (creditorId, installmentId) = await SeedCreditorPlanAsync(client, "Cecilia", "Sofa", 3, 300_00, cancellationToken);
-        var balanceBefore = await BalanceAsync(client, bankId, cancellationToken);
+        var bankId = await registerDebitAsync(client, "Creditor Pay Bank 1", cancellationToken);
+        var spentBefore = await spentAsync(client, month, "Creditor payments", cancellationToken);
+        var (creditorId, installmentId) = await seedCreditorPlanAsync(client, "Cecilia", "Sofa", 3, 300_00, cancellationToken);
+        var balanceBefore = await balanceAsync(client, bankId, cancellationToken);
         var response = await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay", new { bankAccountId = bankId, amountMinorUnits = 40_00 }, cancellationToken);
         response.EnsureSuccessStatusCode();
-        Assert.Equal(balanceBefore - 40_00, await BalanceAsync(client, bankId, cancellationToken));
-        Assert.Equal(spentBefore + 40_00, await SpentAsync(client, month, "Creditor payments", cancellationToken));
-        var row = Assert.Single(await MoneyFlowAsync(client, month, cancellationToken), r => r.GetProperty("description").GetString() == "Installment 1/3 · Sofa · Cecilia");
+        Assert.Equal(balanceBefore - 40_00, await balanceAsync(client, bankId, cancellationToken));
+        Assert.Equal(spentBefore + 40_00, await spentAsync(client, month, "Creditor payments", cancellationToken));
+        var row = Assert.Single(await moneyFlowAsync(client, month, cancellationToken), r => r.GetProperty("description").GetString() == "Installment 1/3 · Sofa · Cecilia");
         Assert.Equal("Outcome", row.GetProperty("kind").GetString());
         Assert.Equal(40_00, row.GetProperty("amountMinorUnits").GetInt64());
         Assert.Equal("Creditor Pay Bank 1", row.GetProperty("accountName").GetString());
@@ -33,22 +33,22 @@ public sealed class CreditorInstallmentPaymentTests(ApiWebApplicationFactory fac
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
         var month = DateTime.UtcNow.ToString("yyyy-MM");
-        var bankId = await RegisterDebitAsync(client, "Creditor Pay Bank 2", cancellationToken);
-        var (_, installmentId) = await SeedCreditorPlanAsync(client, "Dario", "Fridge", 2, 200_00, cancellationToken);
-        var balanceBefore = await BalanceAsync(client, bankId, cancellationToken);
+        var bankId = await registerDebitAsync(client, "Creditor Pay Bank 2", cancellationToken);
+        var (_, installmentId) = await seedCreditorPlanAsync(client, "Dario", "Fridge", 2, 200_00, cancellationToken);
+        var balanceBefore = await balanceAsync(client, bankId, cancellationToken);
         (await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay", new { bankAccountId = bankId }, cancellationToken)).EnsureSuccessStatusCode();
-        Assert.Equal(balanceBefore - 100_00, await BalanceAsync(client, bankId, cancellationToken));
+        Assert.Equal(balanceBefore - 100_00, await balanceAsync(client, bankId, cancellationToken));
         (await client.PostAsync($"/v1/financing/creditor-installments/{installmentId}/unpay", null, cancellationToken)).EnsureSuccessStatusCode();
-        Assert.Equal(balanceBefore, await BalanceAsync(client, bankId, cancellationToken));
-        Assert.DoesNotContain(await MoneyFlowAsync(client, month, cancellationToken), r => r.GetProperty("description").GetString() == "Installment 1/2 · Fridge · Dario");
+        Assert.Equal(balanceBefore, await balanceAsync(client, bankId, cancellationToken));
+        Assert.DoesNotContain(await moneyFlowAsync(client, month, cancellationToken), r => r.GetProperty("description").GetString() == "Installment 1/2 · Fridge · Dario");
     }
 
     [Fact]
     public async Task The_transaction_feed_marks_a_creditor_payment_as_not_reversible_but_the_ledger_endpoint_still_works() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var bankId = await RegisterDebitAsync(client, "Creditor Pay Bank 4", cancellationToken);
-        var (_, installmentId) = await SeedCreditorPlanAsync(client, "Facundo", "Oven", 2, 200_00, cancellationToken);
+        var bankId = await registerDebitAsync(client, "Creditor Pay Bank 4", cancellationToken);
+        var (_, installmentId) = await seedCreditorPlanAsync(client, "Facundo", "Oven", 2, 200_00, cancellationToken);
         (await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay", new { bankAccountId = bankId }, cancellationToken)).EnsureSuccessStatusCode();
         var feed = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/transactions?accountId={bankId}", cancellationToken);
         var row = feed.GetProperty("rows").EnumerateArray().Single();
@@ -61,7 +61,7 @@ public sealed class CreditorInstallmentPaymentTests(ApiWebApplicationFactory fac
     public async Task A_missing_or_unknown_account_is_rejected_with_422_and_nothing_is_paid() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
-        var (_, installmentId) = await SeedCreditorPlanAsync(client, "Elena", "Desk", 2, 200_00, cancellationToken);
+        var (_, installmentId) = await seedCreditorPlanAsync(client, "Elena", "Desk", 2, 200_00, cancellationToken);
         var attempts = new List<object> {
             new { amountMinorUnits = 10_00 },
             new { bankAccountId = Guid.NewGuid(), amountMinorUnits = 10_00 }
@@ -74,7 +74,7 @@ public sealed class CreditorInstallmentPaymentTests(ApiWebApplicationFactory fac
         }
     }
 
-    private static async Task<(Guid CreditorId, Guid FirstInstallmentId)> SeedCreditorPlanAsync(HttpClient client, string creditorName, string description, int installments, long total, CancellationToken cancellationToken) {
+    private static async Task<(Guid CreditorId, Guid FirstInstallmentId)> seedCreditorPlanAsync(HttpClient client, string creditorName, string description, int installments, long total, CancellationToken cancellationToken) {
         var created = await client.PostAsJsonAsync("/v1/creditors", new { name = creditorName, accounts = new[] { new { label = $"{creditorName} Bank" } } }, cancellationToken);
         created.EnsureSuccessStatusCode();
         var creditorId = (await created.Content.ReadFromJsonAsync<JsonElement>(cancellationToken)).GetProperty("creditorId").GetGuid();
@@ -95,26 +95,26 @@ public sealed class CreditorInstallmentPaymentTests(ApiWebApplicationFactory fac
         return (creditorId, first.GetProperty("installmentId").GetGuid());
     }
 
-    private static async Task<long> BalanceAsync(HttpClient client, Guid accountId, CancellationToken cancellationToken) {
+    private static async Task<long> balanceAsync(HttpClient client, Guid accountId, CancellationToken cancellationToken) {
         var balance = await client.GetFromJsonAsync<JsonElement>($"/v1/ledger/accounts/{accountId}/balance", cancellationToken);
         return balance.GetProperty("rows").EnumerateArray().Where(row => row.GetProperty("currencyCode").GetString() == "ARS")
             .Select(row => row.GetProperty("balanceMinorUnits").GetInt64())
         .FirstOrDefault();
     }
 
-    private static async Task<long> SpentAsync(HttpClient client, string month, string category, CancellationToken cancellationToken) {
+    private static async Task<long> spentAsync(HttpClient client, string month, string category, CancellationToken cancellationToken) {
         var monthly = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/monthly-expenses?month={month}", cancellationToken);
         return monthly.GetProperty("rows").EnumerateArray()
             .Where(row => row.GetProperty("category").GetString() == category)
         .Sum(row => row.GetProperty("amountMinorUnits").GetInt64());
     }
 
-    private static async Task<List<JsonElement>> MoneyFlowAsync(HttpClient client, string month, CancellationToken cancellationToken) {
+    private static async Task<List<JsonElement>> moneyFlowAsync(HttpClient client, string month, CancellationToken cancellationToken) {
         var flow = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/money-flow?month={month}", cancellationToken);
         return flow.GetProperty("rows").EnumerateArray().ToList();
     }
 
-    private static async Task<Guid> RegisterDebitAsync(HttpClient client, string name, CancellationToken cancellationToken) {
+    private static async Task<Guid> registerDebitAsync(HttpClient client, string name, CancellationToken cancellationToken) {
         var response = await client.PostAsJsonAsync("/v1/instruments", new { type = "debit", name }, cancellationToken);
         response.EnsureSuccessStatusCode();
         var body = await response.Content.ReadFromJsonAsync<JsonElement>(cancellationToken);

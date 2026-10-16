@@ -31,10 +31,11 @@ internal static class CreditorPostingHelper {
         var participants = await context.Set<PaymentPlanSplitParticipant>()
             .Where(participant => planIds.Contains(participant.PaymentPlanId))
             .OrderBy(participant => participant.PartyId)
-            .ToListAsync(cancellationToken);
+        .ToListAsync(cancellationToken);
         return splitPlans.ToDictionary(
             entry => entry.Key,
-            entry => new PartySplit(entry.Value.CreditorPayableAccountId!.Value, participants.Where(participant => participant.PaymentPlanId == entry.Key).ToList()));
+            entry => new PartySplit(entry.Value.CreditorPayableAccountId!.Value, participants.Where(participant => participant.PaymentPlanId == entry.Key).ToList())
+        );
     }
 
     private static (long Own, long Fronted) divide(Installment installment, CreditorInstallmentPayment payment, PartySplit? split) {
@@ -44,7 +45,7 @@ internal static class CreditorPostingHelper {
         var paidParties = installment.Payments.Where(candidate => candidate.PartyId is not null).Select(candidate => candidate.PartyId!.Value).ToHashSet();
         var partiesUnpaid = CreditorSplitReceivableCalculator.PartyShares(installment.Amount, split.Participants)
             .Where(share => !paidParties.Contains(share.PartyId))
-            .Sum(share => share.ShareMinorUnits);
+        .Sum(share => share.ShareMinorUnits);
         var ownRemaining = Math.Max(0, installment.RemainingMinorUnits + payment.AmountMinorUnits - partiesUnpaid);
         var own = Math.Min(payment.AmountMinorUnits, ownRemaining);
         return (own, payment.AmountMinorUnits - own);
@@ -88,7 +89,7 @@ internal static class CreditorPostingHelper {
         return await context.Creditors
             .Where(candidate => candidate.Id == creditorId)
             .Select(candidate => candidate.Name)
-            .FirstOrDefaultAsync(cancellationToken);
+        .FirstOrDefaultAsync(cancellationToken);
     }
 
     public static async Task<Result<Guid>> PostPayableAsync(ILedgerApi ledgerApi, Guid bankAccountId, Guid payableAccountId, Money amount, string description, DateTimeOffset now, CancellationToken cancellationToken) {

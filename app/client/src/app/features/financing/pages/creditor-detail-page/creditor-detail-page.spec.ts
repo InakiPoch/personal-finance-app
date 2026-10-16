@@ -145,6 +145,13 @@ describe('CreditorDetailPage', () => {
     return Array.from(all).find((button: HTMLButtonElement) => button.textContent?.trim() === label) as HTMLButtonElement;
   }
 
+  function chooseBank(): void {
+    const select: HTMLSelectElement = fixture.nativeElement.querySelector('dialog #pay-dialog-bank-account');
+    select.value = 'bank-1';
+    select.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+  }
+
   function payParty(partyName: string, bankAccountId: string): void {
     const dialog: HTMLElement = fixture.nativeElement.querySelector('dialog');
     const labels: NodeListOf<HTMLLabelElement> = dialog.querySelectorAll('label');
@@ -280,8 +287,9 @@ describe('CreditorDetailPage', () => {
     setup();
     buttonByLabel('Pay full debt').click();
     fixture.detectChanges();
+    chooseBank();
     buttonByLabel('Confirm').click();
-    expect(payCreditorFullDebt).toHaveBeenCalledWith('cred-1', { amountMinorUnits: null, currencyCode: null });
+    expect(payCreditorFullDebt).toHaveBeenCalledWith('cred-1', { bankAccountId: 'bank-1', amountMinorUnits: null, currencyCode: null });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('installment(s) settled');
@@ -356,8 +364,9 @@ describe('CreditorDetailPage', () => {
     setup();
     buttonByLabel('Pay expense').click();
     fixture.detectChanges();
+    chooseBank();
     buttonByLabel('Confirm').click();
-    expect(payCreditorExpense).toHaveBeenCalledWith('pl-1', { amountMinorUnits: null });
+    expect(payCreditorExpense).toHaveBeenCalledWith('pl-1', { bankAccountId: 'bank-1', amountMinorUnits: null });
     expect(creditorDetail).toHaveBeenCalledTimes(2);
     fixture.detectChanges();
     expect(fixture.nativeElement.textContent).toContain('2 installment(s) settled.');

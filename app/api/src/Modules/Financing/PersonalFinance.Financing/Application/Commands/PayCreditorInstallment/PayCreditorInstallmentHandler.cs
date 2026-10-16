@@ -5,7 +5,6 @@ using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.Ledger.Contracts.Commands;
-using PersonalFinance.Ledger.Contracts.Queries;
 using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Financing.Application.Commands.PayCreditorInstallment;
@@ -16,8 +15,6 @@ namespace PersonalFinance.Financing.Application.Commands.PayCreditorInstallment;
 /// An installment on a credit-card plan is rejected with <see cref="FinancingErrors.NotACreditorInstallment"/>.
 /// </summary>
 internal sealed class PayCreditorInstallmentHandler(FinancingDbContext context, TimeProvider timeProvider, ILedgerApi ledgerApi) : ICommandHandler<PayCreditorInstallmentCommand, Guid> {
-    internal const string CreditorPaymentsCategory = "Creditor payments";
-
     public async Task<Result<Guid>> HandleAsync(PayCreditorInstallmentCommand command, CancellationToken cancellationToken) {
         var validation = PayCreditorInstallmentValidator.Validate(command);
         if(validation.IsFailure) {
@@ -37,9 +34,9 @@ internal sealed class PayCreditorInstallmentHandler(FinancingDbContext context, 
         // ponytail: split plans stay display-only until the split-allocation ticket (#61) decides what moves the bank.
         var movesBank = plan.SplitReferenceId is null;
         if(movesBank) {
-            var instruments = await ledgerApi.ListInstrumentAccountsAsync(new ListInstrumentAccountsQuery(), cancellationToken);
-            if(instruments.Rows.All(row => row.AccountId != command.BankAccountId)) {
-                return FinancingErrors.InvalidPaidFromAccount;
+            var paidFrom = await CreditorPostingHelper.ValidatePaidFromAsync(ledgerApi, command.BankAccountId, cancellationToken);
+            if(paidFrom.IsFailure) {
+                return paidFrom.Error;
             }
         }
         var now = timeProvider.GetUtcNow();
@@ -66,25 +63,11 @@ internal sealed class PayCreditorInstallmentHandler(FinancingDbContext context, 
     }
 
     private async Task<Result<Guid>> PostPaymentAsync(PaymentPlan plan, Installment installment, CreditorInstallmentPayment payment, Guid bankAccountId, DateTimeOffset now, CancellationToken cancellationToken) {
-        var category = await ledgerApi.GetOrCreateExpenseCategoryAsync(new GetOrCreateExpenseCategoryCommand(CreditorPaymentsCategory), cancellationToken);
-        if(category.IsFailure) {
-            return category.Error;
-        }
         var creditorName = await context.Creditors
             .Where(candidate => candidate.Id == plan.CreditorId)
             .Select(candidate => candidate.Name)
             .FirstAsync(cancellationToken);
         var amount = Money.FromMinorUnits(payment.AmountMinorUnits, installment.Currency);
-        return await ledgerApi.PostTransactionAsync(
-            new PostTransactionCommand(
-                [
-                    new PostTransactionLine(category.Value, DebitOrCredit.Debit, amount),
-                    new PostTransactionLine(bankAccountId, DebitOrCredit.Credit, amount)
-                ],
-                now,
-                Description: $"Installment {installment.Sequence}/{plan.InstallmentCount} · {plan.Description} · {creditorName}"
-            ),
-            cancellationToken
-        );
+        return await CreditorPostingHelper.PostAsync(ledgerApi, bankAccountId, amount, $"Installment {installment.Sequence}/{plan.InstallmentCount} · {plan.Description} · {creditorName}", now, cancellationToken);
     }
 }

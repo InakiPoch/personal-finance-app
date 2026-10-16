@@ -3,6 +3,8 @@ using PersonalFinance.Abstractions.Messaging;
 using PersonalFinance.Financing.Contracts.Commands;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Contracts;
+using PersonalFinance.Ledger.Contracts.Commands;
 using PersonalFinance.SharedKernel;
 
 namespace PersonalFinance.Financing.Application.Commands.PayCreditorExpense;
@@ -10,7 +12,7 @@ namespace PersonalFinance.Financing.Application.Commands.PayCreditorExpense;
 /// <summary>
 /// Pays one creditor-financed purchase's installments in <see cref="Installment.Sequence"/> order via <see cref="CreditorPaymentWaterfall"/>
 /// </summary>
-internal sealed class PayCreditorExpenseHandler(FinancingDbContext context, TimeProvider timeProvider) : ICommandHandler<PayCreditorExpenseCommand, int> {
+internal sealed class PayCreditorExpenseHandler(FinancingDbContext context, TimeProvider timeProvider, ILedgerApi ledgerApi) : ICommandHandler<PayCreditorExpenseCommand, int> {
     public async Task<Result<int>> HandleAsync(PayCreditorExpenseCommand command, CancellationToken cancellationToken) {
         var validation = PayCreditorExpenseValidator.Validate(command);
         if(validation.IsFailure) {
@@ -23,6 +25,14 @@ internal sealed class PayCreditorExpenseHandler(FinancingDbContext context, Time
         }
         if(plan.CreditorId is null) {
             return FinancingErrors.NotACreditorInstallment;
+        }
+        // ponytail: split plans stay display-only until the split-allocation ticket (#61) decides what moves the bank.
+        var movesBank = plan.SplitReferenceId is null;
+        if(movesBank) {
+            var paidFrom = await CreditorPostingHelper.ValidatePaidFromAsync(ledgerApi, command.BankAccountId, cancellationToken);
+            if(paidFrom.IsFailure) {
+                return paidFrom.Error;
+            }
         }
         var installments = await context.Set<Installment>()
             .Include(candidate => candidate.Payments)
@@ -46,17 +56,36 @@ internal sealed class PayCreditorExpenseHandler(FinancingDbContext context, Time
             candidates.Select(candidate => (candidate.Id, candidate.RemainingMinorUnits)), amount);
         var now = timeProvider.GetUtcNow();
         var settled = 0;
+        var pieces = new List<(Installment Installment, CreditorInstallmentPayment Payment)>();
         foreach(var (installmentId, pieceAmount) in allocation) {
             var installment = byId[installmentId];
             var applied = installment.ApplyPayment(pieceAmount, now);
             if(applied.IsFailure) {
                 return applied.Error;
             }
+            pieces.Add((installment, applied.Value));
             if(installment.RemainingMinorUnits == 0) {
                 settled++;
             }
         }
-        await context.SaveChangesAsync(cancellationToken);
+        var posted = new List<Guid>();
+        if(movesBank) {
+            var creditorName = await context.Creditors
+                .Where(candidate => candidate.Id == plan.CreditorId)
+                .Select(candidate => candidate.Name)
+                .FirstAsync(cancellationToken);
+            var postedPieces = await CreditorPostingHelper.PostPiecesAsync(ledgerApi, command.BankAccountId, pieces, $"{plan.Description} · {creditorName}", now, cancellationToken);
+            if(postedPieces.IsFailure) {
+                return postedPieces.Error;
+            }
+            posted.AddRange(postedPieces.Value);
+        }
+        try {
+            await context.SaveChangesAsync(cancellationToken);
+        } catch {
+            await CreditorPostingHelper.ReverseAsync(ledgerApi, posted, now);
+            throw;
+        }
         return settled;
     }
 }

@@ -187,14 +187,11 @@ export class CreditorDetailPage implements OnInit, OnDestroy {
       return;
     }
     if(target.kind === 'full-debt') {
-      this.runPayFullDebt({ amountMinorUnits: body.amountMinorUnits, currencyCode: body.currencyCode });
+      this.runPayFullDebt({ bankAccountId: body.bankAccountId, amountMinorUnits: body.amountMinorUnits, currencyCode: body.currencyCode });
       return;
     }
     if(target.kind === 'expense') {
-      this.runPayExpense(target.group.planId, { amountMinorUnits: body.amountMinorUnits });
-      return;
-    }
-    if(body.bankAccountId === null) {
+      this.runPayExpense(target.group.planId, { bankAccountId: body.bankAccountId, amountMinorUnits: body.amountMinorUnits });
       return;
     }
     this.runPay(target.row.installmentId, { bankAccountId: body.bankAccountId, amountMinorUnits: body.amountMinorUnits });

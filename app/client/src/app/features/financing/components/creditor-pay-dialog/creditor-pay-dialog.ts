@@ -110,9 +110,7 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
   protected readonly selectedPartyShare: Signal<CreditorInstallmentPartyShare | null> = computed(() =>
     this.partyShares().find((share: CreditorInstallmentPartyShare) => share.partyId === this.choice()) ?? null
   );
-  protected readonly needsPaidFrom: Signal<boolean> = computed(() =>
-    this.mode() === 'installment' && this.selectedPartyShare() === null
-  );
+  protected readonly needsPaidFrom: Signal<boolean> = computed(() => this.selectedPartyShare() === null);
   protected readonly confirmDisabled: Signal<boolean> = computed(() => {
     if(this.busy()) {
       return true;
@@ -169,7 +167,7 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
       return;
     }
     if(this.choice() === 'full') {
-      this.confirm.emit({ kind: 'own', amountMinorUnits: null, currencyCode: null, bankAccountId: this.ownBankAccountId() });
+      this.confirm.emit({ kind: 'own', amountMinorUnits: null, currencyCode: null, bankAccountId: this.selectedBankAccountId() });
       return;
     }
     const major: number | null = this.form.controls.amount.value;
@@ -177,7 +175,7 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
       return;
     }
     const currencyCode: CurrencyCode | null = this.mode() === 'full-debt' ? this.effectiveCurrency() : null;
-    this.confirm.emit({ kind: 'own', amountMinorUnits: toMinorUnits(major), currencyCode, bankAccountId: this.ownBankAccountId() });
+    this.confirm.emit({ kind: 'own', amountMinorUnits: toMinorUnits(major), currencyCode, bankAccountId: this.selectedBankAccountId() });
   }
 
   protected shareExceedsRemaining(share: CreditorInstallmentPartyShare): boolean {
@@ -219,10 +217,6 @@ export class CreditorPayDialog implements OnInit, OnDestroy {
     this.selectedCurrencyCode.set(defaultCurrencyCode);
     this.selectedBankAccountId.set('');
     this.amountInvalid.set(false);
-  }
-
-  private ownBankAccountId(): string | null {
-    return this.needsPaidFrom() ? this.selectedBankAccountId() : null;
   }
 
   private defaultCurrencyCode(): CurrencyCode {

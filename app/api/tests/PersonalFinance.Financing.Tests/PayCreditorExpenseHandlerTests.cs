@@ -9,6 +9,7 @@ using PersonalFinance.Financing.Contracts.Queries;
 using PersonalFinance.Financing.Domain;
 using PersonalFinance.Financing.Infrastructure.Persistence;
 using PersonalFinance.Infrastructure.Persistence;
+using PersonalFinance.Ledger.Contracts;
 using PersonalFinance.SharedKernel;
 using PersonalFinance.SharedKernel.Allocation;
 using Xunit;
@@ -19,6 +20,8 @@ public sealed class PayCreditorExpenseHandlerTests : IDisposable {
     private static readonly DateTimeOffset fixedNow = new(2026, 6, 15, 12, 0, 0, TimeSpan.Zero);
 
     private readonly SqliteConnection connection;
+    private readonly FakeLedgerApi ledger = new();
+    private readonly Guid bankAccountId = Guid.CreateVersion7();
     private readonly DbContextOptions<FinancingDbContext> options;
 
     public PayCreditorExpenseHandlerTests() {
@@ -27,6 +30,7 @@ public sealed class PayCreditorExpenseHandlerTests : IDisposable {
         options = new DbContextOptionsBuilder<FinancingDbContext>()
             .UseSqlite(connection)
             .Options;
+        ledger.InstrumentAccountIds.Add(bankAccountId);
         using var context = NewContext();
         context.Database.EnsureCreated();
     }
@@ -154,9 +158,38 @@ public sealed class PayCreditorExpenseHandlerTests : IDisposable {
         Assert.Equal(10_000, untouched.PaidMinorUnits);
     }
 
+    [Fact]
+    public async Task Handle_a_multi_installment_waterfall_posts_one_transaction_for_the_total_and_stores_its_id_on_every_row() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Quino", ["Quino Bank"], cancellationToken);
+        var (planId, installmentIds) = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 5, 200_000, cancellationToken);
+        var result = await PayExpenseAsync(planId, 175_000, cancellationToken);
+        Assert.True(result.IsSuccess);
+        var posted = Assert.Single(ledger.PostedTransactions);
+        Assert.All(posted.Lines, line => Assert.Equal(175_000, line.Amount.MinorUnits));
+        Assert.Contains(posted.Lines, line => line.AccountId == bankAccountId && line.Direction == DebitOrCredit.Credit);
+        Assert.EndsWith("· Quino", posted.Description);
+        await using var context = NewContext();
+        var ids = await context.Set<CreditorInstallmentPayment>().Select(payment => payment.LedgerTransactionId).Distinct().ToListAsync(cancellationToken);
+        Assert.Single(ids);
+        Assert.NotNull(ids[0]);
+    }
+
+    [Fact]
+    public async Task Handle_with_an_unknown_paid_from_account_is_rejected_and_nothing_is_paid() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var creditor = await SeedCreditorAsync("Rita", ["Rita Bank"], cancellationToken);
+        var (planId, installmentIds) = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 2, 20_000, cancellationToken);
+        ledger.InstrumentAccountIds.Clear();
+        var result = await PayExpenseAsync(planId, null, cancellationToken);
+        Assert.Equal(FinancingErrors.InvalidPaidFromAccount, result.Error);
+        Assert.Empty(ledger.PostedTransactions);
+        Assert.False((await LoadInstallmentAsync(installmentIds[0], cancellationToken)).IsPaid);
+    }
+
     private async Task<Result<int>> PayExpenseAsync(Guid paymentPlanId, long? amountMinorUnits, CancellationToken cancellationToken) {
         await using var context = NewContext();
-        return await new PayCreditorExpenseHandler(context, new FixedTimeProvider(fixedNow)).HandleAsync(new PayCreditorExpenseCommand(paymentPlanId, amountMinorUnits), cancellationToken);
+        return await new PayCreditorExpenseHandler(context, new FixedTimeProvider(fixedNow), ledger).HandleAsync(new PayCreditorExpenseCommand(paymentPlanId, bankAccountId, amountMinorUnits), cancellationToken);
     }
 
     private async Task<Result<Guid>> UnpayAsync(Guid installmentId, CancellationToken cancellationToken) {

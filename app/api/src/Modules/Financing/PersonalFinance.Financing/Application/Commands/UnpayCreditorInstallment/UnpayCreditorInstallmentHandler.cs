@@ -36,10 +36,17 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
         if(undone.IsFailure) {
             return undone.Error;
         }
-        // Every ledger transaction a payment row owns is undone with it; later tickets add their ids here.
-        foreach(var transactionId in new[] { undone.Value.SettlementTransactionId, undone.Value.LedgerTransactionId }.OfType<Guid>()) {
-            var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(transactionId, timeProvider.GetUtcNow()), cancellationToken);
-            if(reversed.IsFailure) {
+        // Every ledger transaction a payment row owns is undone with it.
+        if(undone.Value.SettlementTransactionId is { } settlementTransactionId) {
+            var reversedSettlement = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(settlementTransactionId, timeProvider.GetUtcNow()), cancellationToken);
+            if(reversedSettlement.IsFailure) {
+                return reversedSettlement.Error;
+            }
+        }
+        if(undone.Value.LedgerTransactionId is { } ledgerTransactionId) {
+            var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(ledgerTransactionId, timeProvider.GetUtcNow()), cancellationToken);
+            // A multi-installment pay action shares one transaction: the first undo reverses it, sibling rows find it already reversed.
+            if(reversed.IsFailure && reversed.Error.Code != "Ledger.TransactionAlreadyReversed") {
                 return reversed.Error;
             }
         }

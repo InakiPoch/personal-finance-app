@@ -79,10 +79,20 @@ describe('CreditorPayDialog', () => {
     chooseBankAccount('bank-1');
     expect(confirmButton().disabled).toBe(false);
   });
-  it('does not ask for a Paid from account in expense mode', () => {
+  it('requires a Paid from account in expense mode too', () => {
     fixture.componentRef.setInput('mode', 'expense');
     fixture.detectChanges();
-    expect(bankAccountSelect()).toBeNull();
+    expect(bankAccountSelect()).toBeTruthy();
+    expect(confirmButton().disabled).toBe(true);
+    chooseBankAccount('bank-1');
+    expect(confirmButton().disabled).toBe(false);
+  });
+  it('requires a Paid from account in full-debt mode too', () => {
+    fixture.componentRef.setInput('mode', 'full-debt');
+    fixture.detectChanges();
+    expect(bankAccountSelect()).toBeTruthy();
+    expect(confirmButton().disabled).toBe(true);
+    chooseBankAccount('bank-1');
     expect(confirmButton().disabled).toBe(false);
   });
   it('emits confirm with a null amount when "Pay in full" is submitted', () => {
@@ -196,6 +206,7 @@ describe('CreditorPayDialog', () => {
     input.value = '600';
     input.dispatchEvent(new Event('input'));
     fixture.detectChanges();
+    chooseBankAccount('bank-1');
     expect(confirmButton().disabled).toBe(false);
     const select: HTMLSelectElement = currencySelect()!;
     select.value = 'USD';
@@ -213,6 +224,7 @@ describe('CreditorPayDialog', () => {
     fixture.detectChanges();
     radioByValue('custom').click();
     fixture.detectChanges();
+    chooseBankAccount('bank-1');
     const select: HTMLSelectElement = currencySelect()!;
     select.value = 'USD';
     select.dispatchEvent(new Event('change'));
@@ -224,7 +236,7 @@ describe('CreditorPayDialog', () => {
     let emitted: CreditorPayDialogConfirm | undefined;
     fixture.componentInstance.confirm.subscribe((body: CreditorPayDialogConfirm) => (emitted = body));
     confirmButton().click();
-    expect(emitted).toEqual({ kind: 'own', amountMinorUnits: money(10000), currencyCode: 'USD', bankAccountId: null });
+    expect(emitted).toEqual({ kind: 'own', amountMinorUnits: money(10000), currencyCode: 'USD', bankAccountId: 'bank-1' });
   });
   it('renders a radio per unpaid party share with its amount', () => {
     fixture.componentRef.setInput('partyShares', [

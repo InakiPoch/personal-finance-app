@@ -92,6 +92,34 @@ public sealed class CreditorPartySharePaymentTests(ApiWebApplicationFactory fact
         Assert.Single(rows, r => r.GetProperty("description").GetString() == "Settlement from Rita");
     }
 
+    [Fact]
+    public async Task Both_halves_of_a_party_share_payment_are_not_reversible_until_undone_but_a_plain_settlement_is() {
+        var cancellationToken = TestContext.Current.CancellationToken;
+        var client = factory.CreateClient();
+        var bankId = await RegisterDebitAsync(client, "Lock Share Bank", cancellationToken);
+        var partyId = await CreatePartyAsync(client, "Sol", cancellationToken);
+        var installmentId = await SeedSplitPlanAsync(client, partyId, "Sol", cancellationToken);
+        await DrainOutboxAsync();
+        await AccrueAsync();
+        var lender = await RegisterDebitAsync(client, "Lock Share Lender", cancellationToken);
+        (await client.PostAsJsonAsync($"/v1/parties/{partyId}/loans", new { amountMinorUnits = 20_00, sourceAccountId = lender, lentOn = DateTime.UtcNow.ToString("yyyy-MM-dd"), description = "Loan", currencyCode = "ARS" }, cancellationToken)).EnsureSuccessStatusCode();
+        var plain = await client.PostAsJsonAsync($"/v1/parties/{partyId}/settlements", new { amountMinorUnits = 10_00, bankAccountId = bankId, settledOnUtc = DateTimeOffset.UtcNow, currencyCode = "ARS" }, cancellationToken);
+        plain.EnsureSuccessStatusCode();
+        var plainId = (await plain.Content.ReadFromJsonAsync<JsonElement>(cancellationToken)).GetProperty("ledgerTransactionId").GetGuid();
+        (await client.PostAsJsonAsync($"/v1/financing/creditor-installments/{installmentId}/pay-party", new { partyId, bankAccountId = bankId }, cancellationToken)).EnsureSuccessStatusCode();
+        var rows = await FeedAsync(client, bankId, cancellationToken);
+        Assert.Equal(3, rows.Count);
+        Assert.Null(Assert.Single(rows, r => r.GetProperty("id").GetGuid() == plainId).GetProperty("notReversibleReason").GetString());
+        Assert.All(rows.Where(r => r.GetProperty("id").GetGuid() != plainId), r => Assert.Contains("creditor page", r.GetProperty("notReversibleReason").GetString()));
+        (await client.PostAsync($"/v1/financing/creditor-installments/{installmentId}/unpay", null, cancellationToken)).EnsureSuccessStatusCode();
+        Assert.All(await FeedAsync(client, bankId, cancellationToken), r => Assert.Equal(JsonValueKind.Null, r.GetProperty("notReversibleReason").ValueKind));
+    }
+
+    private static async Task<List<JsonElement>> FeedAsync(HttpClient client, Guid bankId, CancellationToken cancellationToken) {
+        var feed = await client.GetFromJsonAsync<JsonElement>($"/v1/reports/transactions?accountId={bankId}", cancellationToken);
+        return feed.GetProperty("rows").EnumerateArray().ToList();
+    }
+
     private async Task DrainOutboxAsync() {
         var worker = ActivatorUtilities.CreateInstance<OutboxWorker>(factory.Services);
         var drain = typeof(OutboxWorker).GetMethod("DrainAllAsync", BindingFlags.Instance | BindingFlags.NonPublic)!;

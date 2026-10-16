@@ -32,7 +32,8 @@ describe('ReverseMovementPage', () => {
     currencyCode: 'ARS',
     isUndoEntry: false,
     isUndone: false,
-    impactLines: ['Your Visa bill goes down by ARS 40.000.', 'Juan no longer owes you ARS 20.000.']
+    impactLines: ['Your Visa bill goes down by ARS 40.000.', 'Juan no longer owes you ARS 20.000.'],
+    notReversibleReason: null
   };
   const appError = (code: string, status: number = 409): AppError =>
     ({ code, title: 'x', detail: 'x', status, metadata: {} });
@@ -136,6 +137,14 @@ describe('ReverseMovementPage', () => {
     transaction.and.returnValue(of({ ...row, isUndoEntry: true, kind: 'Undo entry', impactLines: [] }));
     setup();
     expect(text()).toContain("An undo entry can't be undone again.");
+    expect(confirmButton()).toBeNull();
+  });
+  it('disables reversal for a creditor payment and shows the reason', () => {
+    const reason = 'Undo this payment from the creditor page instead.';
+    transaction.and.returnValue(of({ ...row, impactLines: [reason], notReversibleReason: reason }));
+    setup();
+    expect(text()).toContain(reason);
+    expect(text()).not.toContain('If you reverse this');
     expect(confirmButton()).toBeNull();
   });
   it('hides the confirm button for an already-undone transaction', () => {

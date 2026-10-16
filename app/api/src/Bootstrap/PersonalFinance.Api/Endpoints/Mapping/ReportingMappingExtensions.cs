@@ -95,7 +95,8 @@ internal static class ReportingMappingExtensions {
             row.CurrencyCode,
             row.IsUndoEntry,
             row.IsUndone,
-            row.ImpactLines);
+            row.ImpactLines,
+            row.NotReversibleReason);
     }
 
     private static DateOnly? parseDateOnly(string? value) {

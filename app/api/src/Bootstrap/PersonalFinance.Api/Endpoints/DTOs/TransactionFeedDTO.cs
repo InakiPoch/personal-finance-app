@@ -11,7 +11,8 @@ public sealed record TransactionFeedRowDto(
     string CurrencyCode,
     bool IsUndoEntry,
     bool IsUndone,
-    IReadOnlyList<string> ImpactLines
+    IReadOnlyList<string> ImpactLines,
+    string? NotReversibleReason
 );
 
 public sealed record TransactionFeedDto(IReadOnlyList<TransactionFeedRowDto> Rows);

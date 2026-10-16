@@ -10,7 +10,7 @@ using PersonalFinance.SharedKernel;
 namespace PersonalFinance.Financing.Application.Commands.UnpayCreditorInstallment;
 
 /// <summary>
-/// Undoes the last payment recorded against a creditor installment.
+/// Undoes the last payment recorded against a creditor installment, together with every sibling row of the same pay action.
 /// </summary>
 internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context, TimeProvider timeProvider, ILedgerApi ledgerApi) : ICommandHandler<UnpayCreditorInstallmentCommand, Guid> {
     public async Task<Result<Guid>> HandleAsync(UnpayCreditorInstallmentCommand command, CancellationToken cancellationToken) {
@@ -44,9 +44,21 @@ internal sealed class UnpayCreditorInstallmentHandler(FinancingDbContext context
             }
         }
         if(undone.Value.LedgerTransactionId is { } ledgerTransactionId) {
+            // A multi-installment pay action shares one transaction: undo the whole action, reversing it once.
+            var siblingIds = await context.Set<CreditorInstallmentPayment>()
+                .Where(payment => payment.LedgerTransactionId == ledgerTransactionId && payment.InstallmentId != installment.Id)
+                .Select(payment => payment.InstallmentId)
+                .Distinct()
+                .ToListAsync(cancellationToken);
+            var siblings = await context.Set<Installment>()
+                .Include(candidate => candidate.Payments)
+                .Where(candidate => siblingIds.Contains(candidate.Id))
+                .ToListAsync(cancellationToken);
+            foreach(var sibling in siblings) {
+                sibling.UndoPaymentsOfTransaction(ledgerTransactionId);
+            }
             var reversed = await ledgerApi.ReverseTransactionAsync(new ReverseTransactionCommand(ledgerTransactionId, timeProvider.GetUtcNow()), cancellationToken);
-            // A multi-installment pay action shares one transaction: the first undo reverses it, sibling rows find it already reversed.
-            if(reversed.IsFailure && reversed.Error.Code != "Ledger.TransactionAlreadyReversed") {
+            if(reversed.IsFailure) {
                 return reversed.Error;
             }
         }

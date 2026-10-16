@@ -141,7 +141,7 @@ public sealed class PayCreditorExpenseHandlerTests : IDisposable {
     }
 
     [Fact]
-    public async Task Undo_on_a_partly_paid_cuota_removes_only_its_own_partial_row() {
+    public async Task Undo_on_a_partly_paid_cuota_removes_every_row_of_the_same_action() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var creditor = await SeedCreditorAsync("Sami", ["Sami Bank"], cancellationToken);
         var (planId, installmentIds) = await SeedCreditorPlanAsync(creditor, new DateOnly(2026, 1, 10), 2, 20_000, cancellationToken);
@@ -153,9 +153,9 @@ public sealed class PayCreditorExpenseHandlerTests : IDisposable {
         var afterUndo = await LoadInstallmentAsync(installmentIds[1], cancellationToken);
         Assert.Equal(0, afterUndo.PaidMinorUnits);
         Assert.Equal(10_000, afterUndo.RemainingMinorUnits);
-        var untouched = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
-        Assert.True(untouched.IsPaid);
-        Assert.Equal(10_000, untouched.PaidMinorUnits);
+        var sibling = await LoadInstallmentAsync(installmentIds[0], cancellationToken);
+        Assert.False(sibling.IsPaid);
+        Assert.Equal(0, sibling.PaidMinorUnits);
     }
 
     [Fact]

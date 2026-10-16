@@ -28,19 +28,25 @@ public sealed class CreditorBulkPaymentTests(ApiWebApplicationFactory factory) :
     }
 
     [Fact]
-    public async Task Undoing_several_installments_of_one_action_reverses_the_shared_transaction_once() {
+    public async Task Undoing_one_installment_of_an_action_undoes_every_installment_it_paid() {
         var cancellationToken = TestContext.Current.CancellationToken;
         var client = factory.CreateClient();
+        var month = DateTime.UtcNow.ToString("yyyy-MM");
         var bankId = await RegisterDebitAsync(client, "Bulk Pay Bank 2", cancellationToken);
-        var (_, planId, firstInstallmentId) = await SeedCreditorPlanAsync(client, "Gaby", "Bike", 2, 200_00, cancellationToken);
+        var (creditorId, planId, firstInstallmentId) = await SeedCreditorPlanAsync(client, "Gaby", "Bike", 2, 200_00, cancellationToken);
         var balanceBefore = await BalanceAsync(client, bankId, cancellationToken);
         (await client.PostAsJsonAsync($"/v1/financing/creditor-purchases/{planId}/pay", new { bankAccountId = bankId }, cancellationToken)).EnsureSuccessStatusCode();
         Assert.Equal(balanceBefore - 200_00, await BalanceAsync(client, bankId, cancellationToken));
         (await client.PostAsync($"/v1/financing/creditor-installments/{firstInstallmentId}/unpay", null, cancellationToken)).EnsureSuccessStatusCode();
-        var detail = await client.GetFromJsonAsync<JsonElement>($"/v1/financing/creditor-payables/{await CreditorIdAsync(client, planId, cancellationToken)}", cancellationToken);
-        var second = detail.GetProperty("purchases")[0].GetProperty("installments").EnumerateArray().Single(row => row.GetProperty("sequence").GetInt32() == 2).GetProperty("installmentId").GetGuid();
-        (await client.PostAsync($"/v1/financing/creditor-installments/{second}/unpay", null, cancellationToken)).EnsureSuccessStatusCode();
         Assert.Equal(balanceBefore, await BalanceAsync(client, bankId, cancellationToken));
+        Assert.DoesNotContain(await MoneyFlowAsync(client, month, cancellationToken), r => r.GetProperty("description").GetString() == "Bike · Gaby");
+        var detail = await client.GetFromJsonAsync<JsonElement>($"/v1/financing/creditor-payables/{creditorId}", cancellationToken);
+        var installments = detail.GetProperty("purchases")[0].GetProperty("installments").EnumerateArray().ToList();
+        Assert.All(installments, row => {
+            Assert.False(row.GetProperty("isPaid").GetBoolean());
+            Assert.False(row.GetProperty("hasPayments").GetBoolean());
+            Assert.Equal(100_00, row.GetProperty("remainingMinorUnits").GetInt64());
+        });
     }
 
     [Fact]
